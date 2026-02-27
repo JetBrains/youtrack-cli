@@ -129,16 +129,16 @@ Run `get-issue-link-types` first to find valid `linkType` values (e.g. `depends 
 | `delete-user` | `userId` | |
 | `ban-user` / `unban-user` | `userId` | |
 
-### Groups & Hub
+### Groups
 | Command | Required params | Optional params |
 |---|---|---|
 | `get-groups` | | |
 | `get-group` | `groupName` | |
-| `hub-add-user-to-group` | `userId`, `groupName` | |
-| `hub-remove-user-from-group` | `userId`, `groupId` | |
-| `hub-delete-group` | `groupName` | |
+| `delete-group` | `groupName` | `successor` |
 
-Group/user IDs are the opaque `id` field returned by `get-users` and `get-groups`. `ringId` is deprecated and no longer used.
+Group/user IDs are the opaque `id` field returned by `get-users` and `get-groups`.
+
+> **Note:** Adding or removing users from groups is not supported by the YouTrack REST API. Use `add-group-to-project-team` to associate a group with a project team instead.
 
 ### Roles
 | Command | Required params | Optional params |

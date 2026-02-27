@@ -47,8 +47,7 @@ Alternatively, run `get-token --login ... --password ... --setEnv true` which wr
 - **Reaction** — emoji reaction on a comment.
 - **Attachment** — file uploaded to an issue or article.
 - **Role** — a named permission set that can be granted to users or groups per project.
-- **Group** — a user group. Managed entirely through the YouTrack `/api/groups` REST API.
-- **Hub** — the underlying identity service. All group and user operations now go through the YouTrack REST API using the opaque `id` field; `ringId` is deprecated and no longer used.
+- **Group** — a user group. Read and deleted via the YouTrack `/api/groups` REST API. Group membership modification is not supported by the YouTrack REST API (it requires Hub-scoped auth). Use `add-group-to-project-team` to associate a group with a project.
 - **VCS Integration** — links Git repos (GitHub, GitLab, etc.) to YouTrack projects for commit-to-issue tracking.
 - **Mailbox** — email-to-issue integration (create issues from incoming email).
 - **Canvas** — a freeform planning board with card nodes and links.
@@ -99,7 +98,7 @@ CLI arguments are `--key value` pairs. Kebab-case flags are converted to camelCa
 ### Auth
 
 - Most commands use Bearer token auth via the `Authorization: Bearer <token>` header.
-- `get-token` uses HTTP Basic auth (`httpReqBasicAuth`) to exchange login/password for a permanent token via the Hub API.
+- `get-token` uses HTTP Basic auth (`httpReqBasicAuth`) to exchange login/password for a permanent token.
 - `list-commands` and `get-token` are the only commands that skip token validation.
 
 ### Command domains
@@ -110,7 +109,7 @@ Commands are grouped in `youtrack-cli.js` by section comments:
 - **Articles** — CRUD, parent, visibility, tagging, drafts, trash/restore
 - **Projects** — CRUD, templates, teams, custom fields, time tracking, workflows
 - **Users / User Profile** — CRUD, ban, profile settings (appearance, locale, timezone, notifications, Grazie), drafts, pinned projects
-- **Groups / Hub** — list, lookup, add/remove members via Hub API
+- **Groups** — list, lookup, add/remove members
 - **Roles** — CRUD, grant to user/group
 - **Dashboards / Agile Boards / Sprints** — CRUD
 - **Tags / Work Items / Reactions / Attachments** — targeted CRUD

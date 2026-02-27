@@ -496,18 +496,6 @@ cmd("get-group", "Get group by name", ["groupName"], async (ctx, args) => {
   return groups.find(g => g.name === args.groupName) || null;
 });
 
-// ── Hub ───────────────────────────────────────────────────────────────────────
-
-cmd("hub-add-user-to-group", "Add user to group", ["userId", "groupName"], async (ctx, args) => {
-  const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1&query=${enc(args.groupName)}`, ctx.token);
-  const group = findByName(groups, args.groupName, "Group");
-  return doPost(ctx.base, `${API.GROUPS}/${group.id}/users?fields=id,login`, ctx.token, { id: args.userId });
-});
-
-cmd("hub-remove-user-from-group", "Remove user from group", ["userId", "groupId"], async (ctx, args) => {
-  return doDelete(ctx.base, `${API.GROUPS}/${enc(args.groupId)}/users/${enc(args.userId)}`, ctx.token);
-});
-
 // ── Roles ─────────────────────────────────────────────────────────────────────
 
 cmd("get-roles", "List all roles", [], async (ctx) => {
@@ -940,10 +928,12 @@ cmd("delete-user", "Delete user via YouTrack API", ["userId"], async (ctx, args)
   return doDelete(ctx.base, `${API.USERS}/${enc(args.userId)}`, ctx.token);
 });
 
-cmd("hub-delete-group", "Delete group", ["groupName"], async (ctx, args) => {
+cmd("delete-group", "Delete group", ["groupName", "?successor"], async (ctx, args) => {
   const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1&query=${enc(args.groupName)}`, ctx.token);
   const group = findByName(groups, args.groupName, "Group");
-  return doDelete(ctx.base, `${API.GROUPS}/${group.id}`, ctx.token);
+  // YouTrack always requires a successor group; default to "Registered Users" (6-0)
+  const successor = args.successor || "6-0";
+  return doDelete(ctx.base, `${API.GROUPS}/${group.id}?successor=${enc(successor)}`, ctx.token);
 });
 
 // ── Auth / Token ──────────────────────────────────────────────────────────────

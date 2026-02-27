@@ -808,7 +808,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
         cli("delete-user", { userId: u.id });
         t.diagnostic(`→ user ${u.id} created and deleted`);
       } catch {
-        t.diagnostic(`→ user ${u.id} created; delete skipped (instance returned 400 — may need Hub API)`);
+        t.diagnostic(`→ user ${u.id} created; delete skipped (instance returned 400 — user deletion may not be permitted)`);
       }
     });
   });
@@ -943,7 +943,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
 
     before(() => {
       const me = cli("get-current-user");
-      // Create a fresh regular group so add-group-to-project-team always works
+      // Create a fresh regular group so group commands always work
       const grp = cli("raw-post", { path: "/api/groups?fields=id,name", body: JSON.stringify({ name: `${RUN}-grp` }) });
       groupId = grp.id;
       groupName = grp.name;
@@ -953,8 +953,8 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
     });
 
     after(() => {
-      // Deleting a group requires a successor; use "Registered Users" (id 6-0)
-      tryDo(() => cli("raw-delete", { path: `/api/groups/${groupId}?successor=6-0` }));
+      // Use delete-group with a successor in case any members remain
+      tryDo(() => cli("delete-group", { groupName, successor: "6-0" }));
       tryDo(() => cli("delete-project", { projectId: projId }));
     });
 
@@ -975,6 +975,13 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       const r = cli("add-group-to-project-team", { projectShortName: projShortName, groupName });
       assert.ok(r !== null);
       t.diagnostic(`→ group "${groupName}" (${groupId}) added to ${projShortName} team`);
+    });
+
+    it("delete-group", (t) => {
+      // Create a dedicated group for the deletion test so the shared group stays intact
+      const tmp = cli("raw-post", { path: "/api/groups?fields=id,name", body: JSON.stringify({ name: `${RUN}-del` }) });
+      cli("delete-group", { groupName: tmp.name });
+      t.diagnostic(`→ group "${tmp.name}" (${tmp.id}) deleted`);
     });
   });
 
