@@ -8,8 +8,17 @@
   },
   "type": "module",
   "scripts": {
-    "start": "node youtrack-cli.js"
+    "start": "node youtrack-cli.js",
+    "setup": "npm link"
   },
-  "keywords": ["youtrack", "cli", "rest", "api"],
+  "keywords": [
+    "youtrack",
+    "cli",
+    "rest",
+    "api"
+  ],
+  "devDependencies": {
+    "@types/node": "^25.3.2"
+  },
   "license": "Apache-2.0"
 }

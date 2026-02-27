@@ -30,9 +30,27 @@ node youtrack-cli.js get-token \
 
 This writes your URL and token to `~/.youtrack-cli-env`, which the tool loads automatically on every run — no need to set environment variables each time.
 
-### 2. Run a command
+### 2. Install the global command (optional)
+
+Run once to make `youtrack-cli` available as a global command:
 
 ```bash
+npm run setup
+```
+
+After that you can drop the `node youtrack-cli.js` prefix and use the shorter form:
+
+```bash
+youtrack-cli <command> --param1 value1 --param2 value2
+```
+
+### 3. Run a command
+
+```bash
+# Short form (after npm run setup)
+youtrack-cli <command> --param1 value1 --param2 value2
+
+# Without global install
 node youtrack-cli.js <command> --param1 value1 --param2 value2
 ```
 
@@ -42,31 +60,31 @@ All output is JSON. Errors are printed to stderr with a non-zero exit code.
 
 ```bash
 # Create an issue
-node youtrack-cli.js add-issue \
+youtrack-cli add-issue \
   --projectShortName MYPROJ \
   --summary "Login button unresponsive on Safari" \
   --description "Reproducible on Safari 17, works fine on Chrome."
 
 # Search issues
-node youtrack-cli.js get-issues --query "assignee: me State: Open"
+youtrack-cli get-issues --query "assignee: me State: Open"
 
 # Fetch a specific issue
-node youtrack-cli.js get-issue --issueId MYPROJ-42
+youtrack-cli get-issue --issueId MYPROJ-42
 
 # Comment on an issue
-node youtrack-cli.js add-comment --issueId MYPROJ-42 --text "Reproducing locally now."
+youtrack-cli add-comment --issueId MYPROJ-42 --text "Reproducing locally now."
 
 # Change issue state
-node youtrack-cli.js apply-command --query "State In Progress" --issueIds "MYPROJ-42"
+youtrack-cli apply-command --query "State In Progress" --issueIds "MYPROJ-42"
 
 # Load description from a file instead of typing it inline
-node youtrack-cli.js add-issue \
+youtrack-cli add-issue \
   --projectShortName MYPROJ \
   --summary "RFC: Auth redesign" \
   --descriptionFile ./rfc.md
 ```
 
-Run `node youtrack-cli.js --help` to see every available command with its parameters.
+Run `youtrack-cli --help` to see every available command with its parameters.
 
 ## Available commands
 

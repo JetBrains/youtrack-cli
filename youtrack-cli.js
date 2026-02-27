@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-// YouTrack REST API CLI — zero-dependency, single-file tool for AI agents and developers.
+// YouTrack REST API CLI — an internal tool for AI agents and developers to interact with YouTrack.
 // Usage: node youtrack-cli.js <command> [options]
 // Env:   YOUTRACK_BASE_URL, YOUTRACK_TOKEN
 
@@ -9,11 +9,19 @@ import { homedir } from "os";
 import { join } from "path";
 
 import { API } from "./api-paths.js";
+import { basename, extname } from "path";
 import {
-  doGet, doPost, doPut, doDelete, httpReqBasicAuth,
+  doGet, doPost, doPut, doDelete, doMultipart, httpReqBasicAuth,
   enc, resolveContent, parseVisibility, parseBool, parseUserIdOrMe, parseIds,
   findByName, findByLogin, findByShortName,
 } from "./http-helpers.js";
+
+const MIME_TYPES = {
+  ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+  ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml",
+  ".pdf": "application/pdf", ".txt": "text/plain", ".md": "text/markdown",
+  ".json": "application/json", ".zip": "application/zip",
+};
 
 // ── Command registry ──────────────────────────────────────────────────────────
 
@@ -57,11 +65,23 @@ cmd("delete-issue", "Delete issue", ["issueId"], async (ctx, args) => {
 });
 
 cmd("apply-command", "Apply command to issues (e.g. 'State Fixed')", ["query", "issueIds"], async (ctx, args) => {
-  return doPost(ctx.base, API.COMMANDS, ctx.token, { query: args.query, issues: parseIds(args.issueIds) });
+  const issues = await Promise.all(
+    args.issueIds.split(",").map(async id => {
+      const issue = await doGet(ctx.base, `${API.ISSUES}/${enc(id.trim())}?fields=id`, ctx.token);
+      return { id: issue.id };
+    })
+  );
+  return doPost(ctx.base, API.COMMANDS, ctx.token, { query: args.query, issues });
 });
 
 cmd("get-command-assist", "Get command suggestions/validation", ["query", "issueIds"], async (ctx, args) => {
-  return doPost(ctx.base, `${API.COMMANDS}/assist?fields=commands(error,description),query`, ctx.token, { query: args.query, issues: parseIds(args.issueIds) });
+  const issues = await Promise.all(
+    args.issueIds.split(",").map(async id => {
+      const issue = await doGet(ctx.base, `${API.ISSUES}/${enc(id.trim())}?fields=id`, ctx.token);
+      return { id: issue.id };
+    })
+  );
+  return doPost(ctx.base, `${API.COMMANDS}/assist?fields=commands(error,description),query`, ctx.token, { query: args.query, issues });
 });
 
 // ── Issue Visibility ──────────────────────────────────────────────────────────
@@ -154,7 +174,8 @@ cmd("link-issues", "Link two issues", ["issueId", "linkedIssueId", "linkType"], 
     const lt = findByName(linkTypes.map(l => ({ ...l, name: l.sourceToTarget })), args.linkType, "Link type");
     linkId = lt.id; suffix = "s";
   }
-  return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/links/${linkId}${suffix}/issues`, ctx.token, { id: args.linkedIssueId });
+  const linked = await doGet(ctx.base, `${API.ISSUES}/${enc(args.linkedIssueId)}?fields=id`, ctx.token);
+  return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/links/${linkId}${suffix}/issues`, ctx.token, { id: linked.id });
 });
 
 cmd("add-issue-link-type", "Create issue link type", ["name", "sourceToTarget", "?targetToSource", "?directed", "?aggregation"], async (ctx, args) => {
@@ -202,6 +223,11 @@ cmd("update-article-summary", "Update article summary", ["articleId", "newSummar
   return doPost(ctx.base, `${API.ARTICLES}/${enc(args.articleId)}?fields=id,summary`, ctx.token, { summary: args.newSummary });
 });
 
+cmd("update-article-content", "Update article content", ["articleId", "?newContent", "?newContentFile"], async (ctx, args) => {
+  const content = resolveContent(args.newContent, args.newContentFile);
+  return doPost(ctx.base, `${API.ARTICLES}/${enc(args.articleId)}?fields=id,content`, ctx.token, { content });
+});
+
 cmd("set-parent-article", "Set parent article", ["articleId", "parentArticleId"], async (ctx, args) => {
   return doPost(ctx.base, `${API.ARTICLES}/${enc(args.articleId)}?fields=id,parentArticle(idReadable)`, ctx.token, { parentArticle: { idReadable: args.parentArticleId } });
 });
@@ -217,14 +243,23 @@ cmd("tag-article", "Tag an article", ["articleId", "tagId"], async (ctx, args) =
 });
 
 cmd("get-removed-documents", "List removed (trashed) documents", [], async (ctx) => {
-  return doGet(ctx.base, `/api/removedDocuments?fields=id,idReadable,$type&$top=-1`, ctx.token);
+  const [articles, issues] = await Promise.all([
+    doGet(ctx.base, `${API.ARTICLES}?trashed=true&fields=id,idReadable,$type&$top=-1`, ctx.token),
+    doGet(ctx.base, `${API.ISSUES}?trashed=true&fields=id,idReadable,$type&$top=-1&query=`, ctx.token),
+  ]);
+  return [...(Array.isArray(articles) ? articles : []), ...(Array.isArray(issues) ? issues : [])];
 });
 
 cmd("restore-document", "Restore a removed document", ["idReadable"], async (ctx, args) => {
-  const docs = await doGet(ctx.base, `/api/removedDocuments?fields=id,idReadable,$type&$top=-1`, ctx.token);
-  const doc = docs.find(d => d.idReadable === args.idReadable);
-  if (!doc) throw new Error(`Removed document '${args.idReadable}' not found`);
-  return doPost(ctx.base, `/api/removedDocuments/${doc.id}?fields=id`, ctx.token, { restored: true });
+  const [articles, issues] = await Promise.all([
+    doGet(ctx.base, `${API.ARTICLES}?trashed=true&fields=id,idReadable&$top=-1`, ctx.token),
+    doGet(ctx.base, `${API.ISSUES}?trashed=true&fields=id,idReadable&$top=-1&query=`, ctx.token),
+  ]);
+  const article = (Array.isArray(articles) ? articles : []).find(a => a.idReadable === args.idReadable);
+  if (article) return doPost(ctx.base, `${API.ARTICLES}/${article.id}?fields=id`, ctx.token, { trashed: false });
+  const issue = (Array.isArray(issues) ? issues : []).find(i => i.idReadable === args.idReadable);
+  if (issue) return doPost(ctx.base, `${API.ISSUES}/${issue.id}?fields=id`, ctx.token, { trashed: false });
+  throw new Error(`Soft-deleted document '${args.idReadable}' not found`);
 });
 
 // ── Projects ──────────────────────────────────────────────────────────────────
@@ -265,8 +300,19 @@ cmd("convert-project-to-template", "Convert project to template", ["projectId"],
 });
 
 cmd("add-custom-field-to-project", "Add custom field to project", ["projectId", "customFieldId"], async (ctx, args) => {
+  const cf = await doGet(ctx.base, `${API.CUSTOM_FIELDS}/customFields/${enc(args.customFieldId)}?fields=id,fieldType(valueType)`, ctx.token);
+  const vt = (cf.fieldType?.valueType || "").toLowerCase();
+  const type =
+    vt === "enum"    ? "EnumProjectCustomField" :
+    vt === "state"   ? "StateProjectCustomField" :
+    vt === "version" ? "VersionProjectCustomField" :
+    vt === "build"   ? "BuildProjectCustomField" :
+    vt === "owned"   ? "OwnedProjectCustomField" :
+    vt === "user"    ? "UserProjectCustomField" :
+    vt === "group"   ? "GroupProjectCustomField" :
+    "SimpleProjectCustomField";
   return doPost(ctx.base, `${API.PROJECTS}/${enc(args.projectId)}/fields?fields=id,field(id,name)`, ctx.token, {
-    $type: "SimpleProjectCustomField",
+    $type: type,
     field: { id: args.customFieldId },
   });
 });
@@ -281,15 +327,15 @@ cmd("set-time-tracking-settings", "Enable/configure time tracking for project", 
 cmd("add-user-to-project-team", "Add user to project team", ["projectShortName", "userId"], async (ctx, args) => {
   const projects = await doGet(ctx.base, `${API.PROJECTS}?query=${enc(args.projectShortName)}&fields=id,shortName&$top=10`, ctx.token);
   const proj = findByShortName(projects, args.projectShortName, "Project");
-  return doPost(ctx.base, `${API.PROJECTS}/${proj.id}/team/users?fields=id`, ctx.token, { id: args.userId });
+  return doPost(ctx.base, `${API.PROJECTS}/${proj.id}/team?fields=id`, ctx.token, { users: [{ id: args.userId }] });
 });
 
 cmd("add-group-to-project-team", "Add group to project team", ["projectShortName", "groupName"], async (ctx, args) => {
   const projects = await doGet(ctx.base, `${API.PROJECTS}?query=${enc(args.projectShortName)}&fields=id,shortName&$top=10`, ctx.token);
   const proj = findByShortName(projects, args.projectShortName, "Project");
-  const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1&query=${enc(args.groupName)}`, ctx.token);
-  const group = findByName(groups, args.groupName, "Group");
-  return doPost(ctx.base, `${API.PROJECTS}/${proj.id}/team/groups?fields=id`, ctx.token, { id: group.id });
+  const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name,$type&$top=-1&query=${enc(args.groupName)}`, ctx.token);
+  const group = findByName(groups.filter(g => g.$type !== "ProjectTeam"), args.groupName, "Group");
+  return doPost(ctx.base, `${API.PROJECTS}/${proj.id}/team?fields=id`, ctx.token, { groups: [{ id: group.id }] });
 });
 
 cmd("attach-workflow-to-project", "Attach workflow to project", ["workflowId", "projectId"], async (ctx, args) => {
@@ -494,14 +540,11 @@ cmd("grant-role-to-group", "Grant role to group in project", ["groupName", "role
   const roles = await doGet(ctx.base, `${API.ROLES}?fields=id,name&$top=-1`, ctx.token);
   const role = findByName(roles, args.roleName, "Role");
   const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name,$type&$top=-1&query=${enc(args.groupName)}`, ctx.token);
-  const group = findByName(groups, args.groupName, "Group");
+  const group = findByName(groups.filter(g => g.$type !== "ProjectTeam"), args.groupName, "Group");
   const projects = await doGet(ctx.base, `${API.PROJECTS}?query=${enc(args.projectName)}&fields=id,name&$top=10`, ctx.token);
   const project = findByName(projects, args.projectName, "Project");
-  let holderType = "NestedGroup";
-  if (group.$type === "AllUsersGroup") holderType = "AllUsersGroup";
-  else if (group.$type === "RegisteredUsersGroup") holderType = "RegisteredUsersGroup";
   return doPost(ctx.base, API.ASSIGNED_ROLES, ctx.token, {
-    holder: { id: group.id, $type: holderType },
+    holder: { id: group.id, $type: group.$type },
     role: { id: role.id },
     scope: { $type: "ProjectScope", project: { id: project.id } },
   });
@@ -768,11 +811,27 @@ cmd("add-organization", "Create organization", ["name"], async (ctx, args) => {
 // ── Attachments ───────────────────────────────────────────────────────────────
 
 cmd("get-attachments", "List issue attachments", ["issueId"], async (ctx, args) => {
-  return doGet(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/attachments?fields=id,name,mimeType,extension,created`, ctx.token);
+  return doGet(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/attachments?fields=id,name,url,thumbnailURL,mimeType,extension,created`, ctx.token);
+});
+
+cmd("add-attachment", "Upload file attachment to an issue", ["issueId", "file", "?name"], async (ctx, args) => {
+  const fileName = args.name || basename(args.file);
+  const mimeType = MIME_TYPES[extname(fileName).toLowerCase()] || "application/octet-stream";
+  return doMultipart(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/attachments?fields=id,name,url,thumbnailURL,mimeType`, ctx.token, args.file, fileName, mimeType);
 });
 
 cmd("delete-attachment", "Delete attachment", ["issueId", "attachmentId"], async (ctx, args) => {
   return doDelete(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/attachments/${enc(args.attachmentId)}`, ctx.token);
+});
+
+cmd("add-article-attachment", "Upload file attachment to an article", ["articleId", "file", "?name"], async (ctx, args) => {
+  const fileName = args.name || basename(args.file);
+  const mimeType = MIME_TYPES[extname(fileName).toLowerCase()] || "application/octet-stream";
+  return doMultipart(ctx.base, `${API.ARTICLES}/${enc(args.articleId)}/attachments?fields=id,name,url,thumbnailURL,mimeType`, ctx.token, args.file, fileName, mimeType);
+});
+
+cmd("get-article-attachments", "List article attachments", ["articleId"], async (ctx, args) => {
+  return doGet(ctx.base, `${API.ARTICLES}/${enc(args.articleId)}/attachments?fields=id,name,url,thumbnailURL,mimeType,extension,created`, ctx.token);
 });
 
 // ── Reactions ─────────────────────────────────────────────────────────────────
@@ -845,7 +904,9 @@ cmd("delete-custom-field", "Delete custom field prototype", ["customFieldId"], a
 });
 
 cmd("add-bundle-value", "Add value to enum bundle", ["bundleType", "bundleId", "value"], async (ctx, args) => {
-  return doPost(ctx.base, `${API.CUSTOM_FIELDS}/bundles/${enc(args.bundleType)}/${enc(args.bundleId)}/values`, ctx.token, { name: args.value });
+  // bundleType can be a $type name (e.g. "EnumBundle") or a path name (e.g. "enum")
+  const pathType = args.bundleType.replace(/Bundle$/i, "").toLowerCase();
+  return doPost(ctx.base, `${API.CUSTOM_FIELDS}/bundles/${enc(pathType)}/${enc(args.bundleId)}/values`, ctx.token, { name: args.value });
 });
 
 // ── Work Time & Work Item Types ───────────────────────────────────────────────
@@ -896,7 +957,7 @@ cmd("get-token", "Get permanent token using login/password (basic auth)", ["logi
   if (!me || !me.id) throw new Error("Failed to authenticate — check login/password");
 
   const requestedScope = args.scope;
-  let scopeIds = [];
+  const scopeIds = [];
   const services = await httpReqBasicAuth("GET", base, "/hub/api/rest/services?fields=id,name&$top=-1", login, password);
   const serviceList = Array.isArray(services) ? services : (services.services || []);
 
