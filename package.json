@@ -9,7 +9,9 @@
   "type": "module",
   "scripts": {
     "start": "node youtrack-cli.js",
-    "setup": "npm link"
+    "setup": "npm link",
+    "test": "node --test test.js",
+    "test:watch": "node --test --watch test.js"
   },
   "keywords": [
     "youtrack",

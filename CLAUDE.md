@@ -47,8 +47,8 @@ Alternatively, run `get-token --login ... --password ... --setEnv true` which wr
 - **Reaction** — emoji reaction on a comment.
 - **Attachment** — file uploaded to an issue or article.
 - **Role** — a named permission set that can be granted to users or groups per project.
-- **Group** — a user group managed via the Hub identity layer (YouTrack's auth backend).
-- **Hub** — the underlying identity service. User `ringId` (UUID) differs from the YouTrack `userId`; Hub API calls use `ringId`.
+- **Group** — a user group. Managed entirely through the YouTrack `/api/groups` REST API.
+- **Hub** — the underlying identity service. All group and user operations now go through the YouTrack REST API using the opaque `id` field; `ringId` is deprecated and no longer used.
 - **VCS Integration** — links Git repos (GitHub, GitLab, etc.) to YouTrack projects for commit-to-issue tracking.
 - **Mailbox** — email-to-issue integration (create issues from incoming email).
 - **Canvas** — a freeform planning board with card nodes and links.
@@ -64,7 +64,6 @@ Alternatively, run `get-token --login ... --password ... --setEnv true` which wr
 | User | login | `john.doe` |
 | Group | name | `Developers` |
 | Role | name | `Developer` |
-| Hub user | ringId (UUID) | `abc123-...` |
 | Everything else | opaque `id` field from GET responses | `2-7` |
 
 ### Visibility

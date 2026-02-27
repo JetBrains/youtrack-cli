@@ -134,13 +134,11 @@ Run `get-issue-link-types` first to find valid `linkType` values (e.g. `depends 
 |---|---|---|
 | `get-groups` | | |
 | `get-group` | `groupName` | |
-| `hub-add-user-to-group` | `userRingId`, `groupId` | |
-| `hub-remove-user-from-group` | `userRingId`, `groupId` | |
-| `hub-create-user` | `login`, `fullName`, `email`, `password` | |
-| `hub-delete-user` | `userRingId` | |
+| `hub-add-user-to-group` | `userId`, `groupName` | |
+| `hub-remove-user-from-group` | `userId`, `groupId` | |
 | `hub-delete-group` | `groupName` | |
 
-Hub commands require Ring IDs. Use `get-users` to find `ringId` and `get-groups` for group Ring IDs.
+Group/user IDs are the opaque `id` field returned by `get-users` and `get-groups`. `ringId` is deprecated and no longer used.
 
 ### Roles
 | Command | Required params | Optional params |
@@ -274,6 +272,7 @@ youtrack-cli grant-role-to-user --userId <id> --roleName Developer --projectName
 
 - **Issue Type defaults to "Bug"**: `add-issue` does not accept a `type` param. Every newly created issue has Type=Bug regardless of content. When creating issues of mixed or non-Bug types, immediately follow each `add-issue` call with `set-custom-field --fieldName Type --fieldValue <type> --fieldType enum`. Valid Type values: `Bug`, `Feature`, `Task`, `Cosmetics`, `Exception`, `Usability Problem`, `Performance Problem`, `Epic`.
 - **`add-project` requires `leader`**: the YouTrack API rejects project creation without a leader login. Always pass `--leader <login>`. If the user does not specify one, use `get-current-user` silently and use that login.
+- **`get-issues` defaults to `$top=100`**: Pass `--limit <n>` to override. Use `--limit -1` for all results (may be slow on very large projects).
 
 ## Tips
 

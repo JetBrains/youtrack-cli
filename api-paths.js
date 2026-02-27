@@ -33,5 +33,4 @@ export const API = {
   GANTT:           "/api/ganttCharts",
   CANVAS:          "/api/planningCanvases",
   GRAZIE:          "/api/grazie/config",
-  HUB_GROUPS:      "/hub/api/rest/usergroups",
 };

@@ -48,8 +48,9 @@ cmd("get-issue", "Get issue by ID", ["issueId"], async (ctx, args) => {
   return doGet(ctx.base, `${API.ISSUES}/${enc(args.issueId)}?fields=id,idReadable,summary,description,resolved,created`, ctx.token);
 });
 
-cmd("get-issues", "Search issues by query", ["query"], async (ctx, args) => {
-  return doGet(ctx.base, `${API.ISSUES}?query=${enc(args.query)}&$top=100&fields=id,summary,description,idReadable,project`, ctx.token);
+cmd("get-issues", "Search issues by query", ["query", "?limit"], async (ctx, args) => {
+  const top = args.limit ? parseInt(args.limit, 10) : 100;
+  return doGet(ctx.base, `${API.ISSUES}?query=${enc(args.query)}&$top=${top}&fields=id,summary,description,idReadable,project`, ctx.token);
 });
 
 cmd("update-issue-summary", "Update issue summary", ["issueId", "newSummary"], async (ctx, args) => {
@@ -87,7 +88,7 @@ cmd("get-command-assist", "Get command suggestions/validation", ["query", "issue
 // ── Issue Visibility ──────────────────────────────────────────────────────────
 
 cmd("update-issue-visibility", "Update issue visibility", ["issueId", "?permittedGroups", "?permittedUsers"], async (ctx, args) => {
-  const allGroups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name,ringId&$top=-1`, ctx.token);
+  const allGroups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1`, ctx.token);
   const body = parseVisibility(args, allGroups);
   return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}?fields=id,visibility`, ctx.token, body);
 });
@@ -144,7 +145,7 @@ cmd("delete-comment", "Soft-delete issue comment", ["issueId", "commentId"], asy
 });
 
 cmd("update-comment-visibility", "Update comment visibility", ["issueId", "commentId", "?permittedGroups", "?permittedUsers"], async (ctx, args) => {
-  const allGroups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name,ringId&$top=-1`, ctx.token);
+  const allGroups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1`, ctx.token);
   const body = parseVisibility(args, allGroups);
   return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/comments/${enc(args.commentId)}?fields=id,visibility`, ctx.token, body);
 });
@@ -233,7 +234,7 @@ cmd("set-parent-article", "Set parent article", ["articleId", "parentArticleId"]
 });
 
 cmd("update-article-visibility", "Update article visibility", ["articleId", "?permittedGroups", "?permittedUsers"], async (ctx, args) => {
-  const allGroups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name,ringId&$top=-1`, ctx.token);
+  const allGroups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1`, ctx.token);
   const body = parseVisibility(args, allGroups);
   return doPost(ctx.base, `${API.ARTICLES}/${enc(args.articleId)}?fields=id,visibility`, ctx.token, body);
 });
@@ -345,7 +346,7 @@ cmd("attach-workflow-to-project", "Attach workflow to project", ["workflowId", "
 // ── Users ─────────────────────────────────────────────────────────────────────
 
 cmd("add-user", "Create user", ["login", "fullName", "email", "?password"], async (ctx, args) => {
-  return doPost(ctx.base, `${API.USERS}?fields=id,login,fullName,email,ringId`, ctx.token, {
+  return doPost(ctx.base, `${API.USERS}?fields=id,login,fullName,email`, ctx.token, {
     login: args.login,
     fullName: args.fullName,
     email: args.email,
@@ -355,11 +356,11 @@ cmd("add-user", "Create user", ["login", "fullName", "email", "?password"], asyn
 
 cmd("get-users", "List/search users", ["?query"], async (ctx, args) => {
   const q = args.query ? `&query=${enc(args.query)}` : "";
-  return doGet(ctx.base, `${API.USERS}?fields=id,login,fullName,email,ringId&$top=100${q}`, ctx.token);
+  return doGet(ctx.base, `${API.USERS}?fields=id,login,fullName,email&$top=100${q}`, ctx.token);
 });
 
 cmd("get-user", "Get user by login", ["login"], async (ctx, args) => {
-  const users = await doGet(ctx.base, `${API.USERS}?query=${enc(args.login)}&fields=id,login,fullName,email,ringId&$top=10`, ctx.token);
+  const users = await doGet(ctx.base, `${API.USERS}?query=${enc(args.login)}&fields=id,login,fullName,email&$top=10`, ctx.token);
   return users.find(u => u.login === args.login) || null;
 });
 
@@ -376,7 +377,7 @@ cmd("unban-user", "Unban user", ["userId"], async (ctx, args) => {
 });
 
 cmd("get-current-user", "Get current authenticated user", [], async (ctx) => {
-  return doGet(ctx.base, `${API.USERS_ME}?fields=id,login,fullName,email,ringId`, ctx.token);
+  return doGet(ctx.base, `${API.USERS_ME}?fields=id,login,fullName,email`, ctx.token);
 });
 
 // ── User Profile Settings ─────────────────────────────────────────────────────
@@ -487,24 +488,24 @@ cmd("pin-project-for-user", "Pin project for user", ["?userId", "projectId"], as
 
 cmd("get-groups", "List/search groups", ["?query"], async (ctx, args) => {
   const q = args.query ? `&query=${enc(args.query)}` : "";
-  return doGet(ctx.base, `${API.GROUPS}?fields=id,name,ringId&$top=-1${q}`, ctx.token);
+  return doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1${q}`, ctx.token);
 });
 
 cmd("get-group", "Get group by name", ["groupName"], async (ctx, args) => {
-  const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name,ringId&$top=-1&query=${enc(args.groupName)}`, ctx.token);
+  const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1&query=${enc(args.groupName)}`, ctx.token);
   return groups.find(g => g.name === args.groupName) || null;
 });
 
 // ── Hub ───────────────────────────────────────────────────────────────────────
 
-cmd("hub-add-user-to-group", "Add user to Hub group", ["userRingId", "groupName"], async (ctx, args) => {
-  const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name,ringId&$top=-1&query=${enc(args.groupName)}`, ctx.token);
+cmd("hub-add-user-to-group", "Add user to group", ["userId", "groupName"], async (ctx, args) => {
+  const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1&query=${enc(args.groupName)}`, ctx.token);
   const group = findByName(groups, args.groupName, "Group");
-  return doPost(ctx.base, `${API.HUB_GROUPS}/${group.ringId}/users`, ctx.token, { id: args.userRingId });
+  return doPost(ctx.base, `${API.GROUPS}/${group.id}/users?fields=id,login`, ctx.token, { id: args.userId });
 });
 
-cmd("hub-remove-user-from-group", "Remove user from Hub group", ["userRingId", "groupId"], async (ctx, args) => {
-  return doDelete(ctx.base, `${API.HUB_GROUPS}/${enc(args.groupId)}/users/${enc(args.userRingId)}`, ctx.token);
+cmd("hub-remove-user-from-group", "Remove user from group", ["userId", "groupId"], async (ctx, args) => {
+  return doDelete(ctx.base, `${API.GROUPS}/${enc(args.groupId)}/users/${enc(args.userId)}`, ctx.token);
 });
 
 // ── Roles ─────────────────────────────────────────────────────────────────────
@@ -701,11 +702,11 @@ cmd("add-saved-search", "Create saved search", ["query", "name"], async (ctx, ar
 
 cmd("share-saved-search", "Share saved search with users/groups", ["searchId", "?users", "?groups"], async (ctx, args) => {
   const permittedUsers = args.users ? await Promise.all(args.users.split(",").map(async l => {
-    const users = await doGet(ctx.base, `${API.USERS}?query=${enc(l.trim())}&fields=id,login,ringId&$top=10`, ctx.token);
+    const users = await doGet(ctx.base, `${API.USERS}?query=${enc(l.trim())}&fields=id,login&$top=10`, ctx.token);
     return findByLogin(users, l.trim(), "User");
   })) : [];
   const permittedGroups = args.groups ? await Promise.all(args.groups.split(",").map(async n => {
-    const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name,ringId&$top=-1&query=${enc(n.trim())}`, ctx.token);
+    const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1&query=${enc(n.trim())}`, ctx.token);
     return findByName(groups, n.trim(), "Group");
   })) : [];
   return doPost(ctx.base, `${API.SAVED_QUERIES}/${enc(args.searchId)}?fields=id,query,name,owner`, ctx.token, {
@@ -757,7 +758,7 @@ cmd("get-vcs-configurations", "List VCS configurations for a server", ["serverId
 });
 
 cmd("get-vcs-hosting-processors", "List VCS hosting processors", [], async (ctx) => {
-  return doGet(ctx.base, `${API.VCS_PROCESSORS}?$top=-1&fields=id,path,server($type,id,url),projectRepo,enabled,project(id,name,ringId)`, ctx.token);
+  return doGet(ctx.base, `${API.VCS_PROCESSORS}?$top=-1&fields=id,path,server($type,id,url),projectRepo,enabled,project(id,name)`, ctx.token);
 });
 
 cmd("delete-vcs-hosting-processor", "Remove VCS hosting processor", ["processorId"], async (ctx, args) => {
@@ -797,7 +798,7 @@ cmd("add-mailbox-rule", "Create mailbox rule", ["mailboxId", "projectId", "?name
 // ── Organizations ─────────────────────────────────────────────────────────────
 
 cmd("get-organizations", "List organizations", [], async (ctx) => {
-  return doGet(ctx.base, `${API.ORGANIZATIONS}?fields=id,name,ringId&$top=-1`, ctx.token);
+  return doGet(ctx.base, `${API.ORGANIZATIONS}?fields=id,name&$top=-1`, ctx.token);
 });
 
 cmd("delete-organization", "Delete organization", ["organizationId"], async (ctx, args) => {
@@ -805,7 +806,7 @@ cmd("delete-organization", "Delete organization", ["organizationId"], async (ctx
 });
 
 cmd("add-organization", "Create organization", ["name"], async (ctx, args) => {
-  return doPost(ctx.base, `${API.ORGANIZATIONS}?fields=id,name,ringId`, ctx.token, { name: args.name });
+  return doPost(ctx.base, `${API.ORGANIZATIONS}?fields=id,name`, ctx.token, { name: args.name });
 });
 
 // ── Attachments ───────────────────────────────────────────────────────────────
@@ -865,9 +866,9 @@ cmd("delete-canvas", "Delete canvas", ["canvasId"], async (ctx, args) => {
 });
 
 cmd("add-canvas", "Create planning canvas", ["name", "ownerLogin"], async (ctx, args) => {
-  const users = await doGet(ctx.base, `${API.USERS}?query=${enc(args.ownerLogin)}&fields=id,login,ringId&$top=10`, ctx.token);
+  const users = await doGet(ctx.base, `${API.USERS}?query=${enc(args.ownerLogin)}&fields=id,login&$top=10`, ctx.token);
   const user = findByLogin(users, args.ownerLogin, "User");
-  return doPost(ctx.base, `${API.CANVAS}?fields=id,name`, ctx.token, { name: args.name, owner: { id: user.id, ringId: user.ringId } });
+  return doPost(ctx.base, `${API.CANVAS}?fields=id,name`, ctx.token, { name: args.name, owner: { id: user.id } });
 });
 
 cmd("add-canvas-node", "Add card node to canvas", ["canvasId", "label", "x", "y", "?nodeType", "?description"], async (ctx, args) => {
@@ -939,10 +940,10 @@ cmd("delete-user", "Delete user via YouTrack API", ["userId"], async (ctx, args)
   return doDelete(ctx.base, `${API.USERS}/${enc(args.userId)}`, ctx.token);
 });
 
-cmd("hub-delete-group", "Remove Hub group", ["groupName"], async (ctx, args) => {
-  const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name,ringId&$top=-1&query=${enc(args.groupName)}`, ctx.token);
+cmd("hub-delete-group", "Delete group", ["groupName"], async (ctx, args) => {
+  const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1&query=${enc(args.groupName)}`, ctx.token);
   const group = findByName(groups, args.groupName, "Group");
-  return doDelete(ctx.base, `${API.HUB_GROUPS}/${group.ringId}`, ctx.token);
+  return doDelete(ctx.base, `${API.GROUPS}/${group.id}`, ctx.token);
 });
 
 // ── Auth / Token ──────────────────────────────────────────────────────────────

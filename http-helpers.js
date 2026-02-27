@@ -13,7 +13,18 @@ function collectResponse(res, resolve, reject) {
   res.on("end", () => {
     const text = Buffer.concat(chunks).toString();
     if (res.statusCode >= 300) {
-      reject(new Error(`HTTP ${res.statusCode}: ${text}`));
+      let errMsg = `HTTP ${res.statusCode}`;
+      try {
+        const body = JSON.parse(text);
+        const detail = body.error_description || body.error_developer_message || body.error || body.message;
+        errMsg += detail ? `: ${detail}` : `: ${text}`;
+      } catch {
+        errMsg += text ? `: ${text}` : "";
+      }
+      if (res.statusCode === 401) errMsg += " — verify YOUTRACK_TOKEN is valid and not expired";
+      if (res.statusCode === 403) errMsg += " — insufficient permissions for this operation";
+      if (res.statusCode === 404) errMsg += " — resource not found; check the ID or short name";
+      reject(new Error(errMsg));
     } else {
       try { resolve(text ? JSON.parse(text) : null); }
       catch { resolve(text); }
