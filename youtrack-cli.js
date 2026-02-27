@@ -927,16 +927,16 @@ cmd("add-work-item-type", "Create work item type", ["name", "?autoAttach"], asyn
   return doPost(ctx.base, `${API.WORK_ITEM_TYPES}?fields=id,name`, ctx.token, { name: args.name, autoAttach: args.autoAttach === "true" });
 });
 
-// ── Hub User Management ───────────────────────────────────────────────────────
+// ── User Management ───────────────────────────────────────────────────────────
 
-cmd("hub-create-user", "Create user via Hub API", ["login", "fullName", "email", "?password"], async (ctx, args) => {
-  const body = { login: args.login, name: args.fullName, email: args.email, type: { id: "STANDARD_USER" }, verified: true };
+cmd("create-user", "Create user via YouTrack API", ["login", "fullName", "email", "?password"], async (ctx, args) => {
+  const body = { login: args.login, fullName: args.fullName, email: args.email };
   if (args.password) body.password = args.password;
-  return doPost(ctx.base, `${API.HUB_USERS}?fields=id,login,name,email`, ctx.token, body);
+  return doPost(ctx.base, `${API.USERS}?fields=id,login,fullName,email`, ctx.token, body);
 });
 
-cmd("hub-delete-user", "Remove user via Hub API", ["userRingId"], async (ctx, args) => {
-  return doDelete(ctx.base, `${API.HUB_USERS}/${enc(args.userRingId)}`, ctx.token);
+cmd("delete-user", "Delete user via YouTrack API", ["userId"], async (ctx, args) => {
+  return doDelete(ctx.base, `${API.USERS}/${enc(args.userId)}`, ctx.token);
 });
 
 cmd("hub-delete-group", "Remove Hub group", ["groupName"], async (ctx, args) => {

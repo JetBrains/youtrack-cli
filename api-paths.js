@@ -34,5 +34,4 @@ export const API = {
   CANVAS:          "/api/planningCanvases",
   GRAZIE:          "/api/grazie/config",
   HUB_GROUPS:      "/hub/api/rest/usergroups",
-  HUB_USERS:       "/hub/api/rest/users",
 };
