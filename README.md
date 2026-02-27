@@ -1,0 +1,94 @@
+# youtrack-cli
+
+A command-line tool for interacting with YouTrack via its REST API. Designed for use by developers and AI agents — create issues, manage projects, control users, and automate anything YouTrack exposes through its API.
+
+## Prerequisites
+
+- **Node.js 18+** — run `node --version` to check
+- A YouTrack instance URL and either a permanent token or your login credentials
+
+## Setup
+
+### 1. Get your credentials ready
+
+If you already have a permanent token (available in YouTrack under your profile → **Authentication**), export these two variables in your terminal:
+
+```bash
+export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
+export YOUTRACK_TOKEN=perm:...
+```
+
+If you only have a login and password, the tool can generate a token for you and save it automatically:
+
+```bash
+node youtrack-cli.js get-token \
+  --base-url https://your-instance.youtrack.cloud \
+  --login your-login \
+  --password your-password \
+  --setEnv true
+```
+
+This writes your URL and token to `~/.youtrack-cli-env`, which the tool loads automatically on every run — no need to set environment variables each time.
+
+### 2. Run a command
+
+```bash
+node youtrack-cli.js <command> --param1 value1 --param2 value2
+```
+
+All output is JSON. Errors are printed to stderr with a non-zero exit code.
+
+## Examples
+
+```bash
+# Create an issue
+node youtrack-cli.js add-issue \
+  --projectShortName MYPROJ \
+  --summary "Login button unresponsive on Safari" \
+  --description "Reproducible on Safari 17, works fine on Chrome."
+
+# Search issues
+node youtrack-cli.js get-issues --query "assignee: me State: Open"
+
+# Fetch a specific issue
+node youtrack-cli.js get-issue --issueId MYPROJ-42
+
+# Comment on an issue
+node youtrack-cli.js add-comment --issueId MYPROJ-42 --text "Reproducing locally now."
+
+# Change issue state
+node youtrack-cli.js apply-command --query "State In Progress" --issueIds "MYPROJ-42"
+
+# Load description from a file instead of typing it inline
+node youtrack-cli.js add-issue \
+  --projectShortName MYPROJ \
+  --summary "RFC: Auth redesign" \
+  --descriptionFile ./rfc.md
+```
+
+Run `node youtrack-cli.js --help` to see every available command with its parameters.
+
+## Available commands
+
+| Area | Commands |
+|---|---|
+| Issues | Create, search, view, update, delete; manage custom fields and visibility |
+| Comments | Add, edit, delete comments on issues and articles; control visibility |
+| Issue links | Link issues with typed relationships (depends on, duplicates, etc.) |
+| Articles | Full CRUD for knowledge base articles; parent/child structure; visibility |
+| Projects | Create and configure projects; manage teams, time tracking, workflows |
+| Users | Create users; manage bans and profile settings (locale, timezone, notifications) |
+| Groups & roles | Manage groups and role assignments at project scope |
+| Agile boards & sprints | Create boards and sprints |
+| Dashboards | Create and manage dashboards |
+| Work items | Log time on issues |
+| Tags | Tag issues and articles |
+| Workflows | View, create, and manage automation workflows |
+| Global settings | Email, feature flags, license, AI features, banners |
+| Custom fields | Manage field prototypes and bundle values |
+| VCS & mailbox | Configure VCS integrations and mailbox rules |
+| Raw API | `raw-get`, `raw-post`, `raw-delete` for any endpoint not covered above |
+
+## License
+
+Apache-2.0

@@ -1,0 +1,15 @@
+{
+  "name": "youtrack-cli",
+  "version": "1.0.0",
+  "description": "Internal YouTrack REST API CLI for AI agents and developers",
+  "main": "youtrack-cli.js",
+  "bin": {
+    "youtrack-cli": "./youtrack-cli.js"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node youtrack-cli.js"
+  },
+  "keywords": ["youtrack", "cli", "rest", "api"],
+  "license": "Apache-2.0"
+}
