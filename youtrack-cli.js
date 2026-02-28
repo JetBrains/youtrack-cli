@@ -23,6 +23,23 @@ const MIME_TYPES = {
   ".json": "application/json", ".zip": "application/zip",
 };
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+// YouTrack's command parser requires braces around logins that contain dots or
+// hyphens (e.g. "assignee alice.qa" must become "assignee {alice.qa}").
+function wrapUserValues(query) {
+  return query.replace(
+    /\b(assignee|reporter)\s+(?!\{)(\S*[.\-@]\S+)/gi,
+    (_, field, value) => `${field} {${value}}`
+  );
+}
+
+// Look up a user by login and return { id }.
+async function resolveUserRef(base, token, login) {
+  const users = await doGet(base, `${API.USERS}?query=${enc(login)}&fields=id,login`, token);
+  return findByLogin(users, login, "User");
+}
+
 // ── Command registry ──────────────────────────────────────────────────────────
 
 const COMMANDS = {};
@@ -33,15 +50,16 @@ function cmd(name, description, params, handler) {
 
 // ── Issues ────────────────────────────────────────────────────────────────────
 
-cmd("add-issue", "Create an issue", ["projectShortName", "summary", "?description", "?descriptionFile"], async (ctx, args) => {
+cmd("add-issue", "Create an issue", ["projectShortName", "summary", "?description", "?descriptionFile", "?asUser"], async (ctx, args) => {
   const description = resolveContent(args.description, args.descriptionFile);
   const projects = await doGet(ctx.base, `${API.PROJECTS}?query=${enc(args.projectShortName)}&fields=id,shortName&$top=1`, ctx.token);
   const proj = findByShortName(projects, args.projectShortName, "Project");
-  return doPost(ctx.base, `${API.ISSUES}?fields=id,idReadable,summary,description,project`, ctx.token, {
-    summary: args.summary,
-    description,
-    project: { id: proj.id },
-  });
+  const body = { summary: args.summary, description, project: { id: proj.id } };
+  if (args.asUser) {
+    const u = await resolveUserRef(ctx.base, ctx.token, args.asUser);
+    body.reporter = { id: u.id };
+  }
+  return doPost(ctx.base, `${API.ISSUES}?fields=id,idReadable,summary,description,project,reporter(id,login)`, ctx.token, body);
 });
 
 cmd("get-issue", "Get issue by ID", ["issueId"], async (ctx, args) => {
@@ -72,7 +90,7 @@ cmd("apply-command", "Apply command to issues (e.g. 'State Fixed')", ["query", "
       return { id: issue.id };
     })
   );
-  return doPost(ctx.base, API.COMMANDS, ctx.token, { query: args.query, issues });
+  return doPost(ctx.base, API.COMMANDS, ctx.token, { query: wrapUserValues(args.query), issues });
 });
 
 cmd("get-command-assist", "Get command suggestions/validation", ["query", "issueIds"], async (ctx, args) => {
@@ -122,10 +140,15 @@ cmd("set-custom-field", "Set single-value custom field", ["issueId", "fieldName"
 
 // ── Comments ──────────────────────────────────────────────────────────────────
 
-cmd("add-comment", "Add comment to issue", ["issueId", "?text", "?textFile"], async (ctx, args) => {
+cmd("add-comment", "Add comment to issue", ["issueId", "?text", "?textFile", "?asUser"], async (ctx, args) => {
   const text = resolveContent(args.text, args.textFile);
   if (!text) throw new Error("Either --text or --textFile is required");
-  return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/comments?fields=id,text,author`, ctx.token, { text });
+  const body = { text };
+  if (args.asUser) {
+    const u = await resolveUserRef(ctx.base, ctx.token, args.asUser);
+    body.author = { id: u.id };
+  }
+  return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/comments?fields=id,text,author(id,login)`, ctx.token, body);
 });
 
 cmd("get-comments", "Get comments for issue or article", ["parentId", "?place"], async (ctx, args) => {
@@ -152,10 +175,15 @@ cmd("update-comment-visibility", "Update comment visibility", ["issueId", "comme
 
 // ── Article Comments ──────────────────────────────────────────────────────────
 
-cmd("add-article-comment", "Add comment to article", ["articleId", "?text", "?textFile"], async (ctx, args) => {
+cmd("add-article-comment", "Add comment to article", ["articleId", "?text", "?textFile", "?asUser"], async (ctx, args) => {
   const text = resolveContent(args.text, args.textFile);
   if (!text) throw new Error("Either --text or --textFile is required");
-  return doPost(ctx.base, `${API.ARTICLES}/${enc(args.articleId)}/comments?fields=id,text,author`, ctx.token, { text });
+  const body = { text };
+  if (args.asUser) {
+    const u = await resolveUserRef(ctx.base, ctx.token, args.asUser);
+    body.author = { id: u.id };
+  }
+  return doPost(ctx.base, `${API.ARTICLES}/${enc(args.articleId)}/comments?fields=id,text,author(id,login)`, ctx.token, body);
 });
 
 cmd("delete-article-comment", "Delete article comment", ["articleId", "commentId"], async (ctx, args) => {
@@ -195,7 +223,7 @@ cmd("get-issue-link-types", "List all issue link types", [], async (ctx) => {
 
 // ── Articles ──────────────────────────────────────────────────────────────────
 
-cmd("add-article", "Create article", ["projectShortName", "summary", "?content", "?contentFile"], async (ctx, args) => {
+cmd("add-article", "Create article", ["projectShortName", "summary", "?content", "?contentFile", "?asUser"], async (ctx, args) => {
   const content = resolveContent(args.content, args.contentFile);
   const projects = await doGet(ctx.base, `${API.PROJECTS}?query=${enc(args.projectShortName)}&fields=id,shortName&$top=1`, ctx.token);
   const proj = findByShortName(projects, args.projectShortName, "Project");
@@ -204,7 +232,12 @@ cmd("add-article", "Create article", ["projectShortName", "summary", "?content",
     summary: args.summary,
     content,
   });
-  return doPost(ctx.base, `${API.ARTICLES}?draftId=${draft.id}&fields=id,idReadable,summary,content`, ctx.token, {});
+  let article = await doPost(ctx.base, `${API.ARTICLES}?draftId=${draft.id}&fields=id,idReadable,summary,content`, ctx.token, {});
+  if (args.asUser) {
+    const u = await resolveUserRef(ctx.base, ctx.token, args.asUser);
+    article = await doPost(ctx.base, `${API.ARTICLES}/${article.id}?fields=id,idReadable,summary,content,reporter(id,login)`, ctx.token, { reporter: { id: u.id } });
+  }
+  return article;
 });
 
 cmd("get-articles", "List or search articles", ["?query"], async (ctx, args) => {

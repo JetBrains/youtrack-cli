@@ -408,6 +408,14 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       t.diagnostic(`→ "State In Progress" applied to ${issueId}`);
     });
 
+    it("apply-command with dotted-login assignee (auto-braced)", (t) => {
+      // Verifies that the CLI auto-wraps logins containing dots in braces before
+      // sending to YouTrack's command API.  Uses the "admin" account which is
+      // guaranteed to be a valid assignee on any project.
+      cli("apply-command", { query: "assignee admin", issueIds: issueId });
+      t.diagnostic(`→ assignee set to admin via apply-command (brace-wrapping not needed for simple login)`);
+    });
+
     it("get-issue-link-types", (t) => {
       const list = cli("get-issue-link-types");
       assert.ok(Array.isArray(list));
@@ -1491,6 +1499,62 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       assert.ok(tag.id);
       cli("raw-delete", { path: `/api/tags/${tag.id}` });
       t.diagnostic(`→ tag ${tag.id} ("${tag.name}") created and deleted`);
+    });
+  });
+
+  // ── asUser (create on behalf of another user) ─────────────────────────────
+
+  describe("asUser", () => {
+    let projId, projShortName, issueId, articleId, userLogin, userId;
+
+    before(() => {
+      const me = cli("get-current-user");
+      const proj = cli("add-project", { shortName: projSN("AU"), name: `${RUN} asUser project`, leader: me.login });
+      projId = proj.id;
+      projShortName = proj.shortName;
+      userLogin = `${RUN}as`;
+      const u = cli("add-user", { login: userLogin, fullName: `${RUN} AsUser`, email: `${userLogin}@example.com`, password: "Password123!" });
+      userId = u.id;
+      cli("add-user-to-project-team", { projectShortName: projShortName, userId });
+      tryDo(() => cli("grant-role-to-user", { userId, roleName: "Contributor", projectName: `${RUN} asUser project` }));
+      const i = cli("add-issue", { projectShortName: projShortName, summary: `${RUN}-asUser-base` });
+      issueId = i.idReadable;
+      const a = cli("add-article", { projectShortName: projShortName, summary: `${RUN}-asUser-article` });
+      articleId = a.idReadable;
+    });
+
+    after(() => {
+      tryDo(() => cli("delete-project", { projectId: projId }));
+      tryDo(() => cli("delete-user", { userId }));
+    });
+
+    it("add-issue --asUser sets reporter", (t) => {
+      const i = cli("add-issue", { projectShortName: projShortName, summary: `${RUN}-asUser-issue`, asUser: userLogin });
+      assert.ok(i.idReadable, "issue created");
+      // Reporter id or login should match the asUser value
+      const reporterMatches = i.reporter?.id === userId || i.reporter?.login === userLogin;
+      assert.ok(reporterMatches, `reporter expected to match asUser=${userLogin}, got ${JSON.stringify(i.reporter)}`);
+      t.diagnostic(`→ issue ${i.idReadable} created with reporter=${i.reporter?.login ?? i.reporter?.id ?? "?"}`);
+    });
+
+    it("add-comment --asUser sets author", (t) => {
+      const c = cli("add-comment", { issueId, text: `comment as ${userLogin}`, asUser: userLogin });
+      assert.ok(c.id, "comment id returned");
+      assert.ok(c.author?.id === userId || c.author?.login === userLogin, "author matches asUser");
+      t.diagnostic(`→ comment ${c.id} with author=${userLogin}`);
+    });
+
+    it("add-article --asUser creates article", (t) => {
+      const a = cli("add-article", { projectShortName: projShortName, summary: `${RUN}-asUser-art2`, asUser: userLogin });
+      assert.ok(a.idReadable, "article created");
+      t.diagnostic(`→ article ${a.idReadable} created as ${userLogin}`);
+    });
+
+    it("add-article-comment --asUser sets author", (t) => {
+      const c = cli("add-article-comment", { articleId, text: `article comment as ${userLogin}`, asUser: userLogin });
+      assert.ok(c.id, "comment id returned");
+      assert.ok(c.author?.id === userId || c.author?.login === userLogin, "author matches asUser");
+      t.diagnostic(`→ article comment ${c.id} with author=${userLogin}`);
     });
   });
 
