@@ -886,16 +886,26 @@ cmd("delete-canvas", "Delete canvas", ["canvasId"], async (ctx, args) => {
   return doDelete(ctx.base, `${API.CANVAS}/${enc(args.canvasId)}`, ctx.token);
 });
 
+cmd("reload-canvas", "Reload canvas to sync frontend with latest data", ["canvasId"], async (ctx, args) => {
+  return doPost(ctx.base, `${API.CANVAS}/${enc(args.canvasId)}?fields=id,name`, ctx.token, { reload: true });
+});
+
 cmd("add-canvas", "Create planning canvas", ["name", "ownerLogin"], async (ctx, args) => {
   const users = await doGet(ctx.base, `${API.USERS}?query=${enc(args.ownerLogin)}&fields=id,login&$top=10`, ctx.token);
   const user = findByLogin(users, args.ownerLogin, "User");
   return doPost(ctx.base, `${API.CANVAS}?fields=id,name`, ctx.token, { name: args.name, owner: { id: user.id } });
 });
 
-cmd("add-canvas-node", "Add card node to canvas", ["canvasId", "label", "x", "y", "?nodeType", "?description"], async (ctx, args) => {
-  const body = { label: args.label, x: parseInt(args.x), y: parseInt(args.y), nodeType: { id: args.nodeType || "CardNode" } };
+cmd("add-canvas-node", "Add card node to canvas", ["canvasId", "x", "y", "?label", "?issueId", "?articleId", "?nodeType", "?description"], async (ctx, args) => {
+  const isTicket = args.issueId || (args.nodeType && args.nodeType.toLowerCase() === "ticketnode");
+  const isArticle = args.articleId || (args.nodeType && args.nodeType.toLowerCase() === "articlenode");
+  const resolvedType = isTicket ? "TicketNode" : isArticle ? "ArticleNode" : (args.nodeType || "CardNode");
+  const body = { x: parseInt(args.x), y: parseInt(args.y), nodeType: { id: resolvedType } };
+  if (isTicket && args.issueId) body.ticket = { id: args.issueId };
+  if (isArticle && args.articleId) body.article = { id: args.articleId };
+  if (args.label) body.label = args.label;
   if (args.description) body.description = args.description;
-  return doPost(ctx.base, `${API.CANVAS}/${enc(args.canvasId)}/cards?fields=id,label,x,y,height,width`, ctx.token, body);
+  return doPost(ctx.base, `${API.CANVAS}/${enc(args.canvasId)}/cards?fields=id,label,x,y,height,width,nodeType(id),ticket(id,idReadable,summary),article(id,idReadable,summary)`, ctx.token, body);
 });
 
 cmd("get-canvas-links", "List links in canvas", ["canvasId"], async (ctx, args) => {
