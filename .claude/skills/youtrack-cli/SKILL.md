@@ -157,10 +157,15 @@ Group/user IDs are the opaque `id` field returned by `get-users` and `get-groups
 | Command | Required params | Optional params |
 |---|---|---|
 | `get-roles` | | |
-| `add-role` | `name` | `description` |
+| `add-role` | `name` | `description`, `permissions` |
 | `delete-role` | `roleId` | |
-| `grant-role-to-user` | `userId`, `roleName`, `projectName` | |
-| `grant-role-to-group` | `groupName`, `roleName`, `projectName` | |
+| `grant-role-to-user` | `userId`, `roleName` | `projectName` |
+| `grant-role-to-group` | `groupName`, `roleName` | `projectName` |
+
+### Permissions
+| Command | Required params | Optional params |
+|---|---|---|
+| `get-permissions` | | |
 
 ### Agile boards & sprints
 | Command | Required params | Optional params |
@@ -286,11 +291,35 @@ youtrack-cli add-group --name "New Group"
 ```
 
 **Grant a role:**
+- If the user explicitly asks to grant a role globally, in global scope, or at global level etc., grant it in the global scope by omitting the `--projectName` parameter.
+- If it is clear from the context that the role should be granted within a specific project, use that project with `--projectName`.
 ```bash
 youtrack-cli get-roles                                     # find roleName
 youtrack-cli get-user --login john.doe                     # get userId
+
+# Grant in project scope
 youtrack-cli grant-role-to-user --userId <id> --roleName Developer --projectName "My Project"
+
+# Grant in global scope (omit --projectName)
+youtrack-cli grant-role-to-user --userId <id> --roleName "System Admin"
 ```
+
+**Create a new role:**
+If the user explicitly asks to create a role, always create a new one with a unique name and do not attempt to find and use an existing role.
+- **If the user did not specify permissions:** Create the role without the `--permissions` parameter.
+  ```bash
+  youtrack-cli add-role --name "New Role" --description "Role description"
+  ```
+- **If the user specified permissions (e.g., "read issue" or "create article"):** Find the required permission IDs first, then create the role.
+  ```bash
+  # 1. Get all available permissions
+  youtrack-cli get-permissions
+
+  # 2. Extract required permission IDs from the JSON (e.g., "JetBrains.YouTrack.READ_ISSUE")
+
+  # 3. Create the role with a comma-separated list of IDs
+  youtrack-cli add-role --name "New Role" --description "Role description" --permissions "JetBrains.YouTrack.READ_ISSUE,JetBrains.YouTrack.CREATE_ARTICLE"
+  ```
 
 **Upload attachments:**
 ```bash
