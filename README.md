@@ -96,7 +96,7 @@ Run `youtrack-cli --help` to see every available command with its parameters.
 | Articles | Full CRUD for knowledge base articles; parent/child structure; visibility |
 | Projects | Create and configure projects; manage teams, time tracking, workflows |
 | Users | Create users; manage bans and profile settings (locale, timezone, notifications) |
-| Groups & roles | Manage groups and role assignments (project or global scope) |
+| Groups & roles | Create, list, delete groups and roles; manage permissions; role assignments |
 | Agile boards & sprints | Create boards and sprints |
 | Dashboards | Create and manage dashboards |
 | Work items | Log time on issues |
