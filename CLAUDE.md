@@ -46,7 +46,7 @@ Alternatively, run `get-token --login ... --password ... --setEnv true` which wr
 - **Workflow** — server-side automation scripts attached to projects.
 - **Reaction** — emoji reaction on a comment.
 - **Attachment** — file uploaded to an issue or article.
-- **Role** — a named permission set that can be granted to users or groups per project.
+- **Role** — a named permission set that can be granted to users or groups at project or global scope. Permissions (e.g. `jetbrains.jetpass.project-read`) define what operations are allowed on entities.
 - **Group** — a user group. Read and deleted via the YouTrack `/api/groups` REST API. Group membership modification is not supported by the YouTrack REST API (it requires Hub-scoped auth). Use `add-group-to-project-team` to associate a group with a project.
 - **VCS Integration** — links Git repos (GitHub, GitLab, etc.) to YouTrack projects for commit-to-issue tracking.
 - **Mailbox** — email-to-issue integration (create issues from incoming email).

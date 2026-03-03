@@ -8,6 +8,7 @@ export const API = {
   USERS_ME:        "/api/users/me",
   GROUPS:          "/api/groups",
   ROLES:           "/api/roles",
+  PERMISSIONS:     "/api/permissions",
   ASSIGNED_ROLES:  "/api/assignedRoles",
   DASHBOARDS:      "/api/dashboards",
   AGILES:          "/api/agiles",

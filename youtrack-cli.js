@@ -535,22 +535,32 @@ cmd("get-roles", "List all roles", [], async (ctx) => {
   return doGet(ctx.base, `${API.ROLES}?fields=id,name,description&$top=-1`, ctx.token);
 });
 
-cmd("add-role", "Create role", ["name", "?description"], async (ctx, args) => {
-  return doPost(ctx.base, `${API.ROLES}?fields=id,name`, ctx.token, {
+cmd("add-role", "Create role", ["name", "?description", "?permissions"], async (ctx, args) => {
+  const body = {
     name: args.name,
     description: args.description || "",
-  });
+  };
+  if (args.permissions) {
+    body.permissions = parseIds(args.permissions);
+  }
+  return doPost(ctx.base, `${API.ROLES}?fields=id,name`, ctx.token, body);
 });
 
-cmd("grant-role-to-user", "Grant role to user in project", ["userId", "roleName", "projectName"], async (ctx, args) => {
+cmd("grant-role-to-user", "Grant role to user (project or global scope)", ["userId", "roleName", "?projectName"], async (ctx, args) => {
   const roles = await doGet(ctx.base, `${API.ROLES}?fields=id,name&$top=-1`, ctx.token);
   const role = findByName(roles, args.roleName, "Role");
-  const projects = await doGet(ctx.base, `${API.PROJECTS}?query=${enc(args.projectName)}&fields=id,name&$top=10`, ctx.token);
-  const project = findByName(projects, args.projectName, "Project");
+  let scope;
+  if (args.projectName) {
+    const projects = await doGet(ctx.base, `${API.PROJECTS}?query=${enc(args.projectName)}&fields=id,name&$top=10`, ctx.token);
+    const project = findByName(projects, args.projectName, "Project");
+    scope = { $type: "ProjectScope", project: { id: project.id } };
+  } else {
+    scope = { $type: "GlobalScope" };
+  }
   return doPost(ctx.base, API.ASSIGNED_ROLES, ctx.token, {
     holder: { id: args.userId, $type: "User" },
     role: { id: role.id },
-    scope: { $type: "ProjectScope", project: { id: project.id } },
+    scope,
   });
 });
 
@@ -558,18 +568,29 @@ cmd("delete-role", "Delete a role", ["roleId"], async (ctx, args) => {
   return doDelete(ctx.base, `${API.ROLES}/${enc(args.roleId)}`, ctx.token);
 });
 
-cmd("grant-role-to-group", "Grant role to group in project", ["groupName", "roleName", "projectName"], async (ctx, args) => {
+cmd("grant-role-to-group", "Grant role to group (project or global scope)", ["groupName", "roleName", "?projectName"], async (ctx, args) => {
   const roles = await doGet(ctx.base, `${API.ROLES}?fields=id,name&$top=-1`, ctx.token);
   const role = findByName(roles, args.roleName, "Role");
   const groups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name,$type&$top=-1&query=${enc(args.groupName)}`, ctx.token);
   const group = findByName(groups.filter(g => g.$type !== "ProjectTeam"), args.groupName, "Group");
-  const projects = await doGet(ctx.base, `${API.PROJECTS}?query=${enc(args.projectName)}&fields=id,name&$top=10`, ctx.token);
-  const project = findByName(projects, args.projectName, "Project");
+  let scope;
+  if (args.projectName) {
+    const projects = await doGet(ctx.base, `${API.PROJECTS}?query=${enc(args.projectName)}&fields=id,name&$top=10`, ctx.token);
+    const project = findByName(projects, args.projectName, "Project");
+    scope = { $type: "ProjectScope", project: { id: project.id } };
+  } else {
+    scope = { $type: "GlobalScope" };
+  }
   return doPost(ctx.base, API.ASSIGNED_ROLES, ctx.token, {
     holder: { id: group.id, $type: group.$type },
     role: { id: role.id },
-    scope: { $type: "ProjectScope", project: { id: project.id } },
+    scope,
   });
+});
+
+cmd("get-permissions", "List all permissions", [], async (ctx) => {
+  const fields = "id,name,description,permissionEntityType,operation,isGlobal,dependentPermissions(id,name),impliedPermissions(id,name)";
+  return doGet(ctx.base, `${API.PERMISSIONS}?fields=${fields}&$top=-1`, ctx.token);
 });
 
 // ── Dashboards ────────────────────────────────────────────────────────────────
