@@ -137,15 +137,16 @@ Run `get-issue-link-types` first to find valid `linkType` values (e.g. `depends 
 | `get-users` | | `query` |
 | `get-user` | `login` | |
 | `get-current-user` | | |
-| `add-user` | `login`, `fullName`, `email` | `password` |
+| `add-user` | `login`, `fullName`, `email`, `password` | |
 | `delete-user` | `userId` | |
 | `ban-user` / `unban-user` | `userId` | |
 
 ### Groups
 | Command | Required params | Optional params |
 |---|---|---|
-| `get-groups` | | |
+| `get-groups` | | `query` |
 | `get-group` | `groupName` | |
+| `add-group` | `name` | |
 | `delete-group` | `groupName` | `successor` |
 
 Group/user IDs are the opaque `id` field returned by `get-users` and `get-groups`.
@@ -277,6 +278,11 @@ youtrack-cli link-issues --issueId MYPROJ-42 --linkedIssueId MYPROJ-10 --linkTyp
 ```bash
 youtrack-cli get-user --login john.doe                     # get userId
 youtrack-cli add-user-to-project-team --projectShortName MYPROJ --userId <id>
+```
+
+**Create a group:**
+```bash
+youtrack-cli add-group --name "New Group"
 ```
 
 **Grant a role:**

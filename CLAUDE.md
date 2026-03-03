@@ -47,7 +47,7 @@ Alternatively, run `get-token --login ... --password ... --setEnv true` which wr
 - **Reaction** — emoji reaction on a comment.
 - **Attachment** — file uploaded to an issue or article.
 - **Role** — a named permission set that can be granted to users or groups per project.
-- **Group** — a user group. Read and deleted via the YouTrack `/api/groups` REST API. Group membership modification is not supported by the YouTrack REST API (it requires Hub-scoped auth). Use `add-group-to-project-team` to associate a group with a project.
+- **Group** — a user group. Created, read and deleted via the YouTrack `/api/groups` REST API. Group membership modification is not supported by the YouTrack REST API (it requires Hub-scoped auth). Use `add-group-to-project-team` to associate a group with a project.
 - **VCS Integration** — links Git repos (GitHub, GitLab, etc.) to YouTrack projects for commit-to-issue tracking.
 - **Mailbox** — email-to-issue integration (create issues from incoming email).
 - **Canvas** — a freeform planning board with card nodes and links.
@@ -109,7 +109,7 @@ Commands are grouped in `youtrack-cli.js` by section comments:
 - **Articles** — CRUD, parent, visibility, tagging, drafts, trash/restore
 - **Projects** — CRUD, templates, teams, custom fields, time tracking, workflows
 - **Users / User Profile** — CRUD, ban, profile settings (appearance, locale, timezone, notifications, Grazie), drafts, pinned projects
-- **Groups** — list, lookup, add/remove members
+- **Groups** — list, lookup, create, delete, add/remove members
 - **Roles** — CRUD, grant to user/group
 - **Dashboards / Agile Boards / Sprints** — CRUD
 - **Tags / Work Items / Reactions / Attachments** — targeted CRUD
