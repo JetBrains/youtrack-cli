@@ -43,7 +43,6 @@ Every command is registered with `cmd(name, description, params[], handler)`:
 When adding a new command:
 - Add a usage example to the "Examples" section of `README.md`.
 - Ensure the command is listed in the "Available commands" table in `README.md`.
-- Add the command to the relevant table in the "Command reference" section of `.claude/skills/youtrack-cli/SKILL.md`.
 - If the command is part of a non-trivial process, add it to the "Common workflows" section of `.claude/skills/youtrack-cli/SKILL.md`.
 
 ### Argument parsing
