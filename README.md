@@ -82,6 +82,11 @@ youtrack-cli add-issue \
   --projectShortName MYPROJ \
   --summary "RFC: Auth redesign" \
   --descriptionFile ./rfc.md
+
+# Update role permissions
+youtrack-cli update-role \
+  --roleId 17-6 \
+  --permissions "jetbrains.jetpass.organization-read,jetbrains.jetpass.organization-delete"
 ```
 
 Run `youtrack-cli --help` to see every available command with its parameters.

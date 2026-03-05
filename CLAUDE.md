@@ -62,7 +62,7 @@ Alternatively, run `get-token --login ... --password ... --setEnv true` which wr
 | Project | short name | `FOO` |
 | User | login | `john.doe` |
 | Group | name | `Developers` |
-| Role | name | `Developer` |
+| Role | name or id | `Developer` or `17-6` |
 | Everything else | opaque `id` field from GET responses | `2-7` |
 
 ### Visibility
@@ -90,6 +90,14 @@ Every command is registered with `cmd(name, description, params[], handler)`:
 - `params` entries prefixed with `?` are optional (e.g., `"?description"`).
 - The handler receives `(ctx, args)` where `ctx = { base, token }` and `args` maps param names to CLI-supplied values.
 - All handlers are `async` and return JSON-serializable data, which `main()` prints as pretty JSON.
+
+### Documentation requirement
+
+When adding a new command:
+- Add a usage example to the "Examples" section of `README.md`.
+- Ensure the command is listed in the "Available commands" table in `README.md`.
+- Add the command to the relevant table in the "Command reference" section of `.claude/skills/youtrack-cli/SKILL.md`.
+- If the command is part of a non-trivial process, add it to the "Common workflows" section of `.claude/skills/youtrack-cli/SKILL.md`.
 
 ### Argument parsing
 

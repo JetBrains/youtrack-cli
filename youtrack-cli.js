@@ -558,6 +558,13 @@ cmd("add-role", "Create role", ["name", "?description", "?permissions"], async (
   return doPost(ctx.base, `${API.ROLES}?fields=id,name`, ctx.token, body);
 });
 
+cmd("update-role", "Update role permissions", ["roleId", "permissions"], async (ctx, args) => {
+  const body = {
+    permissions: parseIds(args.permissions)
+  };
+  return doPost(ctx.base, `${API.ROLES}/${enc(args.roleId)}?fields=id,name`, ctx.token, body);
+});
+
 cmd("grant-role-to-user", "Grant role to user (project or global scope)", ["userId", "roleName", "?projectName"], async (ctx, args) => {
   const roles = await doGet(ctx.base, `${API.ROLES}?fields=id,name&$top=-1`, ctx.token);
   const role = findByName(roles, args.roleName, "Role");

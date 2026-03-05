@@ -158,6 +158,7 @@ Group/user IDs are the opaque `id` field returned by `get-users` and `get-groups
 |---|---|---|
 | `get-roles` | | |
 | `add-role` | `name` | `description`, `permissions` |
+| `update-role` | `roleId`, `permissions` | |
 | `delete-role` | `roleId` | |
 | `grant-role-to-user` | `userId`, `roleName` | `projectName` |
 | `grant-role-to-group` | `groupName`, `roleName` | `projectName` |
@@ -319,6 +320,18 @@ If the user explicitly asks to create a role, always create a new one with a uni
 
   # 3. Create the role with a comma-separated list of IDs
   youtrack-cli add-role --name "New Role" --description "Role description" --permissions "JetBrains.YouTrack.READ_ISSUE,JetBrains.YouTrack.CREATE_ARTICLE"
+
+**Update an existing role:**
+- If the user explicitly asks to update or modify an existing role's permissions, use `update-role`.
+  ```bash
+  # 1. Get role ID (e.g., "17-6")
+  youtrack-cli get-roles
+
+  # 2. Get required permission IDs (e.g., "jetbrains.jetpass.organization-read")
+  youtrack-cli get-permissions
+
+  # 3. Update the role with a new comma-separated list of IDs (this REPLACES the current list)
+  youtrack-cli update-role --roleId 17-6 --permissions "jetbrains.jetpass.organization-read,jetbrains.jetpass.organization-delete"
   ```
 
 **Upload attachments:**
