@@ -87,6 +87,29 @@ youtrack-cli add-issue \
 youtrack-cli update-role \
   --roleId 17-6 \
   --permissions "jetbrains.jetpass.organization-read,jetbrains.jetpass.organization-delete"
+
+# Create a standard user (default type)
+youtrack-cli add-user \
+  --login john.doe \
+  --fullName "John Doe" \
+  --email john.doe@example.com \
+  --password secret123
+
+# Create a helpdesk agent
+youtrack-cli add-user \
+  --login jane.agent \
+  --fullName "Jane Agent" \
+  --email jane.agent@example.com \
+  --password secret123 \
+  --userType AGENT
+
+# Create a helpdesk reporter
+youtrack-cli add-user \
+  --login bob.reporter \
+  --fullName "Bob Reporter" \
+  --email bob.reporter@example.com \
+  --password secret123 \
+  --userType REPORTER
 ```
 
 Run `youtrack-cli --help` to see every available command with its parameters.
@@ -100,7 +123,7 @@ Run `youtrack-cli --help` to see every available command with its parameters.
 | Issue links | Link issues with typed relationships (depends on, duplicates, etc.) |
 | Articles | Full CRUD for knowledge base articles; parent/child structure; visibility |
 | Projects | Create and configure projects; manage teams, time tracking, workflows |
-| Users | Create users; manage bans and profile settings (locale, timezone, notifications) |
+| Users | Create users (`STANDARD_USER`, `AGENT`, `REPORTER`); manage bans and profile settings (locale, timezone, notifications) |
 | Groups & roles | Create, list, delete groups and roles; manage permissions; role assignments |
 | Agile boards & sprints | Create boards and sprints |
 | Dashboards | Create and manage dashboards |

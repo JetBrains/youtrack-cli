@@ -137,9 +137,11 @@ Run `get-issue-link-types` first to find valid `linkType` values (e.g. `depends 
 | `get-users` | | `query` |
 | `get-user` | `login` | |
 | `get-current-user` | | |
-| `add-user` | `login`, `fullName`, `email`, `password` | |
-| `delete-user` | `userId` | |
+| `add-user` | `login`, `fullName`, `email`, `password` | `userType` |
+| `delete-user` | `userId` | `successor` |
 | `ban-user` / `unban-user` | `userId` | |
+
+`userType` — one of `STANDARD_USER` (default), `AGENT`, `REPORTER`.
 
 ### Groups
 | Command | Required params | Optional params |

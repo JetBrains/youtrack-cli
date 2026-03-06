@@ -23,6 +23,8 @@ const MIME_TYPES = {
   ".json": "application/json", ".zip": "application/zip",
 };
 
+const USER_TYPES = ["STANDARD_USER", "AGENT", "REPORTER"];
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 // YouTrack's command parser requires braces around logins that contain dots or
@@ -40,6 +42,7 @@ async function resolveUserRef(base, token, login) {
   return findByLogin(users, login, "User");
 }
 
+// Poll until a user with the given login appears in YouTrack (Hub sync complete).
 // ── Command registry ──────────────────────────────────────────────────────────
 
 const COMMANDS = {};
@@ -277,23 +280,17 @@ cmd("tag-article", "Tag an article", ["articleId", "tagId"], async (ctx, args) =
 });
 
 cmd("get-removed-documents", "List removed (trashed) documents", [], async (ctx) => {
-  const [articles, issues] = await Promise.all([
-    doGet(ctx.base, `${API.ARTICLES}?trashed=true&fields=id,idReadable,$type&$top=-1`, ctx.token),
-    doGet(ctx.base, `${API.ISSUES}?trashed=true&fields=id,idReadable,$type&$top=-1&query=`, ctx.token),
-  ]);
-  return [...(Array.isArray(articles) ? articles : []), ...(Array.isArray(issues) ? issues : [])];
+  return doGet(ctx.base, `${API.REMOVED_DOCUMENTS}?fields=id,idReadable,summary,deletedTime,$type,project(id)&query=&$top=100`, ctx.token);
 });
 
 cmd("restore-document", "Restore a removed document", ["idReadable"], async (ctx, args) => {
-  const [articles, issues] = await Promise.all([
-    doGet(ctx.base, `${API.ARTICLES}?trashed=true&fields=id,idReadable&$top=-1`, ctx.token),
-    doGet(ctx.base, `${API.ISSUES}?trashed=true&fields=id,idReadable&$top=-1&query=`, ctx.token),
-  ]);
-  const article = (Array.isArray(articles) ? articles : []).find(a => a.idReadable === args.idReadable);
-  if (article) return doPost(ctx.base, `${API.ARTICLES}/${article.id}?fields=id`, ctx.token, { trashed: false });
-  const issue = (Array.isArray(issues) ? issues : []).find(i => i.idReadable === args.idReadable);
-  if (issue) return doPost(ctx.base, `${API.ISSUES}/${issue.id}?fields=id`, ctx.token, { trashed: false });
-  throw new Error(`Soft-deleted document '${args.idReadable}' not found`);
+  const docs = await doGet(ctx.base, `${API.REMOVED_DOCUMENTS}?fields=id,idReadable,$type&query=&$top=100`, ctx.token);
+  const doc = (Array.isArray(docs) ? docs : []).find(d => d.idReadable === args.idReadable);
+  if (!doc) throw new Error(`Removed document '${args.idReadable}' not found`);
+  return doPost(ctx.base, `${API.REMOVED_DOCUMENTS}?fields=id,idReadable`, ctx.token, {
+    documents: [{ id: doc.id, $type: doc.$type }],
+    remove: false,
+  });
 });
 
 // ── Projects ──────────────────────────────────────────────────────────────────
@@ -337,13 +334,13 @@ cmd("add-custom-field-to-project", "Add custom field to project", ["projectId", 
   const cf = await doGet(ctx.base, `${API.CUSTOM_FIELDS}/customFields/${enc(args.customFieldId)}?fields=id,fieldType(valueType)`, ctx.token);
   const vt = (cf.fieldType?.valueType || "").toLowerCase();
   const type =
-    vt === "enum"    ? "EnumProjectCustomField" :
-    vt === "state"   ? "StateProjectCustomField" :
-    vt === "version" ? "VersionProjectCustomField" :
-    vt === "build"   ? "BuildProjectCustomField" :
-    vt === "owned"   ? "OwnedProjectCustomField" :
-    vt === "user"    ? "UserProjectCustomField" :
-    vt === "group"   ? "GroupProjectCustomField" :
+    vt.startsWith("enum")    ? "EnumProjectCustomField" :
+    vt.startsWith("state")   ? "StateProjectCustomField" :
+    vt.startsWith("version") ? "VersionProjectCustomField" :
+    vt.startsWith("build")   ? "BuildProjectCustomField" :
+    vt.startsWith("owned")   ? "OwnedProjectCustomField" :
+    vt.startsWith("user")    ? "UserProjectCustomField" :
+    vt.startsWith("group")   ? "GroupProjectCustomField" :
     "SimpleProjectCustomField";
   return doPost(ctx.base, `${API.PROJECTS}/${enc(args.projectId)}/fields?fields=id,field(id,name)`, ctx.token, {
     $type: type,
@@ -378,13 +375,25 @@ cmd("attach-workflow-to-project", "Attach workflow to project", ["workflowId", "
 
 // ── Users ─────────────────────────────────────────────────────────────────────
 
-cmd("add-user", "Create user", ["login", "fullName", "email", "?password"], async (ctx, args) => {
-  return doPost(ctx.base, `${API.USERS}?fields=id,login,fullName,email`, ctx.token, {
+cmd("add-user", "Create user", ["login", "fullName", "email", "?password", "?userType"], async (ctx, args) => {
+  const userType = args.userType || "STANDARD_USER";
+  if (!USER_TYPES.includes(userType)) throw new Error(`Invalid userType '${userType}'. Must be one of: ${USER_TYPES.join(", ")}`);
+  const user = await doPost(ctx.base, `${API.USERS}?fields=id,ringId,login,fullName,email,isEmailVerified,guest,banned,userType(id,name)`, ctx.token, {
     login: args.login,
     fullName: args.fullName,
     email: args.email,
     password: args.password || undefined,
+    isEmailVerified: true,
+    userType: { id: userType },
   });
+  // Wait until the user is searchable (Hub sync complete), mirroring Kotlin's waitForUserToBeFound.
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    const users = await doGet(ctx.base, `${API.USERS}?query=${enc(args.login)}&fields=id,login&$top=10`, ctx.token);
+    if (Array.isArray(users) && users.some(u => u.login === args.login)) break;
+    await new Promise(r => setTimeout(r, 300));
+  }
+  return user;
 });
 
 cmd("get-users", "List/search users", ["?query"], async (ctx, args) => {
@@ -397,8 +406,26 @@ cmd("get-user", "Get user by login", ["login"], async (ctx, args) => {
   return users.find(u => u.login === args.login) || null;
 });
 
-cmd("delete-user", "Delete user", ["userId"], async (ctx, args) => {
-  return doDelete(ctx.base, `${API.USERS}/${enc(args.userId)}`, ctx.token);
+cmd("delete-user", "Delete user", ["userId", "?successor"], async (ctx, args) => {
+  let successorId = args.successor;
+  if (!successorId) {
+    const users = await doGet(ctx.base, `${API.USERS}?query=guest&fields=id,login&$top=10`, ctx.token);
+    const guest = users.find(u => u.login === "guest");
+    successorId = guest?.id;
+  }
+  const qs = successorId ? `?successor=${enc(successorId)}` : "";
+  const deadline = Date.now() + 10000;
+  let lastErr;
+  while (Date.now() < deadline) {
+    try {
+      return await doDelete(ctx.base, `${API.USERS}/${enc(args.userId)}${qs}`, ctx.token);
+    } catch (e) {
+      if (!e.message.includes("not mapped to hub")) throw e;
+      lastErr = e;
+      await new Promise(r => setTimeout(r, 500));
+    }
+  }
+  throw lastErr;
 });
 
 cmd("ban-user", "Ban user", ["userId"], async (ctx, args) => {
@@ -672,13 +699,18 @@ cmd("delete-tag", "Delete tag", ["tagId"], async (ctx, args) => {
 
 // ── Work Items ────────────────────────────────────────────────────────────────
 
-cmd("add-work-item", "Add work item to issue", ["issueId", "minutes", "?workType", "?text"], async (ctx, args) => {
+cmd("add-work-item", "Add work item to issue", ["issueId", "minutes", "?workType", "?text", "?authorLogin", "?date"], async (ctx, args) => {
   const body = { duration: { minutes: parseInt(args.minutes) } };
   if (args.text) body.text = args.text;
+  if (args.date) body.date = parseInt(args.date);
   if (args.workType) {
     const types = await doGet(ctx.base, `${API.WORK_ITEM_TYPES}?fields=id,name`, ctx.token);
     const t = types.find(t => t.name === args.workType);
     if (t) body.type = { id: t.id };
+  }
+  if (args.authorLogin) {
+    const u = await resolveUserRef(ctx.base, ctx.token, args.authorLogin);
+    body.author = { id: u.id };
   }
   return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/timeTracking/workItems`, ctx.token, body);
 });
