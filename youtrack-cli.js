@@ -141,9 +141,12 @@ cmd("set-custom-field", "Set single-value custom field", ["issueId", "fieldName"
   return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/fields/${field.id}`, ctx.token, body);
 });
 
-// ── Comments ──────────────────────────────────────────────────────────────────
+// ── Comments (issues and articles) ───────────────────────────────────────────
+// All comment commands accept ?place ("issues" | "articles", default "issues").
 
-cmd("add-comment", "Add comment to issue", ["issueId", "?text", "?textFile", "?asUser"], async (ctx, args) => {
+cmd("add-comment", "Add comment to issue or article", ["parentId", "?text", "?textFile", "?place", "?asUser"], async (ctx, args) => {
+  const place = args.place || "issues";
+  const basePath = place === "articles" ? API.ARTICLES : API.ISSUES;
   const text = resolveContent(args.text, args.textFile);
   if (!text) throw new Error("Either --text or --textFile is required");
   const body = { text };
@@ -151,7 +154,7 @@ cmd("add-comment", "Add comment to issue", ["issueId", "?text", "?textFile", "?a
     const u = await resolveUserRef(ctx.base, ctx.token, args.asUser);
     body.author = { id: u.id };
   }
-  return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/comments?fields=id,text,author(id,login)`, ctx.token, body);
+  return doPost(ctx.base, `${basePath}/${enc(args.parentId)}/comments?fields=id,text,author(id,login)`, ctx.token, body);
 });
 
 cmd("get-comments", "Get comments for issue or article", ["parentId", "?place"], async (ctx, args) => {
@@ -160,37 +163,33 @@ cmd("get-comments", "Get comments for issue or article", ["parentId", "?place"],
   return doGet(ctx.base, `${basePath}/${enc(args.parentId)}/comments?$top=100&fields=id,text,author,created`, ctx.token);
 });
 
-cmd("update-comment", "Edit issue comment", ["issueId", "commentId", "?text", "?textFile"], async (ctx, args) => {
+cmd("update-comment", "Edit a comment", ["parentId", "commentId", "?text", "?textFile", "?place"], async (ctx, args) => {
+  const place = args.place || "issues";
+  const basePath = place === "articles" ? API.ARTICLES : API.ISSUES;
   const text = resolveContent(args.text, args.textFile);
   if (!text) throw new Error("Either --text or --textFile is required");
-  return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/comments/${enc(args.commentId)}?fields=id,text`, ctx.token, { text });
+  return doPost(ctx.base, `${basePath}/${enc(args.parentId)}/comments/${enc(args.commentId)}?fields=id,text`, ctx.token, { text });
 });
 
-cmd("delete-comment", "Soft-delete issue comment", ["issueId", "commentId"], async (ctx, args) => {
-  return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/comments/${enc(args.commentId)}?fields=id,text`, ctx.token, { deleted: true });
+cmd("delete-comment", "Soft-delete a comment", ["parentId", "commentId", "?place"], async (ctx, args) => {
+  const place = args.place || "issues";
+  const basePath = place === "articles" ? API.ARTICLES : API.ISSUES;
+  return doPost(ctx.base, `${basePath}/${enc(args.parentId)}/comments/${enc(args.commentId)}?fields=id,text`, ctx.token, { deleted: true });
 });
 
-cmd("update-comment-visibility", "Update comment visibility", ["issueId", "commentId", "?permittedGroups", "?permittedUsers"], async (ctx, args) => {
+cmd("update-comment-visibility", "Update comment visibility", ["parentId", "commentId", "?place", "?permittedGroups", "?permittedUsers"], async (ctx, args) => {
+  const place = args.place || "issues";
+  const basePath = place === "articles" ? API.ARTICLES : API.ISSUES;
   const allGroups = await doGet(ctx.base, `${API.GROUPS}?fields=id,name&$top=-1`, ctx.token);
   const body = parseVisibility(args, allGroups);
-  return doPost(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/comments/${enc(args.commentId)}?fields=id,visibility`, ctx.token, body);
+  return doPost(ctx.base, `${basePath}/${enc(args.parentId)}/comments/${enc(args.commentId)}?fields=id,visibility`, ctx.token, body);
 });
 
-// ── Article Comments ──────────────────────────────────────────────────────────
-
-cmd("add-article-comment", "Add comment to article", ["articleId", "?text", "?textFile", "?asUser"], async (ctx, args) => {
-  const text = resolveContent(args.text, args.textFile);
-  if (!text) throw new Error("Either --text or --textFile is required");
-  const body = { text };
-  if (args.asUser) {
-    const u = await resolveUserRef(ctx.base, ctx.token, args.asUser);
-    body.author = { id: u.id };
-  }
-  return doPost(ctx.base, `${API.ARTICLES}/${enc(args.articleId)}/comments?fields=id,text,author(id,login)`, ctx.token, body);
-});
-
-cmd("delete-article-comment", "Delete article comment", ["articleId", "commentId"], async (ctx, args) => {
-  return doPost(ctx.base, `${API.ARTICLES}/${enc(args.articleId)}/comments/${enc(args.commentId)}?fields=id,text`, ctx.token, { deleted: true });
+cmd("pin-comment", "Pin or unpin a comment", ["parentId", "commentId", "?place", "?pinned"], async (ctx, args) => {
+  const place = args.place || "issues";
+  const basePath = place === "articles" ? API.ARTICLES : API.ISSUES;
+  const pinned = args.pinned !== undefined ? parseBool(args.pinned) : true;
+  return doPost(ctx.base, `${basePath}/${enc(args.parentId)}/comments/${enc(args.commentId)}?fields=id,pinned`, ctx.token, { pinned });
 });
 
 // ── Issue Links ───────────────────────────────────────────────────────────────
@@ -222,6 +221,39 @@ cmd("add-issue-link-type", "Create issue link type", ["name", "sourceToTarget", 
 
 cmd("get-issue-link-types", "List all issue link types", [], async (ctx) => {
   return doGet(ctx.base, `${API.LINK_TYPES}?fields=id,name,sourceToTarget,targetToSource,aggregation,directed`, ctx.token);
+});
+
+cmd("get-linked-issues", "Get issues linked via a specific link type", ["issueId", "linkType"], async (ctx, args) => {
+  const linkTypes = await doGet(ctx.base, `${API.LINK_TYPES}?fields=id,sourceToTarget,targetToSource`, ctx.token);
+  const inward = ["depends on", "duplicates", "subtask of"];
+  let linkId, suffix;
+  if (inward.includes(args.linkType)) {
+    const lt = findByName(linkTypes.map(l => ({ ...l, name: l.targetToSource })), args.linkType, "Link type");
+    linkId = lt.id; suffix = "t";
+  } else {
+    const lt = findByName(linkTypes.map(l => ({ ...l, name: l.sourceToTarget })), args.linkType, "Link type");
+    linkId = lt.id; suffix = "s";
+  }
+  return doGet(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/links/${linkId}${suffix}/issues?fields=id,idReadable,summary`, ctx.token);
+});
+
+cmd("remove-issue-link", "Remove a link between two issues", ["issueId", "linkedIssueId", "linkType"], async (ctx, args) => {
+  const linkTypes = await doGet(ctx.base, `${API.LINK_TYPES}?fields=id,sourceToTarget,targetToSource`, ctx.token);
+  const inward = ["depends on", "duplicates", "subtask of"];
+  let linkId, suffix;
+  if (inward.includes(args.linkType)) {
+    const lt = findByName(linkTypes.map(l => ({ ...l, name: l.targetToSource })), args.linkType, "Link type");
+    linkId = lt.id; suffix = "t";
+  } else {
+    const lt = findByName(linkTypes.map(l => ({ ...l, name: l.sourceToTarget })), args.linkType, "Link type");
+    linkId = lt.id; suffix = "s";
+  }
+  const linked = await doGet(ctx.base, `${API.ISSUES}/${enc(args.linkedIssueId)}?fields=id`, ctx.token);
+  return doDelete(ctx.base, `${API.ISSUES}/${enc(args.issueId)}/links/${linkId}${suffix}/issues/${linked.id}`, ctx.token);
+});
+
+cmd("get-issue-count", "Count issues matching a query", ["query"], async (ctx, args) => {
+  return doPost(ctx.base, `${API.ISSUE_COUNT}?fields=count`, ctx.token, { query: args.query });
 });
 
 // ── Articles ──────────────────────────────────────────────────────────────────

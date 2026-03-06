@@ -61,6 +61,7 @@ youtrack-cli get-token --login <login> --password <password> --setEnv true
 | `add-issue` | `projectShortName`, `summary` | `description`, `descriptionFile`, `asUser` |
 | `get-issue` | `issueId` | |
 | `get-issues` | `query` | |
+| `get-issue-count` | `query` | |
 | `update-issue-summary` | `issueId`, `newSummary` | |
 | `update-issue-description` | `issueId`, `newDescription` | |
 | `delete-issue` | `issueId` | |
@@ -75,23 +76,27 @@ youtrack-cli get-token --login <login> --password <password> --setEnv true
 `asUser` — login of another user to set as the issue reporter (requires admin token).
 
 ### Comments
+All comment commands accept `?place` (`"issues"` | `"articles"`, default `"issues"`), using `parentId` as the issue or article ID.
+
 | Command | Required params | Optional params |
 |---|---|---|
-| `add-comment` | `issueId` | `text`, `textFile`, `asUser` |
-| `get-comments` | `parentId` | `place` (`issues` or `articles`) |
-| `update-comment` | `issueId`, `commentId` | `text`, `textFile` |
-| `delete-comment` | `issueId`, `commentId` | |
-| `update-comment-visibility` | `issueId`, `commentId` | `permittedGroups`, `permittedUsers` |
-| `add-article-comment` | `articleId` | `text`, `textFile`, `asUser` |
-| `delete-article-comment` | `articleId`, `commentId` | |
+| `add-comment` | `parentId` | `text`, `textFile`, `place`, `asUser` |
+| `get-comments` | `parentId` | `place` |
+| `update-comment` | `parentId`, `commentId` | `text`, `textFile`, `place` |
+| `delete-comment` | `parentId`, `commentId` | `place` |
+| `update-comment-visibility` | `parentId`, `commentId` | `place`, `permittedGroups`, `permittedUsers` |
+| `pin-comment` | `parentId`, `commentId` | `place`, `pinned` |
 
 `asUser` — login of another user to post the comment as (requires admin token).
+`pinned` — defaults to `true` (pin). Pass `--pinned false` to unpin.
 
 ### Issue links
 | Command | Required params | Optional params |
 |---|---|---|
 | `get-issue-link-types` | | |
 | `link-issues` | `issueId`, `linkedIssueId`, `linkType` | |
+| `get-linked-issues` | `issueId`, `linkType` | |
+| `remove-issue-link` | `issueId`, `linkedIssueId`, `linkType` | |
 | `add-issue-link-type` | `name`, `sourceToTarget` | `targetToSource`, `directed`, `aggregation` |
 
 Run `get-issue-link-types` first to find valid `linkType` values (e.g. `depends on`, `duplicates`, `relates to`).
