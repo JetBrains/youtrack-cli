@@ -32,9 +32,15 @@ function collectResponse(res, resolve, reject) {
   });
 }
 
+function buildUrl(baseUrl, path) {
+  const base = new URL(baseUrl);
+  const basePath = base.pathname.replace(/\/$/, "");
+  return new URL(basePath + path, base.origin);
+}
+
 function httpReqCore(method, baseUrl, path, authHeader, body = null) {
   return new Promise((resolve, reject) => {
-    const url = new URL(path, baseUrl);
+    const url = buildUrl(baseUrl, path);
     const isHttps = url.protocol === "https:";
     const data = body !== null ? JSON.stringify(body) : null;
     const headers = {
@@ -72,7 +78,7 @@ export function doDelete(base, path, token) { return httpReq("DELETE", base, pat
 
 export function doMultipart(baseUrl, path, token, filePath, fileName, mimeType) {
   return new Promise((resolve, reject) => {
-    const url = new URL(path, baseUrl);
+    const url = buildUrl(baseUrl, path);
     const isHttps = url.protocol === "https:";
     const fileData = readFileSync(filePath);
     const boundary = `----FormBoundary${Date.now().toString(16)}`;

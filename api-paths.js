@@ -31,6 +31,7 @@ export const API = {
   MAILBOXES:       "/api/admin/integrations/mailbox/mailboxes",
   MAILBOX_RULES:   "/api/admin/integrations/mailbox/rules",
   ORGANIZATIONS:   "/api/admin/organizations",
+  REMOVED_DOCUMENTS: "/api/removedDocuments",
   GANTT:           "/api/ganttCharts",
   CANVAS:          "/api/planningCanvases",
   GRAZIE:          "/api/grazie/config",
