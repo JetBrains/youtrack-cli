@@ -274,7 +274,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       const me = cli("get-current-user");
       const proj = cli("add-project", { shortName: projSN("CF"), name: `${RUN} cf project`, leader: me.login });
       projId = proj.id;
-      const bundles = cli("raw-get", { path: "/api/admin/customFieldSettings/bundles/enum?fields=id,name&$top=1" });
+      const bundles = cli("get-bundles", { bundleType: "enum" });
       bundleId = Array.isArray(bundles) && bundles.length > 0 ? bundles[0].id : null;
     });
 
@@ -305,10 +305,14 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
 
     it("add-custom-field-to-project", (t) => {
       const f = cli("add-custom-field", { name: `${RUN}-cf-proj`, fieldTypeId: "string" });
+      const before = cli("get-project-custom-fields", { projectId: projId });
+      assert.ok(!before.some(pf => pf.field?.id === f.id), "field not yet on project");
       const r = cli("add-custom-field-to-project", { projectId: projId, customFieldId: f.id });
       assert.ok(r.id);
+      const after = cli("get-project-custom-fields", { projectId: projId });
+      assert.ok(after.some(pf => pf.field?.id === f.id), "field is now on project");
       cli("delete-custom-field", { customFieldId: f.id });
-      t.diagnostic(`→ field added to project: ${r.id}`);
+      t.diagnostic(`→ field added to project: ${r.id} (verified absent before, present after)`);
     });
 
     it("delete-custom-field", (t) => {
@@ -316,6 +320,60 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       assert.ok(f.id);
       cli("delete-custom-field", { customFieldId: f.id });
       t.diagnostic(`→ field ${f.id} created and deleted`);
+    });
+
+    it("get-bundles", (t) => {
+      const list = cli("get-bundles", { bundleType: "enum" });
+      assert.ok(Array.isArray(list));
+      t.diagnostic(`→ ${list.length} enum bundle(s)`);
+    });
+
+    it("create-bundle and attach-bundle-to-field", (t) => {
+      const field = cli("add-custom-field", { name: `${RUN}-cf-bundle`, fieldTypeId: "enum[1]" });
+      const bundle = cli("create-bundle", { bundleType: "enum", name: `${RUN}-bundle` });
+      assert.ok(bundle.id, "bundle created");
+      const attached = cli("attach-bundle-to-field", { customFieldId: field.id, bundleId: bundle.id, bundleType: "enum" });
+      assert.ok(attached.id, "bundle attached to field");
+      cli("add-custom-field-to-project", { projectId: projId, customFieldId: field.id });
+      const projectFields = cli("get-project-custom-fields", { projectId: projId });
+      const projField = projectFields.find(pf => pf.field?.id === field.id);
+      assert.ok(projField, "field is on project");
+      assert.equal(projField.bundle?.id, bundle.id, "bundle is attached to project custom field");
+      cli("delete-custom-field", { customFieldId: field.id });
+      t.diagnostic(`→ bundle ${bundle.id} created, attached to field ${field.id}, verified on project`);
+    });
+
+    it("change-custom-field-privacy", (t) => {
+      const field = cli("add-custom-field", { name: `${RUN}-cf-priv`, fieldTypeId: "string" });
+      const r = cli("change-custom-field-privacy", { customFieldId: field.id, isPublic: "true" });
+      assert.equal(r.fieldDefaults?.isPublic, true, "field is now public");
+      cli("delete-custom-field", { customFieldId: field.id });
+      t.diagnostic(`→ field ${field.id} set to public`);
+    });
+
+    it("project with custom enum field and bundle", (t) => {
+      const me = cli("get-current-user");
+      const proj = cli("add-project", { shortName: projSN("CFB"), name: `${RUN} cf-bundle project`, leader: me.login });
+      try {
+        const field = cli("add-custom-field", { name: `${RUN}-priority`, fieldTypeId: "enum[1]" });
+        try {
+          const bundle = cli("create-bundle", { bundleType: "enum", name: `${RUN}-priority-bundle` });
+          cli("add-bundle-value", { bundleType: "enum", bundleId: bundle.id, value: "Low" });
+          cli("add-bundle-value", { bundleType: "enum", bundleId: bundle.id, value: "Medium" });
+          cli("add-bundle-value", { bundleType: "enum", bundleId: bundle.id, value: "High" });
+          cli("attach-bundle-to-field", { customFieldId: field.id, bundleId: bundle.id, bundleType: "enum" });
+          cli("add-custom-field-to-project", { projectId: proj.id, customFieldId: field.id });
+          const projectFields = cli("get-project-custom-fields", { projectId: proj.id });
+          const projField = projectFields.find(pf => pf.field?.id === field.id);
+          assert.ok(projField, "custom field is on project");
+          assert.equal(projField.bundle?.id, bundle.id, "bundle is attached to project field");
+          t.diagnostic(`→ project ${proj.shortName}: field "${RUN}-priority" with bundle ${bundle.id} (Low/Medium/High)`);
+        } finally {
+          cli("delete-custom-field", { customFieldId: field.id });
+        }
+      } finally {
+        tryDo(() => cli("delete-project", { projectId: proj.id }));
+      }
     });
   });
 

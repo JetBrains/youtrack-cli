@@ -380,6 +380,10 @@ cmd("add-custom-field-to-project", "Add custom field to project", ["projectId", 
   });
 });
 
+cmd("get-project-custom-fields", "List custom fields attached to a project", ["projectId"], async (ctx, args) => {
+  return doGet(ctx.base, `${API.PROJECTS}/${enc(args.projectId)}/fields?fields=id,field(id,name),bundle(id,name)&$top=-1`, ctx.token);
+});
+
 cmd("set-time-tracking-settings", "Enable/configure time tracking for project", ["projectId", "?enabled", "?spentTimeField", "?estimationField"], async (ctx, args) => {
   const body = { enabled: parseBool(args.enabled) };
   if (args.spentTimeField) body.spentTimeField = { field: { name: args.spentTimeField } };
@@ -729,6 +733,24 @@ cmd("delete-tag", "Delete tag", ["tagId"], async (ctx, args) => {
   return doDelete(ctx.base, `${API.TAGS}/${enc(args.tagId)}`, ctx.token);
 });
 
+cmd("add-tag", "Create a tag with sharing settings", ["name", "ownerId", "?colorId", "?isShareable", "?isUpdatable", "?untagOnResolve", "?pinned", "?pinnedByDefault"], async (ctx, args) => {
+  const sharingSettings = { permittedGroups: [], permittedUsers: [] };
+  const body = {
+    name: args.name,
+    owner: { id: args.ownerId },
+    isShareable: args.isShareable !== undefined ? parseBool(args.isShareable) : true,
+    isUpdatable: args.isUpdatable !== undefined ? parseBool(args.isUpdatable) : true,
+    untagOnResolve: args.untagOnResolve !== undefined ? parseBool(args.untagOnResolve) : false,
+    pinned: args.pinned !== undefined ? parseBool(args.pinned) : false,
+    pinnedByDefault: args.pinnedByDefault !== undefined ? parseBool(args.pinnedByDefault) : false,
+    readSharingSettings: sharingSettings,
+    updateSharingSettings: sharingSettings,
+    tagSharingSettings: sharingSettings,
+  };
+  if (args.colorId) body.color = { id: args.colorId };
+  return doPost(ctx.base, `${API.TAGS}?fields=id,name,owner(id,login),color(id),isShareable,isUpdatable,pinned`, ctx.token, body);
+});
+
 // ── Work Items ────────────────────────────────────────────────────────────────
 
 cmd("add-work-item", "Add work item to issue", ["issueId", "minutes", "?workType", "?text", "?authorLogin", "?date"], async (ctx, args) => {
@@ -773,6 +795,10 @@ cmd("restore-default-workflows", "Restore default workflows", [], async (ctx) =>
 
 cmd("get-global-settings", "Get global settings", [], async (ctx) => {
   return doGet(ctx.base, `${API.GLOBAL_SETTINGS}?fields=id,baseUrl,maxUploadFileSize,maxExportItems,ringUrl`, ctx.token);
+});
+
+cmd("get-frontend-config", "Get YouTrack frontend configuration", [], async (ctx) => {
+  return doGet(ctx.base, `/api/config`, ctx.token);
 });
 
 cmd("enable-feature-flag", "Toggle system-wide feature flag", ["feature", "?enabled"], async (ctx, args) => {
@@ -1039,10 +1065,35 @@ cmd("delete-custom-field", "Delete custom field prototype", ["customFieldId"], a
   return doDelete(ctx.base, `${API.CUSTOM_FIELDS}/customFields/${enc(args.customFieldId)}`, ctx.token);
 });
 
+const BUNDLE_TYPE_MAP = { enum: "EnumBundle", build: "BuildBundle", version: "VersionBundle" };
+function bundleTypeName(t) {
+  const n = BUNDLE_TYPE_MAP[t.replace(/Bundle$/i, "").toLowerCase()];
+  if (!n) throw new Error(`Invalid bundleType '${t}'. Must be one of: enum, build, version`);
+  return n;
+}
+function bundlePath(t) { return t.replace(/Bundle$/i, "").toLowerCase(); }
+
 cmd("add-bundle-value", "Add value to enum bundle", ["bundleType", "bundleId", "value"], async (ctx, args) => {
-  // bundleType can be a $type name (e.g. "EnumBundle") or a path name (e.g. "enum")
-  const pathType = args.bundleType.replace(/Bundle$/i, "").toLowerCase();
-  return doPost(ctx.base, `${API.CUSTOM_FIELDS}/bundles/${enc(pathType)}/${enc(args.bundleId)}/values`, ctx.token, { name: args.value });
+  return doPost(ctx.base, `${API.CUSTOM_FIELDS}/bundles/${enc(bundlePath(args.bundleType))}/${enc(args.bundleId)}/values`, ctx.token, { name: args.value });
+});
+
+cmd("get-bundles", "List bundles of a given type", ["bundleType"], async (ctx, args) => {
+  return doGet(ctx.base, `${API.CUSTOM_FIELDS}/bundles/${enc(bundlePath(args.bundleType))}?fields=id,name&$top=-1`, ctx.token);
+});
+
+cmd("create-bundle", "Create a custom field bundle", ["bundleType", "?name"], async (ctx, args) => {
+  const body = { $type: bundleTypeName(args.bundleType) };
+  if (args.name) body.name = args.name;
+  return doPost(ctx.base, `${API.CUSTOM_FIELDS}/bundles/${enc(bundlePath(args.bundleType))}?fields=id,name`, ctx.token, body);
+});
+
+cmd("attach-bundle-to-field", "Attach a bundle to a custom field prototype", ["customFieldId", "bundleId", "bundleType"], async (ctx, args) => {
+  return doPut(ctx.base, `${API.CUSTOM_FIELDS}/customFields/${enc(args.customFieldId)}/fieldDefaults/bundle?fields=id,name`, ctx.token, { id: args.bundleId, $type: bundleTypeName(args.bundleType) });
+});
+
+cmd("change-custom-field-privacy", "Set isPublic on a custom field prototype", ["customFieldId", "?isPublic"], async (ctx, args) => {
+  const isPublic = args.isPublic !== undefined ? parseBool(args.isPublic) : false;
+  return doPost(ctx.base, `${API.CUSTOM_FIELDS}/customFields/${enc(args.customFieldId)}?fields=id,fieldDefaults(isPublic)`, ctx.token, { fieldDefaults: { isPublic } });
 });
 
 // ── Work Time & Work Item Types ───────────────────────────────────────────────
