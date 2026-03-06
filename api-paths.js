@@ -34,5 +34,6 @@ export const API = {
   REMOVED_DOCUMENTS: "/api/removedDocuments",
   GANTT:           "/api/ganttCharts",
   CANVAS:          "/api/planningCanvases",
+  ISSUE_COUNT:     "/api/issuesGetter/count",
   GRAZIE:          "/api/grazie/config",
 };

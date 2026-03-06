@@ -119,8 +119,8 @@ Run `youtrack-cli --help` to see every available command with its parameters.
 | Area | Commands |
 |---|---|
 | Issues | Create, search, view, update, delete; manage custom fields and visibility |
-| Comments | Add, edit, delete comments on issues and articles; control visibility |
-| Issue links | Link issues with typed relationships (depends on, duplicates, etc.) |
+| Comments | Add, edit, pin, delete comments on issues and articles via unified commands (`--place issues\|articles`); control visibility |
+| Issue links | Link issues with typed relationships; list and remove links; count issues by query |
 | Articles | Full CRUD for knowledge base articles; parent/child structure; visibility |
 | Projects | Create and configure projects; manage teams, time tracking, workflows |
 | Users | Create users (`STANDARD_USER`, `AGENT`, `REPORTER`); manage bans and profile settings (locale, timezone, notifications) |

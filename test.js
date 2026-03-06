@@ -429,6 +429,19 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       t.diagnostic(`→ ${issueId} "relates to" ${issueId2}`);
     });
 
+    it("get-linked-issues", (t) => {
+      const list = cli("get-linked-issues", { issueId, linkType: "relates to" });
+      assert.ok(Array.isArray(list));
+      assert.ok(list.some(i => i.idReadable === issueId2));
+      t.diagnostic(`→ ${list.length} issue(s) linked via "relates to"`);
+    });
+
+    it("remove-issue-link", (t) => {
+      cli("link-issues", { issueId, linkedIssueId: issueId2, linkType: "depends on" });
+      cli("remove-issue-link", { issueId, linkedIssueId: issueId2, linkType: "depends on" });
+      t.diagnostic(`→ "depends on" link from ${issueId} to ${issueId2} removed`);
+    });
+
     it("add-issue-link-type", (t) => {
       const r = cli("add-issue-link-type", { name: `${RUN}-link`, sourceToTarget: `${RUN}-blocks`, targetToSource: `${RUN}-blocked by` });
       assert.ok(r.id);
@@ -447,7 +460,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       projId = proj.id;
       const i = cli("add-issue", { projectShortName: proj.shortName, summary: `${RUN}-comment-issue` });
       issueId = i.idReadable;
-      const c = cli("add-comment", { issueId, text: `${RUN} initial comment` });
+      const c = cli("add-comment", { parentId: issueId, text: `${RUN} initial comment` });
       commentId = c.id;
     });
 
@@ -456,7 +469,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
     });
 
     it("add-comment", (t) => {
-      const c = cli("add-comment", { issueId, text: `${RUN} test comment` });
+      const c = cli("add-comment", { parentId: issueId, text: `${RUN} test comment` });
       assert.ok(c.id);
       t.diagnostic(`→ comment created: ${c.id}`);
     });
@@ -469,23 +482,56 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
     });
 
     it("update-comment", (t) => {
-      const r = cli("update-comment", { issueId, commentId, text: `${RUN} comment updated` });
+      const r = cli("update-comment", { parentId: issueId, commentId, text: `${RUN} comment updated` });
       assert.ok(r.text.endsWith("updated"));
       t.diagnostic(`→ comment ${commentId} updated`);
     });
 
     it("update-comment-visibility", (t) => {
-      const r = cli("update-comment-visibility", { issueId, commentId });
+      const r = cli("update-comment-visibility", { parentId: issueId, commentId });
       assert.ok(r !== null);
       t.diagnostic(`→ visibility updated for comment ${commentId}`);
     });
 
+    it("pin-comment", (t) => {
+      const r = cli("pin-comment", { parentId: issueId, commentId });
+      assert.equal(r.pinned, true);
+      t.diagnostic(`→ comment ${commentId} pinned`);
+    });
+
+    it("pin-comment (unpin)", (t) => {
+      const r = cli("pin-comment", { parentId: issueId, commentId, pinned: "false" });
+      assert.equal(r.pinned, false);
+      t.diagnostic(`→ comment ${commentId} unpinned`);
+    });
+
     it("delete-comment", (t) => {
-      const c = cli("add-comment", { issueId, text: `${RUN} to-delete` });
+      const c = cli("add-comment", { parentId: issueId, text: `${RUN} to-delete` });
       assert.ok(c.id);
-      const r = cli("delete-comment", { issueId, commentId: c.id });
+      const r = cli("delete-comment", { parentId: issueId, commentId: c.id });
       assert.ok(r !== null);
       t.diagnostic(`→ comment ${c.id} created and deleted`);
+    });
+  });
+
+  // ── Issue count ───────────────────────────────────────────────────────────
+
+  describe("issue-count", () => {
+    let projId, projShortName;
+
+    before(() => {
+      const me = cli("get-current-user");
+      const proj = cli("add-project", { shortName: projSN("IC"), name: `${RUN} count project`, leader: me.login });
+      projId = proj.id; projShortName = proj.shortName;
+      cli("add-issue", { projectShortName: projShortName, summary: `${RUN}-count-issue` });
+    });
+
+    after(() => { tryDo(() => cli("delete-project", { projectId: projId })); });
+
+    it("get-issue-count", (t) => {
+      const r = cli("get-issue-count", { query: `project: ${projShortName}` });
+      assert.ok(typeof r.count === "number");
+      t.diagnostic(`→ count: ${r.count}`);
     });
   });
 
@@ -500,7 +546,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       projId = proj.id;
       const i = cli("add-issue", { projectShortName: proj.shortName, summary: `${RUN}-reaction-issue` });
       issueId = i.idReadable;
-      const c = cli("add-comment", { issueId, text: `${RUN} reaction comment` });
+      const c = cli("add-comment", { parentId: issueId, text: `${RUN} reaction comment` });
       commentId = c.id;
     });
 
@@ -663,7 +709,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       const childArticle = cli("add-article", { projectShortName: projShortName, summary: `${RUN}-article-child` });
       articleChildId = childArticle.idReadable;
       cli("set-parent-article", { articleId: articleChildId, parentArticleId: articleId });
-      const aComment = cli("add-article-comment", { articleId, text: `${RUN} article comment` });
+      const aComment = cli("add-comment", { parentId: articleId, text: `${RUN} article comment`, place: "articles" });
       articleCommentId = aComment.id;
     });
 
@@ -704,8 +750,8 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       t.diagnostic(`→ ${articleChildId} → parent: ${articleId}`);
     });
 
-    it("add-article-comment", (t) => {
-      const c = cli("add-article-comment", { articleId, text: `${RUN} test article comment` });
+    it("add-comment (article)", (t) => {
+      const c = cli("add-comment", { parentId: articleId, text: `${RUN} test article comment`, place: "articles" });
       assert.ok(c.id);
       t.diagnostic(`→ article comment created: ${c.id}`);
     });
@@ -717,10 +763,34 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       t.diagnostic(`→ ${list.length} comments on ${articleId}`);
     });
 
-    it("delete-article-comment", (t) => {
-      const c = cli("add-article-comment", { articleId, text: `${RUN} to-delete` });
+    it("update-comment (article)", (t) => {
+      const r = cli("update-comment", { parentId: articleId, commentId: articleCommentId, text: `${RUN} updated`, place: "articles" });
+      assert.ok(r.text.endsWith("updated"));
+      t.diagnostic(`→ article comment ${articleCommentId} updated`);
+    });
+
+    it("update-comment-visibility (article)", (t) => {
+      const r = cli("update-comment-visibility", { parentId: articleId, commentId: articleCommentId, place: "articles" });
+      assert.ok(r !== null);
+      t.diagnostic(`→ visibility updated for article comment ${articleCommentId}`);
+    });
+
+    it("pin-comment (article)", (t) => {
+      const r = cli("pin-comment", { parentId: articleId, commentId: articleCommentId, place: "articles" });
+      assert.equal(r.pinned, true);
+      t.diagnostic(`→ article comment ${articleCommentId} pinned`);
+    });
+
+    it("pin-comment (article, unpin)", (t) => {
+      const r = cli("pin-comment", { parentId: articleId, commentId: articleCommentId, place: "articles", pinned: "false" });
+      assert.equal(r.pinned, false);
+      t.diagnostic(`→ article comment ${articleCommentId} unpinned`);
+    });
+
+    it("delete-comment (article)", (t) => {
+      const c = cli("add-comment", { parentId: articleId, text: `${RUN} to-delete`, place: "articles" });
       assert.ok(c.id);
-      const r = cli("delete-article-comment", { articleId, commentId: c.id });
+      const r = cli("delete-comment", { parentId: articleId, commentId: c.id, place: "articles" });
       assert.ok(r !== null);
       t.diagnostic(`→ article comment ${c.id} created and deleted`);
     });
@@ -733,12 +803,12 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
 
     it("restore-document", (t) => {
       const a = cli("add-article", { projectShortName: projShortName, summary: `${RUN}-restore-test` });
-      cli("raw-post", { path: `/api/articles/${a.idReadable}?fields=id`, body: JSON.stringify({ trashed: true }) });
+      cli("delete-article", { articleId: a.idReadable });
       const removed = cli("get-removed-documents");
-      assert.ok(removed.some(d => d.idReadable === a.idReadable), "soft-deleted article appears in trash");
+      assert.ok(removed.some(d => d.idReadable === a.idReadable), "deleted article appears in trash");
       cli("restore-document", { idReadable: a.idReadable });
       cli("delete-article", { articleId: a.idReadable });
-      t.diagnostic(`→ ${a.idReadable} soft-deleted, restored, and cleaned up`);
+      t.diagnostic(`→ ${a.idReadable} deleted, restored, and cleaned up`);
     });
 
     it("delete-article", (t) => {
@@ -1538,7 +1608,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
     });
 
     it("add-comment --asUser sets author", (t) => {
-      const c = cli("add-comment", { issueId, text: `comment as ${userLogin}`, asUser: userLogin });
+      const c = cli("add-comment", { parentId: issueId, text: `comment as ${userLogin}`, asUser: userLogin });
       assert.ok(c.id, "comment id returned");
       assert.ok(c.author?.id === userId || c.author?.login === userLogin, "author matches asUser");
       t.diagnostic(`→ comment ${c.id} with author=${userLogin}`);
@@ -1550,8 +1620,8 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       t.diagnostic(`→ article ${a.idReadable} created as ${userLogin}`);
     });
 
-    it("add-article-comment --asUser sets author", (t) => {
-      const c = cli("add-article-comment", { articleId, text: `article comment as ${userLogin}`, asUser: userLogin });
+    it("add-comment --asUser sets author (article)", (t) => {
+      const c = cli("add-comment", { parentId: articleId, text: `article comment as ${userLogin}`, place: "articles", asUser: userLogin });
       assert.ok(c.id, "comment id returned");
       assert.ok(c.author?.id === userId || c.author?.login === userLogin, "author matches asUser");
       t.diagnostic(`→ article comment ${c.id} with author=${userLogin}`);
