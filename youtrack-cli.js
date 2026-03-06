@@ -999,18 +999,6 @@ cmd("add-work-item-type", "Create work item type", ["name", "?autoAttach"], asyn
   return doPost(ctx.base, `${API.WORK_ITEM_TYPES}?fields=id,name`, ctx.token, { name: args.name, autoAttach: args.autoAttach === "true" });
 });
 
-// ── User Management ───────────────────────────────────────────────────────────
-
-cmd("create-user", "Create user via YouTrack API", ["login", "fullName", "email", "?password"], async (ctx, args) => {
-  const body = { login: args.login, fullName: args.fullName, email: args.email };
-  if (args.password) body.password = args.password;
-  return doPost(ctx.base, `${API.USERS}?fields=id,login,fullName,email`, ctx.token, body);
-});
-
-cmd("delete-user", "Delete user via YouTrack API", ["userId"], async (ctx, args) => {
-  return doDelete(ctx.base, `${API.USERS}/${enc(args.userId)}`, ctx.token);
-});
-
 // ── Auth / Token ──────────────────────────────────────────────────────────────
 
 cmd("get-token", "Get permanent token using login/password (basic auth)", ["login", "password", "?tokenName", "?scope", "?setEnv"], async (ctx, args) => {
