@@ -199,6 +199,7 @@ Group/user IDs are the opaque `id` field returned by `get-users` and `get-groups
 |---|---|---|
 | `tag-issue` | `issueId`, `tagId` | |
 | `delete-tag` | `tagId` | |
+| `add-tag` | `name`, `ownerId` | `colorId`, `isShareable`, `isUpdatable`, `untagOnResolve`, `pinned`, `pinnedByDefault` |
 | `get-work-item-types` | | |
 | `add-work-item` | `issueId`, `minutes` | `workType` |
 | `get-attachments` | `issueId` | |
@@ -228,6 +229,12 @@ Group/user IDs are the opaque `id` field returned by `get-users` and `get-groups
 | `add-custom-field` | `name`, `fieldTypeId` | |
 | `delete-custom-field` | `customFieldId` | |
 | `add-bundle-value` | `bundleType`, `bundleId`, `name` | |
+| `get-bundles` | `bundleType` | |
+| `create-bundle` | `bundleType` | `name` |
+| `attach-bundle-to-field` | `customFieldId`, `bundleId`, `bundleType` | |
+| `change-custom-field-privacy` | `customFieldId` | `isPublic` (default `false`) |
+
+`bundleType` accepts path names (`enum`, `build`, `version`) or `$type` names (`EnumBundle`, etc.).
 
 Use `get-custom-field-prototypes` to find `customFieldId`, `fieldTypeId`, `bundleType`, and `bundleId`.
 
@@ -235,6 +242,7 @@ Use `get-custom-field-prototypes` to find `customFieldId`, `fieldTypeId`, `bundl
 | Command | Required params | Optional params |
 |---|---|---|
 | `get-global-settings` | | |
+| `get-frontend-config` | | |
 | `enable-feature-flag` | `feature`, `enabled` | |
 | `set-license` | `username`, `license` | |
 | `set-email-settings` | `host`, `port`, `fromAddress` | `replyToAddress` |

@@ -131,7 +131,7 @@ Run `youtrack-cli --help` to see every available command with its parameters.
 | Tags | Tag issues and articles |
 | Workflows | View, create, and manage automation workflows |
 | Global settings | Email, feature flags, license, AI features, banners |
-| Custom fields | Manage field prototypes and bundle values |
+| Custom fields | Manage field prototypes and bundle values; create and attach bundles to fields; set field privacy |
 | VCS & mailbox | Configure VCS integrations and mailbox rules |
 | Raw API | `raw-get`, `raw-post`, `raw-delete` for any endpoint not covered above |
 
