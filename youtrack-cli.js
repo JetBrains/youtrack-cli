@@ -1288,12 +1288,7 @@ function printUsage() {
   console.log("                      Use --fields ? to list available top-level fields");
   console.log("  --base-url URL      Override YOUTRACK_BASE_URL");
   console.log("  --token TOKEN       Override YOUTRACK_TOKEN\n");
-  console.log("Commands:");
-  const maxLen = Math.max(...Object.keys(COMMANDS).map(k => k.length));
-  for (const [name, c] of Object.entries(COMMANDS)) {
-    const params = c.params.map(p => p.startsWith("?") ? `[--${p.slice(1)}]` : `--${p}`).join(" ");
-    console.log(`  ${name.padEnd(maxLen + 2)} ${params.padEnd(50)} ${c.description}`);
-  }
+  console.log("Run 'youtrack-cli list-commands' to see all available commands.");
 }
 
 async function main() {
