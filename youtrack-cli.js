@@ -1257,11 +1257,19 @@ cmd("raw", "Authenticated API call with method, pagination and field selection",
 // ── JSON mode (for programmatic use) ─────────────────────────────────────────
 
 cmd("list-commands", "List all available commands", [], async () => {
-  return Object.entries(COMMANDS).map(([name, c]) => ({
-    name,
-    description: c.description,
-    params: c.params,
+  const entries = Object.entries(COMMANDS);
+  if (!process.stdout.isTTY) {
+    return entries.map(([name, c]) => ({ name, description: c.description, params: c.params }));
+  }
+  const maxName = Math.max(...entries.map(([n]) => n.length));
+  const maxParams = Math.max(...entries.map(([, c]) => {
+    return c.params.map(p => p.startsWith("?") ? `[--${p.slice(1)}]` : `--${p}`).join(" ").length;
   }));
+  const lines = entries.map(([name, c]) => {
+    const params = c.params.map(p => p.startsWith("?") ? `[--${p.slice(1)}]` : `--${p}`).join(" ");
+    return `  ${name.padEnd(maxName + 2)}${params.padEnd(maxParams + 2)}${c.description}`;
+  });
+  return lines.join("\n");
 });
 
 // ── Main ──────────────────────────────────────────────────────────────────────
@@ -1389,7 +1397,10 @@ async function main() {
       result = filterFields(result, fieldsFilter.split(",").map(s => s.trim()));
     }
 
-    if (!quiet) console.log(JSON.stringify(result, null, 2));
+    if (!quiet) {
+      if (typeof result === "string") process.stdout.write(result + "\n");
+      else console.log(JSON.stringify(result, null, 2));
+    }
   } catch (err) {
     const errOut = { error: err.message };
     if (err.suggestion) errOut.suggestion = err.suggestion;
