@@ -1644,7 +1644,9 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       const u = cli("add-user", { login: userLogin, fullName: `${RUN} AsUser`, email: `${userLogin}@example.com`, password: "Password123!" });
       userId = u.id;
       cli("add-user-to-project-team", { projectShortName: projShortName, userId });
-      tryDo(() => cli("grant-role-to-user", { userId, roleName: "Contributor", projectName: `${RUN} asUser project` }));
+      const roles = cli("get-roles");
+      const contributorRole = roles.find(r => /contributor|貢献者|member|developer/i.test(r.name)) || roles[0];
+      if (contributorRole) tryDo(() => cli("grant-role-to-user", { userId, roleName: contributorRole.name, projectName: `${RUN} asUser project` }));
       const i = cli("add-issue", { projectShortName: projShortName, summary: `${RUN}-asUser-base` });
       issueId = i.idReadable;
       const a = cli("add-article", { projectShortName: projShortName, summary: `${RUN}-asUser-article` });
