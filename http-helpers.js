@@ -5,6 +5,13 @@ import { request as httpRequest } from "http";
 import { URL } from "url";
 import { readFileSync, existsSync } from "fs";
 
+// ── Verbose / logging state ───────────────────────────────────────────────────
+
+let _verbose = false;
+let _httpWarnShown = false;
+
+export function setVerbose(v) { _verbose = v; }
+
 // ── HTTP core ────────────────────────────────────────────────────────────────
 
 function collectResponse(res, resolve, reject) {
@@ -12,6 +19,7 @@ function collectResponse(res, resolve, reject) {
   res.on("data", (c) => chunks.push(c));
   res.on("end", () => {
     const text = Buffer.concat(chunks).toString();
+    if (_verbose) process.stderr.write(`< ${res.statusCode} ${res.statusMessage}\n< ${text.slice(0, 500)}\n`);
     if (res.statusCode >= 300) {
       let errMsg = `HTTP ${res.statusCode}`;
       try {
@@ -21,10 +29,11 @@ function collectResponse(res, resolve, reject) {
       } catch {
         errMsg += text ? `: ${text}` : "";
       }
-      if (res.statusCode === 401) errMsg += " — verify YOUTRACK_TOKEN is valid and not expired";
-      if (res.statusCode === 403) errMsg += " — insufficient permissions for this operation";
-      if (res.statusCode === 404) errMsg += " — resource not found; check the ID or short name";
-      reject(new Error(errMsg));
+      const err = new Error(errMsg);
+      if (res.statusCode === 401) err.suggestion = "verify YOUTRACK_TOKEN is valid and not expired";
+      if (res.statusCode === 403) err.suggestion = "check permissions for this operation";
+      if (res.statusCode === 404) err.suggestion = "check the ID or short name";
+      reject(err);
     } else {
       try { resolve(text ? JSON.parse(text) : null); }
       catch { resolve(text); }
@@ -38,14 +47,19 @@ function buildUrl(baseUrl, path) {
   return new URL(basePath + path, base.origin);
 }
 
-function httpReqCore(method, baseUrl, path, authHeader, body = null) {
+function httpReqCore(method, baseUrl, path, authHeader, body = null, extraHeaders = {}) {
   return new Promise((resolve, reject) => {
     const url = buildUrl(baseUrl, path);
     const isHttps = url.protocol === "https:";
+    if (!isHttps && !_httpWarnShown) {
+      _httpWarnShown = true;
+      process.stderr.write("[warn] Credentials are being sent over plain HTTP. Use HTTPS for security.\n");
+    }
     const data = body !== null ? JSON.stringify(body) : null;
     const headers = {
       Accept: "application/json",
       Authorization: authHeader,
+      ...extraHeaders,
     };
     if (data !== null) {
       headers["Content-Type"] = "application/json";
@@ -58,6 +72,13 @@ function httpReqCore(method, baseUrl, path, authHeader, body = null) {
       method,
       headers,
     };
+    if (_verbose) {
+      const safeAuth = authHeader
+        .replace(/Bearer \S+/, "Bearer [REDACTED]")
+        .replace(/Basic \S+/, "Basic [REDACTED]");
+      process.stderr.write(`> ${method} ${url.href}\n> Authorization: ${safeAuth}\n`);
+      if (data) process.stderr.write(`> Body: ${data.slice(0, 500)}\n`);
+    }
     const req = (isHttps ? httpsRequest : httpRequest)(options, (res) =>
       collectResponse(res, resolve, reject)
     );

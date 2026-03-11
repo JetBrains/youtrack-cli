@@ -11,9 +11,9 @@ import { join } from "path";
 import { API } from "./api-paths.js";
 import { basename, extname } from "path";
 import {
-  doGet, doPost, doPut, doDelete, doMultipart, httpReqBasicAuth,
+  doGet, doPost, doPut, doDelete, doMultipart, httpReq, httpReqBasicAuth,
   enc, resolveContent, parseVisibility, parseBool, parseUserIdOrMe, parseIds,
-  findByName, findByLogin, findByShortName,
+  findByName, findByLogin, findByShortName, setVerbose,
 } from "./http-helpers.js";
 
 const MIME_TYPES = {
@@ -43,6 +43,54 @@ async function resolveUserRef(base, token, login) {
 }
 
 // Poll until a user with the given login appears in YouTrack (Hub sync complete).
+
+// Filter a result object/array to only the specified dot-path fields.
+function filterFields(data, spec) {
+  const tree = {};
+  for (const path of spec) {
+    const parts = path.split(".");
+    let node = tree;
+    for (let i = 0; i < parts.length - 1; i++) { node = node[parts[i]] = node[parts[i]] || {}; }
+    node[parts[parts.length - 1]] = true;
+  }
+  function apply(obj, t) {
+    if (Array.isArray(obj)) return obj.map(el => apply(el, t));
+    if (!obj || typeof obj !== "object") return obj;
+    const out = {};
+    for (const [k, v] of Object.entries(t)) if (k in obj) out[k] = v === true ? obj[k] : apply(obj[k], v);
+    return out;
+  }
+  return apply(data, tree);
+}
+
+// Parse flexible date input: ms timestamp, relative ("7d", "-2d", "24h"), or ISO date.
+function parseDate(value) {
+  if (!value) return undefined;
+  if (/^\d+$/.test(value)) return parseInt(value);
+  const rel = value.match(/^(-?\d+)(d|h)$/);
+  if (rel) return Date.now() + parseInt(rel[1]) * (rel[2] === "d" ? 86400000 : 3600000);
+  const d = new Date(value);
+  if (!isNaN(d.getTime())) return d.getTime();
+  throw new Error(`Invalid date: "${value}". Use ms timestamp, relative ("7d", "-2d", "24h"), or ISO date ("YYYY-MM-DD").`);
+}
+
+// Heuristic: commands whose names start with write prefixes are write operations.
+const _WRITE_PREFIXES = ["add-", "delete-", "update-", "set-", "apply-", "link-", "unlink-",
+  "ban-", "unban-", "grant-", "revoke-", "archive-", "convert-", "attach-", "pin-",
+  "create-", "restore-", "disable-", "enable-", "switch-", "remove-", "tag-"];
+const _EXTRA_WRITE = new Set(["get-token", "raw-post", "raw-delete"]);
+function isWriteCommand(name) {
+  return _EXTRA_WRITE.has(name) || _WRITE_PREFIXES.some(p => name.startsWith(p));
+}
+
+const COMMAND_SUGGESTIONS = {
+  "add-project": "Ensure --leader is a valid user login. Run: youtrack-cli get-current-user",
+  "set-custom-field": "Run get-custom-field-prototypes to verify fieldName. fieldType must be one of: enum, user, period, text, int, string",
+  "add-bundle-value": "Run get-bundles to verify bundle name and type",
+  "add-issue": "Ensure --projectShortName is a valid project short name. Run: youtrack-cli get-projects",
+  "apply-command": "Check command syntax. Run: youtrack-cli get-command-assist --query <query> --issueIds <id>",
+};
+
 // ── Command registry ──────────────────────────────────────────────────────────
 
 const COMMANDS = {};
@@ -717,8 +765,8 @@ cmd("delete-agile-board", "Delete agile board", ["boardId"], async (ctx, args) =
 cmd("add-sprint", "Create sprint", ["boardId", "name", "startDate", "endDate", "?goal"], async (ctx, args) => {
   return doPost(ctx.base, `${API.AGILES}/${enc(args.boardId)}/sprints?fields=id,name,start,finish,goal`, ctx.token, {
     name: args.name,
-    start: parseInt(args.startDate),
-    finish: parseInt(args.endDate),
+    start: parseDate(args.startDate),
+    finish: parseDate(args.endDate),
     goal: args.goal || "",
   });
 });
@@ -1174,6 +1222,38 @@ cmd("raw-delete", "Raw DELETE request", ["path"], async (ctx, args) => {
   return doDelete(ctx.base, args.path, ctx.token);
 });
 
+cmd("raw", "Authenticated API call with method, pagination and field selection",
+  ["path", "?method", "?body", "?apiFields", "?top", "?paginate"],
+  async (ctx, args) => {
+    const method = (args.method || "GET").toUpperCase();
+    if (process.env.YOUTRACK_RO === "1" && method !== "GET") {
+      throw new Error("Read-only mode active (YOUTRACK_RO=1). Write operations are blocked.");
+    }
+    let path = args.path;
+    if (args.apiFields) {
+      path += (path.includes("?") ? "&" : "?") + `$fields=${enc(args.apiFields)}`;
+    }
+    const body = args.body ? JSON.parse(args.body) : null;
+    if (!args.paginate || args.paginate === "false") {
+      if (args.top) path += (path.includes("?") ? "&" : "?") + `$top=${args.top}`;
+      return httpReq(method, ctx.base, path, ctx.token, body);
+    }
+    // Paginate: accumulate pages until a page is smaller than pageSize
+    const pageSize = args.top ? parseInt(args.top) : 100;
+    let skip = 0;
+    const results = [];
+    while (true) {
+      const sep = path.includes("?") ? "&" : "?";
+      const page = await httpReq("GET", ctx.base, `${path}${sep}$top=${pageSize}&$skip=${skip}`, ctx.token);
+      if (!Array.isArray(page) || page.length === 0) break;
+      results.push(...page);
+      if (page.length < pageSize) break;
+      skip += pageSize;
+    }
+    return results;
+  }
+);
+
 // ── JSON mode (for programmatic use) ─────────────────────────────────────────
 
 cmd("list-commands", "List all available commands", [], async () => {
@@ -1191,17 +1271,21 @@ function printUsage() {
   console.log("Usage: youtrack-cli <command> [--param value ...]\n");
   console.log("Environment:");
   console.log("  YOUTRACK_BASE_URL  YouTrack instance URL (required)");
-  console.log("  YOUTRACK_TOKEN     Permanent token (required)\n");
+  console.log("  YOUTRACK_TOKEN     Permanent token (required)");
+  console.log("  YOUTRACK_RO=1      Read-only mode — blocks all write operations\n");
+  console.log("Global options:");
+  console.log("  --verbose, --debug  Log full HTTP requests/responses to stderr (auth redacted)");
+  console.log("  --quiet, -q         Suppress output (useful for scripting side-effects)");
+  console.log("  --fields <list>     Filter output to comma-separated fields (e.g. id,summary)");
+  console.log("                      Use --fields ? to list available top-level fields");
+  console.log("  --base-url URL      Override YOUTRACK_BASE_URL");
+  console.log("  --token TOKEN       Override YOUTRACK_TOKEN\n");
   console.log("Commands:");
   const maxLen = Math.max(...Object.keys(COMMANDS).map(k => k.length));
   for (const [name, c] of Object.entries(COMMANDS)) {
     const params = c.params.map(p => p.startsWith("?") ? `[--${p.slice(1)}]` : `--${p}`).join(" ");
     console.log(`  ${name.padEnd(maxLen + 2)} ${params.padEnd(50)} ${c.description}`);
   }
-  console.log("\nOptions:");
-  console.log("  --json             Force JSON output (default when piped)");
-  console.log("  --base-url URL     Override YOUTRACK_BASE_URL");
-  console.log("  --token TOKEN      Override YOUTRACK_TOKEN");
 }
 
 async function main() {
@@ -1218,12 +1302,22 @@ async function main() {
     process.exit(1);
   }
 
+  // Extract global boolean flags before --key value parsing
+  let verbose = false, quiet = false;
+  const filteredArgv = [];
+  for (const arg of argv.slice(1)) {
+    if (arg === "--verbose" || arg === "--debug") { verbose = true; continue; }
+    if (arg === "--quiet" || arg === "-q") { quiet = true; continue; }
+    filteredArgv.push(arg);
+  }
+  if (verbose) setVerbose(true);
+
   // Parse --key value pairs
   const parsed = {};
-  for (let i = 1; i < argv.length; i++) {
-    if (argv[i].startsWith("--") && i + 1 < argv.length) {
-      const key = argv[i].slice(2).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-      parsed[key] = argv[++i];
+  for (let i = 0; i < filteredArgv.length; i++) {
+    if (filteredArgv[i].startsWith("--") && i + 1 < filteredArgv.length) {
+      const key = filteredArgv[i].slice(2).replace(/-([a-z])/g, (_, c) => c.toUpperCase());
+      parsed[key] = filteredArgv[++i];
     }
   }
 
@@ -1249,10 +1343,20 @@ async function main() {
   delete parsed.token;
   delete parsed.json;
 
+  // Extract --fields filter
+  const fieldsFilter = parsed.fields;
+  delete parsed.fields;
+
   const noAuthCommands = ["list-commands", "get-token"];
   const needsAuth = !noAuthCommands.includes(commandName);
   if (commandName !== "list-commands" && !baseUrl) { console.error("Error: YOUTRACK_BASE_URL not set. Use --base-url or env var."); process.exit(1); }
   if (needsAuth && !token) { console.error("Error: YOUTRACK_TOKEN not set. Use --token or env var."); process.exit(1); }
+
+  // Read-only mode: block write commands before running handler
+  if (process.env.YOUTRACK_RO === "1" && isWriteCommand(commandName)) {
+    console.error(JSON.stringify({ error: "Read-only mode active (YOUTRACK_RO=1). Write operations are blocked." }, null, 2));
+    process.exit(1);
+  }
 
   // Validate required params
   for (const p of command.params) {
@@ -1272,10 +1376,25 @@ async function main() {
 
   try {
     const ctx = { base: baseUrl ? baseUrl.replace(/\/$/, "") : "", token: token || "" };
-    const result = await command.handler(ctx, args);
-    console.log(JSON.stringify(result, null, 2));
+    let result = await command.handler(ctx, args);
+
+    // Apply --fields filter
+    if (fieldsFilter === "?") {
+      const getKeys = (obj) => {
+        if (Array.isArray(obj) && obj.length > 0) return getKeys(obj[0]);
+        return obj && typeof obj === "object" ? Object.keys(obj) : [];
+      };
+      result = { availableFields: getKeys(result) };
+    } else if (fieldsFilter) {
+      result = filterFields(result, fieldsFilter.split(",").map(s => s.trim()));
+    }
+
+    if (!quiet) console.log(JSON.stringify(result, null, 2));
   } catch (err) {
-    console.error(JSON.stringify({ error: err.message }, null, 2));
+    const errOut = { error: err.message };
+    if (err.suggestion) errOut.suggestion = err.suggestion;
+    else if (COMMAND_SUGGESTIONS[commandName]) errOut.suggestion = COMMAND_SUGGESTIONS[commandName];
+    console.error(JSON.stringify(errOut, null, 2));
     process.exit(1);
   }
 }

@@ -41,6 +41,30 @@ youtrack-cli <command> [--param value ...]
 
 All output is JSON. Always pretty-print or summarize the result for the user rather than dumping raw JSON.
 
+**Do not guess flags or parameters.** Check this reference or run `youtrack-cli list-commands` to confirm valid parameter names before invoking any command.
+
+## Global options
+
+These flags work with every command:
+
+| Flag | Effect |
+|---|---|
+| `--verbose` / `--debug` | Log full HTTP requests and responses to stderr (auth credentials are redacted) |
+| `--quiet` / `-q` | Suppress all output (useful for scripting when only exit code matters) |
+| `--fields <list>` | Filter output to comma-separated fields, e.g. `--fields id,summary`. Use `--fields '?'` to list available top-level fields. |
+| `--base-url URL` | Override `YOUTRACK_BASE_URL` |
+| `--token TOKEN` | Override `YOUTRACK_TOKEN` |
+
+**Environment variable:**
+- `YOUTRACK_RO=1` — enable read-only mode; all write operations are blocked before execution.
+
+## Output formats
+
+- Default: pretty-printed JSON to stdout.
+- `--quiet`: no output (exit code 0 on success, 1 on error).
+- `--fields id,summary`: returns only the requested keys from the JSON result. Supports dot-paths for nested fields (e.g. `project.shortName`).
+- On error: `{ "error": "...", "suggestion": "..." }` printed to stderr, exit code 1.
+
 ## Prerequisites
 
 The following environment variables must be set (loaded automatically from `~/.youtrack-cli-env` if present):
@@ -255,13 +279,20 @@ Use `get-custom-field-prototypes` to find `customFieldId`, `fieldTypeId`, `bundl
 | `switch-grammar-correction` | `enabled` | |
 
 ### Raw API (escape hatch)
+
+Enhanced `raw` command (recommended):
 ```
-youtrack-cli raw-get --path "/api/issues?fields=id,summary&$top=5"
-youtrack-cli raw-post --path "/api/issues/MYPROJ-1" --body '{"summary":"updated"}'
-youtrack-cli raw-delete --path "/api/issues/MYPROJ-1"
+youtrack-cli raw --path "/api/admin/users" --apiFields "id,login,name" --top 5
+youtrack-cli raw --path "/api/issues/MYPROJ-1" --method POST --body '{"summary":"updated"}'
+youtrack-cli raw --path "/api/issues" --apiFields "id,summary" --top 100 --paginate true
 ```
 
-Use these when no specific command covers the needed endpoint.
+- `--method` defaults to `GET`
+- `--apiFields` appends `$fields=` to the URL (YouTrack field projection)
+- `--top` sets `$top=` page size; with `--paginate true` it auto-pages until exhausted
+- `--body` is a JSON string for POST/PUT
+
+Use `raw` when no specific command covers the needed endpoint.
 
 ## YouTrack query syntax
 
