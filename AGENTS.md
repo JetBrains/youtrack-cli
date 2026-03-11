@@ -1,97 +1,70 @@
 # AGENTS.md
 
-This file provides guidance to AI agents (Claude Code, Codex, etc.) when working with code in this repository.
+Zero-dependency ESM Node.js CLI for interacting with the YouTrack REST API. Designed for use by AI agents and developers.
 
-## Running the CLI
+## Agent Skill
+
+A full YouTrack interaction guide is available as an agent skill — load it when the user asks to manage YouTrack entities (issues, articles, projects, users, sprints, etc.):
+
+**`.agents/skills/youtrack-cli/SKILL.md`** — command reference, common workflows, output formats, and YouTrack-specific gotchas.
+
+## Development Commands
 
 ```bash
-npm start -- <command> [--param value ...]
-node youtrack-cli.js list-commands  # list all commands
+npm start -- <command> [--param value ...]         # run locally
+node youtrack-cli.js list-commands                 # list all commands (table in TTY, JSON when piped)
+npm test                                           # integration tests against a real YouTrack instance
+npm run setup                                      # npm link → exposes global `youtrack-cli`
+node --test --test-name-pattern="get-issue" test.js  # run a single test by name
 ```
 
-## Environment Setup
-
-Two env vars are required for most commands:
+## Environment
 
 ```bash
 export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
 export YOUTRACK_TOKEN=perm:...
 ```
 
-Alternatively, run `get-token --login ... --password ... --setEnv true` which writes `~/.youtrack-cli-env` (loaded automatically on each invocation).
+Or run `get-token --login ... --password ... --setEnv true` to write `~/.youtrack-cli-env` (auto-loaded on each invocation).
 
 ## Project Structure
-
-The project is a **zero-dependency, ESM Node.js CLI** designed for use by AI agents and developers interacting with the YouTrack REST API.
 
 | File | Role |
 |---|---|
 | `youtrack-cli.js` | Command registry and `main()` entrypoint |
-| `http-helpers.js` | HTTP primitives (`doGet`, `doPost`, `doPut`, `doDelete`, `httpReqBasicAuth`) and data-parsing utilities |
-| `api-paths.js` | Named constants for all YouTrack REST API paths (`API.*`) |
-| `test.js` | Node test runner integration tests against a real YouTrack instance |
-| `README.md` | User-facing command examples and supported feature areas |
+| `http-helpers.js` | HTTP primitives, data-parsing utilities, verbose/error logic |
+| `api-paths.js` | REST endpoint constants (`API.*`) |
+| `test.js` | Integration tests — no mocking, real YouTrack instance |
 
-Keep new command logic in `youtrack-cli.js`, and move reusable request/parsing code into `http-helpers.js`.
+Put new command logic in `youtrack-cli.js`. Move reusable request/parse helpers to `http-helpers.js`.
 
-## Build, Test, and Development Commands
+## Command Registration
 
-- `npm install`: install dependencies
-- `npm run start -- <command> [--param value]`: run CLI locally
-- `npm run setup`: run `npm link` to expose global `youtrack-cli`
-- `npm test`: run integration tests (`node --test test.js`)
-- `npm run test:watch`: watch mode for iterative test runs
-
-```bash
-npm run start -- list-commands
-node --test --test-name-pattern="get-issue" test.js
+```js
+cmd("name", "description", ["requiredParam", "?optionalParam"], async (ctx, args) => {
+  // ctx = { base, token }
+  return doGet(ctx.base, `${API.SOMETHING}?fields=id,name`, ctx.token);
+});
 ```
 
-## Architecture
-
-### Command registration pattern
-
-Every command is registered with `cmd(name, description, params[], handler)`:
-
-- `params` entries prefixed with `?` are optional (e.g., `"?description"`).
-- The handler receives `(ctx, args)` where `ctx = { base, token }` and `args` maps param names to CLI-supplied values.
-- All handlers are `async` and return JSON-serializable data, which `main()` prints as pretty JSON.
-
-### Argument parsing
-
-CLI arguments are `--key value` pairs. Kebab-case flags are converted to camelCase before lookup (e.g., `--base-url` → `baseUrl`). Required params are validated before the handler runs; missing ones exit with a usage message.
-
-### Auth
-
-- Most commands use Bearer token auth via the `Authorization: Bearer <token>` header.
-- `get-token` uses HTTP Basic auth (`httpReqBasicAuth`) to exchange login/password for a permanent token.
+- `?` prefix marks an optional param.
+- Handlers must return JSON-serializable data — `main()` prints it.
+- Flags are `--key value`; kebab-case is camelCase'd (`--base-url` → `baseUrl`).
 - `list-commands` and `get-token` are the only commands that skip token validation.
 
-### Documentation requirement
+## When Adding a Command
 
-When adding a new command:
-- Add a usage example to the "Examples" section of `README.md`.
-- Ensure the command is listed in the "Available commands" table in `README.md`.
-- If the command is part of a non-trivial process, add it to the "Common workflows" section of `.agents/skills/youtrack-cli/SKILL.md`.
+- Add a usage example and table row to `README.md`.
+- Add to `.agents/skills/youtrack-cli/SKILL.md` if part of a non-trivial workflow.
 
-## Coding Style & Naming Conventions
+## Coding Conventions
 
-- Use modern ESM (`import`/`export`) and Node 18+ compatible APIs.
-- Match existing style: 2-space indentation, double quotes, semicolons.
-- Command names use kebab-case (e.g., `get-current-user`); JS identifiers use camelCase.
-- Prefer small helpers for repeated lookup/validation logic.
-- Keep output JSON-serializable and errors actionable.
+- 2-space indentation, double quotes, semicolons — match surrounding code.
+- Command names: kebab-case. JS identifiers: camelCase.
 
-No dedicated formatter/linter is configured; keep changes style-consistent with surrounding code.
+## Testing
 
-## Testing Guidelines
-
-Tests use Node's built-in `node:test` framework and run against a live YouTrack instance.
-
-- Configure `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` (or generate via `get-token --setEnv true`).
-- Add integration coverage for every new command or branch.
-- Follow current naming style: `describe("area")` and `it("command-name")`.
-- Clean up created resources in `after()` hooks or inside test blocks.
+Tests run against a **real YouTrack instance — no mocking**. Set `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` before running. Clean up all created resources in `after()` hooks.
 
 ## ID Conventions
 
@@ -100,27 +73,21 @@ Tests use Node's built-in `node:test` framework and run against a live YouTrack 
 | Issue | `<PROJECT>-<n>` | `FOO-42` |
 | Project | short name | `FOO` |
 | User | login | `john.doe` |
-| Group | name | `Developers` |
-| Role | name | `Developer` |
-| Everything else | opaque `id` field from GET responses | `2-7` |
+| Group / Role | name | `Developers` / `Developer` |
+| Everything else | opaque `id` from API responses | `2-7` |
 
 ## API Conventions
 
-- **Visibility**: `permittedGroups` and `permittedUsers` are comma-separated names/logins. Empty = visible to all.
-- **Long text**: params like `?description`, `?content`, `?text` also accept a `...File` variant (e.g. `--descriptionFile ./notes.md`).
-- **Custom field bundles**: enum/state/version/build fields require a bundle to hold allowed values. The bundle is created and linked separately from the field prototype.
+- `permittedGroups` / `permittedUsers`: comma-separated names/logins. Empty = visible to all.
+- Long-text params (`?description`, `?content`, `?text`) accept a `...File` variant (e.g. `--descriptionFile ./notes.md`).
+- Custom field bundles: create the bundle and attach it to the field prototype as separate steps.
 
-## Common Gotchas
+## Gotchas
 
-- **`add-project` requires `--leader`**: the API rejects project creation without a leader login. Use `get-current-user` to get the current user's login if none is specified.
-- **`apply-command` with dotted/hyphenated logins**: the CLI auto-wraps `assignee`/`reporter` values containing `.`, `-`, or `@` in braces (e.g. `alice.qa` → `{alice.qa}`). Write the login as-is; the CLI handles the wrapping.
-- **`--asUser <login>`** sets `reporter`/`author` on the created entity. The target user must have at least a Contributor role in the project.
+- **IMPORTANT — `add-project` requires `--leader`**: the YouTrack API rejects project creation without it. Use `get-current-user` to get the current user's login if none is specified.
+- **`apply-command` logins**: the CLI auto-wraps logins containing `.`, `-`, or `@` in braces for YouTrack's command parser (`alice.qa` → `{alice.qa}`). Write the login as-is.
+- **`--asUser <login>`**: the target user must have at least a Contributor role in the project.
 
-## Commit & Pull Request Guidelines
+## Commits
 
-Git history follows Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`.
-
-- Write imperative, scoped commit messages (e.g., `fix: handle missing issue link type`).
-- Keep commits focused; avoid mixing refactors with behavior changes.
-- PRs should include: summary, rationale, test evidence (`npm test` output), and linked issue/task.
-- Update `README.md` examples and command tables when adding or changing commands.
+Use Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`. Keep commits focused; don't mix refactors with behavior changes.
