@@ -133,7 +133,7 @@ Run `youtrack-cli --help` to see every available command with its parameters.
 | Global settings | Email, feature flags, license, AI features, banners |
 | Custom fields | Manage field prototypes and bundle values; create and attach bundles to fields; set field privacy |
 | VCS & mailbox | Configure VCS integrations and mailbox rules |
-| Raw API | `raw-get`, `raw-post`, `raw-delete` for any endpoint not covered above |
+| Raw API | `raw --method GET/POST/DELETE/PUT --path ...` for any endpoint not covered above |
 
 ## License
 

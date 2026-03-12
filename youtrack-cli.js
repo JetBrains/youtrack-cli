@@ -78,7 +78,7 @@ function parseDate(value) {
 const _WRITE_PREFIXES = ["add-", "delete-", "update-", "set-", "apply-", "link-", "unlink-",
   "ban-", "unban-", "grant-", "revoke-", "archive-", "convert-", "attach-", "pin-",
   "create-", "restore-", "disable-", "enable-", "switch-", "remove-", "tag-"];
-const _EXTRA_WRITE = new Set(["get-token", "raw-post", "raw-delete"]);
+const _EXTRA_WRITE = new Set(["get-token"]);
 function isWriteCommand(name) {
   return _EXTRA_WRITE.has(name) || _WRITE_PREFIXES.some(p => name.startsWith(p));
 }
@@ -1209,18 +1209,6 @@ cmd("get-token", "Get permanent token using login/password (basic auth)", ["logi
 });
 
 // ── Raw API call ──────────────────────────────────────────────────────────────
-
-cmd("raw-get", "Raw GET request", ["path"], async (ctx, args) => {
-  return doGet(ctx.base, args.path, ctx.token);
-});
-
-cmd("raw-post", "Raw POST request with JSON body", ["path", "body"], async (ctx, args) => {
-  return doPost(ctx.base, args.path, ctx.token, JSON.parse(args.body));
-});
-
-cmd("raw-delete", "Raw DELETE request", ["path"], async (ctx, args) => {
-  return doDelete(ctx.base, args.path, ctx.token);
-});
 
 cmd("raw", "Authenticated API call with method, pagination and field selection",
   ["path", "?method", "?body", "?apiFields", "?top", "?paginate"],

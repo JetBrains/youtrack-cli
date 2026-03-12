@@ -620,7 +620,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
 
     it("delete-reaction", (t) => {
       cli("add-reaction", { issueId, commentId, reaction: "thumbsdown" });
-      const reactions = cli("raw-get", { path: `/api/issues/${issueId}/comments/${commentId}/reactions?fields=id,reaction` });
+      const reactions = cli("raw", { path: `/api/issues/${issueId}/comments/${commentId}/reactions?fields=id,reaction` });
       assert.ok(Array.isArray(reactions) && reactions.length > 0, "reaction exists");
       cli("delete-reaction", { issueId, commentId, reactionId: reactions[0].id });
       t.diagnostic(`→ reaction ${reactions[0].id} deleted`);
@@ -708,7 +708,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
 
     before(() => {
       const me = cli("get-current-user");
-      const tag = cli("raw-post", { path: "/api/tags?fields=id,name", body: JSON.stringify({ name: `${RUN}-tag` }) });
+      const tag = cli("raw", { path: "/api/tags?fields=id,name", method: "POST", body: JSON.stringify({ name: `${RUN}-tag` }) });
       tagId = tag.id;
       const proj = cli("add-project", { shortName: projSN("TG"), name: `${RUN} tags project`, leader: me.login });
       projId = proj.id;
@@ -725,8 +725,8 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
       tryDo(() => cli("delete-project", { projectId: projId }));
     });
 
-    it("create tag (raw-post)", (t) => {
-      const tag = cli("raw-post", { path: "/api/tags?fields=id,name", body: JSON.stringify({ name: `${RUN}-raw-tag` }) });
+    it("create tag (raw)", (t) => {
+      const tag = cli("raw", { path: "/api/tags?fields=id,name", method: "POST", body: JSON.stringify({ name: `${RUN}-raw-tag` }) });
       assert.ok(tag.id);
       cli("delete-tag", { tagId: tag.id });
       t.diagnostic(`→ tag "${tag.name}" created and deleted`);
@@ -745,7 +745,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
     });
 
     it("delete-tag", (t) => {
-      const tag = cli("raw-post", { path: "/api/tags?fields=id,name", body: JSON.stringify({ name: `${RUN}-del-tag` }) });
+      const tag = cli("raw", { path: "/api/tags?fields=id,name", method: "POST", body: JSON.stringify({ name: `${RUN}-del-tag` }) });
       assert.ok(tag.id);
       cli("delete-tag", { tagId: tag.id });
       t.diagnostic(`→ tag ${tag.id} created and deleted`);
@@ -1080,7 +1080,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
     before(() => {
       const me = cli("get-current-user");
       // Create a fresh regular group so group commands always work
-      const grp = cli("raw-post", { path: "/api/groups?fields=id,name", body: JSON.stringify({ name: `${RUN}-grp` }) });
+      const grp = cli("raw", { path: "/api/groups?fields=id,name", method: "POST", body: JSON.stringify({ name: `${RUN}-grp` }) });
       groupId = grp.id;
       groupName = grp.name;
       const proj = cli("add-project", { shortName: projSN("GR"), name: `${RUN} groups project`, leader: me.login });
@@ -1115,7 +1115,7 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
 
     it("delete-group", (t) => {
       // Create a dedicated group for the deletion test so the shared group stays intact
-      const tmp = cli("raw-post", { path: "/api/groups?fields=id,name", body: JSON.stringify({ name: `${RUN}-del` }) });
+      const tmp = cli("raw", { path: "/api/groups?fields=id,name", method: "POST", body: JSON.stringify({ name: `${RUN}-del` }) });
       cli("delete-group", { groupName: tmp.name });
       t.diagnostic(`→ group "${tmp.name}" (${tmp.id}) deleted`);
     });
@@ -1616,16 +1616,16 @@ describe("youtrack-cli integration", { concurrency: 1, timeout: TEST_TIMEOUT }, 
   // ── Raw API ───────────────────────────────────────────────────────────────
 
   describe("raw API", () => {
-    it("raw-get", (t) => {
-      const result = cli("raw-get", { path: "/api/issues?$top=1&fields=id,idReadable" });
+    it("raw GET", (t) => {
+      const result = cli("raw", { path: "/api/issues?$top=1&fields=id,idReadable" });
       assert.ok(Array.isArray(result));
-      t.diagnostic(`→ raw-get returned ${result.length} issue(s)`);
+      t.diagnostic(`→ raw GET returned ${result.length} issue(s)`);
     });
 
-    it("raw-post + raw-delete", (t) => {
-      const tag = cli("raw-post", { path: "/api/tags?fields=id,name", body: JSON.stringify({ name: `${RUN}-raw-tag` }) });
+    it("raw POST + DELETE", (t) => {
+      const tag = cli("raw", { path: "/api/tags?fields=id,name", method: "POST", body: JSON.stringify({ name: `${RUN}-raw-tag` }) });
       assert.ok(tag.id);
-      cli("raw-delete", { path: `/api/tags/${tag.id}` });
+      cli("raw", { path: `/api/tags/${tag.id}`, method: "DELETE" });
       t.diagnostic(`→ tag ${tag.id} ("${tag.name}") created and deleted`);
     });
   });
