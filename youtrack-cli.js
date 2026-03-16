@@ -1187,8 +1187,8 @@ cmd("get-token", "Get permanent token using login/password (basic auth)", ["logi
   } else {
     const yt = serviceList.find(s => s.name === "YouTrack");
     if (yt) scopeIds.push({ id: yt.id });
-    const hub = serviceList.find(s => s.name === "Hub");
-    if (hub) scopeIds.push({ id: hub.id });
+    const ytAdmin = serviceList.find(s => s.name === "YouTrack Administration");
+    if (ytAdmin) scopeIds.push({ id: ytAdmin.id });
     if (scopeIds.length === 0 && serviceList.length > 0) scopeIds.push({ id: serviceList[0].id });
   }
 
