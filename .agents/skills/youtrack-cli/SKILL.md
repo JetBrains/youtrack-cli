@@ -31,37 +31,18 @@ youtrack-cli raw --path "/api/issues" --apiFields "id,summary" --top 5  # escape
 
 **Do not guess flags or parameters.** Check [Command Reference](references/commands.md) or run `youtrack-cli list-commands`.
 
-## Core Commands
+## Common Commands
 
-| Area | Commands |
-|---|---|
-| Issues | `add-issue`, `get-issue`, `get-issues`, `get-issue-count`, `update-issue-summary`, `update-issue-description`, `delete-issue`, `apply-command`, `get-command-assist`, `update-issue-visibility`, `get-custom-field-value`, `set-custom-field` |
-| Comments | `add-comment`, `get-comments`, `update-comment`, `delete-comment`, `update-comment-visibility`, `pin-comment` |
-| Issue links | `get-issue-link-types`, `link-issues`, `get-linked-issues`, `remove-issue-link`, `add-issue-link-type` |
-| Articles | `add-article`, `get-articles`, `get-article`, `delete-article`, `update-article-summary`, `update-article-content`, `set-parent-article`, `update-article-visibility`, `tag-article`, `get-removed-documents`, `restore-document` |
-| Projects | `get-projects`, `get-project`, `add-project`, `delete-project`, `archive-project`, `get-project-templates`, `convert-project-to-template`, `add-custom-field-to-project`, `get-project-custom-fields`, `set-time-tracking-settings`, `add-user-to-project-team`, `add-group-to-project-team`, `attach-workflow-to-project` |
-| Users | `get-users`, `get-user`, `get-current-user`, `add-user`, `delete-user`, `ban-user`, `unban-user` |
-| Groups | `get-groups`, `get-group`, `add-group`, `delete-group` |
-| Roles & permissions | `get-roles`, `add-role`, `update-role`, `delete-role`, `grant-role-to-user`, `grant-role-to-group`, `get-permissions` |
-| Boards & sprints | `get-agile-boards`, `get-agile-board`, `add-agile-board`, `delete-agile-board`, `add-sprint` |
-| Dashboards | `get-dashboards`, `add-dashboard`, `delete-dashboard`, `update-dashboard-name` |
-| Tags | `tag-issue`, `tag-article`, `add-tag`, `delete-tag` |
-| Work items | `get-work-item-types`, `add-work-item-type`, `add-work-item`, `get-work-time-settings`, `set-work-time-settings` |
-| Attachments | `get-attachments`, `add-attachment`, `delete-attachment`, `add-article-attachment`, `get-article-attachments` |
-| Reactions | `add-reaction`, `delete-reaction` |
-| Workflows | `get-workflows`, `add-workflow`, `add-workflow-rule`, `delete-workflow`, `restore-default-workflows` |
-| Custom fields | `get-custom-field-prototypes`, `add-custom-field`, `delete-custom-field`, `add-bundle-value`, `get-bundles`, `create-bundle`, `attach-bundle-to-field`, `change-custom-field-privacy` |
-| Global settings | `get-global-settings`, `get-frontend-config`, `enable-feature-flag`, `set-license`, `set-email-settings`, `disable-email-settings`, `enable-global-banner`, `disable-global-banner`, `set-reactions-enabled`, `switch-jetbrains-ai`, `switch-text-completion`, `switch-grammar-correction` |
-| Saved searches | `add-saved-search`, `share-saved-search` |
-| Gantt / Canvas | `get-gantt-charts`, `delete-gantt-chart`, `get-canvas`, `add-canvas`, `delete-canvas`, `reload-canvas`, `add-canvas-node`, `get-canvas-links`, `link-canvas-nodes` |
-| Apps & plugins | `get-apps`, `delete-app`, `deactivate-app`, `get-plugins`, `delete-plugin` |
-| VCS | `get-vcs-servers`, `delete-vcs-server`, `get-vcs-configurations`, `get-vcs-hosting-processors`, `delete-vcs-hosting-processor` |
-| Mailbox | `get-mailbox-servers`, `add-mailbox-server`, `delete-mailbox-server`, `add-mailbox-rule` |
-| Organizations | `get-organizations`, `add-organization`, `delete-organization` |
-| Raw API | `raw --path <endpoint> --method GET/POST --apiFields ... --top N --paginate true` |
+- Discovery: `list-commands`, `get-current-user`, `get-projects`, `get-issues`
+- Issue work: `add-issue`, `get-issue`, `update-issue-summary`, `update-issue-description`, `apply-command`, `set-custom-field`
+- Collaboration: `add-comment`, `link-issues`, `add-attachment`, `tag-issue`
+- Admin work: `add-project`, `add-user`, `add-group`, `grant-role-to-user`, `attach-workflow-to-project`
+- Escape hatch: `raw --path <endpoint> --method GET/POST --apiFields ... --top N --paginate true`
+
+For the full command inventory and exact required/optional params, open [Command Reference](references/commands.md) instead of inferring names or flags.
 
 ## References
 
-- [Command Reference](references/commands.md) — all commands with required/optional params
-- [Workflows](references/workflows.md) — step-by-step patterns, query syntax, `--asUser` usage
-- [Gotchas & Tips](references/gotchas.md) — known defaults, Hub limitations, tips
+- [Command Reference](references/commands.md) — open this for exact command names, required/optional params, and flag spelling before running anything non-trivial
+- [Workflows](references/workflows.md) — open this for multi-step tasks, command sequencing, query syntax, and `--asUser` usage
+- [Gotchas & Tips](references/gotchas.md) — open this before project, user, permissions, workflow, or global-settings changes, and whenever defaults or Hub constraints might matter
