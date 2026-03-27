@@ -1,6 +1,11 @@
 package cmd
 
-import "github.com/spf13/cobra"
+import (
+	"os"
+
+	"github.com/spf13/cobra"
+	"youtrack-cli/cmd/output"
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "youtrack",
@@ -11,6 +16,7 @@ var rootCmd = &cobra.Command{
 // Execute is the entrypoint called from main.
 func Execute() error {
 	loadEnvFile()
+	output.PrintLogo(os.Stdout)
 	return rootCmd.Execute()
 }
 
