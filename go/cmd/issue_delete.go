@@ -19,7 +19,7 @@ func newIssueDeleteCmd() *cobra.Command {
 			if err := client.DeleteIssue(args[0]); err != nil {
 				return err
 			}
-			fmt.Printf("deleted %s\n", args[0])
+			fmt.Fprintln(cmd.OutOrStdout(), "deleted "+args[0])
 			return nil
 		},
 	}

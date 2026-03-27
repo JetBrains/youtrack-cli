@@ -26,7 +26,7 @@ func newIssueCommandCmd() *cobra.Command {
 			if err := client.ApplyCommand(args[1], issueIDs); err != nil {
 				return err
 			}
-			fmt.Printf("command applied to %s\n", args[0])
+			fmt.Fprintln(cmd.OutOrStdout(), "command applied to "+args[0])
 			return nil
 		},
 	}

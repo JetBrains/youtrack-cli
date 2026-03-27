@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"youtrack-cli/api"
 	"youtrack-cli/cmd/output"
 
@@ -15,6 +16,10 @@ func newIssueUpdateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			summary, _ := cmd.Flags().GetString("summary")
 			description, _ := cmd.Flags().GetString("description")
+
+			if summary == "" && description == "" {
+				return fmt.Errorf("at least one of --summary or --description must be provided")
+			}
 
 			client, err := getClient(cmd)
 			if err != nil {

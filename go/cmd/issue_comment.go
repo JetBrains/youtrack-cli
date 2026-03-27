@@ -87,7 +87,7 @@ func newCommentDeleteCmd() *cobra.Command {
 			if err := client.DeleteComment(args[0], args[1]); err != nil {
 				return err
 			}
-			fmt.Printf("deleted comment %s\n", args[1])
+			fmt.Fprintln(cmd.OutOrStdout(), "deleted comment "+args[1])
 			return nil
 		},
 	}
