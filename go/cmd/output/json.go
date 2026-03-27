@@ -2,22 +2,23 @@ package output
 
 import (
 	"encoding/json"
-	"os"
+	"io"
 
 	"github.com/spf13/cobra"
 )
 
-// Print writes data to stdout using the format specified by the global --format flag.
+// Print writes data using the format specified by the global --format flag.
 func Print(cmd *cobra.Command, data any) error {
+	w := cmd.OutOrStdout()
 	format, _ := cmd.Root().PersistentFlags().GetString("format")
 	if format == "table" {
-		return PrintTable(data)
+		return PrintTable(w, data)
 	}
-	return printJSON(data)
+	return printJSON(w, data)
 }
 
-func printJSON(data any) error {
-	enc := json.NewEncoder(os.Stdout)
+func printJSON(w io.Writer, data any) error {
+	enc := json.NewEncoder(w)
 	enc.SetIndent("", "  ")
 	return enc.Encode(data)
 }

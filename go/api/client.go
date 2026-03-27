@@ -120,15 +120,7 @@ func (c *Client) Delete(path string) error {
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 300 {
-		data, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return fmt.Errorf("HTTP %d: failed to read response: %w", resp.StatusCode, err)
-		}
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
-	}
-	return nil
+	return readResponse(resp, nil)
 }
 
 // Multipart uploads a file as a multipart/form-data attachment.

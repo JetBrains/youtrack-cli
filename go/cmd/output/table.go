@@ -2,7 +2,7 @@ package output
 
 import (
 	"fmt"
-	"os"
+	"io"
 	"text/tabwriter"
 	"unicode/utf8"
 
@@ -10,8 +10,8 @@ import (
 )
 
 // PrintTable renders data as a human-readable table. Falls back to JSON for unknown types.
-func PrintTable(data any) error {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+func PrintTable(out io.Writer, data any) error {
+	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
 	defer w.Flush()
 
 	switch v := data.(type) {
@@ -53,7 +53,7 @@ func PrintTable(data any) error {
 			fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, author, text)
 		}
 	default:
-		return printJSON(data)
+		return printJSON(out, data)
 	}
 	return nil
 }
