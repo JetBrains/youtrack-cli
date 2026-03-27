@@ -11,12 +11,15 @@ var rootCmd = &cobra.Command{
 	Use:   "youtrack",
 	Short: "YouTrack REST API CLI",
 	Long:  "CLI for interacting with the YouTrack REST API. Designed for AI agents and developers.",
+	Run: func(cmd *cobra.Command, args []string) {
+		output.PrintLogo(os.Stdout)
+		cmd.Help()
+	},
 }
 
 // Execute is the entrypoint called from main.
 func Execute() error {
 	loadEnvFile()
-	output.PrintLogo(os.Stdout)
 	return rootCmd.Execute()
 }
 

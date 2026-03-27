@@ -9,20 +9,18 @@ import (
 	"time"
 )
 
-const logo = ` ██╗   ██╗ ██████╗ ██╗   ██╗████████╗██████╗  █████╗  ██████╗██╗  ██╗
- ╚██╗ ██╔╝██╔═══██╗██║   ██║╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝
-  ╚████╔╝ ██║   ██║██║   ██║   ██║   ██████╔╝███████║██║     █████╔╝
-   ╚██╔╝  ██║   ██║╚██╗ ██╔╝   ██║   ██╔══██╗██╔══██║██║     ██╔═██╗
-    ██║   ╚██████╔╝ ╚████╔╝    ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗
-    ╚═╝    ╚═════╝   ╚═══╝     ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝`
+const logo = ` ⢇⢸ ⢀⡀ ⡀⢀ ⢹⠁ ⡀⣀ ⢀⣀ ⢀⣀ ⡇⡠
+  ⠇ ⠣⠜ ⠣⠼ ⠸  ⠏  ⠣⠼ ⠣⠤ ⠏⠢`
 
 const (
-	ansiMagenta    = "\033[35m"
-	ansiDimMagenta = "\033[2;35m"
-	ansiReset      = "\033[0m"
+	ansiBrightMagenta = "\033[1;35m"
+	ansiMagenta       = "\033[35m"
+	ansiDimMagenta    = "\033[2;35m"
+	ansiReset         = "\033[0m"
 )
 
-var glyphs = []rune("01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホ@#$%&*<>[]{}=+-~")
+// glyphs use braille characters to match the Small Braille aesthetic during flicker.
+var glyphs = []rune("⠁⠂⠃⠄⠅⠆⠇⡀⡁⡂⠈⠉⠊⠋⠌⠍⠎⠏⠐⠑⡄⡅⡆⡇⢀⢁⢂⢃⢄⢅⢆⢇⣀⣁⣂⣃")
 
 // PrintLogo prints the YouTrack ASCII logo to w.
 // If w is a terminal, it plays a matrix-style reveal animation in magenta.
@@ -48,14 +46,22 @@ func PrintLogo(w io.Writer) {
 
 	revealed := make(map[pos]bool)
 
+	rowColor := func(r int) string {
+		if r == 0 {
+			return ansiBrightMagenta
+		}
+		return ansiMagenta
+	}
+
 	render := func() {
 		for r, line := range lines {
+			color := rowColor(r)
 			for c, ch := range []rune(line) {
 				switch {
 				case ch == ' ':
 					fmt.Fprint(w, " ")
 				case revealed[pos{r, c}]:
-					fmt.Fprint(w, ansiMagenta+string(ch)+ansiReset)
+					fmt.Fprint(w, color+string(ch)+ansiReset)
 				default:
 					fmt.Fprint(w, ansiDimMagenta+string(glyphs[rand.Intn(len(glyphs))])+ansiReset)
 				}
@@ -94,9 +100,9 @@ func PrintLogo(w io.Writer) {
 		frame(50 * time.Millisecond)
 	}
 
-	// Final clean render
-	for _, line := range lines {
-		fmt.Fprint(w, ansiMagenta+line+ansiReset+"\033[K\n")
+	// Final clean render with 3D gradient
+	for r, line := range lines {
+		fmt.Fprint(w, rowColor(r)+line+ansiReset+"\033[K\n")
 	}
 }
 
