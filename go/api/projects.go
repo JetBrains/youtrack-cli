@@ -16,7 +16,7 @@ type AddProjectRequest struct {
 
 func (c *Client) ListProjects() ([]Project, error) {
 	var result []Project
-	return result, c.Get("/api/admin/projects?fields="+projectFields, &result)
+	return result, c.Get("/api/admin/projects?fields="+projectFields+"&$top=-1", &result)
 }
 
 // GetProject finds a project by its short name (case-sensitive).

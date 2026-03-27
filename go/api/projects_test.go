@@ -51,6 +51,26 @@ func TestGetProject_notFound(t *testing.T) {
 	assert.Contains(t, err.Error(), "MISSING")
 }
 
+func TestDeleteProject(t *testing.T) {
+	callCount := 0
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		callCount++
+		if r.Method == "GET" {
+			json.NewEncoder(w).Encode([]Project{{ID: "0-1", ShortName: "FOO", Name: "Foo Project"}})
+		} else {
+			assert.Equal(t, "DELETE", r.Method)
+			assert.Contains(t, r.URL.Path, "0-1")
+			w.WriteHeader(http.StatusNoContent)
+		}
+	}))
+	defer srv.Close()
+
+	err := NewClient(srv.URL, "tok").DeleteProject("FOO")
+
+	require.NoError(t, err)
+	assert.Equal(t, 2, callCount)
+}
+
 func TestAddProject(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Equal(t, "POST", r.Method)
