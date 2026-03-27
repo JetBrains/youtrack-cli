@@ -122,7 +122,10 @@ func (c *Client) Delete(path string) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
-		data, _ := io.ReadAll(resp.Body)
+		data, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return fmt.Errorf("HTTP %d: failed to read response: %w", resp.StatusCode, err)
+		}
 		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
 	}
 	return nil
