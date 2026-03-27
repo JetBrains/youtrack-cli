@@ -7,9 +7,22 @@
 
 The current Node.js CLI requires a Node.js runtime. The Go rewrite produces a single self-contained binary with no runtime dependency, enabling cross-platform distribution (macOS, Linux, Windows) and ~15x faster startup time.
 
+## Reference Implementation
+
+**https://github.com/JetBrains/teamcity-cli** — primary reference for all architectural and coding decisions.
+
+When in doubt about structure, naming, patterns, or conventions, look at how teamcity-cli solves the same problem. Key things to borrow:
+
+- Project layout (`api/` + `cmd/` + `internal/output/` separation)
+- Cobra command registration pattern (one file per subcommand, `newXxxCmd()` constructors)
+- HTTP client wrapper design (`api/client.go`)
+- Output formatting approach (`--format` flag, JSON vs table modes)
+- Test structure (unit tests with `httptest`, integration tests as separate suite)
+- `go.mod` module name and Go version target
+
 ## Approach: API-client-first (layered architecture)
 
-Clean separation between HTTP/API logic and CLI presentation, following the JetBrains/teamcity-cli reference:
+Clean separation between HTTP/API logic and CLI presentation:
 
 - `api/` — pure Go SDK: HTTP client, typed structs, domain methods
 - `cmd/` — CLI layer: cobra commands, output formatting
