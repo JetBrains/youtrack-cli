@@ -13,6 +13,7 @@ import (
 func TestListUsers(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		assert.Contains(t, r.URL.RawQuery, "query=")
+		assert.Contains(t, r.URL.RawQuery, "$top=-1")
 		json.NewEncoder(w).Encode([]User{{Login: "alice", FullName: "Alice Smith"}})
 	}))
 	defer srv.Close()
@@ -46,6 +47,28 @@ func TestGetUser_notFound(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "nobody")
+}
+
+func TestAddUser(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "POST", r.Method)
+		var body AddUserRequest
+		json.NewDecoder(r.Body).Decode(&body)
+		assert.Equal(t, "alice", body.Login)
+		assert.Equal(t, "Alice Smith", body.FullName)
+		assert.Equal(t, "alice@example.com", body.Email)
+		json.NewEncoder(w).Encode(User{Login: "alice", FullName: "Alice Smith"})
+	}))
+	defer srv.Close()
+
+	user, err := NewClient(srv.URL, "tok").AddUser(AddUserRequest{
+		Login:    "alice",
+		FullName: "Alice Smith",
+		Email:    "alice@example.com",
+	})
+
+	require.NoError(t, err)
+	assert.Equal(t, "alice", user.Login)
 }
 
 func TestGetCurrentUser(t *testing.T) {

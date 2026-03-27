@@ -16,7 +16,7 @@ type AddUserRequest struct {
 
 func (c *Client) ListUsers(query string) ([]User, error) {
 	var result []User
-	path := fmt.Sprintf("/api/users?query=%s&fields=%s", url.QueryEscape(query), userFields)
+	path := fmt.Sprintf("/api/users?query=%s&fields=%s&$top=-1", url.QueryEscape(query), userFields)
 	return result, c.Get(path, &result)
 }
 
