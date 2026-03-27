@@ -23,4 +23,5 @@ func init() {
 
 	rootCmd.AddCommand(newIssueCmd())
 	rootCmd.AddCommand(newProjectCmd())
+	rootCmd.AddCommand(newUserCmd())
 }
