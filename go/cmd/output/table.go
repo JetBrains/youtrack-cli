@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"text/tabwriter"
+	"unicode/utf8"
 
 	"youtrack-cli/api"
 )
@@ -46,8 +47,8 @@ func PrintTable(data any) error {
 				author = c.Author.Login
 			}
 			text := c.Text
-			if len(text) > 60 {
-				text = text[:57] + "..."
+			if utf8.RuneCountInString(text) > 60 {
+				text = string([]rune(text)[:57]) + "..."
 			}
 			fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, author, text)
 		}

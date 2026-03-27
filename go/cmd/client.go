@@ -9,8 +9,8 @@ import (
 )
 
 // getClient builds an API client from global flags and env vars.
-// Exits with an error message if base URL or token are missing.
-func getClient(cmd *cobra.Command) *api.Client {
+// Returns an error if base URL or token are missing.
+func getClient(cmd *cobra.Command) (*api.Client, error) {
 	flags := cmd.Root().PersistentFlags()
 
 	baseURL, _ := flags.GetString("base-url")
@@ -25,15 +25,13 @@ func getClient(cmd *cobra.Command) *api.Client {
 	}
 
 	if baseURL == "" {
-		fmt.Fprintln(os.Stderr, "error: YOUTRACK_BASE_URL is not set. Set it via env or --base-url flag.")
-		os.Exit(1)
+		return nil, fmt.Errorf("YOUTRACK_BASE_URL is not set. Set it via env or --base-url flag")
 	}
 	if token == "" {
-		fmt.Fprintln(os.Stderr, "error: YOUTRACK_TOKEN is not set. Set it via env or --token flag.")
-		os.Exit(1)
+		return nil, fmt.Errorf("YOUTRACK_TOKEN is not set. Set it via env or --token flag")
 	}
 
 	c := api.NewClient(baseURL, token)
 	c.Verbose = verbose
-	return c
+	return c, nil
 }
