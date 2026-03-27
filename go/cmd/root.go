@@ -20,4 +20,6 @@ func init() {
 	f.String("base-url", "", "Override YOUTRACK_BASE_URL")
 	f.String("token", "", "Override YOUTRACK_TOKEN")
 	f.Bool("verbose", false, "Print HTTP request/response to stderr")
+
+	rootCmd.AddCommand(newIssueCmd())
 }
