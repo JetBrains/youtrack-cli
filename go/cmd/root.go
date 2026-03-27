@@ -22,4 +22,5 @@ func init() {
 	f.Bool("verbose", false, "Print HTTP request/response to stderr")
 
 	rootCmd.AddCommand(newIssueCmd())
+	rootCmd.AddCommand(newProjectCmd())
 }
