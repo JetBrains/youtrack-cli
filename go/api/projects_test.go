@@ -12,6 +12,7 @@ import (
 
 func TestListProjects(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Contains(t, r.URL.RawQuery, "$top=-1")
 		json.NewEncoder(w).Encode([]Project{
 			{ID: "0-1", ShortName: "FOO", Name: "Foo Project"},
 			{ID: "0-2", ShortName: "BAR", Name: "Bar Project"},
