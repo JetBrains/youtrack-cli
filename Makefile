@@ -4,7 +4,7 @@ build:
 	go build -o $(BINARY) .
 
 test:
-	go test ./...
+	go test -tags integration ./...
 
 test-integration:
 	go test -tags integration -run TestIntegration -v ./test/

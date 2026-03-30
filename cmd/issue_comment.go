@@ -16,6 +16,9 @@ func newIssueCommentCmd() *cobra.Command {
 	cmd.AddCommand(newCommentListCmd())
 	cmd.AddCommand(newCommentAddCmd())
 	cmd.AddCommand(newCommentDeleteCmd())
+	cmd.AddCommand(newCommentUpdateCmd())
+	cmd.AddCommand(newCommentVisibilityCmd())
+	cmd.AddCommand(newCommentPinCmd())
 	return cmd
 }
 
@@ -91,4 +94,77 @@ func newCommentDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newCommentUpdateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "update <issueId> <commentId>",
+		Short: "Update a comment's text",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			text, _ := cmd.Flags().GetString("text")
+			client, err := getClient(cmd)
+			if err != nil {
+				return err
+			}
+			comment, err := client.UpdateComment(args[0], args[1], text)
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, comment)
+		},
+	}
+	cmd.Flags().String("text", "", "New comment text (required)")
+	cmd.MarkFlagRequired("text")
+	return cmd
+}
+
+func newCommentVisibilityCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "visibility <issueId> <commentId>",
+		Short: "Set visibility on a comment",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			groups, _ := cmd.Flags().GetStringSlice("groups")
+			users, _ := cmd.Flags().GetStringSlice("users")
+			client, err := getClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.UpdateCommentVisibility(args[0], args[1], groups, users); err != nil {
+				return err
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for comment "+args[1])
+			return nil
+		},
+	}
+	cmd.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")
+	cmd.Flags().StringSlice("users", nil, "Permitted user IDs (comma-separated)")
+	return cmd
+}
+
+func newCommentPinCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "pin <issueId> <commentId>",
+		Short: "Pin or unpin a comment",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			unpin, _ := cmd.Flags().GetBool("unpin")
+			client, err := getClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.PinComment(args[0], args[1], !unpin); err != nil {
+				return err
+			}
+			action := "pinned"
+			if unpin {
+				action = "unpinned"
+			}
+			fmt.Fprintln(cmd.OutOrStdout(), action+" comment "+args[1])
+			return nil
+		},
+	}
+	cmd.Flags().Bool("unpin", false, "Unpin the comment instead")
+	return cmd
 }

@@ -11,5 +11,11 @@ func newProjectCmd() *cobra.Command {
 	cmd.AddCommand(newProjectGetCmd())
 	cmd.AddCommand(newProjectAddCmd())
 	cmd.AddCommand(newProjectDeleteCmd())
+	cmd.AddCommand(newProjectArchiveCmd())
+	cmd.AddCommand(newProjectTemplateCmd())
+	cmd.AddCommand(newProjectTeamCmd())
+	cmd.AddCommand(newProjectFieldCmd())
+	cmd.AddCommand(newProjectWorkflowCmd())
+	cmd.AddCommand(newProjectTimetrackCmd())
 	return cmd
 }

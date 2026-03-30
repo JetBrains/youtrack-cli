@@ -14,5 +14,14 @@ func newIssueCmd() *cobra.Command {
 	cmd.AddCommand(newIssueDeleteCmd())
 	cmd.AddCommand(newIssueCommentCmd())
 	cmd.AddCommand(newIssueCommandCmd())
+	cmd.AddCommand(newIssueCountCmd())
+	cmd.AddCommand(newIssueLinkCmd())
+	cmd.AddCommand(newIssueAttachmentCmd())
+	cmd.AddCommand(newIssueWorkitemCmd())
+	cmd.AddCommand(newIssueTagCmd())
+	cmd.AddCommand(newIssueFieldCmd())
+	cmd.AddCommand(newIssueVisibilityCmd())
+	cmd.AddCommand(newIssueReactionCmd())
+	cmd.AddCommand(newIssueAssistCmd())
 	return cmd
 }

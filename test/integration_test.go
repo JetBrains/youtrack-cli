@@ -22,10 +22,9 @@ var (
 func TestMain(m *testing.M) {
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 	token := os.Getenv("YOUTRACK_TOKEN")
-	if baseURL == "" || token == "" {
-		os.Exit(0) // skip silently when env not configured
+	if baseURL != "" && token != "" {
+		integClient = api.NewClient(baseURL, token)
 	}
-	integClient = api.NewClient(baseURL, token)
 	code := m.Run()
 	integCleanup()
 	os.Exit(code)
@@ -38,18 +37,27 @@ func integCleanup() {
 }
 
 func TestIntegration_GetCurrentUser(t *testing.T) {
+	if integClient == nil {
+		t.Skip("YOUTRACK_BASE_URL and YOUTRACK_TOKEN not set")
+	}
 	user, err := integClient.GetCurrentUser()
 	require.NoError(t, err)
 	assert.NotEmpty(t, user.Login)
 }
 
 func TestIntegration_ListProjects(t *testing.T) {
+	if integClient == nil {
+		t.Skip("YOUTRACK_BASE_URL and YOUTRACK_TOKEN not set")
+	}
 	projects, err := integClient.ListProjects()
 	require.NoError(t, err)
 	assert.NotEmpty(t, projects)
 }
 
 func TestIntegration_AddGetDeleteIssue(t *testing.T) {
+	if integClient == nil {
+		t.Skip("YOUTRACK_BASE_URL and YOUTRACK_TOKEN not set")
+	}
 	proj, err := integClient.GetProject(integProjectKey)
 	require.NoError(t, err, "project %s must exist in YouTrack", integProjectKey)
 

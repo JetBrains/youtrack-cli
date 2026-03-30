@@ -12,8 +12,8 @@ A full YouTrack interaction guide is available as an agent skill — load it whe
 
 ```bash
 make build                                           # compile ./youtrack binary
-make test                                            # go test ./...
-make test-integration                                # integration tests (set env vars first)
+make test                                            # go test -tags integration ./... (unit + integration)
+make test-integration                                # integration tests only, verbose
 go run . issue list --query "assignee: me"           # run without building
 go test ./test/ -run TestGetIssue -v                 # run a single test by name
 ```
