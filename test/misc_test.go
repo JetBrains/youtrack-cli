@@ -65,12 +65,8 @@ func TestSearch_CRUD(t *testing.T) {
 	assert.Equal(t, name, result.Name)
 	assert.Equal(t, "project: GOTEST", result.Query)
 
-	// No ListSavedSearches API — verify the created object directly
-	t.Cleanup(func() {
-		// SavedSearch deletion is not exposed via API client, share as cleanup proxy
-		// ShareSavedSearch is the only other mutation we can perform without delete
-		_ = c.ShareSavedSearch(result.ID)
-	})
+	// Note: YouTrack API has no delete endpoint for saved searches.
+	// This test resource will persist on the instance after the test run.
 }
 
 // TestCmd_SearchAdd verifies that the saved search is created and the response echoes the name.
@@ -109,9 +105,9 @@ func TestOrg_CRUD(t *testing.T) {
 
 func TestCmd_OrgList(t *testing.T) {
 	out := runCmd(t, "org", "list", "--format", "json")
-	// Just verify no error and valid JSON array output
-	assert.True(t, strings.Contains(out, "[") || out == "[]\n" || out == "[]",
-		"org list should return a JSON array")
+	var items []json.RawMessage
+	err := json.Unmarshal([]byte(strings.TrimSpace(out)), &items)
+	assert.NoError(t, err, "org list should return a JSON array")
 }
 
 // ---------- Apps ----------
