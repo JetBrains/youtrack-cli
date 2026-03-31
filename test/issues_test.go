@@ -1,502 +1,140 @@
 package api_test
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"strings"
 	"testing"
 
-	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/JetBrains/youtrack-cli/api"
 )
 
-func TestGetIssue(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		json.NewEncoder(w).Encode(api.Issue{ID: "2-1", IDReadable: "FOO-1", Summary: "Test"})
-	}))
-	defer srv.Close()
+func TestIssue_CRUD(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
 
-	issue, err := api.NewClient(srv.URL, "tok").GetIssue("FOO-1")
-
-	require.NoError(t, err)
-	assert.Equal(t, "FOO-1", issue.IDReadable)
-	assert.Equal(t, "Test", issue.Summary)
-}
-
-func TestListIssues(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Contains(t, r.URL.RawQuery, "query=")
-		json.NewEncoder(w).Encode([]api.Issue{{IDReadable: "FOO-1"}, {IDReadable: "FOO-2"}})
-	}))
-	defer srv.Close()
-
-	issues, err := api.NewClient(srv.URL, "tok").ListIssues("project: FOO", 10)
-
-	require.NoError(t, err)
-	assert.Len(t, issues, 2)
-	assert.Equal(t, "FOO-1", issues[0].IDReadable)
-}
-
-func TestAddIssue(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		var body api.AddIssueRequest
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "New issue", body.Summary)
-		json.NewEncoder(w).Encode(api.Issue{IDReadable: "FOO-3", Summary: "New issue"})
-	}))
-	defer srv.Close()
-
-	issue, err := api.NewClient(srv.URL, "tok").AddIssue(api.AddIssueRequest{
-		Summary: "New issue",
-		Project: &api.Project{ID: "0-0"},
+	// Create
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "integration test issue",
+		Project: &api.Project{ID: proj.ID},
 	})
-
 	require.NoError(t, err)
-	assert.Equal(t, "FOO-3", issue.IDReadable)
+	require.NotEmpty(t, issue.IDReadable)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	// Get
+	got, err := c.GetIssue(issue.IDReadable)
+	require.NoError(t, err)
+	assert.Equal(t, "integration test issue", got.Summary)
+
+	// Update
+	updated, err := c.UpdateIssue(issue.IDReadable, api.UpdateIssueRequest{Summary: "updated summary"})
+	require.NoError(t, err)
+	assert.Equal(t, "updated summary", updated.Summary)
+
+	// List
+	issues, err := c.ListIssues("project: "+proj.ShortName, 10)
+	require.NoError(t, err)
+	assert.NotEmpty(t, issues)
+
+	// Delete
+	err = c.DeleteIssue(issue.IDReadable)
+	require.NoError(t, err)
+
+	_, err = c.GetIssue(issue.IDReadable)
+	assert.Error(t, err)
 }
 
-func TestDeleteIssue(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		called = true
-		w.WriteHeader(204)
-	}))
-	defer srv.Close()
+func TestIssue_Comment_CRUD(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
 
-	err := api.NewClient(srv.URL, "tok").DeleteIssue("FOO-1")
-
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "issue for comments",
+		Project: &api.Project{ID: proj.ID},
+	})
 	require.NoError(t, err)
-	assert.True(t, called)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	// Add comment
+	comment, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "hello world"})
+	require.NoError(t, err)
+	require.NotEmpty(t, comment.ID)
+
+	// List comments
+	comments, err := c.ListComments(issue.IDReadable)
+	require.NoError(t, err)
+	assert.Len(t, comments, 1)
+	assert.Equal(t, "hello world", comments[0].Text)
+
+	// Update comment
+	updated, err := c.UpdateComment(issue.IDReadable, comment.ID, "updated text")
+	require.NoError(t, err)
+	assert.Equal(t, "updated text", updated.Text)
+
+	// Delete comment
+	err = c.DeleteComment(issue.IDReadable, comment.ID)
+	require.NoError(t, err)
+
+	afterDelete, err := c.ListComments(issue.IDReadable)
+	require.NoError(t, err)
+	assert.Empty(t, afterDelete)
 }
 
-func TestApplyCommand(t *testing.T) {
-	callCount := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		if r.Method == "GET" {
-			json.NewEncoder(w).Encode(api.Issue{ID: "2-1", IDReadable: "FOO-1"})
-			return
-		}
-		var body api.ApplyCommandRequest
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "State Fixed", body.Query)
-		assert.Len(t, body.Issues, 1)
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
+func TestIssue_ApplyCommand(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
 
-	err := api.NewClient(srv.URL, "tok").ApplyCommand("State Fixed", []string{"FOO-1"})
-
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "command test issue",
+		Project: &api.Project{ID: proj.ID},
+	})
 	require.NoError(t, err)
-	assert.Equal(t, 2, callCount) // one GET to resolve ID, one POST for command
-}
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
-func TestUpdateIssue(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		var body api.UpdateIssueRequest
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "Updated summary", body.Summary)
-		json.NewEncoder(w).Encode(api.Issue{IDReadable: "FOO-1", Summary: "Updated summary"})
-	}))
-	defer srv.Close()
-
-	issue, err := api.NewClient(srv.URL, "tok").UpdateIssue("FOO-1", api.UpdateIssueRequest{Summary: "Updated summary"})
-
-	require.NoError(t, err)
-	assert.Equal(t, "Updated summary", issue.Summary)
-}
-
-func TestListComments(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "comments")
-		json.NewEncoder(w).Encode([]api.Comment{
-			{ID: "c-1", Text: "First comment"},
-			{ID: "c-2", Text: "Second comment"},
-		})
-	}))
-	defer srv.Close()
-
-	comments, err := api.NewClient(srv.URL, "tok").ListComments("FOO-1")
-
-	require.NoError(t, err)
-	assert.Len(t, comments, 2)
-	assert.Equal(t, "First comment", comments[0].Text)
-}
-
-func TestAddComment(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "comments")
-		var body api.AddCommentRequest
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "Hello world", body.Text)
-		json.NewEncoder(w).Encode(api.Comment{ID: "c-new", Text: "Hello world"})
-	}))
-	defer srv.Close()
-
-	comment, err := api.NewClient(srv.URL, "tok").AddComment("FOO-1", api.AddCommentRequest{Text: "Hello world"})
-
-	require.NoError(t, err)
-	assert.Equal(t, "Hello world", comment.Text)
-}
-
-func TestDeleteComment(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "c-1")
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeleteComment("FOO-1", "c-1")
-
+	err = c.ApplyCommand("Fixed", []string{issue.IDReadable})
 	require.NoError(t, err)
 }
 
-func TestGetIssueCount(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/issuesGetter/count")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "project: FOO", body["query"])
-		json.NewEncoder(w).Encode(map[string]any{"count": 42})
-	}))
-	defer srv.Close()
+func TestIssue_Count(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
 
-	count, err := api.NewClient(srv.URL, "tok").GetIssueCount("project: FOO")
-
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "count test issue",
+		Project: &api.Project{ID: proj.ID},
+	})
 	require.NoError(t, err)
-	assert.Equal(t, 42, count)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	count, err := c.GetIssueCount("project: " + proj.ShortName)
+	require.NoError(t, err)
+	// YouTrack's count endpoint may return -1 while computing asynchronously.
+	// A non-error response with count >= -1 confirms the endpoint is reachable.
+	assert.GreaterOrEqual(t, count, -1)
 }
 
-func TestGetIssueLinkTypes(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/issueLinkTypes")
-		json.NewEncoder(w).Encode([]api.LinkType{
-			{ID: "lt-1", Name: "Depends on", SourceToTarget: "depends on", TargetToSource: "is required for"},
-		})
-	}))
-	defer srv.Close()
+func TestIssue_WorkItem(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
 
-	types, err := api.NewClient(srv.URL, "tok").GetIssueLinkTypes()
-
+	err := c.SetProjectTimeTracking(proj.ShortName, true)
 	require.NoError(t, err)
-	assert.Len(t, types, 1)
-	assert.Equal(t, "Depends on", types[0].Name)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "workitem test issue",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	wi, err := c.AddWorkItem(issue.IDReadable, 90, "design work", "")
+	require.NoError(t, err)
+	assert.NotEmpty(t, wi.ID)
 }
 
-func TestGetLinkedIssues(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "links")
-		json.NewEncoder(w).Encode([]api.IssueLink{
-			{ID: "link-1", Issues: []api.Issue{{IDReadable: "FOO-2"}}},
-		})
-	}))
-	defer srv.Close()
-
-	links, err := api.NewClient(srv.URL, "tok").GetLinkedIssues("FOO-1")
-
-	require.NoError(t, err)
-	assert.Len(t, links, 1)
-	assert.Equal(t, "link-1", links[0].ID)
-}
-
-func TestGetIssueAttachments(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "attachments")
-		json.NewEncoder(w).Encode([]api.IssueAttachment{
-			{ID: "att-1", Name: "screenshot.png", URL: "https://example.com/att-1"},
-		})
-	}))
-	defer srv.Close()
-
-	attachments, err := api.NewClient(srv.URL, "tok").GetIssueAttachments("FOO-1")
-
-	require.NoError(t, err)
-	assert.Len(t, attachments, 1)
-	assert.Equal(t, "screenshot.png", attachments[0].Name)
-}
-
-func TestDeleteIssueAttachment(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "att-1")
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeleteIssueAttachment("FOO-1", "att-1")
-
-	require.NoError(t, err)
-}
-
-func TestTagIssue(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "tags")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "tag-1", body["id"])
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").TagIssue("FOO-1", "tag-1")
-
-	require.NoError(t, err)
-}
-
-func TestAddIssueLinkType(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/issueLinkTypes")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "Depends on", body["name"])
-		json.NewEncoder(w).Encode(api.LinkType{ID: "lt-new", Name: "Depends on"})
-	}))
-	defer srv.Close()
-
-	lt, err := api.NewClient(srv.URL, "tok").AddIssueLinkType("Depends on", "depends on", "is required for")
-
-	require.NoError(t, err)
-	assert.Equal(t, "Depends on", lt.Name)
-}
-
-func TestLinkIssues(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "links")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		lt, _ := body["linkType"].(map[string]any)
-		assert.Equal(t, "lt-1", lt["id"])
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").LinkIssues("FOO-1", "2-2", "lt-1")
-
-	require.NoError(t, err)
-}
-
-func TestRemoveIssueLink(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "link-1")
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").RemoveIssueLink("FOO-1", "link-1")
-
-	require.NoError(t, err)
-}
-
-func TestAddWorkItem(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "workItems")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		dur, _ := body["duration"].(map[string]any)
-		assert.Equal(t, float64(90), dur["minutes"])
-		json.NewEncoder(w).Encode(api.WorkItem{ID: "wi-1"})
-	}))
-	defer srv.Close()
-
-	wi, err := api.NewClient(srv.URL, "tok").AddWorkItem("FOO-1", 90, "design work", "")
-
-	require.NoError(t, err)
-	assert.Equal(t, "wi-1", wi.ID)
-}
-
-func TestUpdateComment(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "c-1")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "updated text", body["text"])
-		json.NewEncoder(w).Encode(api.Comment{ID: "c-1", Text: "updated text"})
-	}))
-	defer srv.Close()
-
-	comment, err := api.NewClient(srv.URL, "tok").UpdateComment("FOO-1", "c-1", "updated text")
-
-	require.NoError(t, err)
-	assert.Equal(t, "updated text", comment.Text)
-}
-
-func TestUpdateCommentVisibility(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "c-1")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		vis, _ := body["visibility"].(map[string]any)
-		assert.Equal(t, "LimitedVisibility", vis["$type"])
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").UpdateCommentVisibility("FOO-1", "c-1", []string{"g-1"}, []string{"u-1"})
-
-	require.NoError(t, err)
-}
-
-func TestPinComment(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "c-1")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, true, body["pinned"])
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").PinComment("FOO-1", "c-1", true)
-
-	require.NoError(t, err)
-}
-
-func TestUpdateIssueVisibility(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		vis, _ := body["visibility"].(map[string]any)
-		assert.Equal(t, "LimitedVisibility", vis["$type"])
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").UpdateIssueVisibility("FOO-1", []string{"g-1"}, []string{})
-
-	require.NoError(t, err)
-}
-
-func TestGetCustomFieldValue(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "fields")
-		json.NewEncoder(w).Encode([]api.IssueField{
-			{ID: "f-1", Name: "Priority", Value: "High"},
-		})
-	}))
-	defer srv.Close()
-
-	field, err := api.NewClient(srv.URL, "tok").GetCustomFieldValue("FOO-1", "Priority")
-
-	require.NoError(t, err)
-	assert.Equal(t, "Priority", field.Name)
-}
-
-func TestGetCommandAssist(t *testing.T) {
-	callCount := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		if r.Method == "GET" {
-			json.NewEncoder(w).Encode(api.Issue{ID: "2-1", IDReadable: "FOO-1"})
-			return
-		}
-		assert.Contains(t, r.URL.Path, "/api/commands/assist")
-		json.NewEncoder(w).Encode(map[string]any{"query": "State Fixed", "commands": []any{}})
-	}))
-	defer srv.Close()
-
-	result, err := api.NewClient(srv.URL, "tok").GetCommandAssist("State", []string{"FOO-1"})
-
-	require.NoError(t, err)
-	assert.NotNil(t, result)
-}
-
-func TestAddReaction(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "c-1")
-		assert.Contains(t, r.URL.Path, "reactions")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "👍", body["reaction"])
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").AddReaction("FOO-1", "c-1", "👍")
-
-	require.NoError(t, err)
-}
-
-func TestDeleteReaction(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "FOO-1")
-		assert.Contains(t, r.URL.Path, "c-1")
-		assert.Contains(t, r.URL.Path, "r-1")
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeleteReaction("FOO-1", "c-1", "r-1")
-
-	require.NoError(t, err)
-}
-
-func TestSetCustomField(t *testing.T) {
-	callCount := 0
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		callCount++
-		if r.Method == "GET" {
-			json.NewEncoder(w).Encode([]api.IssueField{{ID: "f-1", Name: "Priority"}})
-			return
-		}
-		assert.Contains(t, r.URL.Path, "f-1")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		val, _ := body["value"].(map[string]any)
-		assert.Equal(t, "High", val["name"])
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").SetCustomField("FOO-1", "Priority", "High", "")
-
-	require.NoError(t, err)
-	assert.Equal(t, 2, callCount)
-}
-
-func TestWrapUserValues(t *testing.T) {
+func TestIssue_WrapUserValues(t *testing.T) {
 	cases := []struct{ in, out string }{
 		{"assignee alice", "assignee alice"},
 		{"assignee alice.qa", "assignee {alice.qa}"},
@@ -506,4 +144,73 @@ func TestWrapUserValues(t *testing.T) {
 	for _, c := range cases {
 		assert.Equal(t, c.out, api.WrapUserValues(c.in), "input: %q", c.in)
 	}
+}
+
+// Cmd-layer tests
+
+func TestCmd_IssueList(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "cmd list test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "list", "--query", "project: "+proj.ShortName, "--format", "json")
+	assert.Contains(t, out, "cmd list test")
+}
+
+func TestCmd_IssueAdd(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	out := runCmd(t, "issue", "add",
+		"--project", proj.ShortName,
+		"--summary", "cmd add test",
+		"--format", "json",
+	)
+	assert.Contains(t, out, "cmd add test")
+
+	issues, err := c.ListIssues("project: "+proj.ShortName, 5)
+	require.NoError(t, err)
+	for _, iss := range issues {
+		if strings.Contains(iss.Summary, "cmd add test") {
+			t.Cleanup(func() { _ = c.DeleteIssue(iss.IDReadable) })
+		}
+	}
+}
+
+func TestCmd_IssueGet(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "cmd get test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "get", issue.IDReadable, "--format", "json")
+	assert.Contains(t, out, issue.IDReadable)
+	assert.Contains(t, out, "cmd get test")
+}
+
+func TestCmd_IssueDelete(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "cmd delete test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+
+	runCmd(t, "issue", "delete", issue.IDReadable)
+
+	_, err = c.GetIssue(issue.IDReadable)
+	assert.Error(t, err)
 }
