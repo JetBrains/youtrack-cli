@@ -73,7 +73,7 @@ func (c *Client) DeleteBundle(bundleType, bundleID string) error {
 func (c *Client) AttachBundleToField(fieldID, bundleID, bundleType string) error {
 	path := fmt.Sprintf("/api/admin/customFieldSettings/customFields/%s/fieldDefaults/bundle",
 		url.PathEscape(fieldID))
-	return c.Put(path, map[string]any{"id": bundleID, "$type": bundleType}, nil)
+	return c.Put(path, map[string]any{"id": bundleID, "$type": bundleTypeName(bundleType)}, nil)
 }
 
 func (c *Client) ListWorkItemTypes() ([]WorkItemType, error) {

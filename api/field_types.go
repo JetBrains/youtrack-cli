@@ -17,15 +17,14 @@ const (
 
 	// Bundle-based field types — single-value
 	FieldTypeEnumSingle    = "enum[1]"
-	FieldTypeStateSingle   = "state[1]"
+	FieldTypeStateSingle   = "state[1]" // state is always single-value in YouTrack
 	FieldTypeVersionSingle = "version[1]"
 	FieldTypeBuildSingle   = "build[1]"
 	FieldTypeOwnedSingle   = "owned[1]"
 	FieldTypeUserSingle    = "user[1]"
 
-	// Bundle-based field types — multi-value
+	// Bundle-based field types — multi-value (state has no multi-value variant)
 	FieldTypeEnumMulti    = "enum[*]"
-	FieldTypeStateMulti   = "state[*]"
 	FieldTypeVersionMulti = "version[*]"
 	FieldTypeBuildMulti   = "build[*]"
 	FieldTypeOwnedMulti   = "owned[*]"
@@ -37,7 +36,7 @@ var AllFieldTypes = []string{
 	FieldTypeString, FieldTypeText, FieldTypeInteger, FieldTypeFloat,
 	FieldTypeDate, FieldTypeDateTime, FieldTypePeriod,
 	FieldTypeEnumSingle, FieldTypeEnumMulti,
-	FieldTypeStateSingle, FieldTypeStateMulti,
+	FieldTypeStateSingle,
 	FieldTypeVersionSingle, FieldTypeVersionMulti,
 	FieldTypeBuildSingle, FieldTypeBuildMulti,
 	FieldTypeOwnedSingle, FieldTypeOwnedMulti,
