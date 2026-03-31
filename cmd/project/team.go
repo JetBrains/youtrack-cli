@@ -1,9 +1,11 @@
-package cmd
+package project
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newProjectTeamCmd() *cobra.Command {
@@ -12,7 +14,7 @@ func newProjectTeamCmd() *cobra.Command {
 		Use: "add-user <shortName> <userId>", Short: "Add a user to the project team",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -27,7 +29,7 @@ func newProjectTeamCmd() *cobra.Command {
 		Use: "add-group <shortName> <groupId>", Short: "Add a group to the project team",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

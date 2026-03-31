@@ -1,8 +1,8 @@
-package cmd
+package project
 
 import "github.com/spf13/cobra"
 
-func newProjectCmd() *cobra.Command {
+func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "project",
 		Short: "Manage projects",

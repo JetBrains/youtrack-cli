@@ -1,8 +1,10 @@
-package cmd
+package project
 
 import (
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newProjectFieldCmd() *cobra.Command {
@@ -11,7 +13,7 @@ func newProjectFieldCmd() *cobra.Command {
 		Use: "list <shortName>", Short: "List custom fields in a project",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -27,7 +29,7 @@ func newProjectFieldCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fieldID, _ := cmd.Flags().GetString("field")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

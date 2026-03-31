@@ -1,9 +1,11 @@
-package cmd
+package project
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newProjectDeleteCmd() *cobra.Command {
@@ -12,7 +14,7 @@ func newProjectDeleteCmd() *cobra.Command {
 		Short: "Delete a project",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

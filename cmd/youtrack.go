@@ -7,6 +7,7 @@ import (
 
 	"github.com/JetBrains/youtrack-cli/cmd/issue"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/cmd/project"
 	"github.com/JetBrains/youtrack-cli/internal"
 )
 
@@ -30,7 +31,7 @@ func NewRootCmd() *cobra.Command {
 
 	// Domain sub-packages
 	rootCmd.AddCommand(issue.NewCmd())
-	rootCmd.AddCommand(newProjectCmd())
+	rootCmd.AddCommand(project.NewCmd())
 	rootCmd.AddCommand(newUserCmd())
 
 	// Single-file commands (stay in package cmd)

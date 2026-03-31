@@ -1,10 +1,12 @@
-package cmd
+package project
 
 import (
 	"fmt"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newProjectTemplateCmd() *cobra.Command {
@@ -12,7 +14,7 @@ func newProjectTemplateCmd() *cobra.Command {
 	list := &cobra.Command{
 		Use: "list", Short: "List project templates",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -27,7 +29,7 @@ func newProjectTemplateCmd() *cobra.Command {
 		Use: "convert <shortName>", Short: "Convert a project to a template",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

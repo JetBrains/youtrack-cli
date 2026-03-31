@@ -1,10 +1,11 @@
-package cmd
+package project
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
-
-	"github.com/spf13/cobra"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newProjectAddCmd() *cobra.Command {
@@ -16,7 +17,7 @@ func newProjectAddCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			leader, _ := cmd.Flags().GetString("leader")
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

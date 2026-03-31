@@ -1,9 +1,10 @@
-package cmd
+package project
 
 import (
-	"github.com/JetBrains/youtrack-cli/cmd/output"
-
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newProjectListCmd() *cobra.Command {
@@ -11,7 +12,7 @@ func newProjectListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List all projects",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
