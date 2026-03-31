@@ -17,6 +17,9 @@ func TestAuth_GetTokenViaBasicAuth(t *testing.T) {
 		t.Skip("YOUTRACK_LOGIN and YOUTRACK_PASSWORD not set — skipping basic auth test")
 	}
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	if baseURL == "" {
+		t.Skip("YOUTRACK_BASE_URL not set — skipping basic auth test")
+	}
 
 	me, err := api.GetHubMe(baseURL, login, password)
 	require.NoError(t, err)

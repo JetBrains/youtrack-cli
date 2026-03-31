@@ -10,6 +10,8 @@ import (
 	"net/url"
 )
 
+var hubHTTPClient = &http.Client{}
+
 // HubUser is the authenticated user record from Hub.
 type HubUser struct {
 	ID    string `json:"id"`
@@ -56,7 +58,7 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := hubHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +95,7 @@ func ListHubServices(baseURL, login, password string) ([]HubService, error) {
 	var wrapper struct {
 		Services []HubService `json:"services"`
 	}
-	if err := json.Unmarshal(data, &wrapper); err == nil && wrapper.Services != nil {
+	if err := json.Unmarshal(data, &wrapper); err == nil {
 		return wrapper.Services, nil
 	}
 	var list []HubService
