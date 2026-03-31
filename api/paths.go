@@ -11,14 +11,14 @@ const (
 	pathAdminPluginUsage                 = "/api/admin/pluginUsages/%s"
 
 	// VCS / Integrations
-	pathAdminVCSServers      = "/api/admin/integrations/vcsHostingServers"
-	pathAdminVCSServer       = "/api/admin/integrations/vcsHostingServers/%s"
-	pathAdminVCSServerProcs  = "/api/admin/integrations/vcsHostingServers/%s/changesProcessors"
-	pathAdminVCSProcessors   = "/api/admin/integrations/vcsHostingProcessors"
-	pathAdminVCSProcessor    = "/api/admin/integrations/vcsHostingProcessors/%s"
-	pathAdminMailboxes       = "/api/admin/integrations/mailbox/mailboxes"
-	pathAdminMailbox         = "/api/admin/integrations/mailbox/mailboxes/%s"
-	pathAdminMailboxRules    = "/api/admin/integrations/mailbox/rules"
+	pathAdminVCSServers     = "/api/admin/integrations/vcsHostingServers"
+	pathAdminVCSServer      = "/api/admin/integrations/vcsHostingServers/%s"
+	pathAdminVCSServerProcs = "/api/admin/integrations/vcsHostingServers/%s/changesProcessors"
+	pathAdminVCSProcessors  = "/api/admin/integrations/vcsHostingProcessors"
+	pathAdminVCSProcessor   = "/api/admin/integrations/vcsHostingProcessors/%s"
+	pathAdminMailboxes      = "/api/admin/integrations/mailbox/mailboxes"
+	pathAdminMailbox        = "/api/admin/integrations/mailbox/mailboxes/%s"
+	pathAdminMailboxRules   = "/api/admin/integrations/mailbox/rules"
 
 	// Apps
 	pathAdminApps = "/api/admin/apps"
@@ -33,8 +33,8 @@ const (
 	pathArticleTags        = "/api/articles/%s/tags"
 
 	// Boards (Agiles) / Sprints
-	pathBoards      = "/api/agiles"
-	pathBoard       = "/api/agiles/%s"
+	pathBoards       = "/api/agiles"
+	pathBoard        = "/api/agiles/%s"
 	pathBoardSprints = "/api/agiles/%s/sprints"
 
 	// Canvas
@@ -48,14 +48,14 @@ const (
 	pathDashboard  = "/api/dashboards/%s"
 
 	// Custom Fields / Bundles
-	pathAdminCustomFields     = "/api/admin/customFieldSettings/customFields"
-	pathAdminCustomField      = "/api/admin/customFieldSettings/customFields/%s"
+	pathAdminCustomFields      = "/api/admin/customFieldSettings/customFields"
+	pathAdminCustomField       = "/api/admin/customFieldSettings/customFields/%s"
 	pathAdminCustomFieldBundle = "/api/admin/customFieldSettings/customFields/%s/fieldDefaults/bundle"
-	pathAdminBundles          = "/api/admin/customFieldSettings/bundles/%s"
-	pathAdminBundle           = "/api/admin/customFieldSettings/bundles/%s/%s"
-	pathAdminBundleValues     = "/api/admin/customFieldSettings/bundles/%s/%s/values"
-	pathAdminWorkItemTypes    = "/api/admin/timeTrackingSettings/workItemTypes"
-	pathAdminWorkTimeSettings = "/api/admin/timeTrackingSettings/workTimeSettings"
+	pathAdminBundles           = "/api/admin/customFieldSettings/bundles/%s"
+	pathAdminBundle            = "/api/admin/customFieldSettings/bundles/%s/%s"
+	pathAdminBundleValues      = "/api/admin/customFieldSettings/bundles/%s/%s/values"
+	pathAdminWorkItemTypes     = "/api/admin/timeTrackingSettings/workItemTypes"
+	pathAdminWorkTimeSettings  = "/api/admin/timeTrackingSettings/workTimeSettings"
 
 	// Groups
 	pathGroups = "/api/groups"
@@ -80,20 +80,19 @@ const (
 	pathIssuesGetterCount     = "/api/issuesGetter/count"
 	pathCommands              = "/api/commands"
 	pathCommandsAssist        = "/api/commands/assist"
-	pathUsers                 = "/api/users"
 
 	// Organizations
 	pathAdminOrganizations = "/api/admin/organizations"
 	pathAdminOrganization  = "/api/admin/organizations/%s"
 
 	// Projects
-	pathAdminProjects                = "/api/admin/projects"
-	pathAdminProject                 = "/api/admin/projects/%s"
-	pathAdminProjectFields           = "/api/admin/projects/%s/fields"
-	pathAdminProjectTeam             = "/api/admin/projects/%s/team"
-	pathAdminProjectWorkflows        = "/api/admin/projects/%s/workflows"
-	pathAdminProjectTimeTracking     = "/api/admin/projects/%s/timeTrackingSettings"
-	pathAdminProjectTemplates        = "/api/admin/projectTemplates"
+	pathAdminProjects            = "/api/admin/projects"
+	pathAdminProject             = "/api/admin/projects/%s"
+	pathAdminProjectFields       = "/api/admin/projects/%s/fields"
+	pathAdminProjectTeam         = "/api/admin/projects/%s/team"
+	pathAdminProjectWorkflows    = "/api/admin/projects/%s/workflows"
+	pathAdminProjectTimeTracking = "/api/admin/projects/%s/timeTrackingSettings"
+	pathAdminProjectTemplates    = "/api/admin/projectTemplates"
 
 	// Reports / Restored docs
 	pathRemovedDocuments = "/api/removedDocuments"
@@ -116,19 +115,20 @@ const (
 	pathTag  = "/api/tags/%s"
 
 	// Users
-	pathUser                       = "/api/users/%s"
-	pathUserMe                     = "/api/users/me"
-	pathUserProfileGeneral         = "/api/users/%s/profiles/general"
-	pathUserProfileAppearance      = "/api/users/%s/profiles/appearance"
-	pathUserProfileNotifications   = "/api/users/%s/profiles/notifications"
-	pathUserProfileGrazie          = "/api/users/%s/profiles/grazie"
-	pathUserProfileArticles        = "/api/users/%s/profiles/articles"
-	pathUserProfileIssuesList      = "/api/users/%s/profiles/issuesList"
-	pathUserProfileTips            = "/api/users/%s/profiles/tips"
-	pathUserProfileProperties      = "/api/users/%s/profiles/propertiesProfile/properties"
-	pathUserDrafts                 = "/api/users/%s/drafts"
-	pathUserArticleDrafts          = "/api/users/%s/articleDrafts"
-	pathUserPinnedProjects         = "/api/users/%s/pinnedProjects"
+	pathUsers                    = "/api/users"
+	pathUser                     = "/api/users/%s"
+	pathUserMe                   = "/api/users/me"
+	pathUserProfileGeneral       = "/api/users/%s/profiles/general"
+	pathUserProfileAppearance    = "/api/users/%s/profiles/appearance"
+	pathUserProfileNotifications = "/api/users/%s/profiles/notifications"
+	pathUserProfileGrazie        = "/api/users/%s/profiles/grazie"
+	pathUserProfileArticles      = "/api/users/%s/profiles/articles"
+	pathUserProfileIssuesList    = "/api/users/%s/profiles/issuesList"
+	pathUserProfileTips          = "/api/users/%s/profiles/tips"
+	pathUserProfileProperties    = "/api/users/%s/profiles/propertiesProfile/properties"
+	pathUserDrafts               = "/api/users/%s/drafts"
+	pathUserArticleDrafts        = "/api/users/%s/articleDrafts"
+	pathUserPinnedProjects       = "/api/users/%s/pinnedProjects"
 
 	// Workflows
 	pathAdminWorkflows              = "/api/admin/workflows"
