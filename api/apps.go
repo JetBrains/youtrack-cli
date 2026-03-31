@@ -7,13 +7,13 @@ import (
 
 func (c *Client) ListApps() ([]App, error) {
 	var result []App
-	return result, c.Get("/api/admin/apps?fields=id,name,title,version&$top=-1", &result)
+	return result, c.Get(pathAdminApps+"?fields=id,name,title,version&$top=-1", &result)
 }
 
 func (c *Client) DeleteApp(id string) error {
-	return c.Delete(fmt.Sprintf("/api/admin/apps/%s", url.PathEscape(id)))
+	return c.Delete(fmt.Sprintf(pathAdminApp, url.PathEscape(id)))
 }
 
 func (c *Client) DeactivateApp(id string) error {
-	return c.Post(fmt.Sprintf("/api/admin/apps/%s", url.PathEscape(id)), map[string]any{"globalConfig": map[string]any{"enabled": false}}, nil)
+	return c.Post(fmt.Sprintf(pathAdminApp, url.PathEscape(id)), map[string]any{"globalConfig": map[string]any{"enabled": false}}, nil)
 }

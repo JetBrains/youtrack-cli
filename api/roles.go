@@ -7,7 +7,7 @@ import (
 
 func (c *Client) ListRoles() ([]Role, error) {
 	var result []Role
-	return result, c.Get("/api/roles?fields=id,name,description&$top=-1", &result)
+	return result, c.Get(pathRoles+"?fields=id,name,description&$top=-1", &result)
 }
 
 func (c *Client) AddRole(name, description string, permissionIDs []string) (*Role, error) {
@@ -16,7 +16,7 @@ func (c *Client) AddRole(name, description string, permissionIDs []string) (*Rol
 	for i, id := range permissionIDs {
 		perms[i] = map[string]any{"id": id}
 	}
-	return &result, c.Post("/api/roles?fields=id,name,description", map[string]any{
+	return &result, c.Post(pathRoles+"?fields=id,name,description", map[string]any{
 		"name":        name,
 		"description": description,
 		"permissions": perms,
@@ -24,7 +24,7 @@ func (c *Client) AddRole(name, description string, permissionIDs []string) (*Rol
 }
 
 func (c *Client) DeleteRole(id string) error {
-	return c.Delete(fmt.Sprintf("/api/roles/%s", url.PathEscape(id)))
+	return c.Delete(fmt.Sprintf(pathRole, url.PathEscape(id)))
 }
 
 func (c *Client) UpdateRole(id string, permissionIDs []string) error {
@@ -32,14 +32,14 @@ func (c *Client) UpdateRole(id string, permissionIDs []string) error {
 	for i, pid := range permissionIDs {
 		perms[i] = map[string]any{"id": pid}
 	}
-	return c.Post(fmt.Sprintf("/api/roles/%s", url.PathEscape(id)), map[string]any{
+	return c.Post(fmt.Sprintf(pathRole, url.PathEscape(id)), map[string]any{
 		"permissions": perms,
 	}, nil)
 }
 
 func (c *Client) GetPermissions() ([]Permission, error) {
 	var result []Permission
-	return result, c.Get("/api/permissions?fields=id,name,description&$top=-1", &result)
+	return result, c.Get(pathPermissions+"?fields=id,name,description&$top=-1", &result)
 }
 
 func (c *Client) GrantRoleToUser(userID, roleID, projectID string) error {
@@ -53,7 +53,7 @@ func (c *Client) GrantRoleToUser(userID, roleID, projectID string) error {
 			"project": map[string]any{"id": projectID},
 		}
 	}
-	return c.Post("/api/assignedRoles", body, nil)
+	return c.Post(pathAssignedRoles, body, nil)
 }
 
 func (c *Client) GrantRoleToGroup(groupID, roleID, projectID string) error {
@@ -67,5 +67,5 @@ func (c *Client) GrantRoleToGroup(groupID, roleID, projectID string) error {
 			"project": map[string]any{"id": projectID},
 		}
 	}
-	return c.Post("/api/assignedRoles", body, nil)
+	return c.Post(pathAssignedRoles, body, nil)
 }

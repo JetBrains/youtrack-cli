@@ -7,7 +7,7 @@ import (
 
 func (c *Client) ListGroups(query string) ([]Group, error) {
 	var result []Group
-	path := fmt.Sprintf("/api/groups?fields=id,name&query=%s&$top=-1", url.QueryEscape(query))
+	path := pathGroups + fmt.Sprintf("?fields=id,name&query=%s&$top=-1", url.QueryEscape(query))
 	return result, c.Get(path, &result)
 }
 
@@ -26,9 +26,9 @@ func (c *Client) GetGroup(name string) (*Group, error) {
 
 func (c *Client) AddGroup(name string) (*Group, error) {
 	var result Group
-	return &result, c.Post("/api/groups?fields=id,name", map[string]any{"name": name}, &result)
+	return &result, c.Post(pathGroups+"?fields=id,name", map[string]any{"name": name}, &result)
 }
 
 func (c *Client) DeleteGroup(id string) error {
-	return c.Delete(fmt.Sprintf("/api/groups/%s", url.PathEscape(id)))
+	return c.Delete(fmt.Sprintf(pathGroup, url.PathEscape(id)))
 }

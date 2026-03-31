@@ -12,9 +12,9 @@ type AddSavedSearchRequest struct {
 
 func (c *Client) AddSavedSearch(req AddSavedSearchRequest) (*SavedSearch, error) {
 	var result SavedSearch
-	return &result, c.Post("/api/savedQueries?fields=id,name,query", req, &result)
+	return &result, c.Post(pathSavedQueries+"?fields=id,name,query", req, &result)
 }
 
 func (c *Client) ShareSavedSearch(id string) error {
-	return c.Post(fmt.Sprintf("/api/savedQueries/%s", url.PathEscape(id)), map[string]any{"isShareable": true}, nil)
+	return c.Post(fmt.Sprintf(pathSavedQuery, url.PathEscape(id)), map[string]any{"isShareable": true}, nil)
 }
