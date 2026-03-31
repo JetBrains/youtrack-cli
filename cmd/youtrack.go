@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/cmd/auth"
 	"github.com/JetBrains/youtrack-cli/cmd/issue"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/cmd/project"
@@ -31,6 +32,7 @@ func NewRootCmd() *cobra.Command {
 	f.Bool("verbose", false, "Print HTTP request/response to stderr")
 
 	// Domain sub-packages
+	rootCmd.AddCommand(auth.NewCmd())
 	rootCmd.AddCommand(issue.NewCmd())
 	rootCmd.AddCommand(project.NewCmd())
 	rootCmd.AddCommand(user.NewCmd())
