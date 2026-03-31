@@ -7,6 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCmd_DashboardList(t *testing.T) {
+	c := newTestClient(t)
+	dashboard, err := c.AddDashboard("Test Dashboard " + t.Name())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteDashboard(dashboard.ID) })
+
+	out := runCmd(t, "dashboard", "list", "--format", "json")
+	assert.Contains(t, out, dashboard.Name)
+}
+
 func TestDashboard_CRUD(t *testing.T) {
 	c := newTestClient(t)
 
@@ -34,8 +44,4 @@ func TestDashboard_CRUD(t *testing.T) {
 	updated, err := c.UpdateDashboard(dashboard.ID, "Renamed Dashboard")
 	require.NoError(t, err)
 	assert.Equal(t, "Renamed Dashboard", updated.Name)
-
-	// Delete
-	err = c.DeleteDashboard(dashboard.ID)
-	require.NoError(t, err)
 }

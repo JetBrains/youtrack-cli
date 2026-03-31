@@ -43,6 +43,12 @@ func (c *Client) AddBundleValue(bundleType, bundleID, value string) error {
 	return c.Post(path, map[string]any{"name": value}, nil)
 }
 
+func (c *Client) DeleteBundle(bundleType, bundleID string) error {
+	path := fmt.Sprintf("/api/admin/customFieldSettings/bundles/%s/%s",
+		url.PathEscape(bundleType), url.PathEscape(bundleID))
+	return c.Delete(path)
+}
+
 func (c *Client) AttachBundleToField(fieldID, bundleID, bundleType string) error {
 	path := fmt.Sprintf("/api/admin/customFieldSettings/customFields/%s/fieldDefaults/bundle",
 		url.PathEscape(fieldID))

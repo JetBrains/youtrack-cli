@@ -51,3 +51,13 @@ func TestAdmin_ListPlugins(t *testing.T) {
 	_, err := c.ListPlugins()
 	require.NoError(t, err)
 }
+
+func TestCmd_SettingsGet(t *testing.T) {
+	out := runCmd(t, "settings", "get", "--format", "json")
+	assert.NotEmpty(t, out)
+}
+
+func TestCmd_SettingsFrontend(t *testing.T) {
+	out := runCmd(t, "settings", "frontend", "--format", "json")
+	assert.NotEmpty(t, out)
+}

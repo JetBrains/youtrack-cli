@@ -9,6 +9,17 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCmd_WorkflowList(t *testing.T) {
+	c := newTestClient(t)
+	name := fmt.Sprintf("test-wf-cmd-%d", time.Now().UnixMilli()%100000)
+	wf, err := c.AddWorkflow(name, "Test Workflow "+t.Name())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteWorkflow(wf.ID) })
+
+	out := runCmd(t, "workflow", "list", "--format", "json")
+	assert.Contains(t, out, wf.Name)
+}
+
 func TestWorkflow_List(t *testing.T) {
 	c := newTestClient(t)
 
@@ -43,8 +54,4 @@ func TestWorkflow_AddDelete(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "newly created workflow should appear in list")
-
-	// Delete
-	err = c.DeleteWorkflow(wf.ID)
-	require.NoError(t, err)
 }

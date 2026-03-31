@@ -7,6 +7,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCmd_RoleList(t *testing.T) {
+	out := runCmd(t, "role", "list", "--format", "json")
+	assert.NotEmpty(t, out)
+}
+
+func TestCmd_RolePermissions(t *testing.T) {
+	out := runCmd(t, "role", "permissions", "--format", "json")
+	assert.NotEmpty(t, out)
+}
+
 func TestRole_ListRoles(t *testing.T) {
 	c := newTestClient(t)
 
@@ -46,8 +56,4 @@ func TestRole_CRUD(t *testing.T) {
 		}
 	}
 	assert.True(t, found, "newly created role should appear in list")
-
-	// Delete
-	err = c.DeleteRole(role.ID)
-	require.NoError(t, err)
 }

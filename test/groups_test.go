@@ -9,6 +9,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCmd_GroupList(t *testing.T) {
+	c := newTestClient(t)
+	groupName := fmt.Sprintf("testgroup-cmd-%d", time.Now().UnixMilli()%100000)
+	group, err := c.AddGroup(groupName)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteGroup(group.ID) })
+
+	out := runCmd(t, "group", "list", "--format", "json")
+	assert.Contains(t, out, group.Name)
+}
+
+func TestCmd_GroupGet(t *testing.T) {
+	c := newTestClient(t)
+	groupName := fmt.Sprintf("testgroup-get-%d", time.Now().UnixMilli()%100000)
+	group, err := c.AddGroup(groupName)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteGroup(group.ID) })
+
+	out := runCmd(t, "group", "get", group.Name, "--format", "json")
+	assert.Contains(t, out, group.Name)
+}
+
 func TestGroup_CRUD(t *testing.T) {
 	c := newTestClient(t)
 

@@ -31,14 +31,16 @@ func TestField_ListBundles(t *testing.T) {
 func TestField_AddBundleValue(t *testing.T) {
 	c := newTestClient(t)
 
-	// Get an existing bundle to add a value to.
-	bundles, err := c.ListBundles("enum")
+	// Create a fresh enum bundle so the added value can be cleaned up by deleting the whole bundle.
+	bundleName := fmt.Sprintf("testbundle-%d", time.Now().UnixMilli()%100000)
+	bundle, err := c.CreateBundle("EnumBundle", bundleName)
 	require.NoError(t, err)
-	require.NotEmpty(t, bundles, "need at least one enum bundle to test AddBundleValue")
+	require.NotEmpty(t, bundle.ID)
+	t.Cleanup(func() { _ = c.DeleteBundle("EnumBundle", bundle.ID) })
 
-	// Add a unique value to the first bundle.
+	// Add a unique value to the new bundle.
 	value := fmt.Sprintf("testval-%d", time.Now().UnixMilli()%100000)
-	err = c.AddBundleValue("enum", bundles[0].ID, value)
+	err = c.AddBundleValue("EnumBundle", bundle.ID, value)
 	require.NoError(t, err)
 }
 
@@ -57,4 +59,19 @@ func TestField_GetWorkTimeSettings(t *testing.T) {
 	settings, err := c.GetWorkTimeSettings()
 	require.NoError(t, err)
 	assert.NotEmpty(t, settings.ID)
+}
+
+func TestCmd_FieldList(t *testing.T) {
+	out := runCmd(t, "field", "list", "--format", "json")
+	assert.NotEmpty(t, out)
+}
+
+func TestCmd_FieldBundleList(t *testing.T) {
+	out := runCmd(t, "field", "bundle", "list", "--format", "json")
+	assert.NotEmpty(t, out)
+}
+
+func TestCmd_FieldWorktimeGet(t *testing.T) {
+	out := runCmd(t, "field", "worktime", "get", "--format", "json")
+	assert.NotEmpty(t, out)
 }
