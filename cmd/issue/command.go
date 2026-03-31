@@ -1,8 +1,10 @@
-package cmd
+package issue
 
 import (
 	"fmt"
 	"strings"
+
+	"github.com/JetBrains/youtrack-cli/internal"
 
 	"github.com/spf13/cobra"
 )
@@ -19,7 +21,7 @@ func newIssueCommandCmd() *cobra.Command {
 			for i, id := range issueIDs {
 				issueIDs[i] = strings.TrimSpace(id)
 			}
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

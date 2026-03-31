@@ -1,7 +1,9 @@
-package cmd
+package issue
 
 import (
 	"fmt"
+
+	"github.com/JetBrains/youtrack-cli/internal"
 
 	"github.com/spf13/cobra"
 )
@@ -19,7 +21,7 @@ func newIssueReactionAddCmd() *cobra.Command {
 		Short: "Add a reaction to an issue comment",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -38,7 +40,7 @@ func newIssueReactionDeleteCmd() *cobra.Command {
 		Short: "Delete a reaction from an issue comment",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

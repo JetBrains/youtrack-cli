@@ -1,7 +1,8 @@
-package cmd
+package issue
 
 import (
 	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 
 	"github.com/spf13/cobra"
 )
@@ -12,7 +13,7 @@ func newIssueGetCmd() *cobra.Command {
 		Short: "Get issue by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

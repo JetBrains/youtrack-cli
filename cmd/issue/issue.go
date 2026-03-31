@@ -1,8 +1,8 @@
-package cmd
+package issue
 
 import "github.com/spf13/cobra"
 
-func newIssueCmd() *cobra.Command {
+func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "issue",
 		Short: "Manage issues",

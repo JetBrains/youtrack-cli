@@ -1,7 +1,9 @@
-package cmd
+package issue
 
 import (
 	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
+
 	"github.com/spf13/cobra"
 )
 
@@ -11,7 +13,7 @@ func newIssueAssistCmd() *cobra.Command {
 		Short: "Get command suggestions for issues",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

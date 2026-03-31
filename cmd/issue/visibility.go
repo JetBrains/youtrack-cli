@@ -1,7 +1,9 @@
-package cmd
+package issue
 
 import (
 	"fmt"
+
+	"github.com/JetBrains/youtrack-cli/internal"
 
 	"github.com/spf13/cobra"
 )
@@ -14,7 +16,7 @@ func newIssueVisibilityCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			groups, _ := cmd.Flags().GetStringSlice("groups")
 			users, _ := cmd.Flags().GetStringSlice("users")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

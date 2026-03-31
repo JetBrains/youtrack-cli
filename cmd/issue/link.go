@@ -1,7 +1,9 @@
-package cmd
+package issue
 
 import (
 	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
+
 	"github.com/spf13/cobra"
 )
 
@@ -21,7 +23,7 @@ func newIssueLinkListCmd() *cobra.Command {
 		Use: "list <issueId>", Short: "List links on an issue",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -41,7 +43,7 @@ func newIssueLinkAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			target, _ := cmd.Flags().GetString("target")
 			linkTypeID, _ := cmd.Flags().GetString("type")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -60,7 +62,7 @@ func newIssueLinkRemoveCmd() *cobra.Command {
 		Use: "remove <issueId> <linkId>", Short: "Remove a link from an issue",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -74,7 +76,7 @@ func newIssueLinkTypeCmd() *cobra.Command {
 	list := &cobra.Command{
 		Use: "list", Short: "List issue link types",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -91,7 +93,7 @@ func newIssueLinkTypeCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			s2t, _ := cmd.Flags().GetString("source-to-target")
 			t2s, _ := cmd.Flags().GetString("target-to-source")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

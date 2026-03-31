@@ -1,7 +1,8 @@
-package cmd
+package issue
 
 import (
 	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 
 	"github.com/spf13/cobra"
 )
@@ -14,7 +15,7 @@ func newIssueListCmd() *cobra.Command {
 		Short: "Search issues by query",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query, _ := cmd.Flags().GetString("query")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

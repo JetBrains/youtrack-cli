@@ -1,9 +1,11 @@
-package cmd
+package issue
 
 import (
 	"fmt"
+
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 
 	"github.com/spf13/cobra"
 )
@@ -28,7 +30,7 @@ func newCommentListCmd() *cobra.Command {
 		Short: "List comments on an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -50,7 +52,7 @@ func newCommentAddCmd() *cobra.Command {
 			text, _ := cmd.Flags().GetString("text")
 			asUser, _ := cmd.Flags().GetString("asUser")
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -83,7 +85,7 @@ func newCommentDeleteCmd() *cobra.Command {
 		Short: "Delete a comment",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -103,7 +105,7 @@ func newCommentUpdateCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			text, _ := cmd.Flags().GetString("text")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -127,7 +129,7 @@ func newCommentVisibilityCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			groups, _ := cmd.Flags().GetStringSlice("groups")
 			users, _ := cmd.Flags().GetStringSlice("users")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -150,7 +152,7 @@ func newCommentPinCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			unpin, _ := cmd.Flags().GetBool("unpin")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

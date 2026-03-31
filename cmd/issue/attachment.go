@@ -1,9 +1,11 @@
-package cmd
+package issue
 
 import (
 	"fmt"
 
 	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
+
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +24,7 @@ func newIssueAttachmentListCmd() *cobra.Command {
 		Use: "list <issueId>", Short: "List attachments on an issue",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -41,7 +43,7 @@ func newIssueAttachmentAddCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filePath, _ := cmd.Flags().GetString("file")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -62,7 +64,7 @@ func newIssueAttachmentDeleteCmd() *cobra.Command {
 		Use: "delete <issueId> <attachmentId>", Short: "Delete an attachment from an issue",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

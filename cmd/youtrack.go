@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/cmd/issue"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/JetBrains/youtrack-cli/internal"
 )
@@ -27,8 +28,8 @@ func NewRootCmd() *cobra.Command {
 	f.String("token", "", "Override YOUTRACK_TOKEN")
 	f.Bool("verbose", false, "Print HTTP request/response to stderr")
 
-	// Domain sub-packages (will switch to issue.NewCmd() etc. in Tasks 3-5)
-	rootCmd.AddCommand(newIssueCmd())
+	// Domain sub-packages
+	rootCmd.AddCommand(issue.NewCmd())
 	rootCmd.AddCommand(newProjectCmd())
 	rootCmd.AddCommand(newUserCmd())
 

@@ -1,8 +1,9 @@
-package cmd
+package issue
 
 import (
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 
 	"github.com/spf13/cobra"
 )
@@ -17,7 +18,7 @@ func newIssueAddCmd() *cobra.Command {
 			description, _ := cmd.Flags().GetString("description")
 			asUser, _ := cmd.Flags().GetString("asUser")
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

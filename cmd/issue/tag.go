@@ -1,7 +1,9 @@
-package cmd
+package issue
 
 import (
 	"fmt"
+
+	"github.com/JetBrains/youtrack-cli/internal"
 
 	"github.com/spf13/cobra"
 )
@@ -12,7 +14,7 @@ func newIssueTagCmd() *cobra.Command {
 		Short: "Tag an issue",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

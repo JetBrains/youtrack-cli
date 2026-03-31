@@ -1,9 +1,11 @@
-package cmd
+package issue
 
 import (
 	"fmt"
 
 	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
+
 	"github.com/spf13/cobra"
 )
 
@@ -20,7 +22,7 @@ func newIssueFieldGetCmd() *cobra.Command {
 		Short: "Get a custom field value on an issue",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -40,7 +42,7 @@ func newIssueFieldSetCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fieldType, _ := cmd.Flags().GetString("type")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

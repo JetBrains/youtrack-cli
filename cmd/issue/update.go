@@ -1,9 +1,11 @@
-package cmd
+package issue
 
 import (
 	"fmt"
+
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 
 	"github.com/spf13/cobra"
 )
@@ -21,7 +23,7 @@ func newIssueUpdateCmd() *cobra.Command {
 				return fmt.Errorf("at least one of --summary or --description must be provided")
 			}
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
