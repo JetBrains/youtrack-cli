@@ -49,9 +49,11 @@ func (c *Client) GrantRoleToUser(userID, roleID, projectID string) error {
 	}
 	if projectID != "" {
 		body["scope"] = map[string]any{
-			"$type":   "ProjectBasedTagShareSettings",
+			"$type":   "ProjectScope",
 			"project": map[string]any{"id": projectID},
 		}
+	} else {
+		body["scope"] = map[string]any{"$type": "GlobalScope"}
 	}
 	return c.Post(pathAssignedRoles, body, nil)
 }
@@ -63,9 +65,11 @@ func (c *Client) GrantRoleToGroup(groupID, roleID, projectID string) error {
 	}
 	if projectID != "" {
 		body["scope"] = map[string]any{
-			"$type":   "ProjectBasedTagShareSettings",
+			"$type":   "ProjectScope",
 			"project": map[string]any{"id": projectID},
 		}
+	} else {
+		body["scope"] = map[string]any{"$type": "GlobalScope"}
 	}
 	return c.Post(pathAssignedRoles, body, nil)
 }
