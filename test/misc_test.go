@@ -129,9 +129,11 @@ func TestCmd_AppList(t *testing.T) {
 
 func TestCanvas_CRUD(t *testing.T) {
 	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
 	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
-	canvas, err := c.AddCanvas(api.AddCanvasRequest{Name: name})
+	canvas, err := c.AddCanvas(api.AddCanvasRequest{Name: name, Owner: &api.User{ID: me.ID}})
 	require.NoError(t, err)
 	require.NotEmpty(t, canvas.ID)
 	assert.Equal(t, name, canvas.Name)
@@ -146,9 +148,11 @@ func TestCanvas_CRUD(t *testing.T) {
 
 func TestCmd_CanvasAdd(t *testing.T) {
 	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
 	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
-	out := runCmd(t, "canvas", "add", "--name", name, "--format", "json")
+	out := runCmd(t, "canvas", "add", "--name", name, "--owner", me.Login, "--format", "json")
 	assert.Contains(t, out, name)
 
 	// Extract ID for cleanup — unmarshal JSON response

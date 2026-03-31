@@ -33,14 +33,14 @@ func TestField_AddBundleValue(t *testing.T) {
 
 	// Create a fresh enum bundle so the added value can be cleaned up by deleting the whole bundle.
 	bundleName := fmt.Sprintf("testbundle-%d", time.Now().UnixMilli()%100000)
-	bundle, err := c.CreateBundle("EnumBundle", bundleName)
+	bundle, err := c.CreateBundle("enum", bundleName)
 	require.NoError(t, err)
 	require.NotEmpty(t, bundle.ID)
-	t.Cleanup(func() { _ = c.DeleteBundle("EnumBundle", bundle.ID) })
+	t.Cleanup(func() { _ = c.DeleteBundle("enum", bundle.ID) })
 
 	// Add a unique value to the new bundle.
 	value := fmt.Sprintf("testval-%d", time.Now().UnixMilli()%100000)
-	err = c.AddBundleValue("EnumBundle", bundle.ID, value)
+	err = c.AddBundleValue("enum", bundle.ID, value)
 	require.NoError(t, err)
 }
 
@@ -67,7 +67,7 @@ func TestCmd_FieldList(t *testing.T) {
 }
 
 func TestCmd_FieldBundleList(t *testing.T) {
-	out := runCmd(t, "field", "bundle", "list", "--format", "json")
+	out := runCmd(t, "field", "bundle", "list", "--type", "enum", "--format", "json")
 	assert.NotEmpty(t, out)
 }
 

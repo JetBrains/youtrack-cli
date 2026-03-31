@@ -28,11 +28,32 @@ func (c *Client) ListBundles(bundleType string) ([]Bundle, error) {
 	return result, c.Get(path, &result)
 }
 
+// bundleTypeName maps a lowercase path type (e.g. "enum") to the YouTrack $type value
+// (e.g. "EnumBundle"). Accepts either form — if already in PascalCase it passes through.
+func bundleTypeName(pathType string) string {
+	switch pathType {
+	case "enum":
+		return "EnumBundle"
+	case "state":
+		return "StateBundle"
+	case "version":
+		return "VersionBundle"
+	case "owned":
+		return "OwnedBundle"
+	case "build":
+		return "BuildBundle"
+	case "user":
+		return "UserBundle"
+	default:
+		return pathType
+	}
+}
+
 func (c *Client) CreateBundle(bundleType, name string) (*Bundle, error) {
 	var result Bundle
 	path := fmt.Sprintf("/api/admin/customFieldSettings/bundles/%s?fields=id,name", url.PathEscape(bundleType))
 	return &result, c.Post(path, map[string]any{
-		"$type": bundleType,
+		"$type": bundleTypeName(bundleType),
 		"name":  name,
 	}, &result)
 }

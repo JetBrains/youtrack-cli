@@ -12,12 +12,12 @@ type AddCanvasRequest struct {
 
 func (c *Client) AddCanvas(req AddCanvasRequest) (*Canvas, error) {
 	var result Canvas
-	return &result, c.Post("/api/planningCanvases?fields=id,name,owner(id,login)", req, &result)
+	return &result, c.Post("/api/planningCanvases?fields=id,name", req, &result)
 }
 
 func (c *Client) GetCanvas(id string) (*Canvas, error) {
 	var result Canvas
-	return &result, c.Get(fmt.Sprintf("/api/planningCanvases/%s?fields=id,name,owner(id,login)", url.PathEscape(id)), &result)
+	return &result, c.Get(fmt.Sprintf("/api/planningCanvases/%s?fields=id,name", url.PathEscape(id)), &result)
 }
 
 func (c *Client) DeleteCanvas(id string) error {
