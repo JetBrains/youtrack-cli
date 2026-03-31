@@ -77,12 +77,14 @@ func newGetTokenCmd() *cobra.Command {
 					return fmt.Errorf("resolving home dir: %w", err)
 				}
 				envFile := filepath.Join(home, ".youtrack-cli-env")
-				content := fmt.Sprintf("YOUTRACK_BASE_URL=%s\nYOUTRACK_TOKEN=%s\n", baseURL, tok.Token)
-				if err := os.WriteFile(envFile, []byte(content), 0600); err != nil {
+				existing, _ := os.ReadFile(envFile) // ignore error — file may not exist yet
+				updated := upsertEnvLine(string(existing), "YOUTRACK_BASE_URL", baseURL)
+				updated = upsertEnvLine(updated, "YOUTRACK_TOKEN", tok.Token)
+				if err := os.WriteFile(envFile, []byte(updated), 0600); err != nil {
 					return fmt.Errorf("writing env file: %w", err)
 				}
 				res.EnvFile = envFile
-				res.Hint = "Token saved. Load it: export $(cat ~/.youtrack-cli-env | xargs)"
+				res.Hint = "Token saved. The CLI will load it automatically on next run."
 			}
 
 			return output.Print(cmd, res)
@@ -90,7 +92,7 @@ func newGetTokenCmd() *cobra.Command {
 	}
 
 	cmd.Flags().String("login", "", "YouTrack Hub login (required)")
-	cmd.Flags().String("password", "", "Password (prompted interactively if omitted)")
+	cmd.Flags().String("password", "", "Password (prompted interactively if omitted; avoid in scripts — visible in shell history)")
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token")
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("save", false, "Write YOUTRACK_BASE_URL and YOUTRACK_TOKEN to ~/.youtrack-cli-env")
@@ -134,4 +136,29 @@ func resolveScope(scope string, services []api.HubService) ([]string, error) {
 		}
 	}
 	return ids, nil
+}
+
+// upsertEnvLine sets KEY=value in an env file's content string,
+// replacing an existing line for that key or appending one if absent.
+func upsertEnvLine(content, key, value string) string {
+	prefix := key + "="
+	newLine := key + "=" + value
+	var lines []string
+	found := false
+	for _, line := range strings.Split(content, "\n") {
+		if strings.HasPrefix(line, prefix) {
+			lines = append(lines, newLine)
+			found = true
+		} else {
+			lines = append(lines, line)
+		}
+	}
+	if !found {
+		lines = append(lines, newLine)
+	}
+	result := strings.Join(lines, "\n")
+	if !strings.HasSuffix(result, "\n") {
+		result += "\n"
+	}
+	return result
 }
