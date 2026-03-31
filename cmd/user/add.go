@@ -16,6 +16,7 @@ func newUserAddCmd() *cobra.Command {
 			login, _ := cmd.Flags().GetString("login")
 			fullName, _ := cmd.Flags().GetString("fullName")
 			email, _ := cmd.Flags().GetString("email")
+			password, _ := cmd.Flags().GetString("password")
 
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -25,6 +26,7 @@ func newUserAddCmd() *cobra.Command {
 				Login:    login,
 				FullName: fullName,
 				Email:    email,
+				Password: password,
 			})
 			if err != nil {
 				return err
@@ -35,8 +37,10 @@ func newUserAddCmd() *cobra.Command {
 	cmd.Flags().String("login", "", "User login (required)")
 	cmd.Flags().String("fullName", "", "User full name (required)")
 	cmd.Flags().String("email", "", "User email (required)")
+	cmd.Flags().String("password", "", "User password (required)")
 	cmd.MarkFlagRequired("login")
 	cmd.MarkFlagRequired("fullName")
 	cmd.MarkFlagRequired("email")
+	cmd.MarkFlagRequired("password")
 	return cmd
 }

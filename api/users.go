@@ -12,7 +12,7 @@ type AddUserRequest struct {
 	Login    string `json:"login"`
 	FullName string `json:"fullName"`
 	Email    string `json:"email"`
-	Password string `json:"password,omitempty"`
+	Password string `json:"password"`
 }
 
 func (c *Client) ListUsers(query string) ([]User, error) {
