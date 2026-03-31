@@ -12,7 +12,7 @@ A full YouTrack interaction guide is available as an agent skill — load it whe
 
 ```bash
 make build                                           # compile ./youtrack binary
-make test                                            # go test -tags integration ./... (unit + integration)
+make test                                            # go test ./... (requires YOUTRACK_BASE_URL + YOUTRACK_TOKEN)
 make test-integration                                # integration tests only, verbose
 go run . issue list --query "assignee: me"           # run without building
 go test ./test/ -run TestGetIssue -v                 # run a single test by name
@@ -39,20 +39,20 @@ Or write to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automati
 | `api/issues.go` | Issue and comment API methods |
 | `api/projects.go` | Project API methods |
 | `api/users.go` | User API methods |
-| `cmd/root.go` | Cobra root command, global flags, subcommand registration |
-| `cmd/client.go` | `getClient()` helper — reads flags and env vars |
-| `cmd/env.go` | `loadEnvFile()` — loads `~/.youtrack-cli-env` |
-| `cmd/issue*.go` | Issue subcommands |
-| `cmd/project*.go` | Project subcommands |
-| `cmd/user*.go` | User subcommands |
+| `cmd/youtrack.go` | Cobra root command, exports `NewRootCmd()`, global flags, subcommand registration |
+| `internal/client.go` | `GetClient()` helper — reads flags and env vars |
+| `internal/env.go` | `LoadEnvFile()` — loads `~/.youtrack-cli-env` |
+| `cmd/issue/` | Issue subcommands (17 files) |
+| `cmd/project/` | Project subcommands (10 files) |
+| `cmd/user/` | User subcommands (12 files) |
 | `cmd/output/` | JSON and table output formatters |
 | `test/` | All unit and integration tests (`package api_test`) |
 
 ## Command Registration
 
-Add a new file in `cmd/` (e.g., `cmd/issue_foo.go`). Create a constructor `newIssueFooCmd() *cobra.Command` and register it by calling `cmd.AddCommand(newIssueFooCmd())` in the parent command's constructor (e.g., `newIssueCmd()` in `cmd/issue.go`).
+Add a new file in `cmd/` (e.g., `cmd/issue_foo.go`). Create a constructor `newIssueFooCmd() *cobra.Command` and register it by calling `cmd.AddCommand(newIssueFooCmd())` in the parent command's constructor (e.g., `NewCmd()` in `cmd/issue/issue.go`).
 
-- Use `getClient(cmd)` to obtain the API client.
+- Use `internal.GetClient(cmd)` to obtain the API client.
 - Return errors from `RunE` — the root command prints them to stderr.
 - Use `output.Print(cmd, data)` for all output — it respects `--format`.
 
@@ -71,9 +71,10 @@ Add a new file in `cmd/` (e.g., `cmd/issue_foo.go`). Create a constructor `newIs
 
 ## Testing
 
-Unit tests use `httptest.NewServer` — no real instance needed. Run with `make test`.
-
-Integration tests use the `//go:build integration` build tag and require a real YouTrack instance with a `GOTEST` project. Run with `make test-integration`. Clean up all created resources in `t.Cleanup()` callbacks or the `integCleanup()` helper.
+All tests are integration tests against a real YouTrack instance — no mocks, no build tags.
+Run with `make test` (requires `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN`). Each test is
+self-contained: creates all needed entities and registers `t.Cleanup()` teardown.
+Helper functions in `test/helpers_test.go`: `newTestClient(t)`, `createTempProject(t, c)`, `runCmd(t, args...)`.
 
 ## ID Conventions
 
