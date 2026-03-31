@@ -38,7 +38,7 @@ func bundleTypeName(pathType string) string {
 		return "StateBundle"
 	case "version":
 		return "VersionBundle"
-	case "owned":
+	case "owned", "ownedField":
 		return "OwnedBundle"
 	case "build":
 		return "BuildBundle"

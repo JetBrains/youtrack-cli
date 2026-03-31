@@ -37,8 +37,8 @@ func TestBundlePathForFieldType_BundleTypes(t *testing.T) {
 		{api.FieldTypeVersionMulti, "version"},
 		{api.FieldTypeBuildSingle, "build"},
 		{api.FieldTypeBuildMulti, "build"},
-		{api.FieldTypeOwnedSingle, "owned"},
-		{api.FieldTypeOwnedMulti, "owned"},
+		{api.FieldTypeOwnedSingle, "ownedField"},
+		{api.FieldTypeOwnedMulti, "ownedField"},
 		{api.FieldTypeUserSingle, "user"},
 		{api.FieldTypeUserMulti, "user"},
 	}
@@ -81,10 +81,14 @@ func TestField_CreateBundleTypes(t *testing.T) {
 	c := newTestClient(t)
 
 	// Test one single-value and one multi-value variant for each bundle family.
-	// state[1] uses a StateBundle and is always single-value; tested separately.
+	// state[1] uses pre-existing StateBundles; creating a new StateBundle and attaching
+	// it requires additional workflow setup, so it is excluded here.
 	bundleTypes := []string{
 		api.FieldTypeEnumSingle, api.FieldTypeEnumMulti,
 		api.FieldTypeVersionSingle, api.FieldTypeVersionMulti,
+		api.FieldTypeBuildSingle, api.FieldTypeBuildMulti,
+		api.FieldTypeOwnedSingle, api.FieldTypeOwnedMulti,
+		api.FieldTypeUserSingle, api.FieldTypeUserMulti,
 	}
 
 	for _, ft := range bundleTypes {
@@ -105,9 +109,10 @@ func TestField_CreateBundleTypes(t *testing.T) {
 			require.NoError(t, err, "create bundle %q for field type %q", bundlePath, ft)
 			require.NotEmpty(t, bundle.ID)
 
-			// Cleanup order matters: detach/delete bundle before deleting field.
-			t.Cleanup(func() { _ = c.DeleteBundle(bundlePath, bundle.ID) })
+			// t.Cleanup runs LIFO: register field deletion first so it runs last.
+			// Bundle must be deleted before its attached field.
 			t.Cleanup(func() { _ = c.DeleteCustomField(field.ID) })
+			t.Cleanup(func() { _ = c.DeleteBundle(bundlePath, bundle.ID) })
 
 			// Step 3: attach bundle to field
 			err = c.AttachBundleToField(field.ID, bundle.ID, bundlePath)

@@ -20,14 +20,14 @@ const (
 	FieldTypeStateSingle   = "state[1]" // state is always single-value in YouTrack
 	FieldTypeVersionSingle = "version[1]"
 	FieldTypeBuildSingle   = "build[1]"
-	FieldTypeOwnedSingle   = "owned[1]"
+	FieldTypeOwnedSingle   = "ownedField[1]" // API type ID uses "ownedField", bundle path uses "owned"
 	FieldTypeUserSingle    = "user[1]"
 
 	// Bundle-based field types — multi-value (state has no multi-value variant)
 	FieldTypeEnumMulti    = "enum[*]"
 	FieldTypeVersionMulti = "version[*]"
 	FieldTypeBuildMulti   = "build[*]"
-	FieldTypeOwnedMulti   = "owned[*]"
+	FieldTypeOwnedMulti   = "ownedField[*]" // API type ID uses "ownedField", bundle path uses "owned"
 	FieldTypeUserMulti    = "user[*]"
 )
 
@@ -52,8 +52,10 @@ func BundlePathForFieldType(fieldType string) (string, bool) {
 		return "", false
 	}
 	switch prefix {
-	case "enum", "state", "version", "build", "owned", "user":
+	case "enum", "state", "version", "build", "user":
 		return prefix, true
+	case "ownedField":
+		return "ownedField", true // both field type prefix and bundle URL path use "ownedField"
 	default:
 		return "", false
 	}
