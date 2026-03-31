@@ -1,12 +1,14 @@
 module github.com/JetBrains/youtrack-cli
 
-go 1.22
+go 1.25.0
 
 require github.com/spf13/cobra v1.8.0
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	golang.org/x/sys v0.42.0 // indirect
+	golang.org/x/term v0.41.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
