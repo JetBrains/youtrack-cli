@@ -50,6 +50,15 @@ export YOUTRACK_TOKEN=perm:...
 
 Or write them to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automatically on every run.
 
+Alternatively, use the `auth get-token` command to obtain a token automatically:
+
+```bash
+youtrack auth get-token --base-url https://your-instance.youtrack.cloud --login alice --save
+# Password: (prompted, hidden)
+```
+
+`--save` writes both `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env`, loaded automatically on every CLI invocation. Other flags: `--token-name` (default: `cli-token`), `--scope` (default: YouTrack + YouTrack Administration).
+
 ## Commands
 
 | Group | Subcommands |

@@ -6,6 +6,17 @@ description: CRUD for YouTrack entities (issues, projects, users, comments) via 
 allowed-tools: Bash
 ---
 
+## Bootstrap: Get a Token
+
+Use `auth get-token` when no `YOUTRACK_TOKEN` exists yet. Requires Hub login/password.
+
+```bash
+youtrack auth get-token --base-url https://your.youtrack.cloud --login alice --save
+# Password: (prompted, hidden)
+```
+
+`--save` writes both `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env`, loaded automatically on every CLI invocation. No need to source or export manually.
+
 ## Setup (run silently before every task)
 
 1. **CLI available?** `which youtrack` — if not found, run `make build && cp youtrack /usr/local/bin/` from the repo root.
