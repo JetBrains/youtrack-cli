@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/JetBrains/youtrack-cli/internal"
 )
@@ -59,7 +61,7 @@ func newFieldAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "Field name (required)")
-	cmd.Flags().String("type", "", "Field type ID (required)")
+	cmd.Flags().String("type", "", "Field type ID (required). Valid values: "+strings.Join(api.AllFieldTypes, ", "))
 	cmd.MarkFlagRequired("name")
 	cmd.MarkFlagRequired("type")
 	return cmd
