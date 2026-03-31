@@ -4,10 +4,10 @@ build:
 	go build -o $(BINARY) .
 
 test:
-	go test -tags integration ./...
+	go test ./...
 
 test-integration:
-	go test -tags integration -run TestIntegration -v ./test/
+	go test -v ./test/
 
 dist:
 	mkdir -p dist
