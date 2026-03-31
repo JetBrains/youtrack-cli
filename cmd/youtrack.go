@@ -7,10 +7,10 @@ import (
 
 	"github.com/JetBrains/youtrack-cli/cmd/auth"
 	"github.com/JetBrains/youtrack-cli/cmd/issue"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/cmd/project"
 	"github.com/JetBrains/youtrack-cli/cmd/user"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 // NewRootCmd constructs the root command. Called by Execute() and by tests.

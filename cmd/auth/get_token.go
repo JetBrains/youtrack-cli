@@ -145,20 +145,18 @@ func upsertEnvLine(content, key, value string) string {
 	newLine := key + "=" + value
 	var lines []string
 	found := false
-	for _, line := range strings.Split(content, "\n") {
-		if strings.HasPrefix(line, prefix) {
-			lines = append(lines, newLine)
-			found = true
-		} else {
-			lines = append(lines, line)
+	if content != "" {
+		for _, line := range strings.Split(strings.TrimRight(content, "\n"), "\n") {
+			if strings.HasPrefix(line, prefix) {
+				lines = append(lines, newLine)
+				found = true
+			} else {
+				lines = append(lines, line)
+			}
 		}
 	}
 	if !found {
 		lines = append(lines, newLine)
 	}
-	result := strings.Join(lines, "\n")
-	if !strings.HasSuffix(result, "\n") {
-		result += "\n"
-	}
-	return result
+	return strings.Join(lines, "\n") + "\n"
 }
