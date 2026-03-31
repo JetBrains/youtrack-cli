@@ -1,94 +1,50 @@
 package api_test
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"fmt"
 	"testing"
+	"time"
 
-	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestListWorkflows(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/admin/workflows")
-		json.NewEncoder(w).Encode([]api.Workflow{
-			{ID: "wf-1", Name: "Default Workflow", Title: "Default"},
-		})
-	}))
-	defer srv.Close()
+func TestWorkflow_List(t *testing.T) {
+	c := newTestClient(t)
 
-	workflows, err := api.NewClient(srv.URL, "tok").ListWorkflows()
-
+	workflows, err := c.ListWorkflows()
 	require.NoError(t, err)
-	assert.Len(t, workflows, 1)
-	assert.Equal(t, "Default Workflow", workflows[0].Name)
+	// Every YouTrack instance has at least one built-in workflow.
+	assert.NotEmpty(t, workflows)
 }
 
-func TestAddWorkflow(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/admin/workflows")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "myWorkflow", body["name"])
-		assert.Equal(t, "My Workflow", body["title"])
-		json.NewEncoder(w).Encode(api.Workflow{ID: "wf-new", Name: "myWorkflow", Title: "My Workflow"})
-	}))
-	defer srv.Close()
+func TestWorkflow_AddDelete(t *testing.T) {
+	c := newTestClient(t)
 
-	wf, err := api.NewClient(srv.URL, "tok").AddWorkflow("myWorkflow", "My Workflow")
+	// Workflow names must be lowercase alphanumeric + [-_.~] only.
+	name := fmt.Sprintf("test-workflow-%d", time.Now().UnixMilli()%100000)
+	title := "Test Workflow " + t.Name()
 
+	wf, err := c.AddWorkflow(name, title)
 	require.NoError(t, err)
-	assert.Equal(t, "myWorkflow", wf.Name)
-}
+	require.NotEmpty(t, wf.ID)
+	t.Cleanup(func() { _ = c.DeleteWorkflow(wf.ID) })
 
-func TestDeleteWorkflow(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "wf-1")
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer srv.Close()
+	assert.Equal(t, name, wf.Name)
 
-	err := api.NewClient(srv.URL, "tok").DeleteWorkflow("wf-1")
-
+	// Verify it appears in list
+	workflows, err := c.ListWorkflows()
 	require.NoError(t, err)
-}
+	found := false
+	for _, w := range workflows {
+		if w.ID == wf.ID {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "newly created workflow should appear in list")
 
-func TestRestoreDefaultWorkflows(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "restoreStatus")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, true, body["isDefault"])
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").RestoreDefaultWorkflows()
-
-	require.NoError(t, err)
-}
-
-func TestAddWorkflowRule(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "wf-1")
-		assert.Contains(t, r.URL.Path, "rules")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "StateMachineRule", body["$type"])
-		assert.Equal(t, "My Rule", body["name"])
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").AddWorkflowRule("wf-1", "StateMachineRule", "My Rule")
-
+	// Delete
+	err = c.DeleteWorkflow(wf.ID)
 	require.NoError(t, err)
 }

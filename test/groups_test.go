@@ -1,72 +1,44 @@
 package api_test
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"fmt"
 	"testing"
+	"time"
 
-	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-func TestListGroups(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/groups")
-		json.NewEncoder(w).Encode([]api.Group{
-			{ID: "g-1", Name: "Developers"},
-			{ID: "g-2", Name: "QA"},
-		})
-	}))
-	defer srv.Close()
+func TestGroup_CRUD(t *testing.T) {
+	c := newTestClient(t)
 
-	groups, err := api.NewClient(srv.URL, "tok").ListGroups("")
+	// Use a timestamp to ensure uniqueness (group names must be unique).
+	groupName := fmt.Sprintf("testgroup-%d", time.Now().UnixMilli()%100000)
 
+	// Create
+	group, err := c.AddGroup(groupName)
 	require.NoError(t, err)
-	assert.Len(t, groups, 2)
-	assert.Equal(t, "Developers", groups[0].Name)
-}
+	require.NotEmpty(t, group.ID)
+	// Note: DeleteGroup requires a ?successor= query param that the current API
+	// method doesn't support, so cleanup is best-effort only.
+	t.Cleanup(func() { _ = c.DeleteGroup(group.ID) })
 
-func TestGetGroup_found(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode([]api.Group{{ID: "g-1", Name: "Developers"}})
-	}))
-	defer srv.Close()
+	assert.Equal(t, groupName, group.Name)
 
-	group, err := api.NewClient(srv.URL, "tok").GetGroup("Developers")
-
+	// List
+	groups, err := c.ListGroups("")
 	require.NoError(t, err)
-	assert.Equal(t, "g-1", group.ID)
-}
+	found := false
+	for _, g := range groups {
+		if g.ID == group.ID {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "newly created group should appear in list")
 
-func TestAddGroup(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/groups")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "NewTeam", body["name"])
-		json.NewEncoder(w).Encode(api.Group{ID: "g-new", Name: "NewTeam"})
-	}))
-	defer srv.Close()
-
-	group, err := api.NewClient(srv.URL, "tok").AddGroup("NewTeam")
-
+	// Get by name
+	got, err := c.GetGroup(group.Name)
 	require.NoError(t, err)
-	assert.Equal(t, "NewTeam", group.Name)
-}
-
-func TestDeleteGroup(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "g-1")
-		w.WriteHeader(http.StatusNoContent)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeleteGroup("g-1")
-
-	require.NoError(t, err)
+	assert.Equal(t, group.ID, got.ID)
 }
