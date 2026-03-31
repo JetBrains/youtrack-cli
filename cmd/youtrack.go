@@ -6,7 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/cmd/issue"
-	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/cmd/project"
 	"github.com/JetBrains/youtrack-cli/cmd/user"
 	"github.com/JetBrains/youtrack-cli/internal"
