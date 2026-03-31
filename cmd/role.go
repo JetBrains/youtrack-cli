@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newRoleCmd() *cobra.Command {
@@ -25,7 +27,7 @@ func newRoleListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "list", Short: "List all roles",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -49,7 +51,7 @@ func newRoleAddCmd() *cobra.Command {
 			if permStr != "" {
 				permIDs = strings.Split(permStr, ",")
 			}
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -72,7 +74,7 @@ func newRoleDeleteCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a role by ID",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -92,7 +94,7 @@ func newRoleUpdateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			permStr, _ := cmd.Flags().GetString("permissions")
 			permIDs := strings.Split(permStr, ",")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -112,7 +114,7 @@ func newRoleGrantCmd() *cobra.Command {
 			userID, _ := cmd.Flags().GetString("user")
 			groupID, _ := cmd.Flags().GetString("group")
 			projectID, _ := cmd.Flags().GetString("project")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -137,7 +139,7 @@ func newRolePermissionsCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "permissions", Short: "List available permissions",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

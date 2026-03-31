@@ -3,9 +3,11 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
-	"github.com/spf13/cobra"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newMailboxCmd() *cobra.Command {
@@ -18,7 +20,7 @@ func newMailboxListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "list", Short: "List mailbox servers",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -40,7 +42,7 @@ func newMailboxAddCmd() *cobra.Command {
 			port, _ := cmd.Flags().GetInt("port")
 			login, _ := cmd.Flags().GetString("login")
 			password, _ := cmd.Flags().GetString("password")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -69,7 +71,7 @@ func newMailboxDeleteCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a mailbox server",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -90,7 +92,7 @@ func newMailboxRuleCmd() *cobra.Command {
 			mailboxID, _ := cmd.Flags().GetString("mailbox")
 			projectID, _ := cmd.Flags().GetString("project")
 			name, _ := cmd.Flags().GetString("name")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newWorkflowCmd() *cobra.Command {
@@ -17,7 +19,7 @@ func newWorkflowListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "list", Short: "List all workflows",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -36,7 +38,7 @@ func newWorkflowAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			title, _ := cmd.Flags().GetString("title")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -58,7 +60,7 @@ func newWorkflowDeleteCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a workflow",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -75,7 +77,7 @@ func newWorkflowRestoreCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "restore", Short: "Restore default workflows",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -92,7 +94,7 @@ func newWorkflowRuleCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ruleType, _ := cmd.Flags().GetString("type")
 			name, _ := cmd.Flags().GetString("name")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newRawCmd() *cobra.Command {
@@ -35,7 +37,7 @@ func newRawCmd() *cobra.Command {
 				}
 			}
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

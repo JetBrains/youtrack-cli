@@ -1,8 +1,10 @@
 package cmd
 
 import (
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newReportCmd() *cobra.Command {
@@ -23,7 +25,7 @@ func newReportDeletedListCmd() *cobra.Command {
 		Use:   "deleted-list",
 		Short: "List removed documents",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -42,7 +44,7 @@ func newReportRestoreCmd() *cobra.Command {
 		Short: "Restore a removed document",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -57,7 +59,7 @@ func newReportDeleteCmd() *cobra.Command {
 		Short: "Delete a report by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -71,7 +73,7 @@ func newReportGanttListCmd() *cobra.Command {
 		Use:   "gantt-list",
 		Short: "List all Gantt charts",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -90,7 +92,7 @@ func newReportGanttDeleteCmd() *cobra.Command {
 		Short: "Delete a Gantt chart by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

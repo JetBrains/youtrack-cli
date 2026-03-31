@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newAppCmd() *cobra.Command {
@@ -24,7 +26,7 @@ func newAppListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List all apps",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -43,7 +45,7 @@ func newAppDeleteCmd() *cobra.Command {
 		Short: "Delete an app by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -58,7 +60,7 @@ func newAppDeactivateCmd() *cobra.Command {
 		Short: "Deactivate an app by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -72,7 +74,7 @@ func newAppPluginCmd() *cobra.Command {
 	list := &cobra.Command{
 		Use: "list", Short: "List plugins",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -87,7 +89,7 @@ func newAppPluginCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a plugin",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

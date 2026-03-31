@@ -1,8 +1,10 @@
 package cmd
 
 import (
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newSettingsCmd() *cobra.Command {
@@ -24,7 +26,7 @@ func newSettingsGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "get", Short: "Get global settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -43,7 +45,7 @@ func newSettingsFeatureCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			enabled, _ := cmd.Flags().GetBool("enabled")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -64,7 +66,7 @@ func newSettingsEmailCmd() *cobra.Command {
 			server, _ := cmd.Flags().GetString("server")
 			port, _ := cmd.Flags().GetInt("port")
 			from, _ := cmd.Flags().GetString("from")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -79,7 +81,7 @@ func newSettingsEmailCmd() *cobra.Command {
 	disable := &cobra.Command{
 		Use: "disable", Short: "Disable email notifications",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -96,7 +98,7 @@ func newSettingsBannerCmd() *cobra.Command {
 		Use: "set", Short: "Show a global banner message",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			msg, _ := cmd.Flags().GetString("message")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -108,7 +110,7 @@ func newSettingsBannerCmd() *cobra.Command {
 	disable := &cobra.Command{
 		Use: "disable", Short: "Disable the global banner",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -124,7 +126,7 @@ func newSettingsReactionsCmd() *cobra.Command {
 		Use: "reactions", Short: "Enable or disable reactions",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			enabled, _ := cmd.Flags().GetBool("enabled")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -141,7 +143,7 @@ func newSettingsLicenseCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			user, _ := cmd.Flags().GetString("user")
 			key, _ := cmd.Flags().GetString("key")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -161,7 +163,7 @@ func newSettingsAICmd() *cobra.Command {
 		Use: "jetbrains", Short: "Enable/disable JetBrains AI",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			enabled, _ := cmd.Flags().GetBool("enabled")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -173,7 +175,7 @@ func newSettingsAICmd() *cobra.Command {
 		Use: "text-completion", Short: "Enable/disable text completion",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			enabled, _ := cmd.Flags().GetBool("enabled")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -185,7 +187,7 @@ func newSettingsAICmd() *cobra.Command {
 		Use: "grammar", Short: "Enable/disable grammar correction",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			enabled, _ := cmd.Flags().GetBool("enabled")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -201,7 +203,7 @@ func newSettingsFrontendCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "frontend", Short: "Get frontend configuration",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

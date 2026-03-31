@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
-	"github.com/spf13/cobra"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newOrgCmd() *cobra.Command {
@@ -22,7 +24,7 @@ func newOrgListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List all organizations",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -42,7 +44,7 @@ func newOrgAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -65,7 +67,7 @@ func newOrgDeleteCmd() *cobra.Command {
 		Short: "Delete an organization by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

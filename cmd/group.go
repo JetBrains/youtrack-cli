@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newGroupCmd() *cobra.Command {
@@ -18,7 +20,7 @@ func newGroupListCmd() *cobra.Command {
 		Use: "list", Short: "List groups",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query, _ := cmd.Flags().GetString("query")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -38,7 +40,7 @@ func newGroupGetCmd() *cobra.Command {
 		Use: "get <name>", Short: "Get a group by name",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -56,7 +58,7 @@ func newGroupAddCmd() *cobra.Command {
 		Use: "add", Short: "Create a new group",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -77,7 +79,7 @@ func newGroupDeleteCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a group by ID",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
-	"github.com/spf13/cobra"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newCanvasCmd() *cobra.Command {
@@ -29,7 +31,7 @@ func newCanvasAddCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			ownerLogin, _ := cmd.Flags().GetString("owner")
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -62,7 +64,7 @@ func newCanvasGetCmd() *cobra.Command {
 		Short: "Get a canvas by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -81,7 +83,7 @@ func newCanvasDeleteCmd() *cobra.Command {
 		Short: "Delete a canvas by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -96,7 +98,7 @@ func newCanvasReloadCmd() *cobra.Command {
 		Short: "Reload a canvas by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -125,7 +127,7 @@ func newCanvasNodeAddCmd() *cobra.Command {
 			label, _ := cmd.Flags().GetString("label")
 			description, _ := cmd.Flags().GetString("description")
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -147,7 +149,7 @@ func newCanvasLinksCmd() *cobra.Command {
 		Short: "List links in a canvas",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -169,7 +171,7 @@ func newCanvasLinkCmd() *cobra.Command {
 			source, _ := cmd.Flags().GetString("source")
 			target, _ := cmd.Flags().GetString("target")
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
-	"github.com/spf13/cobra"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newTagCmd() *cobra.Command {
@@ -22,7 +24,7 @@ func newTagListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List all tags",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -43,7 +45,7 @@ func newTagAddCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			ownerLogin, _ := cmd.Flags().GetString("owner")
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -76,7 +78,7 @@ func newTagDeleteCmd() *cobra.Command {
 		Short: "Delete a tag by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

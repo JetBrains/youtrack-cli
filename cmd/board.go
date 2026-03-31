@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newBoardCmd() *cobra.Command {
@@ -23,7 +25,7 @@ func newBoardListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "list", Short: "List all boards",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -41,7 +43,7 @@ func newBoardGetCmd() *cobra.Command {
 		Use: "get <id>", Short: "Get a board by ID",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -59,7 +61,7 @@ func newBoardAddCmd() *cobra.Command {
 		Use: "add", Short: "Create a new board",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -80,7 +82,7 @@ func newBoardDeleteCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a board",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -103,7 +105,7 @@ func newBoardSprintCmd() *cobra.Command {
 			start, _ := cmd.Flags().GetInt64("start")
 			end, _ := cmd.Flags().GetInt64("end")
 			goal, _ := cmd.Flags().GetString("goal")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

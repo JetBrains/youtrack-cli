@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newDashboardCmd() *cobra.Command {
@@ -22,7 +24,7 @@ func newDashboardListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "list", Short: "List all dashboards",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -40,7 +42,7 @@ func newDashboardAddCmd() *cobra.Command {
 		Use: "add", Short: "Create a new dashboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -61,7 +63,7 @@ func newDashboardDeleteCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a dashboard",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -80,7 +82,7 @@ func newDashboardUpdateCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newFieldCmd() *cobra.Command {
@@ -26,7 +28,7 @@ func newFieldListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "list", Short: "List all custom fields",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -45,7 +47,7 @@ func newFieldAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			fieldType, _ := cmd.Flags().GetString("type")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -68,7 +70,7 @@ func newFieldDeleteCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a custom field",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -87,7 +89,7 @@ func newFieldBundleCmd() *cobra.Command {
 		Use: "list", Short: "List bundles of a given type",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			bundleType, _ := cmd.Flags().GetString("type")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -104,7 +106,7 @@ func newFieldBundleCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			bundleType, _ := cmd.Flags().GetString("type")
 			name, _ := cmd.Flags().GetString("name")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -124,7 +126,7 @@ func newFieldBundleCmd() *cobra.Command {
 			bundleType, _ := cmd.Flags().GetString("type")
 			id, _ := cmd.Flags().GetString("id")
 			value, _ := cmd.Flags().GetString("value")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -142,7 +144,7 @@ func newFieldBundleCmd() *cobra.Command {
 			fieldID, _ := cmd.Flags().GetString("field")
 			bundleID, _ := cmd.Flags().GetString("id")
 			bundleType, _ := cmd.Flags().GetString("type")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -165,7 +167,7 @@ func newFieldPrivacyCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			private, _ := cmd.Flags().GetBool("private")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -181,7 +183,7 @@ func newFieldWorkTimeCmd() *cobra.Command {
 	get := &cobra.Command{
 		Use: "get", Short: "Get work time settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -196,7 +198,7 @@ func newFieldWorkTimeCmd() *cobra.Command {
 		Use: "set", Short: "Set work time settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			presentation, _ := cmd.Flags().GetString("minutes-a-day")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -213,7 +215,7 @@ func newFieldPrototypesCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "prototypes", Short: "List custom field prototypes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -231,7 +233,7 @@ func newFieldWorkItemCmd() *cobra.Command {
 	list := &cobra.Command{
 		Use: "list", Short: "List work item types",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -247,7 +249,7 @@ func newFieldWorkItemCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			autoAttach, _ := cmd.Flags().GetBool("auto-attach")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

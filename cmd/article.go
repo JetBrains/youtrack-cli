@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newArticleCmd() *cobra.Command {
@@ -29,7 +31,7 @@ func newArticleListCmd() *cobra.Command {
 		Use: "list", Short: "List articles",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query, _ := cmd.Flags().GetString("query")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -49,7 +51,7 @@ func newArticleGetCmd() *cobra.Command {
 		Use: "get <id>", Short: "Get an article by ID",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -70,7 +72,7 @@ func newArticleAddCmd() *cobra.Command {
 			summary, _ := cmd.Flags().GetString("summary")
 			content, _ := cmd.Flags().GetString("content")
 			asUser, _ := cmd.Flags().GetString("asUser")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -109,7 +111,7 @@ func newArticleUpdateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			summary, _ := cmd.Flags().GetString("summary")
 			content, _ := cmd.Flags().GetString("content")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -130,7 +132,7 @@ func newArticleDeleteCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete an article",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -149,7 +151,7 @@ func newArticleCommentCmd() *cobra.Command {
 		Use: "list <articleId>", Short: "List comments on an article",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -166,7 +168,7 @@ func newArticleCommentCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			text, _ := cmd.Flags().GetString("text")
 			asUser, _ := cmd.Flags().GetString("asUser")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -192,7 +194,7 @@ func newArticleCommentCmd() *cobra.Command {
 		Use: "delete <articleId> <commentId>", Short: "Delete a comment from an article",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -204,7 +206,7 @@ func newArticleCommentCmd() *cobra.Command {
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			text, _ := cmd.Flags().GetString("text")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -226,7 +228,7 @@ func newArticleTagCmd() *cobra.Command {
 		Use: "tag <articleId> <tagId>", Short: "Add a tag to an article",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -246,7 +248,7 @@ func newArticleVisibilityCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			groups, _ := cmd.Flags().GetStringSlice("groups")
 			users, _ := cmd.Flags().GetStringSlice("users")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -267,7 +269,7 @@ func newArticleSetParentCmd() *cobra.Command {
 		Use: "set-parent <articleId> <parentId>", Short: "Set the parent article",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -286,7 +288,7 @@ func newArticleAttachmentCmd() *cobra.Command {
 		Use: "list <articleId>", Short: "List attachments on an article",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -302,7 +304,7 @@ func newArticleAttachmentCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			filePath, _ := cmd.Flags().GetString("file")
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

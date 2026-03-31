@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
-	"github.com/spf13/cobra"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newSearchCmd() *cobra.Command {
@@ -24,7 +26,7 @@ func newSearchAddCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			query, _ := cmd.Flags().GetString("query")
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -52,7 +54,7 @@ func newSearchShareCmd() *cobra.Command {
 		Short: "Mark a saved search as shareable",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

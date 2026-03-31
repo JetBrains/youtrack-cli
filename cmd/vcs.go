@@ -3,8 +3,10 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newVCSCmd() *cobra.Command {
@@ -17,7 +19,7 @@ func newVCSListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use: "list", Short: "List VCS hosting servers",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -35,7 +37,7 @@ func newVCSDeleteCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a VCS server",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -53,7 +55,7 @@ func newVCSConfigsCmd() *cobra.Command {
 		Use: "configs <serverId>", Short: "List VCS configurations for a server",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -71,7 +73,7 @@ func newVCSProcessorCmd() *cobra.Command {
 	list := &cobra.Command{
 		Use: "list", Short: "List VCS processors",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -86,7 +88,7 @@ func newVCSProcessorCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a VCS processor",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
