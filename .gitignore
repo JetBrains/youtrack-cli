@@ -1,3 +1,7 @@
 .worktrees/
 dist/
 youtrack
+youtrack-cli
+.DS_Store
+.idea/
+docs/superpowers/
