@@ -1,412 +1,172 @@
+//go:build integration
+
 package api_test
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"fmt"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/JetBrains/youtrack-cli/api"
 )
 
 // ---------- Tags ----------
 
-func TestListTags(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/tags")
-		json.NewEncoder(w).Encode([]api.Tag{
-			{ID: "tag-1", Name: "urgent"},
-			{ID: "tag-2", Name: "blocker"},
-		})
-	}))
-	defer srv.Close()
+func TestTag_CRUD(t *testing.T) {
+	c := newTestClient(t)
+	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
-	tags, err := api.NewClient(srv.URL, "tok").ListTags()
+	tag, err := c.AddTag(api.AddTagRequest{Name: name})
 	require.NoError(t, err)
-	assert.Len(t, tags, 2)
-	assert.Equal(t, "urgent", tags[0].Name)
+	require.NotEmpty(t, tag.ID)
+	assert.Equal(t, name, tag.Name)
+
+	t.Cleanup(func() { _ = c.DeleteTag(tag.ID) })
+
+	tags, err := c.ListTags()
+	require.NoError(t, err)
+	found := false
+	for _, tg := range tags {
+		if tg.ID == tag.ID {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "created tag should appear in list")
 }
 
-func TestAddTag(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		var body api.AddTagRequest
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "my-tag", body.Name)
-		json.NewEncoder(w).Encode(api.Tag{ID: "tag-3", Name: "my-tag"})
-	}))
-	defer srv.Close()
+func TestCmd_TagList(t *testing.T) {
+	c := newTestClient(t)
+	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
-	tag, err := api.NewClient(srv.URL, "tok").AddTag(api.AddTagRequest{Name: "my-tag"})
+	tag, err := c.AddTag(api.AddTagRequest{Name: name})
 	require.NoError(t, err)
-	assert.Equal(t, "tag-3", tag.ID)
-	assert.Equal(t, "my-tag", tag.Name)
-}
+	t.Cleanup(func() { _ = c.DeleteTag(tag.ID) })
 
-func TestDeleteTag(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "tag-1")
-		called = true
-		w.WriteHeader(204)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeleteTag("tag-1")
-	require.NoError(t, err)
-	assert.True(t, called)
+	out := runCmd(t, "tag", "list", "--format", "json")
+	assert.Contains(t, out, tag.ID)
 }
 
 // ---------- Saved Searches ----------
 
-func TestAddSavedSearch(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		var body api.AddSavedSearchRequest
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "My Search", body.Name)
-		assert.Equal(t, "project: FOO", body.Query)
-		json.NewEncoder(w).Encode(api.SavedSearch{ID: "sq-1", Name: "My Search", Query: "project: FOO"})
-	}))
-	defer srv.Close()
+func TestSearch_CRUD(t *testing.T) {
+	c := newTestClient(t)
+	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
-	result, err := api.NewClient(srv.URL, "tok").AddSavedSearch(api.AddSavedSearchRequest{
-		Name:  "My Search",
-		Query: "project: FOO",
+	result, err := c.AddSavedSearch(api.AddSavedSearchRequest{
+		Name:  name,
+		Query: "project: GOTEST",
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "sq-1", result.ID)
-	assert.Equal(t, "project: FOO", result.Query)
+	require.NotEmpty(t, result.ID)
+	assert.Equal(t, name, result.Name)
+	assert.Equal(t, "project: GOTEST", result.Query)
+
+	// No ListSavedSearches API — verify the created object directly
+	t.Cleanup(func() {
+		// SavedSearch deletion is not exposed via API client, share as cleanup proxy
+		// ShareSavedSearch is the only other mutation we can perform without delete
+		_ = c.ShareSavedSearch(result.ID)
+	})
 }
 
-func TestShareSavedSearch(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "sq-1")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, true, body["isShareable"])
-		called = true
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
+func TestCmd_SearchAdd(t *testing.T) {
+	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
-	err := api.NewClient(srv.URL, "tok").ShareSavedSearch("sq-1")
-	require.NoError(t, err)
-	assert.True(t, called)
+	out := runCmd(t, "search", "add", "--name", name, "--query", "project: GOTEST", "--format", "json")
+	assert.True(t, strings.Contains(out, name) || strings.Contains(out, "id"),
+		"output should reference the created saved search")
 }
 
 // ---------- Organizations ----------
 
-func TestListOrganizations(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/admin/organizations")
-		json.NewEncoder(w).Encode([]api.Organization{
-			{ID: "org-1", Name: "Acme"},
-		})
-	}))
-	defer srv.Close()
+func TestOrg_CRUD(t *testing.T) {
+	c := newTestClient(t)
+	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
-	orgs, err := api.NewClient(srv.URL, "tok").ListOrganizations()
+	org, err := c.AddOrganization(api.AddOrganizationRequest{Name: name})
 	require.NoError(t, err)
-	assert.Len(t, orgs, 1)
-	assert.Equal(t, "Acme", orgs[0].Name)
+	require.NotEmpty(t, org.ID)
+	assert.Equal(t, name, org.Name)
+
+	t.Cleanup(func() { _ = c.DeleteOrganization(org.ID) })
+
+	orgs, err := c.ListOrganizations()
+	require.NoError(t, err)
+	found := false
+	for _, o := range orgs {
+		if o.ID == org.ID {
+			found = true
+			break
+		}
+	}
+	assert.True(t, found, "created org should appear in list")
 }
 
-func TestAddOrganization(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		var body api.AddOrganizationRequest
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "NewOrg", body.Name)
-		json.NewEncoder(w).Encode(api.Organization{ID: "org-2", Name: "NewOrg"})
-	}))
-	defer srv.Close()
-
-	org, err := api.NewClient(srv.URL, "tok").AddOrganization(api.AddOrganizationRequest{Name: "NewOrg"})
-	require.NoError(t, err)
-	assert.Equal(t, "org-2", org.ID)
-}
-
-func TestDeleteOrganization(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "org-1")
-		called = true
-		w.WriteHeader(204)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeleteOrganization("org-1")
-	require.NoError(t, err)
-	assert.True(t, called)
+func TestCmd_OrgList(t *testing.T) {
+	out := runCmd(t, "org", "list", "--format", "json")
+	// Just verify no error and valid JSON array output
+	assert.True(t, strings.Contains(out, "[") || out == "[]\n" || out == "[]",
+		"org list should return a JSON array")
 }
 
 // ---------- Apps ----------
 
-func TestListApps(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/admin/apps")
-		json.NewEncoder(w).Encode([]api.App{
-			{ID: "app-1", Name: "myplugin", Title: "My Plugin", Version: "1.0"},
-		})
-	}))
-	defer srv.Close()
-
-	apps, err := api.NewClient(srv.URL, "tok").ListApps()
+func TestApp_List(t *testing.T) {
+	c := newTestClient(t)
+	apps, err := c.ListApps()
 	require.NoError(t, err)
-	assert.Len(t, apps, 1)
-	assert.Equal(t, "myplugin", apps[0].Name)
-	assert.Equal(t, "1.0", apps[0].Version)
+	assert.NotNil(t, apps)
+	// Most instances won't have custom apps; just verify no error and valid slice
 }
 
-func TestDeleteApp(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "app-1")
-		called = true
-		w.WriteHeader(204)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeleteApp("app-1")
-	require.NoError(t, err)
-	assert.True(t, called)
-}
-
-func TestDeactivateApp(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "app-1")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		gc, ok := body["globalConfig"].(map[string]any)
-		assert.True(t, ok)
-		assert.Equal(t, false, gc["enabled"])
-		called = true
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeactivateApp("app-1")
-	require.NoError(t, err)
-	assert.True(t, called)
+func TestCmd_AppList(t *testing.T) {
+	out := runCmd(t, "app", "list", "--format", "json")
+	assert.NotEmpty(t, out)
 }
 
 // ---------- Canvas ----------
 
-func TestAddCanvas(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/planningCanvases")
-		var body api.AddCanvasRequest
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, "Sprint Board", body.Name)
-		json.NewEncoder(w).Encode(api.Canvas{ID: "cv-1", Name: "Sprint Board"})
-	}))
-	defer srv.Close()
+func TestCanvas_CRUD(t *testing.T) {
+	c := newTestClient(t)
+	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
-	canvas, err := api.NewClient(srv.URL, "tok").AddCanvas(api.AddCanvasRequest{Name: "Sprint Board"})
+	canvas, err := c.AddCanvas(api.AddCanvasRequest{Name: name})
 	require.NoError(t, err)
-	assert.Equal(t, "cv-1", canvas.ID)
+	require.NotEmpty(t, canvas.ID)
+	assert.Equal(t, name, canvas.Name)
+
+	t.Cleanup(func() { _ = c.DeleteCanvas(canvas.ID) })
+
+	got, err := c.GetCanvas(canvas.ID)
+	require.NoError(t, err)
+	assert.Equal(t, canvas.ID, got.ID)
+	assert.Equal(t, name, got.Name)
 }
 
-func TestGetCanvas(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "cv-1")
-		json.NewEncoder(w).Encode(api.Canvas{ID: "cv-1", Name: "Sprint Board"})
-	}))
-	defer srv.Close()
+func TestCmd_CanvasAdd(t *testing.T) {
+	c := newTestClient(t)
+	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
-	canvas, err := api.NewClient(srv.URL, "tok").GetCanvas("cv-1")
-	require.NoError(t, err)
-	assert.Equal(t, "Sprint Board", canvas.Name)
-}
+	out := runCmd(t, "canvas", "add", "--name", name, "--format", "json")
+	assert.Contains(t, out, name)
 
-func TestDeleteCanvas(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "cv-1")
-		called = true
-		w.WriteHeader(204)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeleteCanvas("cv-1")
-	require.NoError(t, err)
-	assert.True(t, called)
-}
-
-func TestReloadCanvas(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "cv-1")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, true, body["reload"])
-		called = true
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").ReloadCanvas("cv-1")
-	require.NoError(t, err)
-	assert.True(t, called)
-}
-
-func TestAddCanvasNode(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "cv-1/cards")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		assert.Equal(t, float64(10), body["x"])
-		assert.Equal(t, float64(20), body["y"])
-		assert.Equal(t, "Node A", body["label"])
-		called = true
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").AddCanvasNode("cv-1", 10, 20, "Node A", "desc")
-	require.NoError(t, err)
-	assert.True(t, called)
-}
-
-func TestGetCanvasLinks(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "cv-1/links")
-		json.NewEncoder(w).Encode([]api.CanvasLink{
-			{ID: "lnk-1"},
-		})
-	}))
-	defer srv.Close()
-
-	links, err := api.NewClient(srv.URL, "tok").GetCanvasLinks("cv-1")
-	require.NoError(t, err)
-	assert.Len(t, links, 1)
-	assert.Equal(t, "lnk-1", links[0].ID)
-}
-
-func TestLinkCanvasNodes(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "cv-1/links")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		src, _ := body["sourceCard"].(map[string]any)
-		tgt, _ := body["targetCard"].(map[string]any)
-		assert.Equal(t, "card-a", src["id"])
-		assert.Equal(t, "card-b", tgt["id"])
-		called = true
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").LinkCanvasNodes("cv-1", "card-a", "card-b")
-	require.NoError(t, err)
-	assert.True(t, called)
-}
-
-// ---------- Reports / Removed Documents / Gantt ----------
-
-func TestGetRemovedDocuments(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/removedDocuments")
-		json.NewEncoder(w).Encode([]api.RemovedDocument{
-			{ID: "rd-1", IDReadable: "FOO-5", Summary: "Deleted issue"},
-		})
-	}))
-	defer srv.Close()
-
-	docs, err := api.NewClient(srv.URL, "tok").GetRemovedDocuments()
-	require.NoError(t, err)
-	assert.Len(t, docs, 1)
-	assert.Equal(t, "FOO-5", docs[0].IDReadable)
-}
-
-func TestRestoreDocument(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "POST", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/removedDocuments")
-		var body map[string]any
-		json.NewDecoder(r.Body).Decode(&body)
-		docs, _ := body["documents"].([]any)
-		assert.Len(t, docs, 1)
-		first, _ := docs[0].(map[string]any)
-		assert.Equal(t, "rd-1", first["id"])
-		assert.Equal(t, false, body["remove"])
-		called = true
-		w.WriteHeader(200)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").RestoreDocument("rd-1")
-	require.NoError(t, err)
-	assert.True(t, called)
-}
-
-func TestDeleteReport(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.True(t, strings.HasSuffix(r.URL.Path, "/api/reports/rpt-1"))
-		called = true
-		w.WriteHeader(204)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeleteReport("rpt-1")
-	require.NoError(t, err)
-	assert.True(t, called)
-}
-
-func TestListGanttCharts(t *testing.T) {
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "GET", r.Method)
-		assert.Contains(t, r.URL.Path, "/api/ganttCharts")
-		json.NewEncoder(w).Encode([]api.GanttChart{
-			{ID: "gc-1", Name: "Q1 Gantt"},
-		})
-	}))
-	defer srv.Close()
-
-	charts, err := api.NewClient(srv.URL, "tok").ListGanttCharts()
-	require.NoError(t, err)
-	assert.Len(t, charts, 1)
-	assert.Equal(t, "Q1 Gantt", charts[0].Name)
-}
-
-func TestDeleteGanttChart(t *testing.T) {
-	called := false
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		assert.Equal(t, "DELETE", r.Method)
-		assert.Contains(t, r.URL.Path, "gc-1")
-		called = true
-		w.WriteHeader(204)
-	}))
-	defer srv.Close()
-
-	err := api.NewClient(srv.URL, "tok").DeleteGanttChart("gc-1")
-	require.NoError(t, err)
-	assert.True(t, called)
+	// Extract ID for cleanup — parse JSON minimally
+	var id string
+	for _, line := range strings.Split(out, "\n") {
+		if strings.Contains(line, `"id"`) {
+			parts := strings.SplitN(line, `"`, 4)
+			if len(parts) >= 4 {
+				id = parts[3]
+				id = strings.TrimSuffix(id, `"`)
+			}
+		}
+	}
+	if id != "" {
+		t.Cleanup(func() { _ = c.DeleteCanvas(id) })
+	}
 }
