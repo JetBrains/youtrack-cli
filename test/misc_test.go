@@ -1,8 +1,7 @@
-//go:build integration
-
 package api_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -74,12 +73,13 @@ func TestSearch_CRUD(t *testing.T) {
 	})
 }
 
+// TestCmd_SearchAdd verifies that the saved search is created and the response echoes the name.
+// No cleanup is registered because the YouTrack API has no delete endpoint for saved searches.
 func TestCmd_SearchAdd(t *testing.T) {
 	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
 	out := runCmd(t, "search", "add", "--name", name, "--query", "project: GOTEST", "--format", "json")
-	assert.True(t, strings.Contains(out, name) || strings.Contains(out, "id"),
-		"output should reference the created saved search")
+	assert.Contains(t, out, name)
 }
 
 // ---------- Organizations ----------
@@ -155,18 +155,11 @@ func TestCmd_CanvasAdd(t *testing.T) {
 	out := runCmd(t, "canvas", "add", "--name", name, "--format", "json")
 	assert.Contains(t, out, name)
 
-	// Extract ID for cleanup — parse JSON minimally
-	var id string
-	for _, line := range strings.Split(out, "\n") {
-		if strings.Contains(line, `"id"`) {
-			parts := strings.SplitN(line, `"`, 4)
-			if len(parts) >= 4 {
-				id = parts[3]
-				id = strings.TrimSuffix(id, `"`)
-			}
-		}
+	// Extract ID for cleanup — unmarshal JSON response
+	var result struct {
+		ID string `json:"id"`
 	}
-	if id != "" {
-		t.Cleanup(func() { _ = c.DeleteCanvas(id) })
+	if err := json.Unmarshal([]byte(out), &result); err == nil && result.ID != "" {
+		t.Cleanup(func() { _ = c.DeleteCanvas(result.ID) })
 	}
 }
