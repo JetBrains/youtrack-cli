@@ -113,7 +113,7 @@ Run `get-issue-link-types` first to find valid `linkType` values (e.g. `depends 
 | `get-users` | | `query` |
 | `get-user` | `login` | |
 | `get-current-user` | | |
-| `add-user` | `login`, `fullName`, `email` | `password`, `userType` |
+| `add-user` | `login`, `fullName`, `email`, `password` | `userType` |
 | `delete-user` | `userId` | `successor` |
 | `ban-user` / `unban-user` | `userId` | |
 

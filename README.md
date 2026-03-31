@@ -86,7 +86,7 @@ youtrack project delete MYPROJ
 youtrack user list --query "john"
 youtrack user get john.doe
 youtrack user current
-youtrack user add --login john.doe --fullName "John Doe" --email john.doe@example.com
+youtrack user add --login john.doe --fullName "John Doe" --email john.doe@example.com --password "Test1234!"
 ```
 
 ## Global flags
