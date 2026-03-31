@@ -3,9 +3,9 @@ package issue
 import (
 	"fmt"
 
-	"github.com/JetBrains/youtrack-cli/internal"
-
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newIssueVisibilityCmd() *cobra.Command {

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/JetBrains/youtrack-cli/internal"
-
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newIssueCommandCmd() *cobra.Command {

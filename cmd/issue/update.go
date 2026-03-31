@@ -3,11 +3,11 @@ package issue
 import (
 	"fmt"
 
+	"github.com/spf13/cobra"
+
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/JetBrains/youtrack-cli/internal"
-
-	"github.com/spf13/cobra"
 )
 
 func newIssueUpdateCmd() *cobra.Command {
