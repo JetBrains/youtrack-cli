@@ -1,10 +1,11 @@
-package cmd
+package user
 
 import (
+	"github.com/spf13/cobra"
+
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/output"
-
-	"github.com/spf13/cobra"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newUserAddCmd() *cobra.Command {
@@ -16,7 +17,7 @@ func newUserAddCmd() *cobra.Command {
 			fullName, _ := cmd.Flags().GetString("fullName")
 			email, _ := cmd.Flags().GetString("email")
 
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

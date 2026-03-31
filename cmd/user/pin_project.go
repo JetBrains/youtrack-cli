@@ -1,9 +1,11 @@
-package cmd
+package user
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newUserPinProjectCmd() *cobra.Command {
@@ -12,7 +14,7 @@ func newUserPinProjectCmd() *cobra.Command {
 		Short: "Pin a project for a user",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

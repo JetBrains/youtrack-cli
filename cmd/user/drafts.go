@@ -1,8 +1,10 @@
-package cmd
+package user
 
 import (
-	"github.com/JetBrains/youtrack-cli/cmd/output"
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newUserDraftsCmd() *cobra.Command {
@@ -11,7 +13,7 @@ func newUserDraftsCmd() *cobra.Command {
 		Use: "list <userId>", Short: "List issue drafts for a user (use 'me' for current user)",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -26,7 +28,7 @@ func newUserDraftsCmd() *cobra.Command {
 		Use: "delete <userId>", Short: "Delete all issue drafts for a user",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
@@ -37,7 +39,7 @@ func newUserDraftsCmd() *cobra.Command {
 		Use: "articles <userId>", Short: "List article drafts for a user (use 'me' for current user)",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

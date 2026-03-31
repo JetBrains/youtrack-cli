@@ -1,9 +1,10 @@
-package cmd
+package user
 
 import (
-	"github.com/JetBrains/youtrack-cli/cmd/output"
-
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newUserGetCmd() *cobra.Command {
@@ -12,7 +13,7 @@ func newUserGetCmd() *cobra.Command {
 		Short: "Get user by login",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}

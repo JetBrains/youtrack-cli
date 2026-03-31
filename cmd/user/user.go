@@ -1,8 +1,8 @@
-package cmd
+package user
 
 import "github.com/spf13/cobra"
 
-func newUserCmd() *cobra.Command {
+func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "user",
 		Short: "Manage users",

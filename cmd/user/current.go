@@ -1,9 +1,10 @@
-package cmd
+package user
 
 import (
-	"github.com/JetBrains/youtrack-cli/cmd/output"
-
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/cmd/output"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 func newUserCurrentCmd() *cobra.Command {
@@ -11,7 +12,7 @@ func newUserCurrentCmd() *cobra.Command {
 		Use:   "current",
 		Short: "Get the currently authenticated user",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := getClient(cmd)
+			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
