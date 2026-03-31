@@ -1,139 +1,132 @@
 # youtrack-cli
 
-A command-line tool for interacting with YouTrack via its REST API. Designed for use by developers and AI agents — create issues, manage projects, control users, and automate anything YouTrack exposes through its API.
+Create issues, manage projects, and automate YouTrack – without leaving your terminal.
 
-## Prerequisites
+A Go CLI for interacting with YouTrack via its REST API. Designed for use by developers and AI agents.
 
-- **Node.js 18+** — run `node --version` to check
-- A YouTrack instance URL and either a permanent token or your login credentials
+## Quick Start
+
+```bash
+# Authenticate (set credentials once)
+export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
+export YOUTRACK_TOKEN=perm:...
+
+# Verify connection
+youtrack user current
+
+# Find your open issues
+youtrack issue list --query "assignee: me State: Open"
+
+# Create an issue
+youtrack issue add --project MYPROJ --summary "Bug title"
+
+# Apply a command
+youtrack issue command MYPROJ-42 "State In Progress"
+```
 
 ## Setup
 
-### 1. Get your credentials ready
+### Build the binary
 
-If you already have a permanent token (available in YouTrack under your profile → **Authentication**), export these two variables in your terminal:
+```bash
+make build
+cp youtrack /usr/local/bin/
+```
+
+Or cross-compile for your target platform:
+
+```bash
+make dist   # produces binaries in dist/ for linux-amd64, darwin-arm64, darwin-amd64, windows-amd64
+```
+
+### Set credentials
+
+Export environment variables:
 
 ```bash
 export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
 export YOUTRACK_TOKEN=perm:...
 ```
 
-If you only have a login and password, the tool can generate a token for you and save it automatically:
+Or write them to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automatically on every run.
 
-```bash
-node youtrack-cli.js get-token \
-  --base-url https://your-instance.youtrack.cloud \
-  --login your-login \
-  --password your-password \
-  --setEnv true
-```
+## Commands
 
-This writes your URL and token to `~/.youtrack-cli-env`, which the tool loads automatically on every run — no need to set environment variables each time.
-
-### 2. Install the global command (optional)
-
-Run once to make `youtrack-cli` available as a global command:
-
-```bash
-npm run setup
-```
-
-After that you can drop the `node youtrack-cli.js` prefix and use the shorter form:
-
-```bash
-youtrack-cli <command> --param1 value1 --param2 value2
-```
-
-### 3. Run a command
-
-```bash
-# Short form (after npm run setup)
-youtrack-cli <command> --param1 value1 --param2 value2
-
-# Without global install
-node youtrack-cli.js <command> --param1 value1 --param2 value2
-```
-
-All output is JSON. Errors are printed to stderr with a non-zero exit code.
+| Group | Subcommands |
+|---|---|
+| `issue` | `get`, `list`, `add`, `update`, `delete`, `command`, `comment list`, `comment add`, `comment delete` |
+| `project` | `list`, `get`, `add`, `delete` |
+| `user` | `list`, `get`, `current`, `add` |
 
 ## Examples
 
 ```bash
-# Create an issue
-youtrack-cli add-issue \
-  --projectShortName MYPROJ \
-  --summary "Login button unresponsive on Safari" \
-  --description "Reproducible on Safari 17, works fine on Chrome."
+# Issues
+youtrack issue get MYPROJ-42
+youtrack issue list --query "assignee: me State: Open" --limit 50
+youtrack issue add --project MYPROJ --summary "Login button unresponsive on Safari"
+youtrack issue add --project MYPROJ --summary "RFC: Auth redesign" --description "See attached doc."
+youtrack issue update MYPROJ-42 --summary "New title"
+youtrack issue delete MYPROJ-42
+youtrack issue command MYPROJ-42 "State In Progress"
+youtrack issue command MYPROJ-42 "assignee alice.doe"
 
-# Search issues
-youtrack-cli get-issues --query "assignee: me State: Open"
+# Comments
+youtrack issue comment list MYPROJ-42
+youtrack issue comment add MYPROJ-42 --text "Reproducing locally."
+youtrack issue comment delete MYPROJ-42 <commentId>
 
-# Fetch a specific issue
-youtrack-cli get-issue --issueId MYPROJ-42
+# Projects
+youtrack project list
+youtrack project get MYPROJ
+youtrack project add --shortName MYPROJ --name "My Project" --leader john.doe
+youtrack project delete MYPROJ
 
-# Comment on an issue
-youtrack-cli add-comment --issueId MYPROJ-42 --text "Reproducing locally now."
-
-# Change issue state
-youtrack-cli apply-command --query "State In Progress" --issueIds "MYPROJ-42"
-
-# Load description from a file instead of typing it inline
-youtrack-cli add-issue \
-  --projectShortName MYPROJ \
-  --summary "RFC: Auth redesign" \
-  --descriptionFile ./rfc.md
-
-# Update role permissions
-youtrack-cli update-role \
-  --roleId 17-6 \
-  --permissions "jetbrains.jetpass.organization-read,jetbrains.jetpass.organization-delete"
-
-# Create a standard user (default type)
-youtrack-cli add-user \
-  --login john.doe \
-  --fullName "John Doe" \
-  --email john.doe@example.com \
-  --password secret123
-
-# Create a helpdesk agent
-youtrack-cli add-user \
-  --login jane.agent \
-  --fullName "Jane Agent" \
-  --email jane.agent@example.com \
-  --password secret123 \
-  --userType AGENT
-
-# Create a helpdesk reporter
-youtrack-cli add-user \
-  --login bob.reporter \
-  --fullName "Bob Reporter" \
-  --email bob.reporter@example.com \
-  --password secret123 \
-  --userType REPORTER
+# Users
+youtrack user list --query "john"
+youtrack user get john.doe
+youtrack user current
+youtrack user add --login john.doe --fullName "John Doe" --email john.doe@example.com
 ```
 
-Run `youtrack-cli --help` to see every available command with its parameters.
+## Global flags
 
-## Available commands
-
-| Area | Commands |
+| Flag | Description |
 |---|---|
-| Issues | Create, search, view, update, delete; manage custom fields and visibility |
-| Comments | Add, edit, pin, delete comments on issues and articles via unified commands (`--place issues\|articles`); control visibility |
-| Issue links | Link issues with typed relationships; list and remove links; count issues by query |
-| Articles | Full CRUD for knowledge base articles; parent/child structure; visibility |
-| Projects | Create and configure projects; manage teams, time tracking, workflows |
-| Users | Create users (`STANDARD_USER`, `AGENT`, `REPORTER`); manage bans and profile settings (locale, timezone, notifications) |
-| Groups & roles | Create, list, delete groups and roles; manage permissions; role assignments |
-| Agile boards & sprints | Create boards and sprints |
-| Dashboards | Create and manage dashboards |
-| Work items | Log time on issues |
-| Tags | Tag issues and articles |
-| Workflows | View, create, and manage automation workflows |
-| Global settings | Email, feature flags, license, AI features, banners |
-| Custom fields | Manage field prototypes and bundle values; create and attach bundles to fields; set field privacy |
-| VCS & mailbox | Configure VCS integrations and mailbox rules |
-| Raw API | `raw --method GET/POST/DELETE/PUT --path ...` for any endpoint not covered above |
+| `--format json\|table` | Output format (default: `json`) |
+| `--base-url URL` | Override `YOUTRACK_BASE_URL` |
+| `--token TOKEN` | Override `YOUTRACK_TOKEN` |
+| `--verbose` | Print HTTP requests/responses to stderr |
+
+## AI Agent Integration
+
+A skill file is included for AI coding agents (Claude Code, Cursor, and others). It provides command examples, workflows, and YouTrack-specific gotchas.
+
+Install for Claude Code:
+
+```bash
+# The skill is already in .agents/skills/youtrack-cli/SKILL.md
+# Claude Code picks it up automatically from the repo root
+```
+
+Or reference it manually in your agent's context:
+
+```
+.agents/skills/youtrack-cli/SKILL.md
+```
+
+## Build
+
+```bash
+make build           # compile ./youtrack binary
+make test            # go test ./...
+make test-integration # integration tests (requires YOUTRACK_BASE_URL + YOUTRACK_TOKEN)
+make dist            # cross-compile for linux-amd64, darwin-arm64, darwin-amd64, windows-amd64
+```
+
+## Contributing
+
+Contributions are welcome. Please open an issue before submitting a pull request for significant changes.
 
 ## License
 

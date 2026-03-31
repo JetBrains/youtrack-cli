@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Zero-dependency ESM Node.js CLI for interacting with the YouTrack REST API. Designed for use by AI agents and developers.
+Go CLI for interacting with the YouTrack REST API. Built with Cobra. Designed for use by AI agents and developers.
 
 ## Agent Skill
 
@@ -11,11 +11,11 @@ A full YouTrack interaction guide is available as an agent skill — load it whe
 ## Development Commands
 
 ```bash
-npm start -- <command> [--param value ...]         # run locally
-node youtrack-cli.js list-commands                 # list all commands (table in TTY, JSON when piped)
-npm test                                           # integration tests against a real YouTrack instance
-npm run setup                                      # npm link → exposes global `youtrack-cli`
-node --test --test-name-pattern="get-issue" test.js  # run a single test by name
+make build                                           # compile ./youtrack binary
+make test                                            # go test ./... (requires YOUTRACK_BASE_URL + YOUTRACK_TOKEN)
+make test-integration                                # integration tests only, verbose
+go run . issue list --query "assignee: me"           # run without building
+go test ./test/ -run TestGetIssue -v                 # run a single test by name
 ```
 
 ## Environment
@@ -25,32 +25,36 @@ export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
 export YOUTRACK_TOKEN=perm:...
 ```
 
-Or run `get-token --login ... --password ... --setEnv true` to write `~/.youtrack-cli-env` (auto-loaded on each invocation).
+Or write to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automatically on each invocation.
 
 ## Project Structure
 
-| File | Role |
+| Path | Role |
 |---|---|
-| `youtrack-cli.js` | Command registry and `main()` entrypoint |
-| `http-helpers.js` | HTTP primitives, data-parsing utilities, verbose/error logic |
-| `api-paths.js` | REST endpoint constants (`API.*`) |
-| `test.js` | Integration tests — no mocking, real YouTrack instance |
-
-Put new command logic in `youtrack-cli.js`. Move reusable request/parse helpers to `http-helpers.js`.
+| `main.go` | Entrypoint — calls `cmd.Execute()` |
+| `go.mod` / `go.sum` | Module definition (module: `youtrack-cli`, Go 1.22) |
+| `Makefile` | Build, test, and dist targets |
+| `api/client.go` | `Client` struct, `Get`/`Post`/`Put`/`Delete` HTTP primitives |
+| `api/types.go` | Shared struct types (Issue, Project, User, Comment, etc.) |
+| `api/issues.go` | Issue and comment API methods |
+| `api/projects.go` | Project API methods |
+| `api/users.go` | User API methods |
+| `cmd/youtrack.go` | Cobra root command, exports `NewRootCmd()`, global flags, subcommand registration |
+| `internal/client.go` | `GetClient()` helper — reads flags and env vars |
+| `internal/env.go` | `LoadEnvFile()` — loads `~/.youtrack-cli-env` |
+| `cmd/issue/` | Issue subcommands (17 files) |
+| `cmd/project/` | Project subcommands (10 files) |
+| `cmd/user/` | User subcommands (12 files) |
+| `cmd/output/` | JSON and table output formatters |
+| `test/` | All unit and integration tests (`package api_test`) |
 
 ## Command Registration
 
-```js
-cmd("name", "description", ["requiredParam", "?optionalParam"], async (ctx, args) => {
-  // ctx = { base, token }
-  return doGet(ctx.base, `${API.SOMETHING}?fields=id,name`, ctx.token);
-});
-```
+Add a new file in `cmd/` (e.g., `cmd/issue_foo.go`). Create a constructor `newIssueFooCmd() *cobra.Command` and register it by calling `cmd.AddCommand(newIssueFooCmd())` in the parent command's constructor (e.g., `NewCmd()` in `cmd/issue/issue.go`).
 
-- `?` prefix marks an optional param.
-- Handlers must return JSON-serializable data — `main()` prints it.
-- Flags are `--key value`; kebab-case is camelCase'd (`--base-url` → `baseUrl`).
-- `list-commands` and `get-token` are the only commands that skip token validation.
+- Use `internal.GetClient(cmd)` to obtain the API client.
+- Return errors from `RunE` — the root command prints them to stderr.
+- Use `output.Print(cmd, data)` for all output — it respects `--format`.
 
 ## When Adding a Command
 
@@ -59,12 +63,18 @@ cmd("name", "description", ["requiredParam", "?optionalParam"], async (ctx, args
 
 ## Coding Conventions
 
-- 2-space indentation, double quotes, semicolons — match surrounding code.
-- Command names: kebab-case. JS identifiers: camelCase.
+- `gofmt` formatting — run automatically by most editors with gopls.
+- Command names: lowercase verbs (`get`, `list`, `add`, `update`, `delete`).
+- Go identifiers: camelCase for unexported, PascalCase for exported.
+- Error strings: lowercase, no trailing period (Go convention).
+- All output goes through `output.Print(cmd, data)` — never `fmt.Println` directly in a command handler.
 
 ## Testing
 
-Tests run against a **real YouTrack instance — no mocking**. Set `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` before running. Clean up all created resources in `after()` hooks.
+All tests are integration tests against a real YouTrack instance — no mocks, no build tags.
+Run with `make test` (requires `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN`). Each test is
+self-contained: creates all needed entities and registers `t.Cleanup()` teardown.
+Helper functions in `test/helpers_test.go`: `newTestClient(t)`, `createTempProject(t, c)`, `runCmd(t, args...)`.
 
 ## ID Conventions
 
@@ -76,16 +86,10 @@ Tests run against a **real YouTrack instance — no mocking**. Set `YOUTRACK_BAS
 | Group / Role | name | `Developers` / `Developer` |
 | Everything else | opaque `id` from API responses | `2-7` |
 
-## API Conventions
-
-- `permittedGroups` / `permittedUsers`: comma-separated names/logins. Empty = visible to all.
-- Long-text params (`?description`, `?content`, `?text`) accept a `...File` variant (e.g. `--descriptionFile ./notes.md`).
-- Custom field bundles: create the bundle and attach it to the field prototype as separate steps.
-
 ## Gotchas
 
-- **IMPORTANT — `add-project` requires `--leader`**: the YouTrack API rejects project creation without it. Use `get-current-user` to get the current user's login if none is specified.
-- **`apply-command` logins**: the CLI auto-wraps logins containing `.`, `-`, or `@` in braces for YouTrack's command parser (`alice.qa` → `{alice.qa}`). Write the login as-is.
+- **IMPORTANT — `project add` requires `--leader`**: the YouTrack API rejects project creation without it. Use `user current` to get the current user's login if none is specified.
+- **`issue command` logins**: the CLI auto-wraps logins containing `.`, `-`, or `@` in braces for YouTrack's command parser (`alice.qa` → `{alice.qa}`). Write the login as-is.
 - **`--asUser <login>`**: the target user must have at least a Contributor role in the project.
 
 ## Commits
