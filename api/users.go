@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 )
 
@@ -195,24 +196,28 @@ func (c *Client) RawRequest(method, path string, body map[string]any) (any, erro
 func (c *Client) waitForUserDeletion(login, id string) error {
 	deadline := time.Now().Add(entityDeleteSyncTimeout)
 	for {
-		users, err := c.ListUsers(login)
-		if err != nil {
-			return err
-		}
-
-		found := false
-		for i := range users {
-			if users[i].Login == login || users[i].ID == id {
-				found = true
-				break
-			}
-		}
-		if !found {
+		var result User
+		err := c.Get(fmt.Sprintf(pathUser+"?fields=id,login", url.PathEscape(id)), &result)
+		switch {
+		case err == nil:
+			// Still resolvable by exact id, so the merge/delete has not finished yet.
+		case isUserDeletionObserved(err):
 			return nil
+		default:
+			return err
 		}
 		if time.Now().After(deadline) {
 			return fmt.Errorf("user '%s' is still visible after delete; YouTrack sync may still be in progress", login)
 		}
 		time.Sleep(entityDeletePollInterval)
 	}
+}
+
+func isUserDeletionObserved(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	message := err.Error()
+	return strings.Contains(message, "HTTP 404") || strings.Contains(message, "was removed")
 }
