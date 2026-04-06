@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -9,130 +10,6 @@ import (
 
 	"github.com/JetBrains/youtrack-cli/api"
 )
-
-func TestIssue_CRUD(t *testing.T) {
-	c := newTestClient(t)
-	proj := createTempProject(t, c)
-
-	// Create
-	issue, err := c.AddIssue(api.AddIssueRequest{
-		Summary: "integration test issue",
-		Project: &api.Project{ID: proj.ID},
-	})
-	require.NoError(t, err)
-	require.NotEmpty(t, issue.IDReadable)
-	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
-
-	// Get
-	got, err := c.GetIssue(issue.IDReadable)
-	require.NoError(t, err)
-	assert.Equal(t, "integration test issue", got.Summary)
-
-	// Update
-	updated, err := c.UpdateIssue(issue.IDReadable, api.UpdateIssueRequest{Summary: "updated summary"})
-	require.NoError(t, err)
-	assert.Equal(t, "updated summary", updated.Summary)
-
-	// List
-	issues, err := c.ListIssues("project: "+proj.ShortName, 10)
-	require.NoError(t, err)
-	assert.NotEmpty(t, issues)
-
-	// Delete
-	err = c.DeleteIssue(issue.IDReadable)
-	require.NoError(t, err)
-
-	_, err = c.GetIssue(issue.IDReadable)
-	assert.Error(t, err)
-}
-
-func TestIssue_Comment_CRUD(t *testing.T) {
-	c := newTestClient(t)
-	proj := createTempProject(t, c)
-
-	issue, err := c.AddIssue(api.AddIssueRequest{
-		Summary: "issue for comments",
-		Project: &api.Project{ID: proj.ID},
-	})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
-
-	// Add comment
-	comment, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "hello world"})
-	require.NoError(t, err)
-	require.NotEmpty(t, comment.ID)
-
-	// List comments
-	comments, err := c.ListComments(issue.IDReadable)
-	require.NoError(t, err)
-	assert.Len(t, comments, 1)
-	assert.Equal(t, "hello world", comments[0].Text)
-
-	// Update comment
-	updated, err := c.UpdateComment(issue.IDReadable, comment.ID, "updated text")
-	require.NoError(t, err)
-	assert.Equal(t, "updated text", updated.Text)
-
-	// Delete comment
-	err = c.DeleteComment(issue.IDReadable, comment.ID)
-	require.NoError(t, err)
-
-	afterDelete, err := c.ListComments(issue.IDReadable)
-	require.NoError(t, err)
-	assert.Empty(t, afterDelete)
-}
-
-func TestIssue_ApplyCommand(t *testing.T) {
-	c := newTestClient(t)
-	proj := createTempProject(t, c)
-
-	issue, err := c.AddIssue(api.AddIssueRequest{
-		Summary: "command test issue",
-		Project: &api.Project{ID: proj.ID},
-	})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
-
-	err = c.ApplyCommand("Fixed", []string{issue.IDReadable})
-	require.NoError(t, err)
-}
-
-func TestIssue_Count(t *testing.T) {
-	c := newTestClient(t)
-	proj := createTempProject(t, c)
-
-	issue, err := c.AddIssue(api.AddIssueRequest{
-		Summary: "count test issue",
-		Project: &api.Project{ID: proj.ID},
-	})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
-
-	count, err := c.GetIssueCount("project: " + proj.ShortName)
-	require.NoError(t, err)
-	// YouTrack's count endpoint may return -1 while computing asynchronously.
-	// A non-error response with count >= -1 confirms the endpoint is reachable.
-	assert.GreaterOrEqual(t, count, -1)
-}
-
-func TestIssue_WorkItem(t *testing.T) {
-	c := newTestClient(t)
-	proj := createTempProject(t, c)
-
-	err := c.SetProjectTimeTracking(proj.ShortName, true)
-	require.NoError(t, err)
-
-	issue, err := c.AddIssue(api.AddIssueRequest{
-		Summary: "workitem test issue",
-		Project: &api.Project{ID: proj.ID},
-	})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
-
-	wi, err := c.AddWorkItem(issue.IDReadable, 90, "design work", "")
-	require.NoError(t, err)
-	assert.NotEmpty(t, wi.ID)
-}
 
 func TestIssue_WrapUserValues(t *testing.T) {
 	cases := []struct{ in, out string }{
@@ -213,4 +90,109 @@ func TestCmd_IssueDelete(t *testing.T) {
 
 	_, err = c.GetIssue(issue.IDReadable)
 	assert.Error(t, err)
+}
+
+func TestCmd_IssueUpdate(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "cmd update original",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "update", issue.IDReadable,
+		"--summary", "cmd update revised",
+		"--description", "updated through cli",
+		"--format", "json",
+	)
+	assert.Contains(t, out, "cmd update revised")
+
+	got, err := c.GetIssue(issue.IDReadable)
+	require.NoError(t, err)
+	assert.Equal(t, "cmd update revised", got.Summary)
+	assert.Equal(t, "updated through cli", got.Description)
+}
+
+func TestCmd_IssueCommentCRUD(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "cmd comment test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "comment", "add", issue.IDReadable,
+		"--text", "hello from cli",
+		"--format", "json",
+	)
+	assert.Contains(t, out, "hello from cli")
+
+	var comment struct {
+		ID   string `json:"id"`
+		Text string `json:"text"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &comment))
+	require.NotEmpty(t, comment.ID)
+
+	out = runCmd(t, "issue", "comment", "list", issue.IDReadable, "--format", "json")
+	assert.Contains(t, out, comment.ID)
+	assert.Contains(t, out, "hello from cli")
+
+	out = runCmd(t, "issue", "comment", "update", issue.IDReadable, comment.ID,
+		"--text", "updated from cli",
+		"--format", "json",
+	)
+	assert.Contains(t, out, "updated from cli")
+
+	comments, err := c.ListComments(issue.IDReadable)
+	require.NoError(t, err)
+	require.Len(t, comments, 1)
+	assert.Equal(t, "updated from cli", comments[0].Text)
+
+	out = runCmd(t, "issue", "comment", "delete", issue.IDReadable, comment.ID)
+	assert.Contains(t, out, "deleted comment "+comment.ID)
+
+	comments, err = c.ListComments(issue.IDReadable)
+	require.NoError(t, err)
+	assert.Empty(t, comments)
+}
+
+func TestCmd_IssueWorkitemAdd(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	out := runCmd(t, "project", "timetrack", "set", proj.ShortName, "--enabled")
+	assert.Contains(t, out, "updated time tracking for project "+proj.ShortName)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "cmd workitem test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out = runCmd(t, "issue", "workitem", "add", issue.IDReadable,
+		"--minutes", "90",
+		"--text", "design work",
+		"--format", "json",
+	)
+	assert.Contains(t, out, "design work")
+
+	var item struct {
+		ID       string `json:"id"`
+		Text     string `json:"text"`
+		Duration struct {
+			Minutes int `json:"minutes"`
+		} `json:"duration"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &item))
+	assert.NotEmpty(t, item.ID)
+	assert.Equal(t, "design work", item.Text)
+	assert.Equal(t, 90, item.Duration.Minutes)
 }

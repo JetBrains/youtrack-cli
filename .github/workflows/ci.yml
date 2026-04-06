@@ -1,0 +1,85 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Check formatting
+        run: make fmt-check
+
+      - name: Run lint
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.11.4
+          args: --timeout=5m --config=.golangci.yml
+
+      - name: Build
+        run: make build
+
+      - name: Build distribution artifacts
+        run: make dist
+
+      - name: Upload distribution artifacts
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-artifact@v4
+        with:
+          name: youtrack-dist-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+
+  e2e:
+    needs: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      YOUTRACK_E2E_RESET: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Run Tests
+        run: make test
+
+      - name: Collect E2E logs
+        if: always()
+        run: |
+          make e2e-logs
+          tar -czf e2e-logs.tar.gz -C .e2e/logs . 2>/dev/null || true
+
+      - name: Upload E2E logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-logs
+          path: e2e-logs.tar.gz
+          if-no-files-found: ignore
+
+      - name: Tear down Docker E2E
+        if: always()
+        run: make e2e-down

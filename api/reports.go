@@ -7,7 +7,8 @@ import (
 
 func (c *Client) GetRemovedDocuments() ([]RemovedDocument, error) {
 	var result []RemovedDocument
-	return result, c.Get(pathRemovedDocuments+"?fields=id,idReadable,summary&$top=-1", &result)
+	err := c.Get(pathRemovedDocuments+"?fields=id,idReadable,summary&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) RestoreDocument(id string) error {
@@ -23,7 +24,8 @@ func (c *Client) DeleteReport(id string) error {
 
 func (c *Client) ListGanttCharts() ([]GanttChart, error) {
 	var result []GanttChart
-	return result, c.Get(pathGanttCharts+"?fields=id,name&$top=-1", &result)
+	err := c.Get(pathGanttCharts+"?fields=id,name&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) DeleteGanttChart(id string) error {

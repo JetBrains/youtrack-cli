@@ -21,8 +21,8 @@ func newUserBanCmd() *cobra.Command {
 			if err := client.BanUser(args[0], true); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "banned user "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "banned user "+args[0])
+			return err
 		},
 	}
 }
@@ -40,8 +40,8 @@ func newUserUnbanCmd() *cobra.Command {
 			if err := client.BanUser(args[0], false); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "unbanned user "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "unbanned user "+args[0])
+			return err
 		},
 	}
 }

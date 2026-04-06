@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newCanvasCmd() *cobra.Command {
@@ -54,7 +54,7 @@ func newCanvasAddCmd() *cobra.Command {
 	}
 	cmd.Flags().String("name", "", "Canvas name (required)")
 	cmd.Flags().String("owner", "", "Owner login")
-	cmd.MarkFlagRequired("name")
+	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }
 
@@ -138,8 +138,7 @@ func newCanvasNodeAddCmd() *cobra.Command {
 	cmd.Flags().Int("y", 0, "Y coordinate (required)")
 	cmd.Flags().String("label", "", "Node label")
 	cmd.Flags().String("description", "", "Node description")
-	cmd.MarkFlagRequired("x")
-	cmd.MarkFlagRequired("y")
+	internal.MustMarkRequired(cmd, "x", "y")
 	return cmd
 }
 
@@ -180,7 +179,6 @@ func newCanvasLinkCmd() *cobra.Command {
 	}
 	cmd.Flags().String("source", "", "Source card ID (required)")
 	cmd.Flags().String("target", "", "Target card ID (required)")
-	cmd.MarkFlagRequired("source")
-	cmd.MarkFlagRequired("target")
+	internal.MustMarkRequired(cmd, "source", "target")
 	return cmd
 }

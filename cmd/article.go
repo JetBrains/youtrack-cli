@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newArticleCmd() *cobra.Command {
@@ -99,8 +99,7 @@ func newArticleAddCmd() *cobra.Command {
 	cmd.Flags().String("summary", "", "Article title (required)")
 	cmd.Flags().String("content", "", "Article body")
 	cmd.Flags().String("asUser", "", "Create as this user login")
-	cmd.MarkFlagRequired("project")
-	cmd.MarkFlagRequired("summary")
+	internal.MustMarkRequired(cmd, "project", "summary")
 	return cmd
 }
 
@@ -139,8 +138,8 @@ func newArticleDeleteCmd() *cobra.Command {
 			if err := client.DeleteArticle(args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted article "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted article "+args[0])
+			return err
 		},
 	}
 }
@@ -189,7 +188,7 @@ func newArticleCommentCmd() *cobra.Command {
 	}
 	add.Flags().String("text", "", "Comment text (required)")
 	add.Flags().String("asUser", "", "Post as this user login")
-	add.MarkFlagRequired("text")
+	internal.MustMarkRequired(add, "text")
 	del := &cobra.Command{
 		Use: "delete <articleId> <commentId>", Short: "Delete a comment from an article",
 		Args: cobra.ExactArgs(2),
@@ -218,7 +217,7 @@ func newArticleCommentCmd() *cobra.Command {
 		},
 	}
 	update.Flags().String("text", "", "New comment text (required)")
-	update.MarkFlagRequired("text")
+	internal.MustMarkRequired(update, "text")
 	cmd.AddCommand(list, add, del, update)
 	return cmd
 }
@@ -235,8 +234,8 @@ func newArticleTagCmd() *cobra.Command {
 			if err := client.TagArticle(args[0], args[1]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "tagged article "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "tagged article "+args[0])
+			return err
 		},
 	}
 }
@@ -255,8 +254,8 @@ func newArticleVisibilityCmd() *cobra.Command {
 			if err := client.UpdateArticleVisibility(args[0], groups, users); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for article "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for article "+args[0])
+			return err
 		},
 	}
 	cmd.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")
@@ -276,8 +275,8 @@ func newArticleSetParentCmd() *cobra.Command {
 			if err := client.SetParentArticle(args[0], args[1]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "set parent of "+args[0]+" to "+args[1])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "set parent of "+args[0]+" to "+args[1])
+			return err
 		},
 	}
 }
@@ -316,8 +315,7 @@ func newArticleAttachmentCmd() *cobra.Command {
 		},
 	}
 	add.Flags().String("file", "", "Path to file (required)")
-	add.MarkFlagRequired("file")
+	internal.MustMarkRequired(add, "file")
 	cmd.AddCommand(list, add)
 	return cmd
 }
-

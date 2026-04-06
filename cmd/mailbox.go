@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newMailboxCmd() *cobra.Command {
@@ -60,9 +60,7 @@ func newMailboxAddCmd() *cobra.Command {
 	cmd.Flags().Int("port", 993, "Port")
 	cmd.Flags().String("login", "", "Login (required)")
 	cmd.Flags().String("password", "", "Password (required)")
-	cmd.MarkFlagRequired("host")
-	cmd.MarkFlagRequired("login")
-	cmd.MarkFlagRequired("password")
+	internal.MustMarkRequired(cmd, "host", "login", "password")
 	return cmd
 }
 
@@ -78,8 +76,8 @@ func newMailboxDeleteCmd() *cobra.Command {
 			if err := client.DeleteMailboxServer(args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted mailbox server "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted mailbox server "+args[0])
+			return err
 		},
 	}
 }
@@ -99,16 +97,14 @@ func newMailboxRuleCmd() *cobra.Command {
 			if err := client.AddMailboxRule(mailboxID, projectID, name); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "added mailbox rule "+name)
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "added mailbox rule "+name)
+			return err
 		},
 	}
 	add.Flags().String("mailbox", "", "Mailbox ID (required)")
 	add.Flags().String("project", "", "Project ID (required)")
 	add.Flags().String("name", "", "Rule name (required)")
-	add.MarkFlagRequired("mailbox")
-	add.MarkFlagRequired("project")
-	add.MarkFlagRequired("name")
+	internal.MustMarkRequired(add, "mailbox", "project", "name")
 	cmd.AddCommand(add)
 	return cmd
 }

@@ -11,12 +11,14 @@ type AddOrganizationRequest struct {
 
 func (c *Client) ListOrganizations() ([]Organization, error) {
 	var result []Organization
-	return result, c.Get(pathAdminOrganizations+"?fields=id,name&$top=-1", &result)
+	err := c.Get(pathAdminOrganizations+"?fields=id,name&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) AddOrganization(req AddOrganizationRequest) (*Organization, error) {
 	var result Organization
-	return &result, c.Post(pathAdminOrganizations+"?fields=id,name", req, &result)
+	err := c.Post(pathAdminOrganizations+"?fields=id,name", req, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteOrganization(id string) error {

@@ -12,8 +12,8 @@ A full YouTrack interaction guide is available as an agent skill — load it whe
 
 ```bash
 make build                                           # compile ./youtrack binary
-make test                                            # go test ./... (requires YOUTRACK_BASE_URL + YOUTRACK_TOKEN)
-make test-integration                                # integration tests only, verbose
+make check                                          # fmt-check + lint + build + test — run before committing/pushing
+make test                                            # Dockerized YouTrack E2E suite against a real local instance
 go run . issue list --query "assignee: me"           # run without building
 go test ./test/ -run TestGetIssue -v                 # run a single test by name
 ```
@@ -32,7 +32,7 @@ Or write to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automati
 | Path | Role |
 |---|---|
 | `main.go` | Entrypoint — calls `cmd.Execute()` |
-| `go.mod` / `go.sum` | Module definition (module: `youtrack-cli`, Go 1.22) |
+| `go.mod` / `go.sum` | Module definition (module: `youtrack-cli`, Go 1.26) |
 | `Makefile` | Build, test, and dist targets |
 | `api/client.go` | `Client` struct, `Get`/`Post`/`Put`/`Delete` HTTP primitives |
 | `api/types.go` | Shared struct types (Issue, Project, User, Comment, etc.) |
@@ -46,7 +46,7 @@ Or write to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automati
 | `cmd/project/` | Project subcommands (10 files) |
 | `cmd/user/` | User subcommands (12 files) |
 | `cmd/output/` | JSON and table output formatters |
-| `test/` | All unit and integration tests (`package api_test`) |
+| `test/` | End-to-end tests against a real YouTrack instance (`package api_test`) |
 
 ## Command Registration
 
@@ -71,10 +71,17 @@ Add a new file in `cmd/` (e.g., `cmd/issue_foo.go`). Create a constructor `newIs
 
 ## Testing
 
-All tests are integration tests against a real YouTrack instance — no mocks, no build tags.
-Run with `make test` (requires `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN`). Each test is
-self-contained: creates all needed entities and registers `t.Cleanup()` teardown.
-Helper functions in `test/helpers_test.go`: `newTestClient(t)`, `createTempProject(t, c)`, `runCmd(t, args...)`.
+This repo intentionally uses end-to-end tests only: no mocks, no fake transport, no separate unit-test layer.
+The subject under test is the compiled `youtrack` binary against a real YouTrack instance.
+We do not maintain a separate API-client conformance suite in parallel with CLI coverage.
+
+Run the full suite with `make test`. It boots or reuses the local Dockerized YouTrack harness, bootstraps credentials,
+and runs the entire `./test` package against that live instance. Each test is self-contained: it creates all needed
+entities and registers `t.Cleanup()` teardown. Helper functions in `test/helpers_test.go`: `newTestClient(t)`,
+`createTempProject(t, c)`, `runCmd(t, args...)`.
+
+Tests may use `api.Client` for fixture setup, teardown, or external-state verification, but not as a second product
+surface with its own parallel contract suite. Keep the suite centered on observable CLI behavior.
 
 ## ID Conventions
 
@@ -95,3 +102,5 @@ Helper functions in `test/helpers_test.go`: `newTestClient(t)`, `createTempProje
 ## Commits
 
 Use Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`. Keep commits focused; don't mix refactors with behavior changes.
+
+Always run `make check` before committing or pushing. It runs formatting, linting, build, and the full E2E test suite. Do not push code that fails `make check`.

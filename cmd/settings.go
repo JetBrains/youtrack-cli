@@ -3,8 +3,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newSettingsCmd() *cobra.Command {
@@ -54,7 +54,7 @@ func newSettingsFeatureCmd() *cobra.Command {
 	}
 	cmd.Flags().String("name", "", "Feature flag name (required)")
 	cmd.Flags().Bool("enabled", true, "Enable or disable")
-	cmd.MarkFlagRequired("name")
+	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }
 
@@ -76,8 +76,7 @@ func newSettingsEmailCmd() *cobra.Command {
 	set.Flags().String("server", "", "SMTP server (required)")
 	set.Flags().Int("port", 25, "SMTP port")
 	set.Flags().String("from", "", "From address (required)")
-	set.MarkFlagRequired("server")
-	set.MarkFlagRequired("from")
+	internal.MustMarkRequired(set, "server", "from")
 	disable := &cobra.Command{
 		Use: "disable", Short: "Disable email notifications",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -106,7 +105,7 @@ func newSettingsBannerCmd() *cobra.Command {
 		},
 	}
 	set.Flags().String("message", "", "Banner message (required)")
-	set.MarkFlagRequired("message")
+	internal.MustMarkRequired(set, "message")
 	disable := &cobra.Command{
 		Use: "disable", Short: "Disable the global banner",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -152,8 +151,7 @@ func newSettingsLicenseCmd() *cobra.Command {
 	}
 	cmd.Flags().String("user", "", "License username (required)")
 	cmd.Flags().String("key", "", "License key (required)")
-	cmd.MarkFlagRequired("user")
-	cmd.MarkFlagRequired("key")
+	internal.MustMarkRequired(cmd, "user", "key")
 	return cmd
 }
 

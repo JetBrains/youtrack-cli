@@ -10,6 +10,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
+	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
@@ -40,9 +41,13 @@ func newGetTokenCmd() *cobra.Command {
 			save, _ := cmd.Flags().GetBool("save")
 
 			if password == "" {
-				fmt.Fprint(cmd.ErrOrStderr(), "Password: ")
+				if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Password: "); err != nil {
+					return err
+				}
 				raw, err := term.ReadPassword(int(os.Stdin.Fd()))
-				fmt.Fprintln(cmd.ErrOrStderr())
+				if _, printErr := fmt.Fprintln(cmd.ErrOrStderr()); printErr != nil {
+					return printErr
+				}
 				if err != nil {
 					return fmt.Errorf("reading password: %w", err)
 				}
@@ -96,7 +101,7 @@ func newGetTokenCmd() *cobra.Command {
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token")
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("save", false, "Write YOUTRACK_BASE_URL and YOUTRACK_TOKEN to ~/.youtrack-cli-env")
-	_ = cmd.MarkFlagRequired("login")
+	internal.MustMarkRequired(cmd, "login")
 	return cmd
 }
 

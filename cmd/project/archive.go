@@ -21,8 +21,8 @@ func newProjectArchiveCmd() *cobra.Command {
 			if err := client.ArchiveProject(args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "archived project "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "archived project "+args[0])
+			return err
 		},
 	}
 }

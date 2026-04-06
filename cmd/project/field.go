@@ -3,8 +3,8 @@ package project
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newProjectFieldCmd() *cobra.Command {
@@ -37,7 +37,7 @@ func newProjectFieldCmd() *cobra.Command {
 		},
 	}
 	add.Flags().String("field", "", "Custom field ID (required)")
-	add.MarkFlagRequired("field")
+	internal.MustMarkRequired(add, "field")
 	cmd.AddCommand(list, add)
 	return cmd
 }

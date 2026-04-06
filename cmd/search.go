@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newSearchCmd() *cobra.Command {
@@ -43,8 +43,7 @@ func newSearchAddCmd() *cobra.Command {
 	}
 	cmd.Flags().String("name", "", "Saved search name (required)")
 	cmd.Flags().String("query", "", "YouTrack query string (required)")
-	cmd.MarkFlagRequired("name")
-	cmd.MarkFlagRequired("query")
+	internal.MustMarkRequired(cmd, "name", "query")
 	return cmd
 }
 

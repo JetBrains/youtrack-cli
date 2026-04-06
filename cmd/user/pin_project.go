@@ -21,8 +21,8 @@ func newUserPinProjectCmd() *cobra.Command {
 			if err := client.PinProjectForUser(args[0], args[1]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "pinned project "+args[1]+" for user "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "pinned project "+args[1]+" for user "+args[0])
+			return err
 		},
 	}
 }

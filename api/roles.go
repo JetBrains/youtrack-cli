@@ -7,7 +7,8 @@ import (
 
 func (c *Client) ListRoles() ([]Role, error) {
 	var result []Role
-	return result, c.Get(pathRoles+"?fields=id,name,description&$top=-1", &result)
+	err := c.Get(pathRoles+"?fields=id,name,description&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) AddRole(name, description string, permissionIDs []string) (*Role, error) {
@@ -16,11 +17,12 @@ func (c *Client) AddRole(name, description string, permissionIDs []string) (*Rol
 	for i, id := range permissionIDs {
 		perms[i] = map[string]any{"id": id}
 	}
-	return &result, c.Post(pathRoles+"?fields=id,name,description", map[string]any{
+	err := c.Post(pathRoles+"?fields=id,name,description", map[string]any{
 		"name":        name,
 		"description": description,
 		"permissions": perms,
 	}, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteRole(id string) error {
@@ -39,7 +41,8 @@ func (c *Client) UpdateRole(id string, permissionIDs []string) error {
 
 func (c *Client) GetPermissions() ([]Permission, error) {
 	var result []Permission
-	return result, c.Get(pathPermissions+"?fields=id,name,description&$top=-1", &result)
+	err := c.Get(pathPermissions+"?fields=id,name,description&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) GrantRoleToUser(userID, roleID, projectID string) error {

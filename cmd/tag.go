@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newTagCmd() *cobra.Command {
@@ -68,7 +68,7 @@ func newTagAddCmd() *cobra.Command {
 	}
 	cmd.Flags().String("name", "", "Tag name (required)")
 	cmd.Flags().String("owner", "", "Owner login")
-	cmd.MarkFlagRequired("name")
+	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }
 

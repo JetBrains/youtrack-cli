@@ -35,8 +35,8 @@ func newUserProfilePropertyCmd() *cobra.Command {
 			if err := client.SetUserProfileProperty(args[0], args[1], args[2]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "updated profile property "+args[1])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated profile property "+args[1])
+			return err
 		},
 	}
 	return cmd
@@ -61,7 +61,7 @@ func newUserProfileAppearanceCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("body", "{}", "JSON body")
-	cmd.MarkFlagRequired("body")
+	internal.MustMarkRequired(cmd, "body")
 	return cmd
 }
 
@@ -84,7 +84,7 @@ func newUserProfileNotificationsCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("body", "{}", "JSON body")
-	cmd.MarkFlagRequired("body")
+	internal.MustMarkRequired(cmd, "body")
 	return cmd
 }
 
@@ -107,7 +107,7 @@ func newUserProfileGrazieCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("body", "{}", "JSON body")
-	cmd.MarkFlagRequired("body")
+	internal.MustMarkRequired(cmd, "body")
 	return cmd
 }
 
@@ -130,7 +130,7 @@ func newUserProfileArticlesCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("body", "{}", "JSON body")
-	cmd.MarkFlagRequired("body")
+	internal.MustMarkRequired(cmd, "body")
 	return cmd
 }
 
@@ -153,7 +153,7 @@ func newUserProfileIssuesListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("body", "{}", "JSON body")
-	cmd.MarkFlagRequired("body")
+	internal.MustMarkRequired(cmd, "body")
 	return cmd
 }
 
@@ -208,6 +208,6 @@ func newUserProfileGeneralCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("body", "{}", "JSON body")
-	cmd.MarkFlagRequired("body")
+	internal.MustMarkRequired(cmd, "body")
 	return cmd
 }

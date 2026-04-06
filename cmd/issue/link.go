@@ -3,8 +3,8 @@ package issue
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newIssueLinkCmd() *cobra.Command {
@@ -52,8 +52,7 @@ func newIssueLinkAddCmd() *cobra.Command {
 	}
 	cmd.Flags().String("target", "", "Target issue ID (required)")
 	cmd.Flags().String("type", "", "Link type ID (required)")
-	cmd.MarkFlagRequired("target")
-	cmd.MarkFlagRequired("type")
+	internal.MustMarkRequired(cmd, "target", "type")
 	return cmd
 }
 
@@ -107,9 +106,7 @@ func newIssueLinkTypeCmd() *cobra.Command {
 	add.Flags().String("name", "", "Link type name (required)")
 	add.Flags().String("source-to-target", "", "Source-to-target label (required)")
 	add.Flags().String("target-to-source", "", "Target-to-source label (required)")
-	add.MarkFlagRequired("name")
-	add.MarkFlagRequired("source-to-target")
-	add.MarkFlagRequired("target-to-source")
+	internal.MustMarkRequired(add, "name", "source-to-target", "target-to-source")
 	cmd.AddCommand(list, add)
 	return cmd
 }

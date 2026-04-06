@@ -13,13 +13,15 @@ const articleCommentFields = "id,text,author(id,login,fullName),created"
 func (c *Client) ListArticles(query string) ([]Article, error) {
 	var result []Article
 	path := pathArticles + fmt.Sprintf("?fields=%s&query=%s&$top=-1", articleFields, url.QueryEscape(query))
-	return result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return result, err
 }
 
 func (c *Client) GetArticle(id string) (*Article, error) {
 	var result Article
 	path := fmt.Sprintf(pathArticle+"?fields=%s", url.PathEscape(id), articleFields)
-	return &result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return &result, err
 }
 
 func (c *Client) AddArticle(projectID, summary, content, reporterID string) (*Article, error) {
@@ -32,7 +34,8 @@ func (c *Client) AddArticle(projectID, summary, content, reporterID string) (*Ar
 	if reporterID != "" {
 		body["reporter"] = map[string]any{"id": reporterID}
 	}
-	return &result, c.Post(pathArticles+"?fields="+articleFields, body, &result)
+	err := c.Post(pathArticles+"?fields="+articleFields, body, &result)
+	return &result, err
 }
 
 func (c *Client) UpdateArticle(id, summary, content string) (*Article, error) {
@@ -45,7 +48,8 @@ func (c *Client) UpdateArticle(id, summary, content string) (*Article, error) {
 		body["content"] = content
 	}
 	path := fmt.Sprintf(pathArticle+"?fields=%s", url.PathEscape(id), articleFields)
-	return &result, c.Post(path, body, &result)
+	err := c.Post(path, body, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteArticle(id string) error {
@@ -55,19 +59,22 @@ func (c *Client) DeleteArticle(id string) error {
 func (c *Client) ListArticleAttachments(articleID string) ([]ArticleAttachment, error) {
 	var result []ArticleAttachment
 	path := fmt.Sprintf(pathArticleAttachments+"?fields=%s&$top=-1", url.PathEscape(articleID), articleAttachmentFields)
-	return result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return result, err
 }
 
 func (c *Client) AddArticleAttachment(articleID, filePath string) (*ArticleAttachment, error) {
 	var result ArticleAttachment
 	path := fmt.Sprintf(pathArticleAttachments+"?fields=%s", url.PathEscape(articleID), articleAttachmentFields)
-	return &result, c.Multipart(path, filePath, filepath.Base(filePath), "application/octet-stream", &result)
+	err := c.Multipart(path, filePath, filepath.Base(filePath), "application/octet-stream", &result)
+	return &result, err
 }
 
 func (c *Client) ListArticleComments(articleID string) ([]Comment, error) {
 	var result []Comment
 	path := fmt.Sprintf(pathArticleComments+"?fields=%s&$top=-1", url.PathEscape(articleID), articleCommentFields)
-	return result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return result, err
 }
 
 func (c *Client) AddArticleComment(articleID, text, authorID string) (*Comment, error) {
@@ -77,7 +84,8 @@ func (c *Client) AddArticleComment(articleID, text, authorID string) (*Comment, 
 		body["author"] = map[string]any{"id": authorID}
 	}
 	path := fmt.Sprintf(pathArticleComments+"?fields=%s", url.PathEscape(articleID), articleCommentFields)
-	return &result, c.Post(path, body, &result)
+	err := c.Post(path, body, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteArticleComment(articleID, commentID string) error {
@@ -88,7 +96,8 @@ func (c *Client) DeleteArticleComment(articleID, commentID string) error {
 func (c *Client) UpdateArticleComment(articleID, commentID, text string) (*Comment, error) {
 	var result Comment
 	path := fmt.Sprintf(pathArticleComment+"?fields=%s", url.PathEscape(articleID), url.PathEscape(commentID), articleCommentFields)
-	return &result, c.Post(path, map[string]any{"text": text}, &result)
+	err := c.Post(path, map[string]any{"text": text}, &result)
+	return &result, err
 }
 
 func (c *Client) SetParentArticle(articleID, parentID string) error {

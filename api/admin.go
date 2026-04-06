@@ -7,7 +7,8 @@ import (
 
 func (c *Client) GetGlobalSettings() (*GlobalSettings, error) {
 	var result GlobalSettings
-	return &result, c.Get(pathAdminGlobalSettings+"?fields=id,baseUrl,maxUploadFileSize", &result)
+	err := c.Get(pathAdminGlobalSettings+"?fields=id,baseUrl,maxUploadFileSize", &result)
+	return &result, err
 }
 
 func (c *Client) EnableFeatureFlag(feature string, enabled bool) error {
@@ -64,7 +65,8 @@ func (c *Client) SwitchGrammarCorrection(enabled bool) error {
 
 func (c *Client) ListVCSServers() ([]VCSServer, error) {
 	var result []VCSServer
-	return result, c.Get(pathAdminVCSServers+"?fields=id,type,url&$top=-1", &result)
+	err := c.Get(pathAdminVCSServers+"?fields=id,type,url&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) DeleteVCSServer(id string) error {
@@ -74,12 +76,14 @@ func (c *Client) DeleteVCSServer(id string) error {
 func (c *Client) GetVCSConfigurations(serverID string) ([]map[string]any, error) {
 	var result []map[string]any
 	path := fmt.Sprintf(pathAdminVCSServerProcs+"?fields=id,path&$top=-1", url.PathEscape(serverID))
-	return result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return result, err
 }
 
 func (c *Client) ListVCSProcessors() ([]VCSProcessor, error) {
 	var result []VCSProcessor
-	return result, c.Get(pathAdminVCSProcessors+"?fields=id,path,enabled,project(id,shortName)&$top=-1", &result)
+	err := c.Get(pathAdminVCSProcessors+"?fields=id,path,enabled,project(id,shortName)&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) DeleteVCSProcessor(id string) error {
@@ -96,12 +100,14 @@ type AddMailboxServerRequest struct {
 
 func (c *Client) ListMailboxServers() ([]MailboxServer, error) {
 	var result []MailboxServer
-	return result, c.Get(pathAdminMailboxes+"?fields=id,login,host,port&$top=-1", &result)
+	err := c.Get(pathAdminMailboxes+"?fields=id,login,host,port&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) AddMailboxServer(req AddMailboxServerRequest) (*MailboxServer, error) {
 	var result MailboxServer
-	return &result, c.Post(pathAdminMailboxes+"?fields=id,login,host,port", req, &result)
+	err := c.Post(pathAdminMailboxes+"?fields=id,login,host,port", req, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteMailboxServer(id string) error {
@@ -119,12 +125,14 @@ func (c *Client) AddMailboxRule(mailboxID, projectID, name string) error {
 
 func (c *Client) GetFrontendConfig() (map[string]any, error) {
 	var result map[string]any
-	return result, c.Get(pathConfig+"?fields=ring(url),mobile(serviceId),version,year,buildNumber", &result)
+	err := c.Get(pathConfig+"?fields=ring(url),mobile(serviceId),version,year,buildNumber", &result)
+	return result, err
 }
 
 func (c *Client) ListPlugins() ([]Plugin, error) {
 	var result []Plugin
-	return result, c.Get(pathAdminPluginUsages+"?fields=id,enabled,state&$top=-1", &result)
+	err := c.Get(pathAdminPluginUsages+"?fields=id,enabled,state&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) DeletePlugin(id string) error {

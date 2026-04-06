@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newIssueAttachmentCmd() *cobra.Command {
@@ -55,7 +55,7 @@ func newIssueAttachmentAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("file", "", "Path to file (required)")
-	cmd.MarkFlagRequired("file")
+	internal.MustMarkRequired(cmd, "file")
 	return cmd
 }
 
@@ -71,8 +71,8 @@ func newIssueAttachmentDeleteCmd() *cobra.Command {
 			if err := client.DeleteIssueAttachment(args[0], args[1]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted attachment "+args[1])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted attachment "+args[1])
+			return err
 		},
 	}
 }

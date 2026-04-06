@@ -38,20 +38,22 @@ func (c *Client) doRequest(method, path string, body io.Reader, contentType stri
 		req.Header.Set("Content-Type", contentType)
 	}
 	if c.Verbose {
-		fmt.Fprintf(os.Stderr, "> %s %s%s\n", method, c.BaseURL, path)
+		_, _ = fmt.Fprintf(os.Stderr, "> %s %s%s\n", method, c.BaseURL, path)
 	}
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	if c.Verbose {
-		fmt.Fprintf(os.Stderr, "< %d\n", resp.StatusCode)
+		_, _ = fmt.Fprintf(os.Stderr, "< %d\n", resp.StatusCode)
 	}
 	return resp, nil
 }
 
-func readResponse(resp *http.Response, result any) error {
-	defer resp.Body.Close()
+// handleResponse reads the response body, closes it, checks for errors,
+// and optionally unmarshals JSON into result.
+func handleResponse(resp *http.Response, result any) error {
+	defer func() { _ = resp.Body.Close() }()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -88,7 +90,8 @@ func (c *Client) Get(path string, result any) error {
 	if err != nil {
 		return err
 	}
-	return readResponse(resp, result)
+	defer func() { _ = resp.Body.Close() }()
+	return handleResponse(resp, result)
 }
 
 func (c *Client) Post(path string, body, result any) error {
@@ -100,7 +103,8 @@ func (c *Client) Post(path string, body, result any) error {
 	if err != nil {
 		return err
 	}
-	return readResponse(resp, result)
+	defer func() { _ = resp.Body.Close() }()
+	return handleResponse(resp, result)
 }
 
 func (c *Client) Put(path string, body, result any) error {
@@ -112,7 +116,8 @@ func (c *Client) Put(path string, body, result any) error {
 	if err != nil {
 		return err
 	}
-	return readResponse(resp, result)
+	defer func() { _ = resp.Body.Close() }()
+	return handleResponse(resp, result)
 }
 
 func (c *Client) Delete(path string) error {
@@ -120,7 +125,8 @@ func (c *Client) Delete(path string) error {
 	if err != nil {
 		return err
 	}
-	return readResponse(resp, nil)
+	defer func() { _ = resp.Body.Close() }()
+	return handleResponse(resp, nil)
 }
 
 // Multipart uploads a file as a multipart/form-data attachment.
@@ -129,13 +135,13 @@ func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 
 	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="attachment"; filename="%s"`, fileName))
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="attachment"; filename="%s"`, fileName)) //nolint:gocritic // %q uses Go escaping, not RFC 6266 HTTP header quoting
 	h.Set("Content-Type", mimeType)
 
 	part, err := w.CreatePart(h)
@@ -145,11 +151,12 @@ func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any
 	if _, err = io.Copy(part, f); err != nil {
 		return err
 	}
-	w.Close()
+	_ = w.Close()
 
 	resp, err := c.doRequest("POST", path, &buf, w.FormDataContentType())
 	if err != nil {
 		return err
 	}
-	return readResponse(resp, result)
+	defer func() { _ = resp.Body.Close() }()
+	return handleResponse(resp, result)
 }

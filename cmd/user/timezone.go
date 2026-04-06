@@ -22,8 +22,8 @@ func newUserTimezoneCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), tz)
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), tz)
+			return err
 		},
 	}
 	set := &cobra.Command{

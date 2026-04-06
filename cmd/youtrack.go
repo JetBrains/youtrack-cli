@@ -16,14 +16,17 @@ import (
 // NewRootCmd constructs the root command. Called by Execute() and by tests.
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "youtrack",
-		Short: "YouTrack REST API CLI",
-		Long:  "CLI for interacting with the YouTrack REST API. Designed for AI agents and developers.",
+		Use:     "youtrack",
+		Short:   "YouTrack CLI",
+		Long:    "CLI for interacting with the YouTrack REST API. Designed for AI agents and developers.",
+		Version: internal.Version + " (" + internal.Commit + ", " + internal.Date + ")",
 		Run: func(cmd *cobra.Command, args []string) {
 			output.PrintLogo(os.Stdout)
-			cmd.Help()
+			_ = cmd.Help()
 		},
 	}
+
+	rootCmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
 
 	f := rootCmd.PersistentFlags()
 	f.String("format", "json", "Output format: json or table")

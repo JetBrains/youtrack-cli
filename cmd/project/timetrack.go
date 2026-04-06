@@ -22,8 +22,8 @@ func newProjectTimetrackCmd() *cobra.Command {
 			if err := client.SetProjectTimeTracking(args[0], enabled); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "updated time tracking for project "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated time tracking for project "+args[0])
+			return err
 		},
 	}
 	set.Flags().Bool("enabled", true, "Enable time tracking")

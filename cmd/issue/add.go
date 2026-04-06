@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newIssueAddCmd() *cobra.Command {
@@ -53,7 +53,6 @@ func newIssueAddCmd() *cobra.Command {
 	cmd.Flags().String("summary", "", "Issue summary (required)")
 	cmd.Flags().String("description", "", "Issue description")
 	cmd.Flags().String("asUser", "", "Create as this user (login)")
-	cmd.MarkFlagRequired("project")
-	cmd.MarkFlagRequired("summary")
+	internal.MustMarkRequired(cmd, "project", "summary")
 	return cmd
 }

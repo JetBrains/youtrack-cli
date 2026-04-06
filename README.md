@@ -65,7 +65,7 @@ youtrack auth get-token --base-url https://your-instance.youtrack.cloud --login 
 |---|---|
 | `issue` | `get`, `list`, `add`, `update`, `delete`, `command`, `comment list`, `comment add`, `comment delete` |
 | `project` | `list`, `get`, `add`, `delete` |
-| `user` | `list`, `get`, `current`, `add` |
+| `user` | `list`, `get`, `current`, `add`, `delete`, `ban`, `unban` |
 
 ## Examples
 
@@ -96,6 +96,8 @@ youtrack user list --query "john"
 youtrack user get john.doe
 youtrack user current
 youtrack user add --login john.doe --fullName "John Doe" --email john.doe@example.com --password "Test1234!"
+youtrack user ban john.doe
+youtrack user delete john.doe --successor admin
 ```
 
 ## Global flags
@@ -128,9 +130,55 @@ Or reference it manually in your agent's context:
 
 ```bash
 make build           # compile ./youtrack binary
-make test            # go test ./...
-make test-integration # integration tests (requires YOUTRACK_BASE_URL + YOUTRACK_TOKEN)
+make fmt             # apply gofmt to the repo
+make fmt-check       # fail if any Go file is not gofmt'd
+make lint            # run a pinned golangci-lint via go run
+make check           # fmt-check + lint + build + test (run before pushing)
+make test            # boot local Docker YouTrack and run the full E2E suite
+make e2e-up          # start or reuse the local Docker YouTrack instance
+make e2e-down        # stop and remove the local Docker YouTrack instance
 make dist            # cross-compile for linux-amd64, darwin-arm64, darwin-amd64, windows-amd64
+```
+
+## Development
+
+The project is organized in three layers:
+
+- `api/` contains the typed YouTrack REST client.
+- `cmd/` contains Cobra command wiring and request/response shaping.
+- `test/` contains end-to-end tests that exercise the compiled CLI against a real YouTrack instance.
+
+## Docker E2E
+
+The E2E harness uses the official `jetbrains/youtrack` Docker image and stores runtime state under `.e2e/`.
+It always starts a local YouTrack instance at `http://127.0.0.1:8088` and ignores any ambient `YOUTRACK_BASE_URL` in the caller shell.
+
+Prerequisites: `docker`, `curl`, `jq`, and `go` must be available in `PATH`.
+
+```bash
+make e2e-up
+make test
+make e2e-down
+```
+
+Useful environment variables:
+
+| Variable | Description |
+|---|---|
+| `YOUTRACK_E2E_RESET=1` | Recreate the local YouTrack state from scratch before startup |
+| `YOUTRACK_E2E_VERSION=2026.1.12024` | Override the Docker image tag used for the local YouTrack E2E instance |
+
+When the Docker harness completes bootstrap successfully, it writes `.e2e/youtrack.env` with:
+
+- `YOUTRACK_BASE_URL`
+- `YOUTRACK_TOKEN`
+
+`make test` sources that file automatically before running the E2E suite. If you want to run the CLI manually against the local harness after `make e2e-up`, source it in your shell first:
+
+```bash
+set -a
+source .e2e/youtrack.env
+set +a
 ```
 
 ## Contributing

@@ -23,8 +23,8 @@ func newIssueVisibilityCmd() *cobra.Command {
 			if err := client.UpdateIssueVisibility(args[0], groups, users); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for "+args[0])
+			return err
 		},
 	}
 	cmd.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")
