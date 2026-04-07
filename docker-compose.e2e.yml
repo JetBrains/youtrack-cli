@@ -1,0 +1,17 @@
+services:
+  youtrack:
+    image: jetbrains/youtrack:${YOUTRACK_E2E_VERSION}
+    container_name: youtrack-cli-e2e
+    ports:
+      - "8088:8080"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8080/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    volumes:
+      - ./.e2e/data:/opt/youtrack/data
+      - ./.e2e/conf:/opt/youtrack/conf
+      - ./.e2e/logs:/opt/youtrack/logs
+      - ./.e2e/backups:/opt/youtrack/backups

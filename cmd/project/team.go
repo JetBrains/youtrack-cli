@@ -21,8 +21,8 @@ func newProjectTeamCmd() *cobra.Command {
 			if err := client.AddUserToProjectTeam(args[0], args[1]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "added user "+args[1]+" to project "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "added user "+args[1]+" to project "+args[0])
+			return err
 		},
 	}
 	addGroup := &cobra.Command{
@@ -36,8 +36,8 @@ func newProjectTeamCmd() *cobra.Command {
 			if err := client.AddGroupToProjectTeam(args[0], args[1]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "added group "+args[1]+" to project "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "added group "+args[1]+" to project "+args[0])
+			return err
 		},
 	}
 	cmd.AddCommand(addUser, addGroup)

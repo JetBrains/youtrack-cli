@@ -22,12 +22,12 @@ func newProjectWorkflowCmd() *cobra.Command {
 			if err := client.AttachWorkflowToProject(args[0], workflowID); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "attached workflow "+workflowID+" to project "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "attached workflow "+workflowID+" to project "+args[0])
+			return err
 		},
 	}
 	add.Flags().String("workflow", "", "Workflow ID (required)")
-	add.MarkFlagRequired("workflow")
+	internal.MustMarkRequired(add, "workflow")
 	cmd.AddCommand(add)
 	return cmd
 }

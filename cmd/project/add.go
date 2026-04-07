@@ -4,8 +4,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newProjectAddCmd() *cobra.Command {
@@ -50,7 +50,6 @@ func newProjectAddCmd() *cobra.Command {
 	cmd.Flags().String("shortName", "", "Project short name / key (required)")
 	cmd.Flags().String("name", "", "Project full name (required)")
 	cmd.Flags().String("leader", "", "Leader login (defaults to current user)")
-	cmd.MarkFlagRequired("shortName")
-	cmd.MarkFlagRequired("name")
+	internal.MustMarkRequired(cmd, "shortName", "name")
 	return cmd
 }

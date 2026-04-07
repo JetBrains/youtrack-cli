@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newRoleCmd() *cobra.Command {
@@ -65,7 +65,7 @@ func newRoleAddCmd() *cobra.Command {
 	cmd.Flags().String("name", "", "Role name (required)")
 	cmd.Flags().String("description", "", "Role description")
 	cmd.Flags().String("permissions", "", "Comma-separated permission IDs")
-	cmd.MarkFlagRequired("name")
+	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }
 
@@ -81,8 +81,8 @@ func newRoleDeleteCmd() *cobra.Command {
 			if err := client.DeleteRole(args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted role "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted role "+args[0])
+			return err
 		},
 	}
 }
@@ -102,7 +102,7 @@ func newRoleUpdateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("permissions", "", "Comma-separated permission IDs (required)")
-	cmd.MarkFlagRequired("permissions")
+	internal.MustMarkRequired(cmd, "permissions")
 	return cmd
 }
 
@@ -131,7 +131,7 @@ func newRoleGrantCmd() *cobra.Command {
 	cmd.Flags().String("user", "", "User ID to grant role to")
 	cmd.Flags().String("group", "", "Group ID to grant role to")
 	cmd.Flags().String("project", "", "Scope to this project ID (optional)")
-	cmd.MarkFlagRequired("role")
+	internal.MustMarkRequired(cmd, "role")
 	return cmd
 }
 

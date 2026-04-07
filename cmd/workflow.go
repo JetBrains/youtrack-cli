@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newWorkflowCmd() *cobra.Command {
@@ -51,7 +51,7 @@ func newWorkflowAddCmd() *cobra.Command {
 	}
 	cmd.Flags().String("name", "", "Workflow name (required)")
 	cmd.Flags().String("title", "", "Workflow title")
-	cmd.MarkFlagRequired("name")
+	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }
 
@@ -67,8 +67,8 @@ func newWorkflowDeleteCmd() *cobra.Command {
 			if err := client.DeleteWorkflow(args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted workflow "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted workflow "+args[0])
+			return err
 		},
 	}
 }
@@ -101,14 +101,13 @@ func newWorkflowRuleCmd() *cobra.Command {
 			if err := client.AddWorkflowRule(args[0], ruleType, name); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "added rule "+name)
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "added rule "+name)
+			return err
 		},
 	}
 	add.Flags().String("type", "", "Rule type (required)")
 	add.Flags().String("name", "", "Rule name (required)")
-	add.MarkFlagRequired("type")
-	add.MarkFlagRequired("name")
+	internal.MustMarkRequired(add, "type", "name")
 	cmd.AddCommand(add)
 	return cmd
 }

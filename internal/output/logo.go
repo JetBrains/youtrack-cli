@@ -59,14 +59,14 @@ func PrintLogo(w io.Writer) {
 			for c, ch := range []rune(line) {
 				switch {
 				case ch == ' ':
-					fmt.Fprint(w, " ")
+					_, _ = fmt.Fprint(w, " ")
 				case revealed[pos{r, c}]:
-					fmt.Fprint(w, color+string(ch)+ansiReset)
+					_, _ = fmt.Fprint(w, color+string(ch)+ansiReset)
 				default:
-					fmt.Fprint(w, ansiDimMagenta+string(glyphs[rand.Intn(len(glyphs))])+ansiReset)
+					_, _ = fmt.Fprint(w, ansiDimMagenta+string(glyphs[rand.Intn(len(glyphs))])+ansiReset)
 				}
 			}
-			fmt.Fprint(w, "\033[K\n")
+			_, _ = fmt.Fprint(w, "\033[K\n")
 		}
 	}
 
@@ -74,11 +74,11 @@ func PrintLogo(w io.Writer) {
 	frame := func(d time.Duration) {
 		render()
 		time.Sleep(d)
-		fmt.Fprint(w, moveUp)
+		_, _ = fmt.Fprint(w, moveUp)
 	}
 
-	fmt.Fprint(w, "\033[?25l\n") // hide cursor + blank line before logo
-	defer fmt.Fprint(w, "\033[?25h\n") // show cursor + newline after logo
+	_, _ = fmt.Fprint(w, "\033[?25l\n")                    // hide cursor + blank line before logo
+	defer func() { _, _ = fmt.Fprint(w, "\033[?25h\n") }() // show cursor + newline after logo
 
 	// Initial flicker
 	for range 10 {
@@ -102,7 +102,7 @@ func PrintLogo(w io.Writer) {
 
 	// Final clean render with 3D gradient
 	for r, line := range lines {
-		fmt.Fprint(w, rowColor(r)+line+ansiReset+"\033[K\n")
+		_, _ = fmt.Fprint(w, rowColor(r)+line+ansiReset+"\033[K\n")
 	}
 }
 

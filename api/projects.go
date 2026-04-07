@@ -16,7 +16,8 @@ type AddProjectRequest struct {
 
 func (c *Client) ListProjects() ([]Project, error) {
 	var result []Project
-	return result, c.Get(pathAdminProjects+"?fields="+projectFields+"&$top=-1", &result)
+	err := c.Get(pathAdminProjects+"?fields="+projectFields+"&$top=-1", &result)
+	return result, err
 }
 
 // GetProject finds a project by its short name (case-sensitive).
@@ -35,7 +36,8 @@ func (c *Client) GetProject(shortName string) (*Project, error) {
 
 func (c *Client) AddProject(req AddProjectRequest) (*Project, error) {
 	var result Project
-	return &result, c.Post(pathAdminProjects+"?fields="+projectFields, req, &result)
+	err := c.Post(pathAdminProjects+"?fields="+projectFields, req, &result)
+	return &result, err
 }
 
 func (c *Client) ArchiveProject(shortName string) error {
@@ -48,7 +50,8 @@ func (c *Client) ArchiveProject(shortName string) error {
 
 func (c *Client) GetProjectTemplates() ([]ProjectTemplate, error) {
 	var result []ProjectTemplate
-	return result, c.Get(pathAdminProjectTemplates+"?fields=id,name,shortName&$top=-1", &result)
+	err := c.Get(pathAdminProjectTemplates+"?fields=id,name,shortName&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) GetProjectCustomFields(shortName string) ([]ProjectCustomField, error) {
@@ -58,7 +61,8 @@ func (c *Client) GetProjectCustomFields(shortName string) ([]ProjectCustomField,
 	}
 	var result []ProjectCustomField
 	path := fmt.Sprintf(pathAdminProjectFields+"?fields=id,field(id,name),bundle(id,name)&$top=-1", url.PathEscape(p.ID))
-	return result, c.Get(path, &result)
+	err = c.Get(path, &result)
+	return result, err
 }
 
 func (c *Client) AddProjectCustomField(shortName, fieldID string) error {

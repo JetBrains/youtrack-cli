@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newIssueFieldCmd() *cobra.Command {
@@ -49,8 +49,8 @@ func newIssueFieldSetCmd() *cobra.Command {
 			if err := client.SetCustomField(args[0], args[1], args[2], fieldType); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "updated field "+args[1])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated field "+args[1])
+			return err
 		},
 	}
 	cmd.Flags().String("type", "", "Field type: period, text, user, int, string (default: enum)")

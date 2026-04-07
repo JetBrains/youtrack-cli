@@ -62,13 +62,13 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
 	}
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("Hub API HTTP %d: %s", resp.StatusCode, string(data))
+		return nil, fmt.Errorf("hub API HTTP %d: %s", resp.StatusCode, string(data))
 	}
 	return data, nil
 }
@@ -81,7 +81,8 @@ func GetHubMe(baseURL, login, password string) (*HubUser, error) {
 		return nil, err
 	}
 	var u HubUser
-	return &u, json.Unmarshal(data, &u)
+	err = json.Unmarshal(data, &u)
+	return &u, err
 }
 
 // ListHubServices returns all services registered in Hub.
@@ -99,7 +100,8 @@ func ListHubServices(baseURL, login, password string) ([]HubService, error) {
 		return wrapper.Services, nil
 	}
 	var list []HubService
-	return list, json.Unmarshal(data, &list)
+	err = json.Unmarshal(data, &list)
+	return list, err
 }
 
 // CreateHubToken creates a permanent token for the given Hub user.
@@ -118,7 +120,8 @@ func CreateHubToken(baseURL, login, password, userID, tokenName string, scopeIDs
 		return nil, err
 	}
 	var tok HubToken
-	return &tok, json.Unmarshal(data, &tok)
+	err = json.Unmarshal(data, &tok)
+	return &tok, err
 }
 
 // DeleteHubToken deletes a permanent token by ID (used for test cleanup).

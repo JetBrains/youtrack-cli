@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newIssueCommentCmd() *cobra.Command {
@@ -75,7 +75,7 @@ func newCommentAddCmd() *cobra.Command {
 	}
 	cmd.Flags().String("text", "", "Comment text (required)")
 	cmd.Flags().String("asUser", "", "Post as this user (login)")
-	cmd.MarkFlagRequired("text")
+	internal.MustMarkRequired(cmd, "text")
 	return cmd
 }
 
@@ -92,8 +92,8 @@ func newCommentDeleteCmd() *cobra.Command {
 			if err := client.DeleteComment(args[0], args[1]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted comment "+args[1])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted comment "+args[1])
+			return err
 		},
 	}
 }
@@ -117,7 +117,7 @@ func newCommentUpdateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("text", "", "New comment text (required)")
-	cmd.MarkFlagRequired("text")
+	internal.MustMarkRequired(cmd, "text")
 	return cmd
 }
 
@@ -136,8 +136,8 @@ func newCommentVisibilityCmd() *cobra.Command {
 			if err := client.UpdateCommentVisibility(args[0], args[1], groups, users); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for comment "+args[1])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for comment "+args[1])
+			return err
 		},
 	}
 	cmd.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")
@@ -163,8 +163,8 @@ func newCommentPinCmd() *cobra.Command {
 			if unpin {
 				action = "unpinned"
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), action+" comment "+args[1])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), action+" comment "+args[1])
+			return err
 		},
 	}
 	cmd.Flags().Bool("unpin", false, "Unpin the comment instead")

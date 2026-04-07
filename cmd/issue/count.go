@@ -22,8 +22,8 @@ func newIssueCountCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), count)
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), count)
+			return err
 		},
 	}
 	cmd.Flags().String("query", "", "Filter query")

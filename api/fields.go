@@ -7,15 +7,17 @@ import (
 
 func (c *Client) ListCustomFields() ([]CustomField, error) {
 	var result []CustomField
-	return result, c.Get(pathAdminCustomFields+"?fields=id,name,fieldType(id)&$top=-1", &result)
+	err := c.Get(pathAdminCustomFields+"?fields=id,name,fieldType(id)&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) AddCustomField(name, fieldTypeID string) (*CustomField, error) {
 	var result CustomField
-	return &result, c.Post(pathAdminCustomFields+"?fields=id,name,fieldType(id)", map[string]any{
+	err := c.Post(pathAdminCustomFields+"?fields=id,name,fieldType(id)", map[string]any{
 		"name":      name,
 		"fieldType": map[string]any{"id": fieldTypeID},
 	}, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteCustomField(id string) error {
@@ -25,7 +27,8 @@ func (c *Client) DeleteCustomField(id string) error {
 func (c *Client) ListBundles(bundleType string) ([]Bundle, error) {
 	var result []Bundle
 	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name&$top=-1", url.PathEscape(bundleType))
-	return result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return result, err
 }
 
 // bundleTypeName maps a lowercase path type (e.g. "enum") to the YouTrack $type value
@@ -52,10 +55,11 @@ func bundleTypeName(pathType string) string {
 func (c *Client) CreateBundle(bundleType, name string) (*Bundle, error) {
 	var result Bundle
 	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name", url.PathEscape(bundleType))
-	return &result, c.Post(path, map[string]any{
+	err := c.Post(path, map[string]any{
 		"$type": bundleTypeName(bundleType),
 		"name":  name,
 	}, &result)
+	return &result, err
 }
 
 func (c *Client) AddBundleValue(bundleType, bundleID, value string) error {
@@ -78,15 +82,17 @@ func (c *Client) AttachBundleToField(fieldID, bundleID, bundleType string) error
 
 func (c *Client) ListWorkItemTypes() ([]WorkItemType, error) {
 	var result []WorkItemType
-	return result, c.Get(pathAdminWorkItemTypes+"?fields=id,name,autoAttach&$top=-1", &result)
+	err := c.Get(pathAdminWorkItemTypes+"?fields=id,name,autoAttach&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) AddWorkItemType(name string, autoAttach bool) (*WorkItemType, error) {
 	var result WorkItemType
-	return &result, c.Post(pathAdminWorkItemTypes+"?fields=id,name,autoAttach", map[string]any{
+	err := c.Post(pathAdminWorkItemTypes+"?fields=id,name,autoAttach", map[string]any{
 		"name":       name,
 		"autoAttach": autoAttach,
 	}, &result)
+	return &result, err
 }
 
 func (c *Client) ChangeCustomFieldPrivacy(fieldID string, isPrivate bool) error {
@@ -96,7 +102,8 @@ func (c *Client) ChangeCustomFieldPrivacy(fieldID string, isPrivate bool) error 
 
 func (c *Client) GetWorkTimeSettings() (*WorkTimeSettings, error) {
 	var result WorkTimeSettings
-	return &result, c.Get(pathAdminWorkTimeSettings+"?fields=id,daysAWeek,minutesADay,minutesADayPresentation,firstDayOfWeek", &result)
+	err := c.Get(pathAdminWorkTimeSettings+"?fields=id,daysAWeek,minutesADay,minutesADayPresentation,firstDayOfWeek", &result)
+	return &result, err
 }
 
 func (c *Client) SetWorkTimeSettings(minutesADayPresentation string) error {
@@ -107,5 +114,6 @@ func (c *Client) SetWorkTimeSettings(minutesADayPresentation string) error {
 
 func (c *Client) GetCustomFieldPrototypes() ([]CustomField, error) {
 	var result []CustomField
-	return result, c.Get(pathAdminCustomFields+"?fields=id,name,fieldType(id),isPrivate&$top=-1", &result)
+	err := c.Get(pathAdminCustomFields+"?fields=id,name,fieldType(id),isPrivate&$top=-1", &result)
+	return result, err
 }

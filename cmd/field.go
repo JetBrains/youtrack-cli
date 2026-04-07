@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newFieldCmd() *cobra.Command {
@@ -62,8 +62,7 @@ func newFieldAddCmd() *cobra.Command {
 	}
 	cmd.Flags().String("name", "", "Field name (required)")
 	cmd.Flags().String("type", "", "Field type ID (required). Valid values: "+strings.Join(api.AllFieldTypes, ", "))
-	cmd.MarkFlagRequired("name")
-	cmd.MarkFlagRequired("type")
+	internal.MustMarkRequired(cmd, "name", "type")
 	return cmd
 }
 
@@ -79,8 +78,8 @@ func newFieldDeleteCmd() *cobra.Command {
 			if err := client.DeleteCustomField(args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted field "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted field "+args[0])
+			return err
 		},
 	}
 }
@@ -121,7 +120,7 @@ func newFieldBundleCmd() *cobra.Command {
 	}
 	create.Flags().String("type", "EnumBundle", "Bundle type")
 	create.Flags().String("name", "", "Bundle name (required)")
-	create.MarkFlagRequired("name")
+	internal.MustMarkRequired(create, "name")
 	addValue := &cobra.Command{
 		Use: "add-value", Short: "Add a value to a bundle",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -138,8 +137,7 @@ func newFieldBundleCmd() *cobra.Command {
 	addValue.Flags().String("type", "EnumBundle", "Bundle type")
 	addValue.Flags().String("id", "", "Bundle ID (required)")
 	addValue.Flags().String("value", "", "Value name (required)")
-	addValue.MarkFlagRequired("id")
-	addValue.MarkFlagRequired("value")
+	internal.MustMarkRequired(addValue, "id", "value")
 	attach := &cobra.Command{
 		Use: "attach", Short: "Attach a bundle to a field",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -156,8 +154,7 @@ func newFieldBundleCmd() *cobra.Command {
 	attach.Flags().String("field", "", "Field ID (required)")
 	attach.Flags().String("id", "", "Bundle ID (required)")
 	attach.Flags().String("type", "EnumBundle", "Bundle type")
-	attach.MarkFlagRequired("field")
-	attach.MarkFlagRequired("id")
+	internal.MustMarkRequired(attach, "field", "id")
 	cmd.AddCommand(list, create, addValue, attach)
 	return cmd
 }
@@ -208,7 +205,7 @@ func newFieldWorkTimeCmd() *cobra.Command {
 		},
 	}
 	set.Flags().String("minutes-a-day", "", "Minutes-a-day presentation string (required)")
-	set.MarkFlagRequired("minutes-a-day")
+	internal.MustMarkRequired(set, "minutes-a-day")
 	cmd.AddCommand(get, set)
 	return cmd
 }
@@ -264,7 +261,7 @@ func newFieldWorkItemCmd() *cobra.Command {
 	}
 	add.Flags().String("name", "", "Type name (required)")
 	add.Flags().Bool("auto-attach", false, "Auto-attach to all projects")
-	add.MarkFlagRequired("name")
+	internal.MustMarkRequired(add, "name")
 	cmd.AddCommand(list, add)
 	return cmd
 }

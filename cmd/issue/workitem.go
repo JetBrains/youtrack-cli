@@ -3,8 +3,8 @@ package issue
 import (
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newIssueWorkitemCmd() *cobra.Command {
@@ -30,7 +30,7 @@ func newIssueWorkitemCmd() *cobra.Command {
 	add.Flags().Int("minutes", 0, "Duration in minutes (required)")
 	add.Flags().String("text", "", "Work item description")
 	add.Flags().String("type", "", "Work item type ID")
-	add.MarkFlagRequired("minutes")
+	internal.MustMarkRequired(add, "minutes")
 	cmd.AddCommand(add)
 	return cmd
 }

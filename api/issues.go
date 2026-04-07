@@ -58,25 +58,29 @@ func WrapUserValues(query string) string {
 func (c *Client) GetIssue(id string) (*Issue, error) {
 	var result Issue
 	path := fmt.Sprintf(pathIssue+"?fields=%s", url.PathEscape(id), issueFields)
-	return &result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return &result, err
 }
 
 func (c *Client) ListIssues(query string, limit int) ([]Issue, error) {
 	var result []Issue
 	path := pathIssues + fmt.Sprintf("?query=%s&$top=%d&fields=%s",
 		url.QueryEscape(query), limit, issueFields)
-	return result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return result, err
 }
 
 func (c *Client) AddIssue(req AddIssueRequest) (*Issue, error) {
 	var result Issue
-	return &result, c.Post(pathIssues+"?fields="+issueFields, req, &result)
+	err := c.Post(pathIssues+"?fields="+issueFields, req, &result)
+	return &result, err
 }
 
 func (c *Client) UpdateIssue(id string, req UpdateIssueRequest) (*Issue, error) {
 	var result Issue
 	path := fmt.Sprintf(pathIssue+"?fields=%s", url.PathEscape(id), issueFields)
-	return &result, c.Post(path, req, &result)
+	err := c.Post(path, req, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteIssue(id string) error {
@@ -86,13 +90,15 @@ func (c *Client) DeleteIssue(id string) error {
 func (c *Client) ListComments(issueID string) ([]Comment, error) {
 	var result []Comment
 	path := fmt.Sprintf(pathIssueComments+"?fields=%s", url.PathEscape(issueID), commentFields)
-	return result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return result, err
 }
 
 func (c *Client) AddComment(issueID string, req AddCommentRequest) (*Comment, error) {
 	var result Comment
 	path := fmt.Sprintf(pathIssueComments+"?fields=%s", url.PathEscape(issueID), commentFields)
-	return &result, c.Post(path, req, &result)
+	err := c.Post(path, req, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteComment(issueID, commentID string) error {
@@ -104,29 +110,33 @@ func (c *Client) GetIssueCount(query string) (int, error) {
 	var result struct {
 		Count int `json:"count"`
 	}
-	return result.Count, c.Post(pathIssuesGetterCount, map[string]any{"query": query}, &result)
+	err := c.Post(pathIssuesGetterCount, map[string]any{"query": query}, &result)
+	return result.Count, err
 }
 
 func (c *Client) GetIssueLinkTypes() ([]LinkType, error) {
 	var result []LinkType
-	return result, c.Get(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource&$top=-1", &result)
+	err := c.Get(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) AddIssueLinkType(name, sourceToTarget, targetToSource string) (*LinkType, error) {
 	var result LinkType
-	return &result, c.Post(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource", map[string]any{
+	err := c.Post(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource", map[string]any{
 		"name":           name,
 		"sourceToTarget": sourceToTarget,
 		"targetToSource": targetToSource,
 		"directed":       true,
 		"aggregation":    false,
 	}, &result)
+	return &result, err
 }
 
 func (c *Client) GetLinkedIssues(issueID string) ([]IssueLink, error) {
 	var result []IssueLink
 	path := fmt.Sprintf(pathIssueLinks+"?fields=id,direction,linkType(id,name,sourceToTarget,targetToSource),issues(id,idReadable,summary)&$top=-1", url.PathEscape(issueID))
-	return result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return result, err
 }
 
 func (c *Client) LinkIssues(issueID, targetID, linkTypeID string) error {
@@ -149,13 +159,15 @@ func (c *Client) TagIssue(issueID, tagID string) error {
 func (c *Client) GetIssueAttachments(issueID string) ([]IssueAttachment, error) {
 	var result []IssueAttachment
 	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created&$top=-1", url.PathEscape(issueID))
-	return result, c.Get(path, &result)
+	err := c.Get(path, &result)
+	return result, err
 }
 
 func (c *Client) AddIssueAttachment(issueID, filePath string) (*IssueAttachment, error) {
 	var result IssueAttachment
 	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created", url.PathEscape(issueID))
-	return &result, c.Multipart(path, filePath, filepath.Base(filePath), "application/octet-stream", &result)
+	err := c.Multipart(path, filePath, filepath.Base(filePath), "application/octet-stream", &result)
+	return &result, err
 }
 
 func (c *Client) DeleteIssueAttachment(issueID, attachmentID string) error {
@@ -176,7 +188,8 @@ func (c *Client) AddWorkItem(issueID string, minutes int, text, typeID string) (
 		body["type"] = map[string]any{"id": typeID}
 	}
 	path := fmt.Sprintf(pathIssueWorkItems+"?fields=id,text,date,duration(minutes),author(id,login)", url.PathEscape(issueID))
-	return &result, c.Post(path, body, &result)
+	err := c.Post(path, body, &result)
+	return &result, err
 }
 
 func (c *Client) GetCustomFieldValue(issueID, fieldName string) (*IssueField, error) {
@@ -244,7 +257,8 @@ func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string
 func (c *Client) UpdateComment(issueID, commentID, text string) (*Comment, error) {
 	var result Comment
 	path := fmt.Sprintf(pathIssueComment+"?fields=%s", url.PathEscape(issueID), url.PathEscape(commentID), commentFields)
-	return &result, c.Post(path, map[string]any{"text": text}, &result)
+	err := c.Post(path, map[string]any{"text": text}, &result)
+	return &result, err
 }
 
 func (c *Client) UpdateCommentVisibility(issueID, commentID string, groupIDs, userIDs []string) error {
@@ -299,8 +313,9 @@ func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]a
 		issues[i] = map[string]any{"id": issue.ID}
 	}
 	var result map[string]any
-	return result, c.Post(pathCommandsAssist+"?fields=commands(error,description),query",
+	err := c.Post(pathCommandsAssist+"?fields=commands(error,description),query",
 		map[string]any{"query": query, "issues": issues}, &result)
+	return result, err
 }
 
 func (c *Client) AddReaction(issueID, commentID, reaction string) error {

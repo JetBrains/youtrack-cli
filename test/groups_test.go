@@ -7,6 +7,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/JetBrains/youtrack-cli/api"
 )
 
 func TestCmd_GroupList(t *testing.T) {
@@ -14,7 +16,8 @@ func TestCmd_GroupList(t *testing.T) {
 	groupName := fmt.Sprintf("testgroup-cmd-%d", time.Now().UnixMilli()%100000)
 	group, err := c.AddGroup(groupName)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = c.DeleteGroup(group.ID) })
+	successor := groupDeleteSuccessor(t, c, group.ID)
+	t.Cleanup(func() { _ = c.DeleteGroup(group.ID, successor.ID) })
 
 	out := runCmd(t, "group", "list", "--format", "json")
 	assert.Contains(t, out, group.Name)
@@ -25,42 +28,40 @@ func TestCmd_GroupGet(t *testing.T) {
 	groupName := fmt.Sprintf("testgroup-get-%d", time.Now().UnixMilli()%100000)
 	group, err := c.AddGroup(groupName)
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = c.DeleteGroup(group.ID) })
+	successor := groupDeleteSuccessor(t, c, group.ID)
+	t.Cleanup(func() { _ = c.DeleteGroup(group.ID, successor.ID) })
 
 	out := runCmd(t, "group", "get", group.Name, "--format", "json")
 	assert.Contains(t, out, group.Name)
 }
 
-func TestGroup_CRUD(t *testing.T) {
+func TestCmd_GroupDelete(t *testing.T) {
 	c := newTestClient(t)
-
-	// Use a timestamp to ensure uniqueness (group names must be unique).
-	groupName := fmt.Sprintf("testgroup-%d", time.Now().UnixMilli()%100000)
-
-	// Create
+	groupName := fmt.Sprintf("testgroup-del-%d", time.Now().UnixMilli()%100000)
 	group, err := c.AddGroup(groupName)
 	require.NoError(t, err)
-	require.NotEmpty(t, group.ID)
-	// Note: DeleteGroup requires a ?successor= query param that the current API
-	// method doesn't support, so cleanup is best-effort only.
-	t.Cleanup(func() { _ = c.DeleteGroup(group.ID) })
+	successor := groupDeleteSuccessor(t, c, group.ID)
 
-	assert.Equal(t, groupName, group.Name)
+	out := runCmd(t, "group", "delete", group.ID, "--successor", successor.ID)
+	assert.Contains(t, out, "deleted group "+group.ID)
 
-	// List
+	_, err = c.GetGroup(group.ID)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "not found")
+}
+
+func groupDeleteSuccessor(t *testing.T, c interface {
+	ListGroups(query string) ([]api.Group, error)
+}, excludeID string) api.Group {
+	t.Helper()
+
 	groups, err := c.ListGroups("")
 	require.NoError(t, err)
-	found := false
-	for _, g := range groups {
-		if g.ID == group.ID {
-			found = true
-			break
+	for _, group := range groups {
+		if group.ID != excludeID {
+			return group
 		}
 	}
-	assert.True(t, found, "newly created group should appear in list")
-
-	// Get by name
-	got, err := c.GetGroup(group.Name)
-	require.NoError(t, err)
-	assert.Equal(t, group.ID, got.ID)
+	t.Fatal("no successor group available")
+	return api.Group{}
 }

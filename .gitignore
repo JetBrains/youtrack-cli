@@ -1,4 +1,5 @@
 .worktrees/
+.e2e/
 dist/
 youtrack
 youtrack-cli

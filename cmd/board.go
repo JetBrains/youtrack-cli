@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newBoardCmd() *cobra.Command {
@@ -73,7 +73,7 @@ func newBoardAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "Board name (required)")
-	cmd.MarkFlagRequired("name")
+	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }
 
@@ -89,8 +89,8 @@ func newBoardDeleteCmd() *cobra.Command {
 			if err := client.DeleteBoard(args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted board "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted board "+args[0])
+			return err
 		},
 	}
 }
@@ -121,8 +121,7 @@ func newBoardSprintCmd() *cobra.Command {
 	add.Flags().Int64("start", 0, "Start date (epoch ms)")
 	add.Flags().Int64("end", 0, "End date (epoch ms)")
 	add.Flags().String("goal", "", "Sprint goal")
-	add.MarkFlagRequired("board")
-	add.MarkFlagRequired("name")
+	internal.MustMarkRequired(add, "board", "name")
 	cmd.AddCommand(add)
 	return cmd
 }

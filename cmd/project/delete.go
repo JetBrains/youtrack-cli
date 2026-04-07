@@ -21,8 +21,8 @@ func newProjectDeleteCmd() *cobra.Command {
 			if err := client.DeleteProject(args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted project "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted project "+args[0])
+			return err
 		},
 	}
 }

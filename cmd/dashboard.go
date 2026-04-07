@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newDashboardCmd() *cobra.Command {
@@ -54,7 +54,7 @@ func newDashboardAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "Dashboard name (required)")
-	cmd.MarkFlagRequired("name")
+	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }
 
@@ -70,8 +70,8 @@ func newDashboardDeleteCmd() *cobra.Command {
 			if err := client.DeleteDashboard(args[0]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted dashboard "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted dashboard "+args[0])
+			return err
 		},
 	}
 }
@@ -94,6 +94,6 @@ func newDashboardUpdateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "New name (required)")
-	cmd.MarkFlagRequired("name")
+	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }

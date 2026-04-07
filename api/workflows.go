@@ -7,15 +7,17 @@ import (
 
 func (c *Client) ListWorkflows() ([]Workflow, error) {
 	var result []Workflow
-	return result, c.Get(pathAdminWorkflows+"?fields=id,name,title,rules(id,name,title)&$top=-1", &result)
+	err := c.Get(pathAdminWorkflows+"?fields=id,name,title,rules(id,name,title)&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) AddWorkflow(name, title string) (*Workflow, error) {
 	var result Workflow
-	return &result, c.Post(pathAdminWorkflows+"?fields=id,name,title", map[string]any{
+	err := c.Post(pathAdminWorkflows+"?fields=id,name,title", map[string]any{
 		"name":  name,
 		"title": title,
 	}, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteWorkflow(id string) error {

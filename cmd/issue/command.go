@@ -28,8 +28,8 @@ func newIssueCommandCmd() *cobra.Command {
 			if err := client.ApplyCommand(args[1], issueIDs); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "command applied to "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "command applied to "+args[0])
+			return err
 		},
 	}
 }

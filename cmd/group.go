@@ -5,8 +5,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/JetBrains/youtrack-cli/internal/output"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newGroupCmd() *cobra.Command {
@@ -70,24 +70,28 @@ func newGroupAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "Group name (required)")
-	cmd.MarkFlagRequired("name")
+	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }
 
 func newGroupDeleteCmd() *cobra.Command {
-	return &cobra.Command{
-		Use: "delete <id>", Short: "Delete a group by ID",
+	cmd := &cobra.Command{
+		Use: "delete <group>", Short: "Delete a group by ID or name",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			successor, _ := cmd.Flags().GetString("successor")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			if err := client.DeleteGroup(args[0]); err != nil {
+			if err := client.DeleteGroup(args[0], successor); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "deleted group "+args[0])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted group "+args[0])
+			return err
 		},
 	}
+	cmd.Flags().String("successor", "", "ID or name of the group that inherits references from the deleted group")
+	internal.MustMarkRequired(cmd, "successor")
+	return cmd
 }

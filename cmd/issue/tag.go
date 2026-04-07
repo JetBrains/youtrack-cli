@@ -21,8 +21,8 @@ func newIssueTagCmd() *cobra.Command {
 			if err := client.TagIssue(args[0], args[1]); err != nil {
 				return err
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "tagged issue "+args[0]+" with "+args[1])
-			return nil
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "tagged issue "+args[0]+" with "+args[1])
+			return err
 		},
 	}
 }

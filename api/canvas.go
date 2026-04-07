@@ -12,12 +12,14 @@ type AddCanvasRequest struct {
 
 func (c *Client) AddCanvas(req AddCanvasRequest) (*Canvas, error) {
 	var result Canvas
-	return &result, c.Post(pathPlanningCanvases+"?fields=id,name", req, &result)
+	err := c.Post(pathPlanningCanvases+"?fields=id,name", req, &result)
+	return &result, err
 }
 
 func (c *Client) GetCanvas(id string) (*Canvas, error) {
 	var result Canvas
-	return &result, c.Get(fmt.Sprintf(pathPlanningCanvas+"?fields=id,name", url.PathEscape(id)), &result)
+	err := c.Get(fmt.Sprintf(pathPlanningCanvas+"?fields=id,name", url.PathEscape(id)), &result)
+	return &result, err
 }
 
 func (c *Client) DeleteCanvas(id string) error {
@@ -36,7 +38,8 @@ func (c *Client) AddCanvasNode(canvasID string, x, y int, label, description str
 
 func (c *Client) GetCanvasLinks(canvasID string) ([]CanvasLink, error) {
 	var result []CanvasLink
-	return result, c.Get(fmt.Sprintf(pathPlanningCanvasLinks+"?fields=id,sourceCard(id,label),targetCard(id,label)&$top=-1", url.PathEscape(canvasID)), &result)
+	err := c.Get(fmt.Sprintf(pathPlanningCanvasLinks+"?fields=id,sourceCard(id,label),targetCard(id,label)&$top=-1", url.PathEscape(canvasID)), &result)
+	return result, err
 }
 
 func (c *Client) LinkCanvasNodes(canvasID, sourceCardID, targetCardID string) error {

@@ -15,12 +15,14 @@ type AddTagRequest struct {
 
 func (c *Client) ListTags() ([]Tag, error) {
 	var result []Tag
-	return result, c.Get(pathTags+"?fields=id,name,owner(id,login)&$top=-1", &result)
+	err := c.Get(pathTags+"?fields=id,name,owner(id,login)&$top=-1", &result)
+	return result, err
 }
 
 func (c *Client) AddTag(req AddTagRequest) (*Tag, error) {
 	var result Tag
-	return &result, c.Post(pathTags+"?fields=id,name,owner(id,login)", req, &result)
+	err := c.Post(pathTags+"?fields=id,name,owner(id,login)", req, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteTag(id string) error {

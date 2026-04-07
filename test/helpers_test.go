@@ -3,28 +3,96 @@ package api_test
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/cmd"
 )
 
-// TestMain guards against running without credentials.
+// binaryPath is the path to the compiled CLI binary, built once by TestMain.
+var (
+	binaryPath    string
+	binaryVersion string
+	binaryCommit  string
+	binaryDate    string
+)
+
 func TestMain(m *testing.M) {
-	if os.Getenv("YOUTRACK_BASE_URL") == "" || os.Getenv("YOUTRACK_TOKEN") == "" {
-		fmt.Fprintln(os.Stderr, "YOUTRACK_BASE_URL and YOUTRACK_TOKEN must be set to run tests")
-		os.Exit(1)
+	tmpDir, err := os.MkdirTemp("", "youtrack-cli-test-*")
+	if err != nil {
+		log.Fatalf("failed to create temp dir: %v", err)
 	}
-	os.Exit(m.Run())
+
+	binaryPath = filepath.Join(tmpDir, "youtrack")
+	binaryVersion = envOrDefault("VERSION", "dev")
+	binaryCommit = gitShortCommit("..")
+	binaryDate = time.Now().UTC().Format("2006-01-02")
+
+	// Build the binary through the Makefile so tests exercise the same recipe as production builds.
+	build := exec.Command(
+		"make",
+		"build",
+		"BINARY="+binaryPath,
+		"VERSION="+binaryVersion,
+		"COMMIT="+binaryCommit,
+		"DATE="+binaryDate,
+	)
+	build.Dir = ".." // repo root (tests run from test/)
+	build.Stdout = os.Stdout
+	build.Stderr = os.Stderr
+	if err := build.Run(); err != nil {
+		os.RemoveAll(tmpDir)
+		log.Fatalf("failed to build binary: %v", err)
+	}
+
+	exitCode := m.Run()
+	os.RemoveAll(tmpDir)
+	os.Exit(exitCode)
+}
+
+func envOrDefault(key, fallback string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return fallback
+}
+
+func gitShortCommit(repoRoot string) string {
+	cmd := exec.Command("git", "rev-parse", "--short", "HEAD")
+	cmd.Dir = repoRoot
+
+	out, err := cmd.Output()
+	if err != nil {
+		return "unknown"
+	}
+
+	commit := strings.TrimSpace(string(out))
+	if commit == "" {
+		return "unknown"
+	}
+	return commit
+}
+
+func requireE2EEnv(t *testing.T) {
+	t.Helper()
+
+	if os.Getenv("YOUTRACK_BASE_URL") == "" || os.Getenv("YOUTRACK_TOKEN") == "" {
+		t.Skip("skipping YouTrack E2E test: set YOUTRACK_BASE_URL and YOUTRACK_TOKEN")
+	}
 }
 
 // newTestClient creates an API client from env vars.
 func newTestClient(t *testing.T) *api.Client {
 	t.Helper()
+	requireE2EEnv(t)
+
 	return api.NewClient(
 		os.Getenv("YOUTRACK_BASE_URL"),
 		os.Getenv("YOUTRACK_TOKEN"),
@@ -50,16 +118,17 @@ func createTempProject(t *testing.T, c *api.Client) *api.Project {
 	return proj
 }
 
-// runCmd executes the CLI root command with given args, returns stdout.
+// runCmd executes the compiled CLI binary with given args, returns stdout.
 // Env vars YOUTRACK_BASE_URL and YOUTRACK_TOKEN must be set.
 func runCmd(t *testing.T, args ...string) string {
 	t.Helper()
-	root := cmd.NewRootCmd()
+	requireE2EEnv(t)
+
+	cmd := exec.Command(binaryPath, args...)
 	var stdout, stderr bytes.Buffer
-	root.SetOut(&stdout)
-	root.SetErr(&stderr)
-	root.SetArgs(args)
-	err := root.Execute()
-	require.NoError(t, err, "cmd stderr: %s", stderr.String())
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	require.NoError(t, err, "binary stderr: %s", stderr.String())
 	return stdout.String()
 }

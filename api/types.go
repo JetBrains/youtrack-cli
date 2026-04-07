@@ -115,10 +115,10 @@ type WorkItemType struct {
 }
 
 type IssueLink struct {
-	ID          string  `json:"id,omitempty"`
-	Direction   string  `json:"direction,omitempty"`
-	LinkType    *LinkType `json:"linkType,omitempty"`
-	Issues      []Issue `json:"issues,omitempty"`
+	ID        string    `json:"id,omitempty"`
+	Direction string    `json:"direction,omitempty"`
+	LinkType  *LinkType `json:"linkType,omitempty"`
+	Issues    []Issue   `json:"issues,omitempty"`
 }
 
 type IssueAttachment struct {
