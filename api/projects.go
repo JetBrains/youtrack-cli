@@ -82,8 +82,8 @@ func (c *Client) AddUserToProjectTeam(shortName, userID string) error {
 	if err != nil {
 		return err
 	}
-	path := fmt.Sprintf(pathAdminProjectTeam, url.PathEscape(p.ID))
-	return c.Post(path, map[string]any{"users": []map[string]any{{"id": userID}}}, nil)
+	path := fmt.Sprintf(pathAdminProjectTeamOwnUsers, url.PathEscape(p.ID))
+	return c.Post(path, map[string]any{"id": userID}, nil)
 }
 
 func (c *Client) AddGroupToProjectTeam(shortName, groupID string) error {
@@ -91,8 +91,8 @@ func (c *Client) AddGroupToProjectTeam(shortName, groupID string) error {
 	if err != nil {
 		return err
 	}
-	path := fmt.Sprintf(pathAdminProjectTeam, url.PathEscape(p.ID))
-	return c.Post(path, map[string]any{"groups": []map[string]any{{"id": groupID}}}, nil)
+	path := fmt.Sprintf(pathAdminProjectTeamGroups, url.PathEscape(p.ID))
+	return c.Post(path, map[string]any{"id": groupID}, nil)
 }
 
 func (c *Client) AttachWorkflowToProject(shortName, workflowID string) error {

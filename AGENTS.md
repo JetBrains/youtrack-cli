@@ -96,6 +96,7 @@ surface with its own parallel contract suite. Keep the suite centered on observa
 ## Gotchas
 
 - **IMPORTANT — `project add` requires `--leader`**: the YouTrack API rejects project creation without it. Use `user current` to get the current user's login if none is specified.
+- **`project team add-user` / `project team add-group` expect opaque IDs** (e.g. `2-9`, `4-1`), not logins or group names. When creating entities, capture the `id` field from the JSON response and pass that. When using existing entities, retrieve the ID first with `user get <login>` or `group get <name>`.
 - **`issue command` logins**: the CLI auto-wraps logins containing `.`, `-`, or `@` in braces for YouTrack's command parser (`alice.qa` → `{alice.qa}`). Write the login as-is.
 - **`--asUser <login>`**: the target user must have at least a Contributor role in the project.
 

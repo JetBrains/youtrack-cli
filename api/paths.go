@@ -90,6 +90,8 @@ const (
 	pathAdminProject             = "/api/admin/projects/%s"
 	pathAdminProjectFields       = "/api/admin/projects/%s/fields"
 	pathAdminProjectTeam         = "/api/admin/projects/%s/team"
+	pathAdminProjectTeamOwnUsers = "/api/admin/projects/%s/team/ownUsers"
+	pathAdminProjectTeamGroups   = "/api/admin/projects/%s/team/groups"
 	pathAdminProjectWorkflows    = "/api/admin/projects/%s/workflows"
 	pathAdminProjectTimeTracking = "/api/admin/projects/%s/timeTrackingSettings"
 	pathAdminProjectTemplates    = "/api/admin/projectTemplates"
