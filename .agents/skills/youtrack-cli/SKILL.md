@@ -40,6 +40,8 @@ youtrack issue command MYPROJ-1 "State Fixed"                                 # 
 
 **Do not guess flags or parameters.** Check `README.md` or run `youtrack <group> --help`.
 
+**ID vs login/name:** Some commands (e.g. `project team add-user`, `project team add-group`) expect opaque entity IDs (`2-9`, `4-1`), not logins or names. When creating entities, capture the `id` from the JSON response. When using existing entities, retrieve the ID first with `youtrack user get <login>` or `youtrack group get <name>`.
+
 ## Common Commands
 
 - Discovery: `youtrack user current`, `youtrack project list`, `youtrack issue list`
