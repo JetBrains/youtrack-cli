@@ -37,13 +37,19 @@ func newCanvasAddCmd() *cobra.Command {
 			}
 
 			req := api.AddCanvasRequest{Name: name}
-			if ownerLogin != "" {
-				u, err := client.GetUser(ownerLogin)
+			ownerTarget := ownerLogin
+			if ownerTarget == "" {
+				me, err := client.GetCurrentUser()
 				if err != nil {
 					return err
 				}
-				req.Owner = &api.User{ID: u.ID}
+				ownerTarget = me.Login
 			}
+			u, err := client.GetUser(ownerTarget)
+			if err != nil {
+				return err
+			}
+			req.Owner = &api.User{ID: u.ID}
 
 			canvas, err := client.AddCanvas(req)
 			if err != nil {
@@ -131,7 +137,11 @@ func newCanvasNodeAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return client.AddCanvasNode(args[0], x, y, label, description)
+			node, err := client.AddCanvasNode(args[0], x, y, label, description)
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, node)
 		},
 	}
 	cmd.Flags().Int("x", 0, "X coordinate (required)")
@@ -169,16 +179,20 @@ func newCanvasLinkCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			source, _ := cmd.Flags().GetString("source")
 			target, _ := cmd.Flags().GetString("target")
+			linkType, _ := cmd.Flags().GetString("link-type")
+			proto, _ := cmd.Flags().GetString("link-prototype")
 
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			return client.LinkCanvasNodes(args[0], source, target)
+			return client.LinkCanvasNodes(args[0], source, target, api.CanvasLinkKind(linkType), proto)
 		},
 	}
 	cmd.Flags().String("source", "", "Source card ID (required)")
 	cmd.Flags().String("target", "", "Target card ID (required)")
+	cmd.Flags().String("link-type", "ONE_WAY", "Link type: ONE_WAY, TWO_WAY, PROTOTYPED")
+	cmd.Flags().String("link-prototype", "", "Issue link type ID (required for PROTOTYPED links)")
 	internal.MustMarkRequired(cmd, "source", "target")
 	return cmd
 }

@@ -30,10 +30,19 @@ func (c *Client) ReloadCanvas(id string) error {
 	return c.Post(fmt.Sprintf(pathPlanningCanvas, url.PathEscape(id)), map[string]any{"reload": true}, nil)
 }
 
-func (c *Client) AddCanvasNode(canvasID string, x, y int, label, description string) error {
-	return c.Post(fmt.Sprintf(pathPlanningCanvasCards, url.PathEscape(canvasID)), map[string]any{
-		"x": x, "y": y, "label": label, "description": description,
-	}, nil)
+func (c *Client) AddCanvasNode(canvasID string, x, y int, label, description string) (*CanvasNode, error) {
+	body := map[string]any{
+		"x":        x,
+		"y":        y,
+		"label":    label,
+		"nodeType": map[string]any{"id": "CardNode"},
+	}
+	if description != "" {
+		body["description"] = description
+	}
+	var result CanvasNode
+	err := c.Post(fmt.Sprintf(pathPlanningCanvasCards+"?fields=id,label,x,y", url.PathEscape(canvasID)), body, &result)
+	return &result, err
 }
 
 func (c *Client) GetCanvasLinks(canvasID string) ([]CanvasLink, error) {
@@ -42,10 +51,23 @@ func (c *Client) GetCanvasLinks(canvasID string) ([]CanvasLink, error) {
 	return result, err
 }
 
-func (c *Client) LinkCanvasNodes(canvasID, sourceCardID, targetCardID string) error {
-	return c.Post(fmt.Sprintf(pathPlanningCanvasLinks, url.PathEscape(canvasID)), map[string]any{
-		"$type":      "PlanningCanvasLink",
+// LinkCanvasNodes creates a link between two canvas nodes.
+// linkPrototypeID is required when kind is CanvasLinkKindPrototyped; ignored otherwise.
+func (c *Client) LinkCanvasNodes(canvasID, sourceCardID, targetCardID string, kind CanvasLinkKind, linkPrototypeID string) error {
+	if kind == "" {
+		kind = CanvasLinkKindOneWay
+	}
+	body := map[string]any{
+		"$type": "PlanningCanvasLink",
+		"type": map[string]any{
+			"$type": "PlanningCanvasLinkType",
+			"id":    kind,
+		},
 		"sourceCard": map[string]any{"id": sourceCardID},
 		"targetCard": map[string]any{"id": targetCardID},
-	}, nil)
+	}
+	if linkPrototypeID != "" {
+		body["linkPrototype"] = map[string]any{"id": linkPrototypeID}
+	}
+	return c.Post(fmt.Sprintf(pathPlanningCanvasLinks+"?fields=id,sourceCard(id,label),targetCard(id,label)", url.PathEscape(canvasID)), body, nil)
 }

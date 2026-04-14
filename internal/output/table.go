@@ -163,6 +163,9 @@ func PrintTable(out io.Writer, data any) error {
 		for _, a := range v {
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", a.ID, a.Name, a.Title, a.Version)
 		}
+	case *api.CanvasNode:
+		_, _ = fmt.Fprintln(w, "ID\tLABEL\tX\tY")
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%d\n", v.ID, v.Label, v.X, v.Y)
 	case *api.Canvas:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
 		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Name)

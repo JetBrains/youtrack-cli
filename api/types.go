@@ -269,10 +269,26 @@ type Canvas struct {
 	Owner *User  `json:"owner,omitempty"`
 }
 
+type CanvasNode struct {
+	ID    string `json:"id,omitempty"`
+	Label string `json:"label,omitempty"`
+	X     int    `json:"x,omitempty"`
+	Y     int    `json:"y,omitempty"`
+}
+
 type GanttChart struct {
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`
 }
+
+// CanvasLinkKind enumerates the valid link types for planning canvas links.
+type CanvasLinkKind string
+
+const (
+	CanvasLinkKindOneWay     CanvasLinkKind = "ONE_WAY"
+	CanvasLinkKindTwoWay     CanvasLinkKind = "TWO_WAY"
+	CanvasLinkKindPrototyped CanvasLinkKind = "PROTOTYPED"
+)
 
 type CanvasLink struct {
 	ID         string         `json:"id,omitempty"`

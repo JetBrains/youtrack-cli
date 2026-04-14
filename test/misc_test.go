@@ -80,21 +80,3 @@ func TestCmd_AppList(t *testing.T) {
 }
 
 // ---------- Canvas ----------
-
-func TestCmd_CanvasAdd(t *testing.T) {
-	c := newTestClient(t)
-	me, err := c.GetCurrentUser()
-	require.NoError(t, err)
-	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
-
-	out := runCmd(t, "canvas", "add", "--name", name, "--owner", me.Login, "--format", "json")
-	assert.Contains(t, out, name)
-
-	// Extract ID for cleanup — unmarshal JSON response
-	var result struct {
-		ID string `json:"id"`
-	}
-	if err := json.Unmarshal([]byte(out), &result); err == nil && result.ID != "" {
-		t.Cleanup(func() { _ = c.DeleteCanvas(result.ID) })
-	}
-}

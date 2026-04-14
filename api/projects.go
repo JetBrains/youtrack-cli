@@ -101,7 +101,7 @@ func (c *Client) AttachWorkflowToProject(shortName, workflowID string) error {
 		return err
 	}
 	path := fmt.Sprintf(pathAdminProjectWorkflows, url.PathEscape(p.ID))
-	return c.Post(path, map[string]any{"workflow": map[string]any{"id": workflowID}}, nil)
+	return c.Post(path, map[string]any{"id": workflowID}, nil)
 }
 
 func (c *Client) DeleteProject(shortName string) error {
