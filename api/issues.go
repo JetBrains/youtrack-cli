@@ -5,6 +5,8 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
+	"strconv"
+	"time"
 )
 
 const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created"
@@ -110,7 +112,7 @@ func (c *Client) GetIssueCount(query string) (int, error) {
 	var result struct {
 		Count int `json:"count"`
 	}
-	err := c.Post(pathIssuesGetterCount, map[string]any{"query": query}, &result)
+	err := c.Post(pathIssuesGetterCount+"?fields=count", map[string]any{"query": query}, &result)
 	return result.Count, err
 }
 
@@ -179,7 +181,7 @@ func (c *Client) AddWorkItem(issueID string, minutes int, text, typeID string) (
 	var result WorkItem
 	body := map[string]any{
 		"duration": map[string]any{"minutes": minutes},
-		"date":     0,
+		"date":     time.Now().UnixMilli(),
 	}
 	if text != "" {
 		body["text"] = text
@@ -245,7 +247,11 @@ func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string
 		}
 		body = map[string]any{"value": map[string]any{"id": userID}}
 	case "int":
-		body = map[string]any{"value": fieldValue}
+		n, err := strconv.Atoi(fieldValue)
+		if err != nil {
+			return fmt.Errorf("invalid integer value '%s': %w", fieldValue, err)
+		}
+		body = map[string]any{"value": n}
 	case "string":
 		body = map[string]any{"value": fieldValue}
 	default:

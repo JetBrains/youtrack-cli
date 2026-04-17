@@ -62,10 +62,29 @@ func (c *Client) CreateBundle(bundleType, name string) (*Bundle, error) {
 	return &result, err
 }
 
+// bundleElementTypeName maps a bundle path type to the YouTrack $type for its elements.
+func bundleElementTypeName(pathType string) string {
+	switch pathType {
+	case "state":
+		return "StateBundleElement"
+	case "version":
+		return "VersionBundleElement"
+	case "build":
+		return "BuildBundleElement"
+	case "owned", "ownedField":
+		return "OwnedBundleElement"
+	default: // "enum" and unknown types
+		return "EnumBundleElement"
+	}
+}
+
 func (c *Client) AddBundleValue(bundleType, bundleID, value string) error {
 	path := fmt.Sprintf(pathAdminBundleValues,
 		url.PathEscape(bundleType), url.PathEscape(bundleID))
-	return c.Post(path, map[string]any{"name": value}, nil)
+	return c.Post(path, map[string]any{
+		"$type": bundleElementTypeName(bundleType),
+		"name":  value,
+	}, nil)
 }
 
 func (c *Client) DeleteBundle(bundleType, bundleID string) error {
