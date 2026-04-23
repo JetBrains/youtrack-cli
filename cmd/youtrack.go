@@ -10,6 +10,7 @@ import (
 	"github.com/JetBrains/youtrack-cli/cmd/instance"
 	"github.com/JetBrains/youtrack-cli/cmd/issue"
 	"github.com/JetBrains/youtrack-cli/cmd/project"
+	"github.com/JetBrains/youtrack-cli/cmd/skill"
 	"github.com/JetBrains/youtrack-cli/cmd/user"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
@@ -68,6 +69,7 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newBoardCmd())
 	rootCmd.AddCommand(newDashboardCmd())
 	rootCmd.AddCommand(newRawCmd())
+	rootCmd.AddCommand(skill.NewCmd())
 
 	return rootCmd
 }

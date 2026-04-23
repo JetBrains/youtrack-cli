@@ -155,6 +155,19 @@ func runCmdWithInput(t *testing.T, stdinInput string, args ...string) string {
 // and extra environment variables appended to the current process env.
 // Unlike runCmd/runCmdWithInput, it does NOT call requireE2EEnv — callers manage
 // their own skip conditions.
+// runCmdInDir runs the compiled binary in a specific working directory.
+// Does NOT require YOUTRACK_BASE_URL or YOUTRACK_TOKEN — skill commands are filesystem-only.
+func runCmdInDir(t *testing.T, dir string, args ...string) (stdout, stderr string, err error) {
+	t.Helper()
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Dir = dir
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	err = cmd.Run()
+	return outBuf.String(), errBuf.String(), err
+}
+
 func runCmdWithEnv(t *testing.T, stdinInput string, extraEnv []string, args ...string) string {
 	t.Helper()
 
