@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"encoding/json"
 	"os"
 	"testing"
 
@@ -37,4 +38,22 @@ func TestAuth_GetTokenViaBasicAuth(t *testing.T) {
 	t.Cleanup(func() {
 		_ = api.DeleteHubToken(baseURL, login, password, me.ID, tok.ID)
 	})
+}
+
+func TestAuth_Status(t *testing.T) {
+	requireE2EEnv(t)
+
+	out := runCmd(t, "auth", "status")
+
+	var result struct {
+		URL      string `json:"url"`
+		FullName string `json:"fullName"`
+		Login    string `json:"login"`
+		Status   string `json:"status"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result))
+	assert.Equal(t, "authenticated", result.Status)
+	assert.NotEmpty(t, result.FullName)
+	assert.NotEmpty(t, result.Login)
+	assert.Equal(t, os.Getenv("YOUTRACK_BASE_URL"), result.URL)
 }
