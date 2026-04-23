@@ -196,3 +196,39 @@ func TestCmd_IssueWorkitemAdd(t *testing.T) {
 	assert.Equal(t, "design work", item.Text)
 	assert.Equal(t, 90, item.Duration.Minutes)
 }
+
+func TestCmd_IssueDelete_Confirm(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "confirm delete test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+
+	out := runCmdWithInput(t, "y\n", "issue", "delete", issue.IDReadable)
+	assert.Contains(t, out, "deleted issue "+issue.IDReadable)
+
+	_, err = c.GetIssue(issue.IDReadable)
+	assert.Error(t, err, "issue should be deleted after confirming with y")
+}
+
+func TestCmd_IssueDelete_Cancel(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "cancel delete test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmdWithInput(t, "n\n", "issue", "delete", issue.IDReadable)
+	assert.Contains(t, out, "Canceled.")
+
+	got, err := c.GetIssue(issue.IDReadable)
+	require.NoError(t, err, "issue should still exist after canceling")
+	assert.Equal(t, issue.IDReadable, got.IDReadable)
+}
