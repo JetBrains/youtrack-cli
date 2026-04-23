@@ -48,21 +48,24 @@ export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
 export YOUTRACK_TOKEN=perm:...
 ```
 
-**Multi-instance** — use `auth get-token` to authenticate interactively. Each instance is saved under a named alias:
+**Multi-instance** — use `instance add` to authenticate and register each instance under a named alias:
 
 ```bash
-youtrack auth get-token --alias work
+youtrack instance add
 # YouTrack base URL: https://work.youtrack.cloud
+# Instance alias [work]: work
 # Select authentication method: ...
 # ✓ Authenticated as Jane Doe (jane.doe)
 #   Saved as: "work" (~/.youtrack-cli-config.json)
 
-youtrack auth get-token --alias personal
+youtrack instance add
 # YouTrack base URL: https://personal.youtrack.cloud
+# Instance alias [personal]: personal
 # ...
 
 youtrack instance use personal   # switch active context
-youtrack instance list            # show all instances
+youtrack instance list            # show all instances with auth status
+youtrack instance remove work     # remove an instance
 youtrack auth logout              # remove active instance credentials
 ```
 
@@ -81,7 +84,7 @@ Env vars `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN` still work as a single-instance 
 | Group | Subcommands |
 |---|---|
 | `auth` | `get-token`, `logout`, `status` |
-| `instance` | `list`, `use`, `remove` |
+| `instance` | `add`, `list`, `use`, `remove` |
 | `issue` | `get`, `list`, `add`, `update`, `delete`, `command`, `comment list`, `comment add`, `comment delete` |
 | `project` | `list`, `get`, `add`, `delete` |
 | `user` | `list`, `get`, `current`, `add`, `delete`, `ban`, `unban` |
