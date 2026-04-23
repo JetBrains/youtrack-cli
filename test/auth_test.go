@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -234,4 +235,79 @@ func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
 	assert.Contains(t, out, "Token ready:")
 	assert.Contains(t, out, token)
 	assert.NotContains(t, out, `"token":`) // must not be JSON
+}
+
+func TestAuth_Logout_Force(t *testing.T) {
+	tmpHome := t.TempDir()
+	envFile := filepath.Join(tmpHome, ".youtrack-cli-env")
+	require.NoError(t, os.WriteFile(envFile,
+		[]byte("YOUTRACK_BASE_URL=https://test.example.com\nYOUTRACK_TOKEN=perm-test\n"), 0600))
+
+	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome},
+		"auth", "logout", "--force")
+
+	assert.Contains(t, out, "Logged out from https://test.example.com")
+	data, err := os.ReadFile(envFile)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "YOUTRACK_BASE_URL")
+	assert.NotContains(t, string(data), "YOUTRACK_TOKEN")
+}
+
+func TestAuth_Logout_Confirm(t *testing.T) {
+	tmpHome := t.TempDir()
+	envFile := filepath.Join(tmpHome, ".youtrack-cli-env")
+	require.NoError(t, os.WriteFile(envFile,
+		[]byte("YOUTRACK_BASE_URL=https://test.example.com\nYOUTRACK_TOKEN=perm-test\n"), 0600))
+
+	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome},
+		"auth", "logout")
+
+	assert.Contains(t, out, "Logged out from https://test.example.com")
+	data, err := os.ReadFile(envFile)
+	require.NoError(t, err)
+	assert.NotContains(t, string(data), "YOUTRACK_BASE_URL")
+	assert.NotContains(t, string(data), "YOUTRACK_TOKEN")
+}
+
+func TestAuth_Logout_Cancel(t *testing.T) {
+	tmpHome := t.TempDir()
+	envFile := filepath.Join(tmpHome, ".youtrack-cli-env")
+	original := "YOUTRACK_BASE_URL=https://test.example.com\nYOUTRACK_TOKEN=perm-test\n"
+	require.NoError(t, os.WriteFile(envFile, []byte(original), 0600))
+
+	out := runCmdWithEnv(t, "n\n", []string{"HOME=" + tmpHome},
+		"auth", "logout")
+
+	assert.Contains(t, out, "Cancelled.")
+	data, err := os.ReadFile(envFile)
+	require.NoError(t, err)
+	assert.Equal(t, original, string(data))
+}
+
+func TestAuth_Logout_NotConfigured(t *testing.T) {
+	tmpHome := t.TempDir()
+	// No env file — directory exists but file is absent.
+
+	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome},
+		"auth", "logout", "--force")
+
+	assert.Contains(t, out, "Not logged in")
+}
+
+func TestAuth_Logout_JSONFormat(t *testing.T) {
+	tmpHome := t.TempDir()
+	envFile := filepath.Join(tmpHome, ".youtrack-cli-env")
+	require.NoError(t, os.WriteFile(envFile,
+		[]byte("YOUTRACK_BASE_URL=https://test.example.com\nYOUTRACK_TOKEN=perm-test\n"), 0600))
+
+	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome},
+		"--format", "json", "auth", "logout", "--force")
+
+	var result struct {
+		URL    string `json:"url"`
+		Status string `json:"status"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
+	assert.Equal(t, "logged out", result.Status)
+	assert.Equal(t, "https://test.example.com", result.URL)
 }

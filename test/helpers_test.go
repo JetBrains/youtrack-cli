@@ -150,3 +150,22 @@ func runCmdWithInput(t *testing.T, stdinInput string, args ...string) string {
 	require.NoError(t, err, "binary stderr: %s", stderr.String())
 	return stdout.String()
 }
+
+// runCmdWithEnv executes the compiled CLI binary with the given args, piped stdin,
+// and extra environment variables appended to the current process env.
+// Unlike runCmd/runCmdWithInput, it does NOT call requireE2EEnv — callers manage
+// their own skip conditions.
+func runCmdWithEnv(t *testing.T, stdinInput string, extraEnv []string, args ...string) string {
+	t.Helper()
+
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Stdin = strings.NewReader(stdinInput)
+	// The subprocess inherits the full test-process environment; extraEnv overrides specific keys.
+	cmd.Env = append(os.Environ(), extraEnv...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	require.NoError(t, err, "binary stderr: %s", stderr.String())
+	return stdout.String()
+}
