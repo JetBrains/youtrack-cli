@@ -194,6 +194,29 @@ func TestAuth_GetTokenSchemeNormalization(t *testing.T) {
 	assert.Equal(t, token, result.Token)
 }
 
+func TestAuth_GetTokenWebFlowCLI(t *testing.T) {
+	requireE2EEnv(t)
+
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+
+	// Pipe "2\n<token>\n" to select web browser flow and paste the token.
+	// openBrowser may open the browser as a side effect on macOS; that is harmless.
+	// In headless environments it fails gracefully (prints the URL), then reads from stdin.
+	out := runCmdWithInput(t, "2\n"+token+"\n",
+		"--base-url", baseURL,
+		"--format", "json",
+		"auth", "get-token",
+		"--save=false",
+	)
+
+	var result struct {
+		Token string `json:"token"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
+	assert.Equal(t, token, result.Token)
+}
+
 func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
 	requireE2EEnv(t)
 

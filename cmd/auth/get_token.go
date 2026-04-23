@@ -66,7 +66,7 @@ Use --format json for machine-readable output.`,
 
 			// Auth-type selection.
 			fmt.Fprintf(cmd.ErrOrStderr(),
-				"\nAuth type:\n  1) Basic auth (login + password)\n  2) Web browser (open YouTrack and paste token)\n  3) Paste token directly\nEnter 1, 2, or 3: ")
+				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\nSelect [1-3]: ")
 			choiceRaw, err := reader.ReadString('\n')
 			if err != nil {
 				return fmt.Errorf("reading auth type: %w", err)

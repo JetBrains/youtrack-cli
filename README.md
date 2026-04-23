@@ -54,16 +54,23 @@ Alternatively, use the `auth get-token` command to authenticate interactively:
 
 ```bash
 youtrack auth get-token
-# Base URL: https://your-instance.youtrack.cloud
-# Auth type:
+# YouTrack base URL: https://your-instance.youtrack.cloud
+#
+# Select authentication method:
 #   1) Basic auth (login + password)
-#   2) Web browser (open YouTrack and paste token)
-# Enter 1 or 2: 1
+#   2) Web browser (open token page and paste)
+#   3) Paste token directly
+# Select [1-3]: 1
 # Login: alice
 # Password: (prompted, hidden)
 ```
 
-This prompts for base URL (if `YOUTRACK_BASE_URL` not set), auth type, and credentials. It saves `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env` by default (`--save=false` to skip).
+Three auth methods are available:
+- **Basic auth** — login + password via Hub API. Requires the Hub basic-auth endpoint to be enabled.
+- **Web browser** — the CLI detects your Hub URL, opens the token management page in a browser, then asks you to paste the token.
+- **Paste token directly** — shows the token page URL for you to open manually, then asks you to paste the token. Used automatically as a fallback when basic auth is unavailable (e.g. cloud or SSO-only instances).
+
+Saves `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env` by default (`--save=false` to skip).
 
 ## Commands
 
