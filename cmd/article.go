@@ -39,6 +39,9 @@ func newArticleListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(articles) == 0 {
+				output.PrintTip(cmd, "No articles found — check the project key or your access")
+			}
 			return output.Print(cmd, articles)
 		},
 	}

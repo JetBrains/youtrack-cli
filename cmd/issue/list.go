@@ -23,6 +23,9 @@ func newIssueListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(issues) == 0 {
+				output.PrintTip(cmd, "No issues found — try a different --query or check your permissions")
+			}
 			return output.Print(cmd, issues)
 		},
 	}
