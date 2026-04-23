@@ -22,7 +22,15 @@ func newStatusCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "status",
 		Short: "Show current authentication status",
-		Long:  "Check whether the CLI is authenticated and display the current user's info.",
+		Long:  `Check whether the CLI is authenticated and display the current user's info.
+
+This command always exits 0; it is an informational probe, not a gate.
+Check the "status" field in the JSON output for the authentication result:
+  "authenticated"       — token is valid
+  "invalid token: ..."  — token rejected by the server
+  "not configured: ..." — YOUTRACK_BASE_URL or YOUTRACK_TOKEN is not set
+
+Note: --format table is not supported for this command and falls back to JSON.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			baseURL, _ := cmd.Root().PersistentFlags().GetString("base-url")
 			if baseURL == "" {
