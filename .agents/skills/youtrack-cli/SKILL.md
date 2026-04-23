@@ -12,32 +12,44 @@ allowed-tools: Bash
 ```bash
 youtrack auth status
 ```
-Returns: `{"url":"...","login":"...","fullName":"...","status":"authenticated"}`
-Status values: `"authenticated"` | `"invalid token: ..."` | `"not configured: ..."`
-Always exits 0 — check the `status` field programmatically. Use after `auth get-token` to confirm credentials were saved correctly.
+**Single-instance (no config file):** Returns `{"url":"...","login":"...","fullName":"...","status":"authenticated"}`
+**Multi-instance (config file present):** Returns a JSON array `[{"alias":"work","url":"...","login":"...","fullName":"...","status":"authenticated","active":true}, ...]`
+Status values per instance: `"authenticated"` | `"invalid token: ..."`.
+Always exits 0 — check the `status` field programmatically.
 
 ### Authenticate interactively
 ```bash
-youtrack auth get-token
+youtrack auth get-token [--alias <name>]
 ```
+`--alias` sets the instance name (derived from URL hostname if omitted: `work.youtrack.cloud` → `work`).
 Prompts for base URL (if `YOUTRACK_BASE_URL` not set), then auth method:
 - **1 — Basic auth**: prompts for login + password, creates a Hub permanent token via Hub API.
-  - The interactive password prompt requires a TTY. In scripts, pass `--password <pass>` as a flag to avoid the prompt.
+  - The interactive password prompt requires a TTY. In scripts, pass `--password <pass>` as a flag.
   - Use `--scope <service-names>` (comma-separated) to request specific Hub services. Default: YouTrack + YouTrack Administration.
   - If the Hub endpoint returns HTML (cloud/SSO-only instances), falls back automatically to option 3.
 - **2 — Web browser**: detects Hub URL via `/.well-known/oauth-protected-resource/mcp`, opens the token page in a browser, prompts for paste, verifies before saving.
   - Internal Hub → `{youtrackURL}/users/me?tab=account-security`
   - External Hub → `{hubURL}/users/me?tab=authentication`
   - If the browser cannot be opened automatically, the CLI prints the token page URL; open it manually.
-- **3 — Paste token directly**: shows the correct token page URL (same Hub detection as option 2) without opening a browser. User opens it manually, creates a token, pastes it. Token is verified before saving. Used automatically as fallback when basic auth is unavailable.
+- **3 — Paste token directly**: shows the correct token page URL without opening a browser. Token is verified before saving.
 
-All flows save `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env` by default (`--save=false` to skip).
+Saves credentials to `~/.youtrack-cli-config.json` by default (`--save=false` to skip).
 The CLI auto-prepends `https://` if the base URL is entered without a scheme.
+If `~/.youtrack-cli-env` exists with credentials and the config is empty, a one-time import prompt is shown.
+
+### Manage instances
+```bash
+youtrack instance list                        # list all configured instances (alias, URL, active marker)
+youtrack instance use <alias>                 # switch active context
+youtrack instance remove <alias>              # remove an instance (prompts for confirmation)
+youtrack instance remove --force <alias>      # skip confirmation
+youtrack auth logout                          # remove active instance (or --instance <alias> for a specific one)
+```
 
 ## Setup (run silently before every task)
 
 1. **CLI available?** `which youtrack` — if not found, run `make build && cp youtrack /usr/local/bin/` from the repo root.
-2. **Credentials set?** Check `~/.youtrack-cli-env` or `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN`. If missing, guide the user to export them or write to `~/.youtrack-cli-env`.
+2. **Credentials set?** Check `~/.youtrack-cli-config.json` (multi-instance) or `~/.youtrack-cli-env` / `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN` (single-instance). If missing, guide the user to run `youtrack auth get-token`. To check the active instance: `youtrack instance list`.
 3. **Connectivity OK?** `youtrack user current` — stop and report if it fails.
 
 ## Behaviour rules
