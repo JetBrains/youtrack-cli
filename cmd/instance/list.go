@@ -6,6 +6,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal/config"
 )
 
@@ -22,14 +23,22 @@ func newListCmd() *cobra.Command {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No instances configured. Run: youtrack auth get-token")
 				return nil
 			}
-			aliases := cfg.Aliases()
-			for _, alias := range aliases {
+			w := cmd.OutOrStdout()
+			for _, alias := range cfg.Aliases() {
 				inst := cfg.Instances[alias]
-				active := ""
+				activeMarker := ""
 				if alias == cfg.CurrentInstance {
-					active = " " + color.New(color.FgGreen).Sprint("[active]")
+					activeMarker = " " + color.New(color.FgGreen).Sprint("[active]")
 				}
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "  %-20s %s%s\n", alias, inst.URL, active)
+				c := api.NewClient(inst.URL, inst.Token)
+				user, err := c.GetCurrentUser()
+				if err != nil {
+					_, _ = fmt.Fprintf(w, "  %s %-20s %s%s\n",
+						color.New(color.FgRed).Sprint("✗"), alias, inst.URL, activeMarker)
+				} else {
+					_, _ = fmt.Fprintf(w, "  %s %-20s %s  %s (%s)%s\n",
+						color.New(color.FgGreen).Sprint("✓"), alias, inst.URL, user.FullName, user.Login, activeMarker)
+				}
 			}
 			return nil
 		},
