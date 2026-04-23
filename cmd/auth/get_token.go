@@ -191,15 +191,16 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 		tokenPageURL = hubURL + "/users/me?tab=authentication"
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "Opening token page in your browser:\n  %s\n\n", hyperlink(tokenPageURL))
+	fmt.Fprintf(cmd.ErrOrStderr(), "Token page:\n  %s\n\n", hyperlink(tokenPageURL))
 	fmt.Fprintln(cmd.ErrOrStderr(), "Steps:")
 	fmt.Fprintln(cmd.ErrOrStderr(), "  1. Log in if prompted")
 	fmt.Fprintln(cmd.ErrOrStderr(), "  2. Click 'New token' (or 'Generate new token')")
 	fmt.Fprintln(cmd.ErrOrStderr(), "  3. Copy the token value and return here")
 
-	if err := openBrowser(tokenPageURL); err != nil {
-		fmt.Fprintf(cmd.ErrOrStderr(), "  (Could not open browser automatically: %v)\n", err)
-		fmt.Fprintf(cmd.ErrOrStderr(), "  Open manually: %s\n", tokenPageURL)
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		if err := openBrowser(tokenPageURL); err != nil {
+			fmt.Fprintf(cmd.ErrOrStderr(), "  (Could not open browser: %v)\n", err)
+		}
 	}
 
 	if _, err := fmt.Fprint(cmd.ErrOrStderr(), "\nPaste your token: "); err != nil {
