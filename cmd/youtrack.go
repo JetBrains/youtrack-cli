@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -24,7 +25,11 @@ func NewRootCmd() *cobra.Command {
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			output.PrintLogo(os.Stdout)
+			var buf bytes.Buffer
+			cmd.SetOut(&buf)
 			_ = cmd.Help()
+			cmd.SetOut(os.Stdout)
+			output.PrintHelpAnimated(os.Stdout, buf.String())
 		},
 	}
 
