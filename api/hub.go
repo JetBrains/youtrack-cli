@@ -8,9 +8,17 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 var hubHTTPClient = &http.Client{}
+
+// hubVerboseOut, when non-nil, receives verbose Hub HTTP log lines (same role as Client.Verbose).
+var hubVerboseOut io.Writer
+
+// SetHubVerbose sets the writer for Hub API verbose output. Pass nil to disable.
+// Call this before Hub API operations and defer SetHubVerbose(nil) to clean up.
+func SetHubVerbose(w io.Writer) { hubVerboseOut = w }
 
 // HubUser is the authenticated user record from Hub.
 type HubUser struct {
@@ -32,6 +40,58 @@ type HubToken struct {
 	Token        string       `json:"token"`
 	Scope        []HubService `json:"scope"`
 	CreationTime int64        `json:"creationTime"`
+}
+
+// OAuthProtectedResource is the response from /.well-known/oauth-protected-resource/mcp.
+// It identifies which Hub authorization server the YouTrack instance uses.
+type OAuthProtectedResource struct {
+	Resource             string   `json:"resource"`
+	AuthorizationServers []string `json:"authorization_servers"`
+}
+
+// GetOAuthProtectedResource fetches OAuth protected resource metadata from the YouTrack
+// instance. This reveals which Hub authorization server it is configured to use.
+func GetOAuthProtectedResource(baseURL string) (*OAuthProtectedResource, error) {
+	endpoint := strings.TrimRight(baseURL, "/") + "/.well-known/oauth-protected-resource/mcp"
+	resp, err := hubHTTPClient.Get(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("fetching oauth-protected-resource: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading oauth-protected-resource response: %w", err)
+	}
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
+	}
+	var r OAuthProtectedResource
+	err = json.Unmarshal(data, &r)
+	return &r, err
+}
+
+// DetectHubURL discovers the Hub URL from YouTrack's oauth-protected-resource metadata.
+// Returns the hub URL and whether Hub is internal (same host as YouTrack) or external.
+func DetectHubURL(baseURL string) (hubURL string, isInternal bool, err error) {
+	resource, err := GetOAuthProtectedResource(baseURL)
+	if err != nil {
+		return "", false, err
+	}
+	if len(resource.AuthorizationServers) == 0 {
+		return "", false, fmt.Errorf("no authorization servers in oauth-protected-resource response")
+	}
+	hubURL = strings.TrimRight(resource.AuthorizationServers[0], "/")
+
+	ytParsed, err := url.Parse(strings.TrimRight(baseURL, "/"))
+	if err != nil {
+		return "", false, err
+	}
+	hubParsed, err := url.Parse(hubURL)
+	if err != nil {
+		return "", false, err
+	}
+	isInternal = ytParsed.Hostname() == hubParsed.Hostname()
+	return hubURL, isInternal, nil
 }
 
 func hubBasicAuth(login, password string) string {
@@ -58,6 +118,9 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
+	if hubVerboseOut != nil {
+		_, _ = fmt.Fprintf(hubVerboseOut, "> %s %s\n", method, baseURL+path)
+	}
 	resp, err := hubHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -67,8 +130,30 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if hubVerboseOut != nil {
+		_, _ = fmt.Fprintf(hubVerboseOut, "< %d %s\n", resp.StatusCode, string(data))
+	}
+	// Detect HTML responses — the Hub API endpoint is unreachable and returned a web page.
+	// This typically means basic auth is not available for this instance (e.g. cloud/SSO-only).
+	if strings.Contains(resp.Header.Get("Content-Type"), "text/html") ||
+		bytes.HasPrefix(bytes.TrimSpace(data), []byte("<")) {
+		return nil, fmt.Errorf("basic auth is not available for this instance; use the web browser flow instead")
+	}
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("hub API HTTP %d: %s", resp.StatusCode, string(data))
+		// Extract a human-readable message from the Hub JSON error body when available.
+		var hubErr struct {
+			ErrorDescription string `json:"error_description"`
+			Error            string `json:"error"`
+		}
+		if jsonErr := json.Unmarshal(data, &hubErr); jsonErr == nil {
+			if hubErr.ErrorDescription != "" {
+				return nil, fmt.Errorf("%s (HTTP %d)", hubErr.ErrorDescription, resp.StatusCode)
+			}
+			if hubErr.Error != "" {
+				return nil, fmt.Errorf("%s (HTTP %d)", hubErr.Error, resp.StatusCode)
+			}
+		}
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
 	}
 	return data, nil
 }

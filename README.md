@@ -50,19 +50,43 @@ export YOUTRACK_TOKEN=perm:...
 
 Or write them to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automatically on every run.
 
-Alternatively, use the `auth get-token` command to obtain a token automatically:
+Alternatively, use the `auth get-token` command to authenticate interactively:
 
 ```bash
-youtrack auth get-token --base-url https://your-instance.youtrack.cloud --login alice --save
+youtrack auth get-token
+# YouTrack base URL: https://your-instance.youtrack.cloud
+#
+# Select authentication method:
+#   1) Basic auth (login + password)
+#   2) Web browser (open token page and paste)
+#   3) Paste token directly
+# Select [1-3]: 1
+# Login: alice
 # Password: (prompted, hidden)
 ```
 
-`--save` writes both `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env`, loaded automatically on every CLI invocation. Other flags: `--token-name` (default: `cli-token`), `--scope` (default: YouTrack + YouTrack Administration).
+To remove saved credentials:
+
+```bash
+youtrack auth logout
+# Remove credentials for https://your-instance? [y/N]: y
+# Logged out from https://your-instance
+```
+
+Note: this only removes the local credentials — the token remains valid on the server until deleted from your YouTrack profile.
+
+Three auth methods are available:
+- **Basic auth** — login + password via Hub API. Requires the Hub basic-auth endpoint to be enabled.
+- **Web browser** — the CLI detects your Hub URL, opens the token management page in a browser, then asks you to paste the token.
+- **Paste token directly** — shows the token page URL for you to open manually, then asks you to paste the token. Used automatically as a fallback when basic auth is unavailable (e.g. cloud or SSO-only instances).
+
+Saves `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env` by default (`--save=false` to skip).
 
 ## Commands
 
 | Group | Subcommands |
 |---|---|
+| `auth` | `get-token`, `logout`, `status` |
 | `issue` | `get`, `list`, `add`, `update`, `delete`, `command`, `comment list`, `comment add`, `comment delete` |
 | `project` | `list`, `get`, `add`, `delete` |
 | `user` | `list`, `get`, `current`, `add`, `delete`, `ban`, `unban` |
