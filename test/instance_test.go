@@ -275,6 +275,47 @@ func TestAuthGetToken_EnvFileImport_No(t *testing.T) {
 	assert.Contains(t, result.Instances, "onlynew")
 }
 
+func TestAuthLogout_ConfigInstance(t *testing.T) {
+	tmpHome := t.TempDir()
+	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)
+
+	// Log out the active instance ("work") by default.
+	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome}, "auth", "logout")
+
+	assert.Contains(t, out, "logged out from https://work.example.com")
+
+	data, err := os.ReadFile(cfgPath)
+	require.NoError(t, err)
+	var result struct {
+		CurrentInstance string                     `json:"currentInstance"`
+		Instances       map[string]json.RawMessage `json:"instances"`
+	}
+	require.NoError(t, json.Unmarshal(data, &result))
+	assert.NotContains(t, result.Instances, "work")
+	assert.Equal(t, "", result.CurrentInstance)
+}
+
+func TestAuthLogout_ConfigInstance_WithFlag(t *testing.T) {
+	tmpHome := t.TempDir()
+	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)
+
+	// Log out "personal" (non-active) via --instance flag.
+	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome},
+		"auth", "logout", "--instance", "personal")
+
+	assert.Contains(t, out, "logged out from https://personal.example.com")
+
+	data, err := os.ReadFile(cfgPath)
+	require.NoError(t, err)
+	var result struct {
+		CurrentInstance string                     `json:"currentInstance"`
+		Instances       map[string]json.RawMessage `json:"instances"`
+	}
+	require.NoError(t, json.Unmarshal(data, &result))
+	assert.NotContains(t, result.Instances, "personal")
+	assert.Equal(t, "work", result.CurrentInstance)
+}
+
 func TestAuthStatus_MultiInstance(t *testing.T) {
 	requireE2EEnv(t)
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
