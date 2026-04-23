@@ -27,10 +27,16 @@ func newGetTokenCmd() *cobra.Command {
 		Use:   "get-token",
 		Short: "Authenticate interactively and save a permanent token",
 		Long: `Prompts for the YouTrack URL (if not already configured) and lets you choose
-between basic auth (login/password via Hub) or a browser-based flow where you
-create a token in the YouTrack UI and paste it here.
+an authentication method:
 
-Note: --format table is not supported for this command and falls back to JSON.`,
+  1) Basic auth   — login + password via Hub API
+  2) Web browser  — open the token page in a browser, then paste the token
+  3) Paste token  — enter a token directly without opening a browser
+
+If basic auth is unavailable (e.g. cloud or SSO-only instances), the CLI
+falls back to option 3 automatically.
+
+Use --format json for machine-readable output.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reader := bufio.NewReader(os.Stdin)
 
@@ -56,7 +62,7 @@ Note: --format table is not supported for this command and falls back to JSON.`,
 
 			// Auth-type selection.
 			fmt.Fprintf(cmd.ErrOrStderr(),
-				"\nAuth type:\n  1) Basic auth (login + password)\n  2) Web browser (open YouTrack and paste token)\nEnter 1 or 2: ")
+				"\nAuth type:\n  1) Basic auth (login + password)\n  2) Web browser (open YouTrack and paste token)\n  3) Paste token directly\nEnter 1, 2, or 3: ")
 			choiceRaw, err := reader.ReadString('\n')
 			if err != nil {
 				return fmt.Errorf("reading auth type: %w", err)
@@ -66,8 +72,10 @@ Note: --format table is not supported for this command and falls back to JSON.`,
 				return runBasicAuthFlow(cmd, reader, baseURL)
 			case "2":
 				return runWebFlow(cmd, reader, baseURL)
+			case "3":
+				return runDirectTokenFlow(cmd, reader, baseURL)
 			default:
-				return fmt.Errorf("invalid choice %q: enter 1 or 2", strings.TrimSpace(choiceRaw))
+				return fmt.Errorf("invalid choice %q: enter 1, 2, or 3", strings.TrimSpace(choiceRaw))
 			}
 		},
 	}
@@ -120,6 +128,10 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 
 	me, err := api.GetHubMe(baseURL, login, password)
 	if err != nil {
+		if strings.Contains(err.Error(), "basic auth is not available") {
+			fmt.Fprintf(cmd.ErrOrStderr(), "\nBasic auth is not available for this instance.\nFalling back to direct token input.\n\n")
+			return runDirectTokenFlow(cmd, reader, baseURL)
+		}
 		return err
 	}
 
@@ -237,6 +249,55 @@ func printTokenResult(cmd *cobra.Command, res getTokenResult) {
 	if res.Hint != "" {
 		fmt.Fprintf(w, "\n%s\n", res.Hint)
 	}
+}
+
+// runDirectTokenFlow prompts the user to paste a token directly, without opening a browser.
+// It detects the correct token-management page URL and prints it for the user to open manually.
+func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error {
+	save, _ := cmd.Flags().GetBool("save")
+
+	// Determine the token page URL using Hub discovery (best-effort; fall back to YouTrack profile).
+	tokenPageURL := baseURL + "/users/me?tab=account-security"
+	if hubURL, isInternal, err := api.DetectHubURL(baseURL); err == nil {
+		if !isInternal {
+			tokenPageURL = hubURL + "/users/me?tab=authentication"
+		}
+	}
+
+	fmt.Fprintf(cmd.ErrOrStderr(), "Create a permanent token at:\n  %s\n\n", tokenPageURL)
+
+	if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Paste your token: "); err != nil {
+		return err
+	}
+	tokenRaw, err := reader.ReadString('\n')
+	if err != nil {
+		return fmt.Errorf("reading token: %w", err)
+	}
+	token := strings.TrimSpace(tokenRaw)
+	if token == "" {
+		return fmt.Errorf("token cannot be empty")
+	}
+
+	// Verify before saving — do not persist an invalid token.
+	fmt.Fprintln(cmd.ErrOrStderr(), "Verifying token...")
+	verifyClient := api.NewClient(baseURL, token)
+	user, err := verifyClient.GetCurrentUser()
+	if err != nil {
+		return fmt.Errorf("token verification failed: %w\nRe-run and paste the token again", err)
+	}
+	fmt.Fprintf(cmd.ErrOrStderr(), "Authenticated as %s (%s)\n", user.FullName, user.Login)
+
+	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
+	if save {
+		if err := saveToEnvFile(baseURL, token, &res); err != nil {
+			return err
+		}
+	}
+	if !flagChanged(cmd, "format") {
+		printTokenResult(cmd, res)
+		return nil
+	}
+	return output.Print(cmd, res)
 }
 
 // saveToEnvFile writes YOUTRACK_BASE_URL and YOUTRACK_TOKEN to ~/.youtrack-cli-env
