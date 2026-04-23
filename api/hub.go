@@ -133,6 +133,12 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 	if hubVerboseOut != nil {
 		fmt.Fprintf(hubVerboseOut, "< %d %s\n", resp.StatusCode, string(data))
 	}
+	// Detect HTML responses — the Hub API endpoint is unreachable and returned a web page.
+	// This typically means basic auth is not available for this instance (e.g. cloud/SSO-only).
+	if strings.Contains(resp.Header.Get("Content-Type"), "text/html") ||
+		bytes.HasPrefix(bytes.TrimSpace(data), []byte("<")) {
+		return nil, fmt.Errorf("basic auth is not available for this instance; use the web browser flow instead")
+	}
 	if resp.StatusCode >= 300 {
 		// Extract a human-readable message from the Hub JSON error body when available.
 		var hubErr struct {
