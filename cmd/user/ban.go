@@ -1,11 +1,10 @@
 package user
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newUserBanCmd() *cobra.Command {
@@ -21,8 +20,8 @@ func newUserBanCmd() *cobra.Command {
 			if err := client.BanUser(args[0], true); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "banned user "+args[0])
-			return err
+			output.PrintSuccess(cmd, "banned user "+args[0])
+			return nil
 		},
 	}
 }
@@ -40,8 +39,8 @@ func newUserUnbanCmd() *cobra.Command {
 			if err := client.BanUser(args[0], false); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "unbanned user "+args[0])
-			return err
+			output.PrintSuccess(cmd, "unbanned user "+args[0])
+			return nil
 		},
 	}
 }

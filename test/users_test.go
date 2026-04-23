@@ -52,7 +52,7 @@ func TestCmd_UserCRUD(t *testing.T) {
 	assert.Contains(t, out, "unbanned user "+login)
 	assertUserBanState(t, c, login, false)
 
-	out = runCmd(t, "user", "delete", login, "--successor", successor.Login)
+	out = runCmd(t, "user", "delete", login, "--successor", successor.Login, "--force")
 	assert.Contains(t, out, "deleted user "+login)
 
 	users, err := c.ListUsers(login)

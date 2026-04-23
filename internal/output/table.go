@@ -17,11 +17,11 @@ func PrintTable(out io.Writer, data any) error {
 	switch v := data.(type) {
 	case *api.Issue:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.IDReadable, v.Summary, projectKey(v.Project))
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.IDReadable, truncate(v.Summary, 72), projectKey(v.Project))
 	case []api.Issue:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
 		for _, i := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", i.IDReadable, i.Summary, projectKey(i.Project))
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", i.IDReadable, truncate(i.Summary, 72), projectKey(i.Project))
 		}
 	case *api.Project:
 		_, _ = fmt.Fprintln(w, "KEY\tNAME")
@@ -46,19 +46,15 @@ func PrintTable(out io.Writer, data any) error {
 			if c.Author != nil {
 				author = c.Author.Login
 			}
-			text := c.Text
-			if utf8.RuneCountInString(text) > 60 {
-				text = string([]rune(text)[:57]) + "..."
-			}
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, author, text)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, author, truncate(c.Text, 60))
 		}
 	case *api.Article:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.IDReadable, v.Summary, projectKey(v.Project))
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.IDReadable, truncate(v.Summary, 72), projectKey(v.Project))
 	case []api.Article:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
 		for _, a := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.IDReadable, a.Summary, projectKey(a.Project))
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.IDReadable, truncate(a.Summary, 72), projectKey(a.Project))
 		}
 	case *api.Group:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
@@ -74,7 +70,7 @@ func PrintTable(out io.Writer, data any) error {
 	case []api.Role:
 		_, _ = fmt.Fprintln(w, "ID\tNAME\tDESCRIPTION")
 		for _, r := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", r.ID, r.Name, r.Description)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", r.ID, r.Name, truncate(r.Description, 60))
 		}
 	case []api.Permission:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
@@ -148,7 +144,7 @@ func PrintTable(out io.Writer, data any) error {
 	case []api.SavedSearch:
 		_, _ = fmt.Fprintln(w, "ID\tNAME\tQUERY")
 		for _, s := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", s.ID, s.Name, s.Query)
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", s.ID, s.Name, truncate(s.Query, 60))
 		}
 	case *api.Organization:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
@@ -177,7 +173,7 @@ func PrintTable(out io.Writer, data any) error {
 	case []api.RemovedDocument:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY")
 		for _, d := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\n", d.IDReadable, d.Summary)
+			_, _ = fmt.Fprintf(w, "%s\t%s\n", d.IDReadable, truncate(d.Summary, 72))
 		}
 	case []api.GanttChart:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
@@ -192,7 +188,7 @@ func PrintTable(out io.Writer, data any) error {
 	case []api.IssueDraft:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY")
 		for _, d := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\n", d.ID, d.Summary)
+			_, _ = fmt.Fprintf(w, "%s\t%s\n", d.ID, truncate(d.Summary, 72))
 		}
 	case []api.IssueAttachment:
 		_, _ = fmt.Fprintln(w, "ID\tNAME\tURL")
@@ -238,6 +234,13 @@ func PrintTable(out io.Writer, data any) error {
 		return printJSON(out, data)
 	}
 	return nil
+}
+
+func truncate(s string, max int) string {
+	if utf8.RuneCountInString(s) <= max {
+		return s
+	}
+	return string([]rune(s)[:max-3]) + "..."
 }
 
 func joinStrings(ss []string) string {

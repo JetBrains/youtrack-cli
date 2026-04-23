@@ -21,6 +21,9 @@ func newUserListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(users) == 0 {
+				output.PrintTip(cmd, "No users found — try a broader --query")
+			}
 			return output.Print(cmd, users)
 		},
 	}

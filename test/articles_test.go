@@ -60,7 +60,7 @@ func TestCmd_ArticleCRUD(t *testing.T) {
 	assert.Equal(t, "Cmd Article Updated", got.Summary)
 	assert.Equal(t, "Updated content", got.Content)
 
-	out = runCmd(t, "article", "delete", article.IDReadable)
+	out = runCmd(t, "article", "delete", article.IDReadable, "--force")
 	assert.Contains(t, out, "deleted article "+article.IDReadable)
 
 	_, err = c.GetArticle(article.IDReadable)
@@ -104,8 +104,8 @@ func TestCmd_ArticleCommentCRUD(t *testing.T) {
 	require.Len(t, comments, 1)
 	assert.Equal(t, "article comment updated", comments[0].Text)
 
-	out = runCmd(t, "article", "comment", "delete", article.IDReadable, comment.ID)
-	assert.Empty(t, out)
+	out = runCmd(t, "article", "comment", "delete", article.IDReadable, comment.ID, "--force")
+	assert.Contains(t, out, "deleted comment")
 
 	comments, err = c.ListArticleComments(article.IDReadable)
 	require.NoError(t, err)

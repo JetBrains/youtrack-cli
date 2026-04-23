@@ -1,8 +1,6 @@
 package project
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -36,8 +34,8 @@ func newProjectTemplateCmd() *cobra.Command {
 			if err := client.ConvertProjectToTemplate(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "converted project "+args[0]+" to template")
-			return err
+			output.PrintSuccess(cmd, "converted project "+args[0]+" to template")
+			return nil
 		},
 	}
 	cmd.AddCommand(list, convert)

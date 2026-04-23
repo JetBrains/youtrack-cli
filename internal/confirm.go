@@ -1,0 +1,28 @@
+package internal
+
+import (
+	"bufio"
+	"fmt"
+	"strings"
+
+	"github.com/spf13/cobra"
+)
+
+// Confirm prompts the user with "<msg> [y/N]: " on cmd's stderr and reads from stdin.
+// Returns true if the user typed "y" or "yes" (case-insensitive).
+// Skips the prompt and returns true immediately if --force is set on cmd.
+func Confirm(cmd *cobra.Command, msg string) (bool, error) {
+	if force, _ := cmd.Flags().GetBool("force"); force {
+		return true, nil
+	}
+	if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "%s [y/N]: ", msg); err != nil {
+		return false, err
+	}
+	reader := bufio.NewReader(cmd.InOrStdin())
+	answer, err := reader.ReadString('\n')
+	if err != nil {
+		return false, fmt.Errorf("confirmation requires interactive input; use --force to skip")
+	}
+	answer = strings.ToLower(strings.TrimSpace(answer))
+	return answer == "y" || answer == "yes", nil
+}

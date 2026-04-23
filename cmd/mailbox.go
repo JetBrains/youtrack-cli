@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
@@ -76,8 +74,8 @@ func newMailboxDeleteCmd() *cobra.Command {
 			if err := client.DeleteMailboxServer(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted mailbox server "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted mailbox server "+args[0])
+			return nil
 		},
 	}
 }
@@ -97,8 +95,8 @@ func newMailboxRuleCmd() *cobra.Command {
 			if err := client.AddMailboxRule(mailboxID, projectID, name); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "added mailbox rule "+name)
-			return err
+			output.PrintSuccess(cmd, "added mailbox rule "+name)
+			return nil
 		},
 	}
 	add.Flags().String("mailbox", "", "Mailbox ID (required)")

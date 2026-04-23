@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -89,8 +87,8 @@ func newBoardDeleteCmd() *cobra.Command {
 			if err := client.DeleteBoard(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted board "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted board "+args[0])
+			return nil
 		},
 	}
 }

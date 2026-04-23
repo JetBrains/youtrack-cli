@@ -20,6 +20,9 @@ func newProjectListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(projects) == 0 {
+				output.PrintTip(cmd, "No projects found — check your YouTrack permissions")
+			}
 			return output.Print(cmd, projects)
 		},
 	}

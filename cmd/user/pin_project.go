@@ -1,11 +1,10 @@
 package user
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newUserPinProjectCmd() *cobra.Command {
@@ -21,8 +20,8 @@ func newUserPinProjectCmd() *cobra.Command {
 			if err := client.PinProjectForUser(args[0], args[1]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "pinned project "+args[1]+" for user "+args[0])
-			return err
+			output.PrintSuccess(cmd, "pinned project "+args[1]+" for user "+args[0])
+			return nil
 		},
 	}
 }

@@ -1,12 +1,12 @@
 package issue
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newIssueCommandCmd() *cobra.Command {
@@ -28,8 +28,8 @@ func newIssueCommandCmd() *cobra.Command {
 			if err := client.ApplyCommand(args[1], issueIDs); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "command applied to "+args[0])
-			return err
+			output.PrintSuccess(cmd, "command applied to "+args[0])
+			return nil
 		},
 	}
 }

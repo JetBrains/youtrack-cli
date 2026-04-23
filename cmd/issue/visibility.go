@@ -1,11 +1,10 @@
 package issue
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newIssueVisibilityCmd() *cobra.Command {
@@ -23,8 +22,8 @@ func newIssueVisibilityCmd() *cobra.Command {
 			if err := client.UpdateIssueVisibility(args[0], groups, users); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for "+args[0])
-			return err
+			output.PrintSuccess(cmd, "updated visibility for "+args[0])
+			return nil
 		},
 	}
 	cmd.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")

@@ -39,6 +39,9 @@ func newArticleListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if len(articles) == 0 {
+				output.PrintTip(cmd, "No articles found — try a different --query or check your access")
+			}
 			return output.Print(cmd, articles)
 		},
 	}
@@ -127,10 +130,18 @@ func newArticleUpdateCmd() *cobra.Command {
 }
 
 func newArticleDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use: "delete <id>", Short: "Delete an article",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Delete article %s?", args[0]))
+			if err != nil {
+				return err
+			}
+			if !confirmed {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
+				return nil
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -138,10 +149,12 @@ func newArticleDeleteCmd() *cobra.Command {
 			if err := client.DeleteArticle(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted article "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted article "+args[0])
+			return nil
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }
 
 func newArticleCommentCmd() *cobra.Command {
@@ -193,13 +206,26 @@ func newArticleCommentCmd() *cobra.Command {
 		Use: "delete <articleId> <commentId>", Short: "Delete a comment from an article",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Delete comment %s?", args[1]))
+			if err != nil {
+				return err
+			}
+			if !confirmed {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
+				return nil
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			return client.DeleteArticleComment(args[0], args[1])
+			if err := client.DeleteArticleComment(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "deleted comment "+args[1])
+			return nil
 		},
 	}
+	del.Flags().Bool("force", false, "Skip the confirmation prompt")
 	update := &cobra.Command{
 		Use: "update <articleId> <commentId>", Short: "Update a comment on an article",
 		Args: cobra.ExactArgs(2),
@@ -234,8 +260,8 @@ func newArticleTagCmd() *cobra.Command {
 			if err := client.TagArticle(args[0], args[1]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "tagged article "+args[0])
-			return err
+			output.PrintSuccess(cmd, "tagged article "+args[0])
+			return nil
 		},
 	}
 }
@@ -254,8 +280,8 @@ func newArticleVisibilityCmd() *cobra.Command {
 			if err := client.UpdateArticleVisibility(args[0], groups, users); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for article "+args[0])
-			return err
+			output.PrintSuccess(cmd, "updated visibility for article "+args[0])
+			return nil
 		},
 	}
 	cmd.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")
@@ -275,8 +301,8 @@ func newArticleSetParentCmd() *cobra.Command {
 			if err := client.SetParentArticle(args[0], args[1]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "set parent of "+args[0]+" to "+args[1])
-			return err
+			output.PrintSuccess(cmd, "set parent of "+args[0]+" to "+args[1])
+			return nil
 		},
 	}
 }

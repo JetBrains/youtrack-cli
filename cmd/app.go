@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -96,8 +94,8 @@ func newAppPluginCmd() *cobra.Command {
 			if err := client.DeletePlugin(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted plugin "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted plugin "+args[0])
+			return nil
 		},
 	}
 	cmd.AddCommand(list, del)

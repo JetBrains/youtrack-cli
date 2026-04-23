@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"bufio"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
@@ -31,8 +31,6 @@ from your profile (Users → your account → Authentication tab).
 
 Use --format json for machine-readable output.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			force, _ := cmd.Flags().GetBool("force")
-
 			home, err := os.UserHomeDir()
 			if err != nil {
 				return fmt.Errorf("resolving home dir: %w", err)
@@ -51,34 +49,27 @@ Use --format json for machine-readable output.`,
 			if !hasCredentials {
 				res := LogoutResult{Status: "not configured"}
 				if !flagChanged(cmd, "format") {
-					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Not logged in — nothing to remove.")
+					output.PrintSuccess(cmd, "not logged in — nothing to remove")
 					return nil
 				}
 				return output.Print(cmd, res)
 			}
 
-			if !force {
-				label := url
-				if label == "" {
-					label = "current instance"
+			label := url
+			if label == "" {
+				label = "current instance"
+			}
+			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Remove credentials for %s?", label))
+			if err != nil {
+				return err
+			}
+			if !confirmed {
+				res := LogoutResult{URL: url, Status: "canceled"}
+				if !flagChanged(cmd, "format") {
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
+					return nil
 				}
-				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Remove credentials for %s? [y/N]: ", label); err != nil {
-					return err
-				}
-				reader := bufio.NewReader(cmd.InOrStdin())
-				answer, err := reader.ReadString('\n')
-				if err != nil {
-					return fmt.Errorf("confirmation requires interactive input; use --force to skip")
-				}
-				answer = strings.ToLower(strings.TrimSpace(answer))
-				if answer != "y" && answer != "yes" {
-					res := LogoutResult{URL: url, Status: "canceled"}
-					if !flagChanged(cmd, "format") {
-						_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
-						return nil
-					}
-					return output.Print(cmd, res)
-				}
+				return output.Print(cmd, res)
 			}
 
 			updated := removeEnvLine(content, "YOUTRACK_BASE_URL")
@@ -90,9 +81,9 @@ Use --format json for machine-readable output.`,
 			res := LogoutResult{URL: url, Status: "logged out"}
 			if !flagChanged(cmd, "format") {
 				if url != "" {
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Logged out from %s\n", url)
+					output.PrintSuccess(cmd, "logged out from "+url)
 				} else {
-					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Logged out.")
+					output.PrintSuccess(cmd, "logged out")
 				}
 				return nil
 			}

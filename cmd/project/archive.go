@@ -1,11 +1,10 @@
 package project
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newProjectArchiveCmd() *cobra.Command {
@@ -21,8 +20,8 @@ func newProjectArchiveCmd() *cobra.Command {
 			if err := client.ArchiveProject(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "archived project "+args[0])
-			return err
+			output.PrintSuccess(cmd, "archived project "+args[0])
+			return nil
 		},
 	}
 }
