@@ -260,8 +260,8 @@ func newArticleTagCmd() *cobra.Command {
 			if err := client.TagArticle(args[0], args[1]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "tagged article "+args[0])
-			return err
+			output.PrintSuccess(cmd, "tagged article "+args[0])
+			return nil
 		},
 	}
 }
@@ -280,8 +280,8 @@ func newArticleVisibilityCmd() *cobra.Command {
 			if err := client.UpdateArticleVisibility(args[0], groups, users); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for article "+args[0])
-			return err
+			output.PrintSuccess(cmd, "updated visibility for article "+args[0])
+			return nil
 		},
 	}
 	cmd.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")
@@ -301,8 +301,8 @@ func newArticleSetParentCmd() *cobra.Command {
 			if err := client.SetParentArticle(args[0], args[1]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "set parent of "+args[0]+" to "+args[1])
-			return err
+			output.PrintSuccess(cmd, "set parent of "+args[0]+" to "+args[1])
+			return nil
 		},
 	}
 }

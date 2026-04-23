@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newUserProfileCmd() *cobra.Command {
@@ -35,8 +36,8 @@ func newUserProfilePropertyCmd() *cobra.Command {
 			if err := client.SetUserProfileProperty(args[0], args[1], args[2]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated profile property "+args[1])
-			return err
+			output.PrintSuccess(cmd, "updated profile property "+args[1])
+			return nil
 		},
 	}
 	return cmd

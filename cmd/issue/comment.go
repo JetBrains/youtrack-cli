@@ -146,8 +146,8 @@ func newCommentVisibilityCmd() *cobra.Command {
 			if err := client.UpdateCommentVisibility(args[0], args[1], groups, users); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated visibility for comment "+args[1])
-			return err
+			output.PrintSuccess(cmd, "updated visibility for comment "+args[1])
+			return nil
 		},
 	}
 	cmd.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")
@@ -173,8 +173,8 @@ func newCommentPinCmd() *cobra.Command {
 			if unpin {
 				action = "unpinned"
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), action+" comment "+args[1])
-			return err
+			output.PrintSuccess(cmd, action+" comment "+args[1])
+			return nil
 		},
 	}
 	cmd.Flags().Bool("unpin", false, "Unpin the comment instead")

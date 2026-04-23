@@ -1,11 +1,10 @@
 package project
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newProjectTimetrackCmd() *cobra.Command {
@@ -22,8 +21,8 @@ func newProjectTimetrackCmd() *cobra.Command {
 			if err := client.SetProjectTimeTracking(args[0], enabled); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "updated time tracking for project "+args[0])
-			return err
+			output.PrintSuccess(cmd, "updated time tracking for project "+args[0])
+			return nil
 		},
 	}
 	set.Flags().Bool("enabled", true, "Enable time tracking")

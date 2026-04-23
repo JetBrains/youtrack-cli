@@ -1,11 +1,10 @@
 package project
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newProjectWorkflowCmd() *cobra.Command {
@@ -22,8 +21,8 @@ func newProjectWorkflowCmd() *cobra.Command {
 			if err := client.AttachWorkflowToProject(args[0], workflowID); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "attached workflow "+workflowID+" to project "+args[0])
-			return err
+			output.PrintSuccess(cmd, "attached workflow "+workflowID+" to project "+args[0])
+			return nil
 		},
 	}
 	add.Flags().String("workflow", "", "Workflow ID (required)")

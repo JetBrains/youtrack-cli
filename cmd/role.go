@@ -81,8 +81,8 @@ func newRoleDeleteCmd() *cobra.Command {
 			if err := client.DeleteRole(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted role "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted role "+args[0])
+			return nil
 		},
 	}
 }

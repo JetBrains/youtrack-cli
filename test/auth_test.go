@@ -248,7 +248,7 @@ func TestAuth_Logout_Force(t *testing.T) {
 	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome},
 		"auth", "logout", "--force")
 
-	assert.Contains(t, out, "Logged out from https://test.example.com")
+	assert.Contains(t, out, "logged out from https://test.example.com")
 	data, err := os.ReadFile(envFile)
 	require.NoError(t, err)
 	assert.NotContains(t, string(data), "YOUTRACK_BASE_URL")
@@ -264,7 +264,7 @@ func TestAuth_Logout_Confirm(t *testing.T) {
 	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome},
 		"auth", "logout")
 
-	assert.Contains(t, out, "Logged out from https://test.example.com")
+	assert.Contains(t, out, "logged out from https://test.example.com")
 	data, err := os.ReadFile(envFile)
 	require.NoError(t, err)
 	assert.NotContains(t, string(data), "YOUTRACK_BASE_URL")
@@ -293,7 +293,7 @@ func TestAuth_Logout_NotConfigured(t *testing.T) {
 	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome},
 		"auth", "logout", "--force")
 
-	assert.Contains(t, out, "Not logged in")
+	assert.Contains(t, out, "not logged in")
 }
 
 func TestAuth_Logout_JSONFormat(t *testing.T) {

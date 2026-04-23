@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -44,8 +42,8 @@ func newVCSDeleteCmd() *cobra.Command {
 			if err := client.DeleteVCSServer(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted VCS server "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted VCS server "+args[0])
+			return nil
 		},
 	}
 }
@@ -95,8 +93,8 @@ func newVCSProcessorCmd() *cobra.Command {
 			if err := client.DeleteVCSProcessor(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted VCS processor "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted VCS processor "+args[0])
+			return nil
 		},
 	}
 	cmd.AddCommand(list, del)

@@ -1,11 +1,10 @@
 package project
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newProjectTeamCmd() *cobra.Command {
@@ -21,8 +20,8 @@ func newProjectTeamCmd() *cobra.Command {
 			if err := client.AddUserToProjectTeam(args[0], args[1]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "added user "+args[1]+" to project "+args[0])
-			return err
+			output.PrintSuccess(cmd, "added user "+args[1]+" to project "+args[0])
+			return nil
 		},
 	}
 	addGroup := &cobra.Command{
@@ -36,8 +35,8 @@ func newProjectTeamCmd() *cobra.Command {
 			if err := client.AddGroupToProjectTeam(args[0], args[1]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "added group "+args[1]+" to project "+args[0])
-			return err
+			output.PrintSuccess(cmd, "added group "+args[1]+" to project "+args[0])
+			return nil
 		},
 	}
 	cmd.AddCommand(addUser, addGroup)

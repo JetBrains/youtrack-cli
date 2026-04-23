@@ -49,7 +49,7 @@ Use --format json for machine-readable output.`,
 			if !hasCredentials {
 				res := LogoutResult{Status: "not configured"}
 				if !flagChanged(cmd, "format") {
-					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Not logged in — nothing to remove.")
+					output.PrintSuccess(cmd, "not logged in — nothing to remove")
 					return nil
 				}
 				return output.Print(cmd, res)
@@ -81,9 +81,9 @@ Use --format json for machine-readable output.`,
 			res := LogoutResult{URL: url, Status: "logged out"}
 			if !flagChanged(cmd, "format") {
 				if url != "" {
-					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Logged out from %s\n", url)
+					output.PrintSuccess(cmd, "logged out from "+url)
 				} else {
-					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Logged out.")
+					output.PrintSuccess(cmd, "logged out")
 				}
 				return nil
 			}

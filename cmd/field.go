@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -78,8 +77,8 @@ func newFieldDeleteCmd() *cobra.Command {
 			if err := client.DeleteCustomField(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted field "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted field "+args[0])
+			return nil
 		},
 	}
 }

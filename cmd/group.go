@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -87,8 +85,8 @@ func newGroupDeleteCmd() *cobra.Command {
 			if err := client.DeleteGroup(args[0], successor); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted group "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted group "+args[0])
+			return nil
 		},
 	}
 	cmd.Flags().String("successor", "", "ID or name of the group that inherits references from the deleted group")
