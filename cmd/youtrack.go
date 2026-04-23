@@ -16,10 +16,10 @@ import (
 // NewRootCmd constructs the root command. Called by Execute() and by tests.
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:          "youtrack",
-		Short:        "YouTrack CLI",
-		Long:         "CLI for interacting with the YouTrack REST API. Designed for AI agents and developers.",
-		Version:      internal.Version + " (" + internal.Commit + ", " + internal.Date + ")",
+		Use:           "youtrack",
+		Short:         "YouTrack CLI",
+		Long:          "CLI for interacting with the YouTrack REST API. Designed for AI agents and developers.",
+		Version:       internal.Version + " (" + internal.Commit + ", " + internal.Date + ")",
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
