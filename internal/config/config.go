@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
@@ -39,7 +40,7 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
+	if errors.Is(err, os.ErrNotExist) {
 		return &Config{Instances: map[string]Instance{}}, nil
 	}
 	if err != nil {
@@ -68,6 +69,7 @@ func (c *Config) Save() error {
 	}
 	tmp := path + ".tmp"
 	if err := os.WriteFile(tmp, append(data, '\n'), 0600); err != nil {
+		_ = os.Remove(tmp) // clean up any partial write
 		return fmt.Errorf("writing config: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
@@ -78,6 +80,8 @@ func (c *Config) Save() error {
 }
 
 // ActiveInstance returns a pointer to the active instance and its alias.
+// The returned pointer points to a detached copy — mutating it has no effect on Config.
+// Always call Save() after modifying instances through other methods.
 // Returns (nil, "") when no instance is configured as active.
 // Returns (nil, alias) when currentInstance names an alias that is missing from the map —
 // callers should treat this as a stale-pointer error.
