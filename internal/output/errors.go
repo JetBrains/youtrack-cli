@@ -42,9 +42,9 @@ func RenderError(w, jsonOut io.Writer, err error, jsonMode, quiet bool) {
 		_ = enc.Encode(env)
 		return
 	}
-	fmt.Fprintf(w, "%s Error: %s\n", color.New(color.FgRed).Sprint("✗"), err)
+	_, _ = fmt.Fprintf(w, "%s Error: %s\n", color.New(color.FgRed).Sprint("✗"), err)
 	if tip != "" && !quiet {
-		fmt.Fprintf(w, "  Tip: %s\n", tip)
+		_, _ = fmt.Fprintf(w, "  Tip: %s\n", tip)
 	}
 }
 

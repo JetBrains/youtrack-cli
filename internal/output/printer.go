@@ -15,7 +15,7 @@ var (
 // PrintSuccess writes "✓ msg\n" to cmd's stdout.
 // Not suppressed by --quiet — success confirmations are always shown.
 func PrintSuccess(cmd *cobra.Command, msg string) {
-	fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", successIcon, msg)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", successIcon, msg)
 }
 
 // PrintWarn writes "! msg\n" to cmd's stderr.
@@ -24,7 +24,7 @@ func PrintWarn(cmd *cobra.Command, msg string) {
 	if isQuiet(cmd) {
 		return
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "%s %s\n", warnIcon, msg)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "%s %s\n", warnIcon, msg)
 }
 
 // PrintTip writes "  Tip: msg\n" to cmd's stderr.
@@ -33,7 +33,7 @@ func PrintTip(cmd *cobra.Command, msg string) {
 	if isQuiet(cmd) {
 		return
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "  Tip: %s\n", msg)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  Tip: %s\n", msg)
 }
 
 // isQuiet reports whether --quiet is set on the root command.
