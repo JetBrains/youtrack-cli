@@ -72,6 +72,8 @@ func TestInstance_Use_UnknownAlias(t *testing.T) {
 	tmpHome := t.TempDir()
 	configFixture(t, tmpHome, twoInstanceConfig)
 
+	// Use raw exec.Command here — runCmdWithEnv calls require.NoError on exit,
+	// which would panic instead of letting us assert the expected error.
 	cmd := exec.Command(binaryPath, "instance", "use", "doesnotexist")
 	cmd.Env = append(os.Environ(), "HOME="+tmpHome)
 	out, err := cmd.CombinedOutput()
