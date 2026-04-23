@@ -56,6 +56,10 @@ Use --format json for machine-readable output.`,
 				baseURL = strings.TrimSpace(raw)
 			}
 			baseURL = strings.TrimRight(baseURL, "/")
+			// Add https:// if the user omitted the scheme.
+			if baseURL != "" && !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
+				baseURL = "https://" + baseURL
+			}
 			if baseURL == "" {
 				return fmt.Errorf("base URL is required")
 			}
@@ -187,7 +191,7 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 		tokenPageURL = hubURL + "/users/me?tab=authentication"
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "Opening token page in your browser:\n  %s\n\n", tokenPageURL)
+	fmt.Fprintf(cmd.ErrOrStderr(), "Opening token page in your browser:\n  %s\n\n", hyperlink(tokenPageURL))
 	fmt.Fprintln(cmd.ErrOrStderr(), "Steps:")
 	fmt.Fprintln(cmd.ErrOrStderr(), "  1. Log in if prompted")
 	fmt.Fprintln(cmd.ErrOrStderr(), "  2. Click 'New token' (or 'Generate new token')")
@@ -264,7 +268,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 		}
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "Create a permanent token at:\n  %s\n\n", tokenPageURL)
+	fmt.Fprintf(cmd.ErrOrStderr(), "Create a permanent token at:\n  %s\n\n", hyperlink(tokenPageURL))
 
 	if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Paste your token: "); err != nil {
 		return err
@@ -378,6 +382,12 @@ func upsertEnvLine(content, key, value string) string {
 		lines = append(lines, newLine)
 	}
 	return strings.Join(lines, "\n") + "\n"
+}
+
+// hyperlink returns an OSC 8 terminal hyperlink for the given URL.
+// Terminals that support OSC 8 render it as a clickable link; others display the raw URL.
+func hyperlink(url string) string {
+	return fmt.Sprintf("\033]8;;%s\033\\%s\033]8;;\033\\", url, url)
 }
 
 // flagChanged reports whether a flag (local or inherited persistent) was explicitly
