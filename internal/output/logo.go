@@ -17,7 +17,7 @@ const logo = ` __   __         _____               _
    | | (_) | |_| || || | | (_| | (__|   <
    |_|\___/ \__,_||_||_|  \__,_|\___|_|\_\`
 
-// Phase 1 — katakana rain before the logo materialises.
+// Phase 1 — katakana rain before the logo materializes.
 var katakanaGlyphs = []rune("ｦｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ")
 
 // Phase 2 — arrows as the logo snaps into focus.
