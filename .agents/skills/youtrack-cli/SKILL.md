@@ -22,9 +22,12 @@ youtrack auth get-token
 ```
 Prompts for base URL (if `YOUTRACK_BASE_URL` not set), then auth type:
 - **1 — Basic auth**: prompts for login + password, creates a Hub permanent token via Hub API.
+  - The interactive password prompt requires a TTY. In scripts, pass `--password <pass>` as a flag to avoid the prompt.
+  - Use `--scope <service-names>` (comma-separated) to request specific Hub services. Default: YouTrack + YouTrack Administration.
 - **2 — Web browser**: fetches `/.well-known/oauth-protected-resource/mcp` to detect internal vs. external Hub, opens the browser token management page, prompts for paste, verifies the token before saving.
   - Internal Hub → `{youtrackURL}/users/me?tab=account-security`
   - External Hub → `{hubURL}/users/me?tab=authentication`
+  - If the browser cannot be opened automatically, the CLI prints the token page URL; open it manually.
 
 Both flows save `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env` by default (`--save=false` to skip).
 

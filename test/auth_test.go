@@ -1,8 +1,10 @@
 package api_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -56,4 +58,90 @@ func TestAuth_Status(t *testing.T) {
 	assert.NotEmpty(t, result.FullName)
 	assert.NotEmpty(t, result.Login)
 	assert.Equal(t, os.Getenv("YOUTRACK_BASE_URL"), result.URL)
+}
+
+func TestAuth_HubDiscovery(t *testing.T) {
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	if baseURL == "" {
+		t.Skip("YOUTRACK_BASE_URL not set — skipping hub discovery test")
+	}
+
+	resource, err := api.GetOAuthProtectedResource(baseURL)
+	require.NoError(t, err)
+	assert.NotEmpty(t, resource.AuthorizationServers, "expected at least one authorization server")
+
+	hubURL, _, err := api.DetectHubURL(baseURL)
+	require.NoError(t, err)
+	// isInternal depends on the YouTrack instance topology (bundled vs. external Hub).
+	// We only verify the function returns a non-empty URL without asserting the topology.
+	assert.NotEmpty(t, hubURL)
+}
+
+func TestAuth_Status_InvalidToken(t *testing.T) {
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	if baseURL == "" {
+		t.Skip("YOUTRACK_BASE_URL not set — skipping invalid token test")
+	}
+
+	cmd := exec.Command(binaryPath, "--base-url", baseURL, "--token", "perm:invalid-token-for-test", "auth", "status")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	require.NoError(t, err, "binary stderr: %s", stderr.String())
+	out := stdout.String()
+
+	var result struct {
+		URL    string `json:"url"`
+		Status string `json:"status"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result))
+	assert.Contains(t, result.Status, "invalid token")
+	assert.Equal(t, baseURL, result.URL)
+}
+
+func TestAuth_Status_TableFormat(t *testing.T) {
+	requireE2EEnv(t)
+
+	// auth status --format table falls back to JSON (table rendering not implemented for this command).
+	out := runCmd(t, "--format", "table", "auth", "status")
+
+	var result struct {
+		Status string `json:"status"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result))
+	assert.Equal(t, "authenticated", result.Status)
+}
+
+func TestAuth_GetTokenViaBasicAuthCLI(t *testing.T) {
+	login := os.Getenv("YOUTRACK_LOGIN")
+	password := os.Getenv("YOUTRACK_PASSWORD")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	if login == "" || password == "" || baseURL == "" {
+		t.Skip("YOUTRACK_LOGIN, YOUTRACK_PASSWORD, and YOUTRACK_BASE_URL not set — skipping CLI basic auth test")
+	}
+
+	// Pipe "1\n" to select basic auth; login and password come from flags.
+	out := runCmdWithInput(t, "1\n",
+		"--base-url", baseURL,
+		"auth", "get-token",
+		"--login", login,
+		"--password", password,
+		"--token-name", "e2e-test-cli-token",
+		"--save=false",
+	)
+
+	var result struct {
+		ID    string `json:"id"`
+		Token string `json:"token"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
+	t.Cleanup(func() {
+		me, err := api.GetHubMe(baseURL, login, password)
+		if err == nil {
+			_ = api.DeleteHubToken(baseURL, login, password, me.ID, result.ID)
+		}
+	})
+	assert.NotEmpty(t, result.Token)
+	assert.NotEmpty(t, result.ID)
 }

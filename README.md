@@ -55,7 +55,10 @@ Alternatively, use the `auth get-token` command to authenticate interactively:
 ```bash
 youtrack auth get-token
 # Base URL: https://your-instance.youtrack.cloud
-# Auth type: [1] Basic auth / [2] Web browser: 1
+# Auth type:
+#   1) Basic auth (login + password)
+#   2) Web browser (open YouTrack and paste token)
+# Enter 1 or 2: 1
 # Login: alice
 # Password: (prompted, hidden)
 ```
