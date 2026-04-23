@@ -43,11 +43,11 @@ Use --format json for machine-readable output.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reader := bufio.NewReader(os.Stdin)
 
-			// Resolve base URL — flag → env → interactive prompt.
+			// Resolve base URL — flag → interactive prompt.
+			// YOUTRACK_BASE_URL is intentionally ignored here: get-token is used to
+			// set up credentials (possibly for a new instance), so the URL should
+			// always be confirmed. Use --base-url to skip the prompt in scripts.
 			baseURL, _ := cmd.Root().PersistentFlags().GetString("base-url")
-			if baseURL == "" {
-				baseURL = os.Getenv("YOUTRACK_BASE_URL")
-			}
 			if baseURL == "" {
 				if _, err := fmt.Fprint(cmd.ErrOrStderr(), "YouTrack base URL: "); err != nil {
 					return err
