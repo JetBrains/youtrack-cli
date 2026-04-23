@@ -68,7 +68,7 @@ func (c *Client) waitForGroupDeletion(name, id string) error {
 		switch {
 		case err == nil:
 			// Still resolvable by exact id, so the merge/delete has not finished yet.
-		case strings.Contains(err.Error(), "HTTP 404"):
+		case isGroupDeletionObserved(err):
 			return nil
 		default:
 			return err
@@ -78,4 +78,12 @@ func (c *Client) waitForGroupDeletion(name, id string) error {
 		}
 		time.Sleep(entityDeletePollInterval)
 	}
+}
+
+func isGroupDeletionObserved(err error) bool {
+	if err == nil {
+		return false
+	}
+	message := err.Error()
+	return strings.Contains(message, "HTTP 404") || strings.Contains(message, "was removed")
 }

@@ -129,7 +129,7 @@ func runCmd(t *testing.T, args ...string) string {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
-	require.NoError(t, err, "binary stderr: %s", stderr.String())
+	require.NoError(t, err, "binary stdout: %s\nbinary stderr: %s", stdout.String(), stderr.String())
 	return stdout.String()
 }
 
@@ -147,7 +147,7 @@ func runCmdWithInput(t *testing.T, stdinInput string, args ...string) string {
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
-	require.NoError(t, err, "binary stderr: %s", stderr.String())
+	require.NoError(t, err, "binary stdout: %s\nbinary stderr: %s", stdout.String(), stderr.String())
 	return stdout.String()
 }
 
@@ -166,6 +166,6 @@ func runCmdWithEnv(t *testing.T, stdinInput string, extraEnv []string, args ...s
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
 	err := cmd.Run()
-	require.NoError(t, err, "binary stderr: %s", stderr.String())
+	require.NoError(t, err, "binary stdout: %s\nbinary stderr: %s", stdout.String(), stderr.String())
 	return stdout.String()
 }
