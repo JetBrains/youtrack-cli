@@ -7,20 +7,21 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/fatih/color"
 )
 
 const logo = ` ⢇⢸ ⢀⡀ ⡀⢀ ⢹⠁ ⡀⣀ ⢀⣀ ⢀⣀ ⡇⡠
   ⠇ ⠣⠜ ⠣⠼ ⠸  ⠏  ⠣⠼ ⠣⠤ ⠏⠢`
 
-const (
-	ansiBrightMagenta = "\033[1;35m"
-	ansiMagenta       = "\033[35m"
-	ansiDimMagenta    = "\033[2;35m"
-	ansiReset         = "\033[0m"
-)
-
 // glyphs use braille characters to match the Small Braille aesthetic during flicker.
 var glyphs = []rune("⠁⠂⠃⠄⠅⠆⠇⡀⡁⡂⠈⠉⠊⠋⠌⠍⠎⠏⠐⠑⡄⡅⡆⡇⢀⢁⢂⢃⢄⢅⢆⢇⣀⣁⣂⣃")
+
+var (
+	brightMagentaStyle = color.New(color.FgMagenta, color.Bold)
+	magentaStyle       = color.New(color.FgMagenta)
+	dimMagentaStyle    = color.New(color.FgMagenta, color.Faint)
+)
 
 // PrintLogo prints the YouTrack ASCII logo to w.
 // If w is a terminal, it plays a matrix-style reveal animation in magenta.
@@ -46,24 +47,24 @@ func PrintLogo(w io.Writer) {
 
 	revealed := make(map[pos]bool)
 
-	rowColor := func(r int) string {
+	rowStyle := func(r int) *color.Color {
 		if r == 0 {
-			return ansiBrightMagenta
+			return brightMagentaStyle
 		}
-		return ansiMagenta
+		return magentaStyle
 	}
 
 	render := func() {
 		for r, line := range lines {
-			color := rowColor(r)
+			style := rowStyle(r)
 			for c, ch := range []rune(line) {
 				switch {
 				case ch == ' ':
 					_, _ = fmt.Fprint(w, " ")
 				case revealed[pos{r, c}]:
-					_, _ = fmt.Fprint(w, color+string(ch)+ansiReset)
+					_, _ = fmt.Fprint(w, style.Sprint(string(ch)))
 				default:
-					_, _ = fmt.Fprint(w, ansiDimMagenta+string(glyphs[rand.Intn(len(glyphs))])+ansiReset)
+					_, _ = fmt.Fprint(w, dimMagentaStyle.Sprint(string(glyphs[rand.Intn(len(glyphs))])))
 				}
 			}
 			_, _ = fmt.Fprint(w, "\033[K\n")
@@ -102,7 +103,7 @@ func PrintLogo(w io.Writer) {
 
 	// Final clean render with 3D gradient
 	for r, line := range lines {
-		_, _ = fmt.Fprint(w, rowColor(r)+line+ansiReset+"\033[K\n")
+		_, _ = fmt.Fprint(w, rowStyle(r).Sprint(line)+"\033[K\n")
 	}
 }
 
