@@ -68,8 +68,10 @@ Use --format json for machine-readable output.`,
 			}
 
 			// Resolve alias — flag → interactive prompt with derived default.
-			// Skip prompt when --alias was explicitly provided.
-			if !flagChanged(cmd, "alias") {
+			// Only prompt when saving: alias is meaningless without a config entry.
+			// Skip prompt when --alias was explicitly provided or --save=false.
+			save, _ := cmd.Flags().GetBool("save")
+			if save && !flagChanged(cmd, "alias") {
 				derived := config.DeriveAlias(baseURL)
 				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Instance alias [%s]: ", derived); err != nil {
 					return err
