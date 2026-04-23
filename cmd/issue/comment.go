@@ -80,11 +80,19 @@ func newCommentAddCmd() *cobra.Command {
 }
 
 func newCommentDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "delete <issueId> <commentId>",
 		Short: "Delete a comment",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Delete comment %s?", args[1]))
+			if err != nil {
+				return err
+			}
+			if !confirmed {
+				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
+				return nil
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -92,10 +100,12 @@ func newCommentDeleteCmd() *cobra.Command {
 			if err := client.DeleteComment(args[0], args[1]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted comment "+args[1])
-			return err
+			output.PrintSuccess(cmd, "deleted comment "+args[1])
+			return nil
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }
 
 func newCommentUpdateCmd() *cobra.Command {
