@@ -175,10 +175,12 @@ func TestAuth_GetTokenSchemeNormalization(t *testing.T) {
 	token := os.Getenv("YOUTRACK_TOKEN")
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 	// Strip the scheme to simulate a user typing the URL without https://.
-	schemeless := strings.TrimPrefix(strings.TrimPrefix(baseURL, "https://"), "http://")
-	if schemeless == baseURL {
-		t.Skip("YOUTRACK_BASE_URL has no scheme to strip — normalization not applicable")
+	// The normalization always prepends https://, so this test only makes sense
+	// against an HTTPS endpoint — skip for HTTP-only local servers.
+	if !strings.HasPrefix(baseURL, "https://") {
+		t.Skip("YOUTRACK_BASE_URL is not https:// — normalization test requires an HTTPS endpoint")
 	}
+	schemeless := strings.TrimPrefix(baseURL, "https://")
 
 	// The CLI should prepend https:// automatically and still succeed.
 	out := runCmdWithInput(t, "3\n"+token+"\n",
