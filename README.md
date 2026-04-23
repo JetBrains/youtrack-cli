@@ -50,19 +50,23 @@ export YOUTRACK_TOKEN=perm:...
 
 Or write them to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automatically on every run.
 
-Alternatively, use the `auth get-token` command to obtain a token automatically:
+Alternatively, use the `auth get-token` command to authenticate interactively:
 
 ```bash
-youtrack auth get-token --base-url https://your-instance.youtrack.cloud --login alice --save
+youtrack auth get-token
+# Base URL: https://your-instance.youtrack.cloud
+# Auth type: [1] Basic auth / [2] Web browser: 1
+# Login: alice
 # Password: (prompted, hidden)
 ```
 
-`--save` writes both `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env`, loaded automatically on every CLI invocation. Other flags: `--token-name` (default: `cli-token`), `--scope` (default: YouTrack + YouTrack Administration).
+This prompts for base URL (if `YOUTRACK_BASE_URL` not set), auth type, and credentials. It saves `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env` by default (`--save=false` to skip).
 
 ## Commands
 
 | Group | Subcommands |
 |---|---|
+| `auth` | `get-token`, `status` |
 | `issue` | `get`, `list`, `add`, `update`, `delete`, `command`, `comment list`, `comment add`, `comment delete` |
 | `project` | `list`, `get`, `add`, `delete` |
 | `user` | `list`, `get`, `current`, `add`, `delete`, `ban`, `unban` |

@@ -6,16 +6,27 @@ description: CRUD for YouTrack entities (issues, projects, users, comments) via 
 allowed-tools: Bash
 ---
 
-## Bootstrap: Get a Token
+## Auth
 
-Use `auth get-token` when no `YOUTRACK_TOKEN` exists yet. Requires Hub login/password.
-
+### Check auth status
 ```bash
-youtrack auth get-token --base-url https://your.youtrack.cloud --login alice --save
-# Password: (prompted, hidden)
+youtrack auth status
 ```
+Returns: `{"url":"...","login":"...","fullName":"...","status":"authenticated"}`
+Status values: `"authenticated"` | `"invalid token: ..."` | `"not configured: ..."`
+Always exits 0 — check the `status` field programmatically. Use after `auth get-token` to confirm credentials were saved correctly.
 
-`--save` writes both `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env`, loaded automatically on every CLI invocation. No need to source or export manually.
+### Authenticate interactively
+```bash
+youtrack auth get-token
+```
+Prompts for base URL (if `YOUTRACK_BASE_URL` not set), then auth type:
+- **1 — Basic auth**: prompts for login + password, creates a Hub permanent token via Hub API.
+- **2 — Web browser**: fetches `/.well-known/oauth-protected-resource/mcp` to detect internal vs. external Hub, opens the browser token management page, prompts for paste, verifies the token before saving.
+  - Internal Hub → `{youtrackURL}/users/me?tab=account-security`
+  - External Hub → `{hubURL}/users/me?tab=authentication`
+
+Both flows save `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env` by default (`--save=false` to skip).
 
 ## Setup (run silently before every task)
 
