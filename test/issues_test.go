@@ -86,7 +86,7 @@ func TestCmd_IssueDelete(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	runCmd(t, "issue", "delete", issue.IDReadable)
+	runCmd(t, "issue", "delete", issue.IDReadable, "--force")
 
 	_, err = c.GetIssue(issue.IDReadable)
 	assert.Error(t, err)
@@ -155,7 +155,7 @@ func TestCmd_IssueCommentCRUD(t *testing.T) {
 	require.Len(t, comments, 1)
 	assert.Equal(t, "updated from cli", comments[0].Text)
 
-	out = runCmd(t, "issue", "comment", "delete", issue.IDReadable, comment.ID)
+	out = runCmd(t, "issue", "comment", "delete", issue.IDReadable, comment.ID, "--force")
 	assert.Contains(t, out, "deleted comment "+comment.ID)
 
 	comments, err = c.ListComments(issue.IDReadable)
