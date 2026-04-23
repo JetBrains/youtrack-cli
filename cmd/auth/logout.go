@@ -24,7 +24,7 @@ type LogoutResult struct {
 func newLogoutCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logout",
-		Short: "Remove saved credentials from ~/.youtrack-cli-env",
+		Short: "Remove saved credentials for an instance",
 		Long: `Removes YOUTRACK_BASE_URL and YOUTRACK_TOKEN from ~/.youtrack-cli-env.
 
 The token remains valid on the YouTrack server until deleted manually

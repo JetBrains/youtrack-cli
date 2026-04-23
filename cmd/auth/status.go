@@ -153,8 +153,8 @@ func printMultiInstanceStatus(cmd *cobra.Command, statuses []InstanceStatus) {
 		if s.Active {
 			activeMarker = " " + color.New(color.FgGreen).Sprint("[active]")
 		}
-		switch {
-		case s.Status == "authenticated":
+		switch s.Status {
+		case "authenticated":
 			_, _ = fmt.Fprintf(w, "  %s %-20s %s  %s (%s)%s\n",
 				color.New(color.FgGreen).Sprint("✓"),
 				s.Alias, s.URL, s.FullName, s.Login, activeMarker)

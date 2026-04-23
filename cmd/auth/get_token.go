@@ -321,11 +321,9 @@ func saveCredentials(cmd *cobra.Command, baseURL, token string, res *getTokenRes
 	}
 
 	// One-time import prompt when env file has credentials and config is still empty.
-	// config.Load() always initialises Instances to a non-nil map, so len == 0 is safe.
+	// config.Load() always initializes Instances to a non-nil map, so len == 0 is safe.
 	if len(cfg.Instances) == 0 {
-		if err := offerEnvFileImport(cmd, cfg); err != nil {
-			return "", err
-		}
+		offerEnvFileImport(cmd, cfg)
 	}
 
 	finalAlias := cfg.AddInstance(alias, baseURL, token)
@@ -349,21 +347,21 @@ func saveCredentials(cmd *cobra.Command, baseURL, token string, res *getTokenRes
 // offerEnvFileImport checks ~/.youtrack-cli-env for existing credentials and, if found,
 // prompts the user to import them as a named instance into cfg.
 // This is a best-effort helper — errors are swallowed so they never block get-token.
-func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config) error {
+func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil
+		return
 	}
 	envFile := filepath.Join(home, ".youtrack-cli-env")
 	data, err := os.ReadFile(envFile)
 	if err != nil {
-		return nil
+		return
 	}
 	content := string(data)
 	existingURL := extractEnvValue(content, "YOUTRACK_BASE_URL")
 	existingToken := extractEnvValue(content, "YOUTRACK_TOKEN")
 	if existingURL == "" || existingToken == "" {
-		return nil
+		return
 	}
 
 	derivedAlias := config.DeriveAlias(existingURL)
@@ -373,7 +371,7 @@ func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config) error {
 
 	confirmed, err := internal.Confirm(cmd, "Import them as a named instance before adding the new one?")
 	if err != nil || !confirmed {
-		return nil
+		return
 	}
 
 	importedAlias := cfg.AddInstance("", existingURL, existingToken)
@@ -381,7 +379,6 @@ func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config) error {
 		"Imported as %q (inactive). Run: youtrack instance use %s to activate it.\n", importedAlias, importedAlias)
 	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
 		"Tip: ~/.youtrack-cli-env is no longer needed. You can delete it safely.\n\n")
-	return nil
 }
 
 // resolveScope maps the --scope flag to Hub service IDs.
@@ -420,29 +417,6 @@ func resolveScope(scope string, services []api.HubService) ([]string, error) {
 		}
 	}
 	return ids, nil
-}
-
-// upsertEnvLine sets KEY=value in an env file's content string,
-// replacing an existing line for that key or appending one if absent.
-func upsertEnvLine(content, key, value string) string {
-	prefix := key + "="
-	newLine := key + "=" + value
-	var lines []string
-	found := false
-	if content != "" {
-		for _, line := range strings.Split(strings.TrimRight(content, "\n"), "\n") {
-			if strings.HasPrefix(line, prefix) {
-				lines = append(lines, newLine)
-				found = true
-			} else {
-				lines = append(lines, line)
-			}
-		}
-	}
-	if !found {
-		lines = append(lines, newLine)
-	}
-	return strings.Join(lines, "\n") + "\n"
 }
 
 // hyperlink returns an OSC 8 terminal hyperlink for the given URL.

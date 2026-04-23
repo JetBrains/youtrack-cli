@@ -35,12 +35,14 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 				if token == "" {
 					token = inst.Token
 				}
-			case alias != "": // currentInstance set but alias missing from map
+			case alias != "":
+				// currentInstance is set but the alias is missing from the map (stale pointer).
 				return nil, fmt.Errorf(
 					"active instance %q not found in config — run: youtrack instance use <alias>\nKnown: %s",
 					alias, strings.Join(cfg.Aliases(), ", "),
 				)
-			case cfg.CurrentInstance == "" && len(cfg.Instances) > 0:
+			default:
+				// Config has instances but none is selected as active.
 				return nil, fmt.Errorf(
 					"no active instance — run: youtrack instance use <alias>\nKnown: %s",
 					strings.Join(cfg.Aliases(), ", "),

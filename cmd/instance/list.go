@@ -2,7 +2,6 @@ package instance
 
 import (
 	"fmt"
-	"sort"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
@@ -23,11 +22,7 @@ func newListCmd() *cobra.Command {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No instances configured. Run: youtrack auth get-token")
 				return nil
 			}
-			aliases := make([]string, 0, len(cfg.Instances))
-			for k := range cfg.Instances {
-				aliases = append(aliases, k)
-			}
-			sort.Strings(aliases)
+			aliases := cfg.Aliases()
 			for _, alias := range aliases {
 				inst := cfg.Instances[alias]
 				active := ""
