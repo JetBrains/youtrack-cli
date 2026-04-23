@@ -274,3 +274,31 @@ func TestAuthGetToken_EnvFileImport_No(t *testing.T) {
 	assert.Len(t, result.Instances, 1)
 	assert.Contains(t, result.Instances, "onlynew")
 }
+
+func TestAuthStatus_MultiInstance(t *testing.T) {
+	requireE2EEnv(t)
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	token := os.Getenv("YOUTRACK_TOKEN")
+	tmpHome := t.TempDir()
+
+	cfg := `{
+  "currentInstance": "myinst",
+  "instances": {
+    "myinst": {"url": "` + baseURL + `", "token": "` + token + `"},
+    "broken": {"url": "https://invalid.example.com", "token": "perm:bad"}
+  }
+}`
+	configFixture(t, tmpHome, cfg)
+
+	cmd := exec.Command(binaryPath, "auth", "status")
+	cmd.Env = []string{"HOME=" + tmpHome}
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	require.NoError(t, cmd.Run(), "stderr: %s", stderr.String())
+	out := stdout.String()
+
+	assert.Contains(t, out, "myinst")
+	assert.Contains(t, out, "[active]")
+	assert.Contains(t, out, "broken")
+}
