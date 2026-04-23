@@ -8,6 +8,7 @@ func NewCmd() *cobra.Command {
 		Use:   "instance",
 		Short: "Manage configured YouTrack instances",
 	}
+	cmd.AddCommand(newAddCmd())
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newUseCmd())
 	cmd.AddCommand(newRemoveCmd())

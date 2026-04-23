@@ -23,7 +23,9 @@ type getTokenResult struct {
 	Hint    string `json:"_hint,omitempty"`
 }
 
-func newGetTokenCmd() *cobra.Command {
+// NewGetTokenCmd constructs the "get-token" command. Exported so cmd/instance
+// can register it as "instance add" without duplicating the implementation.
+func NewGetTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-token",
 		Short: "Authenticate interactively and save a permanent token",
