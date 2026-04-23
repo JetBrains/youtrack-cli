@@ -65,6 +65,16 @@ youtrack auth get-token
 # Password: (prompted, hidden)
 ```
 
+To remove saved credentials:
+
+```bash
+youtrack auth logout
+# Remove credentials for https://your-instance? [y/N]: y
+# Logged out from https://your-instance
+```
+
+Note: this only removes the local credentials — the token remains valid on the server until deleted from your YouTrack profile.
+
 Three auth methods are available:
 - **Basic auth** — login + password via Hub API. Requires the Hub basic-auth endpoint to be enabled.
 - **Web browser** — the CLI detects your Hub URL, opens the token management page in a browser, then asks you to paste the token.
@@ -76,7 +86,7 @@ Saves `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env` by defau
 
 | Group | Subcommands |
 |---|---|
-| `auth` | `get-token`, `status` |
+| `auth` | `get-token`, `logout`, `status` |
 | `issue` | `get`, `list`, `add`, `update`, `delete`, `command`, `comment list`, `comment add`, `comment delete` |
 | `project` | `list`, `get`, `add`, `delete` |
 | `user` | `list`, `get`, `current`, `add`, `delete`, `ban`, `unban` |
