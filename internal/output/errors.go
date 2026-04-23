@@ -37,7 +37,9 @@ func RenderError(w, jsonOut io.Writer, err error, jsonMode, quiet bool) {
 			Message:    err.Error(),
 			Suggestion: tip,
 		}}
-		_ = json.NewEncoder(jsonOut).Encode(env)
+		enc := json.NewEncoder(jsonOut)
+		enc.SetIndent("", "  ")
+		_ = enc.Encode(env)
 		return
 	}
 	fmt.Fprintf(w, "%s Error: %s\n", color.New(color.FgRed).Sprint("✗"), err)
