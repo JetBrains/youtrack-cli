@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 var hubHTTPClient = &http.Client{}
@@ -32,6 +33,58 @@ type HubToken struct {
 	Token        string       `json:"token"`
 	Scope        []HubService `json:"scope"`
 	CreationTime int64        `json:"creationTime"`
+}
+
+// OAuthProtectedResource is the response from /.well-known/oauth-protected-resource/mcp.
+// It identifies which Hub authorization server the YouTrack instance uses.
+type OAuthProtectedResource struct {
+	Resource             string   `json:"resource"`
+	AuthorizationServers []string `json:"authorization_servers"`
+}
+
+// GetOAuthProtectedResource fetches OAuth protected resource metadata from the YouTrack
+// instance. This reveals which Hub authorization server it is configured to use.
+func GetOAuthProtectedResource(baseURL string) (*OAuthProtectedResource, error) {
+	endpoint := strings.TrimRight(baseURL, "/") + "/.well-known/oauth-protected-resource/mcp"
+	resp, err := hubHTTPClient.Get(endpoint)
+	if err != nil {
+		return nil, fmt.Errorf("fetching oauth-protected-resource: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("reading oauth-protected-resource response: %w", err)
+	}
+	if resp.StatusCode >= 300 {
+		return nil, fmt.Errorf("hub API HTTP %d: %s", resp.StatusCode, string(data))
+	}
+	var r OAuthProtectedResource
+	err = json.Unmarshal(data, &r)
+	return &r, err
+}
+
+// DetectHubURL discovers the Hub URL from YouTrack's oauth-protected-resource metadata.
+// Returns the hub URL and whether Hub is internal (same host as YouTrack) or external.
+func DetectHubURL(baseURL string) (hubURL string, isInternal bool, err error) {
+	resource, err := GetOAuthProtectedResource(baseURL)
+	if err != nil {
+		return "", false, err
+	}
+	if len(resource.AuthorizationServers) == 0 {
+		return "", false, fmt.Errorf("no authorization servers in oauth-protected-resource response")
+	}
+	hubURL = strings.TrimRight(resource.AuthorizationServers[0], "/")
+
+	ytParsed, err := url.Parse(strings.TrimRight(baseURL, "/"))
+	if err != nil {
+		return "", false, err
+	}
+	hubParsed, err := url.Parse(hubURL)
+	if err != nil {
+		return "", false, err
+	}
+	isInternal = ytParsed.Hostname() == hubParsed.Hostname()
+	return hubURL, isInternal, nil
 }
 
 func hubBasicAuth(login, password string) string {
