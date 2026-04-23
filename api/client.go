@@ -73,11 +73,11 @@ func handleResponse(resp *http.Response, result any) error {
 				apiErr.Message,
 			} {
 				if detail != "" {
-					return fmt.Errorf("HTTP %d: %s", resp.StatusCode, detail)
+					return &APIError{StatusCode: resp.StatusCode, Message: detail}
 				}
 			}
 		}
-		return fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
+		return &APIError{StatusCode: resp.StatusCode, Message: string(data)}
 	}
 	if result == nil || len(data) == 0 {
 		return nil
