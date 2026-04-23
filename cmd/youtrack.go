@@ -35,6 +35,7 @@ func NewRootCmd() *cobra.Command {
 	f.String("base-url", "", "Override YOUTRACK_BASE_URL")
 	f.String("token", "", "Override YOUTRACK_TOKEN")
 	f.Bool("verbose", false, "Print HTTP request/response to stderr")
+	f.Bool("quiet", false, "Suppress tips and hints (useful for scripting)")
 
 	// Domain sub-packages
 	rootCmd.AddCommand(auth.NewCmd())
@@ -67,5 +68,12 @@ func NewRootCmd() *cobra.Command {
 // Execute is the entrypoint called from main.go.
 func Execute() error {
 	internal.LoadEnvFile()
-	return NewRootCmd().Execute()
+	root := NewRootCmd()
+	if err := root.Execute(); err != nil {
+		format, _ := root.PersistentFlags().GetString("format")
+		quiet, _ := root.PersistentFlags().GetBool("quiet")
+		output.RenderError(root.ErrOrStderr(), root.OutOrStdout(), err, format == "json", quiet)
+		return err
+	}
+	return nil
 }
