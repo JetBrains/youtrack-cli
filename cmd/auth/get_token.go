@@ -115,7 +115,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 
 	me, err := api.GetHubMe(baseURL, login, password)
 	if err != nil {
-		return fmt.Errorf("authentication failed: %w", err)
+		return err
 	}
 
 	services, err := api.ListHubServices(baseURL, login, password)
@@ -138,6 +138,10 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 		if err := saveToEnvFile(baseURL, tok.Token, &res); err != nil {
 			return err
 		}
+	}
+	if !cmd.Root().PersistentFlags().Changed("format") {
+		printTokenResult(cmd, res)
+		return nil
 	}
 	return output.Print(cmd, res)
 }
@@ -199,7 +203,30 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 			return err
 		}
 	}
+	if !cmd.Root().PersistentFlags().Changed("format") {
+		printTokenResult(cmd, res)
+		return nil
+	}
 	return output.Print(cmd, res)
+}
+
+// printTokenResult writes a human-readable summary of a successful get-token result.
+func printTokenResult(cmd *cobra.Command, res getTokenResult) {
+	w := cmd.OutOrStdout()
+	name := "token"
+	if res.HubToken != nil && res.Name != "" {
+		name = res.Name
+	}
+	fmt.Fprintf(w, "Token ready: %s\n", name)
+	if res.HubToken != nil && res.Token != "" {
+		fmt.Fprintf(w, "  Token:  %s\n", res.Token)
+	}
+	if res.EnvFile != "" {
+		fmt.Fprintf(w, "  Saved:  %s\n", res.EnvFile)
+	}
+	if res.Hint != "" {
+		fmt.Fprintf(w, "\n%s\n", res.Hint)
+	}
 }
 
 // saveToEnvFile writes YOUTRACK_BASE_URL and YOUTRACK_TOKEN to ~/.youtrack-cli-env

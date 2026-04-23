@@ -45,7 +45,8 @@ func TestAuth_GetTokenViaBasicAuth(t *testing.T) {
 func TestAuth_Status(t *testing.T) {
 	requireE2EEnv(t)
 
-	out := runCmd(t, "auth", "status")
+	// Use --format json to get machine-readable output for assertions.
+	out := runCmd(t, "--format", "json", "auth", "status")
 
 	var result struct {
 		URL      string `json:"url"`
@@ -83,6 +84,7 @@ func TestAuth_Status_InvalidToken(t *testing.T) {
 		t.Skip("YOUTRACK_BASE_URL not set — skipping invalid token test")
 	}
 
+	// No --format flag: default human-readable output.
 	cmd := exec.Command(binaryPath, "--base-url", baseURL, "--token", "perm:invalid-token-for-test", "auth", "status")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
@@ -91,13 +93,8 @@ func TestAuth_Status_InvalidToken(t *testing.T) {
 	require.NoError(t, err, "binary stderr: %s", stderr.String())
 	out := stdout.String()
 
-	var result struct {
-		URL    string `json:"url"`
-		Status string `json:"status"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(out), &result))
-	assert.Contains(t, result.Status, "invalid token")
-	assert.Equal(t, baseURL, result.URL)
+	assert.Contains(t, out, "Token invalid")
+	assert.Contains(t, out, baseURL)
 }
 
 func TestAuth_Status_TableFormat(t *testing.T) {
@@ -122,8 +119,10 @@ func TestAuth_GetTokenViaBasicAuthCLI(t *testing.T) {
 	}
 
 	// Pipe "1\n" to select basic auth; login and password come from flags.
+	// Use --format json for machine-readable output.
 	out := runCmdWithInput(t, "1\n",
 		"--base-url", baseURL,
+		"--format", "json",
 		"auth", "get-token",
 		"--login", login,
 		"--password", password,

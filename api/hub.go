@@ -56,7 +56,7 @@ func GetOAuthProtectedResource(baseURL string) (*OAuthProtectedResource, error) 
 		return nil, fmt.Errorf("reading oauth-protected-resource response: %w", err)
 	}
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("hub API HTTP %d: %s", resp.StatusCode, string(data))
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
 	}
 	var r OAuthProtectedResource
 	err = json.Unmarshal(data, &r)
@@ -121,7 +121,20 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 		return nil, err
 	}
 	if resp.StatusCode >= 300 {
-		return nil, fmt.Errorf("hub API HTTP %d: %s", resp.StatusCode, string(data))
+		// Extract a human-readable message from the Hub JSON error body when available.
+		var hubErr struct {
+			ErrorDescription string `json:"error_description"`
+			Error            string `json:"error"`
+		}
+		if jsonErr := json.Unmarshal(data, &hubErr); jsonErr == nil {
+			if hubErr.ErrorDescription != "" {
+				return nil, fmt.Errorf("%s (HTTP %d)", hubErr.ErrorDescription, resp.StatusCode)
+			}
+			if hubErr.Error != "" {
+				return nil, fmt.Errorf("%s (HTTP %d)", hubErr.Error, resp.StatusCode)
+			}
+		}
+		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
 	}
 	return data, nil
 }
