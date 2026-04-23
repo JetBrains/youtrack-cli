@@ -92,9 +92,6 @@ func printAuthStatus(cmd *cobra.Command, s AuthStatus) {
 		fmt.Fprintf(w, "  Error: %s\n", strings.TrimPrefix(s.Status, "invalid token: "))
 	default:
 		fmt.Fprintf(w, "Not configured\n")
-		if s.URL != "" {
-			fmt.Fprintf(w, "  URL:   %s\n", s.URL)
-		}
-		fmt.Fprintf(w, "  Error: %s\n", strings.TrimPrefix(s.Status, "not configured: "))
+		fmt.Fprintf(w, "  Run:   youtrack auth get-token\n")
 	}
 }
