@@ -13,7 +13,6 @@ import (
 	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
@@ -159,7 +158,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 
 	res := getTokenResult{HubToken: tok}
 	if save {
-		if _, err := saveCredentials(cmd, baseURL, tok.Token, &res); err != nil {
+		if _, err := saveCredentials(cmd, reader, baseURL, tok.Token, &res); err != nil {
 			return err
 		}
 	}
@@ -229,7 +228,7 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 
 	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
 	if save {
-		if _, err := saveCredentials(cmd, baseURL, token, &res); err != nil {
+		if _, err := saveCredentials(cmd, reader, baseURL, token, &res); err != nil {
 			return err
 		}
 	}
@@ -297,7 +296,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 
 	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
 	if save {
-		if _, err := saveCredentials(cmd, baseURL, token, &res); err != nil {
+		if _, err := saveCredentials(cmd, reader, baseURL, token, &res); err != nil {
 			return err
 		}
 	}
@@ -312,7 +311,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 // If ~/.youtrack-cli-env exists with credentials and config is still empty,
 // the user is offered a one-time import prompt.
 // Returns the alias under which the new instance was saved.
-func saveCredentials(cmd *cobra.Command, baseURL, token string, res *getTokenResult) (string, error) {
+func saveCredentials(cmd *cobra.Command, reader *bufio.Reader, baseURL, token string, res *getTokenResult) (string, error) {
 	alias, _ := cmd.Flags().GetString("alias")
 
 	cfg, err := config.Load()
@@ -323,7 +322,7 @@ func saveCredentials(cmd *cobra.Command, baseURL, token string, res *getTokenRes
 	// One-time import prompt when env file has credentials and config is still empty.
 	// config.Load() always initializes Instances to a non-nil map, so len == 0 is safe.
 	if len(cfg.Instances) == 0 {
-		offerEnvFileImport(cmd, cfg)
+		offerEnvFileImport(cmd, cfg, reader)
 	}
 
 	finalAlias := cfg.AddInstance(alias, baseURL, token)
@@ -347,7 +346,7 @@ func saveCredentials(cmd *cobra.Command, baseURL, token string, res *getTokenRes
 // offerEnvFileImport checks ~/.youtrack-cli-env for existing credentials and, if found,
 // prompts the user to import them as a named instance into cfg.
 // This is a best-effort helper — errors are swallowed so they never block get-token.
-func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config) {
+func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config, reader *bufio.Reader) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return
@@ -369,9 +368,16 @@ func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config) {
 		"\nFound existing credentials in ~/.youtrack-cli-env\n  %s (%s)\n\n",
 		existingURL, derivedAlias)
 
-	confirmed, err := internal.Confirm(cmd, "Import them as a named instance before adding the new one?")
-	if err != nil || !confirmed {
-		return
+	// Check --force flag first (same logic as internal.Confirm).
+	force, _ := cmd.Flags().GetBool("force")
+	if !force {
+		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Import them as a named instance before adding the new one? [y/N]: "); err != nil {
+			return
+		}
+		answer, err := reader.ReadString('\n')
+		if err != nil || strings.ToLower(strings.TrimSpace(answer)) != "y" && strings.ToLower(strings.TrimSpace(answer)) != "yes" {
+			return
+		}
 	}
 
 	importedAlias := cfg.AddInstance("", existingURL, existingToken)

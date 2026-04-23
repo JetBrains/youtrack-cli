@@ -189,11 +189,14 @@ func TestGetClient_ActiveConfigInstance(t *testing.T) {
 	cmd.Stderr = &stderr
 	require.NoError(t, cmd.Run(), "stderr: %s", stderr.String())
 
-	var result struct {
+	var results []struct {
 		Status string `json:"status"`
+		Active bool   `json:"active"`
 	}
-	require.NoError(t, json.Unmarshal(stdout.Bytes(), &result))
-	assert.Equal(t, "authenticated", result.Status)
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &results), "output was: %s", stdout.String())
+	require.Len(t, results, 1)
+	assert.Equal(t, "authenticated", results[0].Status)
+	assert.True(t, results[0].Active)
 }
 
 func TestAuthGetToken_SavesToConfig(t *testing.T) {
