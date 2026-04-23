@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -143,4 +144,71 @@ func TestAuth_GetTokenViaBasicAuthCLI(t *testing.T) {
 	})
 	assert.NotEmpty(t, result.Token)
 	assert.NotEmpty(t, result.ID)
+}
+
+func TestAuth_GetTokenDirectFlowCLI(t *testing.T) {
+	requireE2EEnv(t)
+
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+
+	// Pipe "3\n<token>\n" to select direct token input (option 3).
+	// Uses the existing YOUTRACK_TOKEN — no new token is created on the server.
+	out := runCmdWithInput(t, "3\n"+token+"\n",
+		"--base-url", baseURL,
+		"--format", "json",
+		"auth", "get-token",
+		"--save=false",
+	)
+
+	var result struct {
+		Token string `json:"token"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
+	assert.Equal(t, token, result.Token)
+}
+
+func TestAuth_GetTokenSchemeNormalization(t *testing.T) {
+	requireE2EEnv(t)
+
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	// Strip the scheme to simulate a user typing the URL without https://.
+	schemeless := strings.TrimPrefix(strings.TrimPrefix(baseURL, "https://"), "http://")
+	if schemeless == baseURL {
+		t.Skip("YOUTRACK_BASE_URL has no scheme to strip — normalization not applicable")
+	}
+
+	// The CLI should prepend https:// automatically and still succeed.
+	out := runCmdWithInput(t, "3\n"+token+"\n",
+		"--base-url", schemeless,
+		"--format", "json",
+		"auth", "get-token",
+		"--save=false",
+	)
+
+	var result struct {
+		Token string `json:"token"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
+	assert.Equal(t, token, result.Token)
+}
+
+func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
+	requireE2EEnv(t)
+
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+
+	// No --format flag: default human-readable output.
+	// Uses option 3 (direct paste) so no new token is created on the server.
+	out := runCmdWithInput(t, "3\n"+token+"\n",
+		"--base-url", baseURL,
+		"auth", "get-token",
+		"--save=false",
+	)
+
+	assert.Contains(t, out, "Token ready:")
+	assert.Contains(t, out, token)
+	assert.NotContains(t, out, `"token":`) // must not be JSON
 }
