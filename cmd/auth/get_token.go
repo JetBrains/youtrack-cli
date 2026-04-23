@@ -13,6 +13,8 @@ import (
 	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
+	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
@@ -89,6 +91,7 @@ Use --format json for machine-readable output.`,
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("save", true, "Write YOUTRACK_BASE_URL and YOUTRACK_TOKEN to ~/.youtrack-cli-env")
+	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted)")
 	return cmd
 }
 
@@ -156,7 +159,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 
 	res := getTokenResult{HubToken: tok}
 	if save {
-		if err := saveToEnvFile(baseURL, tok.Token, &res); err != nil {
+		if _, err := saveCredentials(cmd, baseURL, tok.Token, &res); err != nil {
 			return err
 		}
 	}
@@ -226,7 +229,7 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 
 	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
 	if save {
-		if err := saveToEnvFile(baseURL, token, &res); err != nil {
+		if _, err := saveCredentials(cmd, baseURL, token, &res); err != nil {
 			return err
 		}
 	}
@@ -294,7 +297,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 
 	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
 	if save {
-		if err := saveToEnvFile(baseURL, token, &res); err != nil {
+		if _, err := saveCredentials(cmd, baseURL, token, &res); err != nil {
 			return err
 		}
 	}
@@ -305,22 +308,76 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 	return output.Print(cmd, res)
 }
 
-// saveToEnvFile writes YOUTRACK_BASE_URL and YOUTRACK_TOKEN to ~/.youtrack-cli-env
-// and updates res with the file path and a hint message.
-func saveToEnvFile(baseURL, token string, res *getTokenResult) error {
+// saveCredentials persists baseURL + token to ~/.youtrack-cli-config.json.
+// If ~/.youtrack-cli-env exists with credentials and config is still empty,
+// the user is offered a one-time import prompt.
+// Returns the alias under which the new instance was saved.
+func saveCredentials(cmd *cobra.Command, baseURL, token string, res *getTokenResult) (string, error) {
+	alias, _ := cmd.Flags().GetString("alias")
+
+	cfg, err := config.Load()
+	if err != nil {
+		return "", err
+	}
+
+	// One-time import prompt when env file has credentials and config is still empty.
+	if len(cfg.Instances) == 0 {
+		if err := offerEnvFileImport(cmd, cfg); err != nil {
+			return "", err
+		}
+	}
+
+	finalAlias := cfg.AddInstance(alias, baseURL, token)
+	if cfg.CurrentInstance == "" {
+		cfg.CurrentInstance = finalAlias
+	}
+	if err := cfg.Save(); err != nil {
+		return "", fmt.Errorf("saving config: %w", err)
+	}
+
+	path, _ := config.ConfigPath()
+	res.EnvFile = path
+	if cfg.CurrentInstance == finalAlias {
+		res.Hint = fmt.Sprintf("Token saved as %q (active). The CLI will load it automatically.", finalAlias)
+	} else {
+		res.Hint = fmt.Sprintf("Token saved as %q. Run: youtrack instance use %s", finalAlias, finalAlias)
+	}
+	return finalAlias, nil
+}
+
+// offerEnvFileImport checks ~/.youtrack-cli-env for existing credentials and, if found,
+// prompts the user to import them as a named instance into cfg.
+// This is a best-effort helper — errors are swallowed so they never block get-token.
+func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("resolving home dir: %w", err)
+		return nil
 	}
 	envFile := filepath.Join(home, ".youtrack-cli-env")
-	existing, _ := os.ReadFile(envFile) // ignore error — file may not exist yet
-	updated := upsertEnvLine(string(existing), "YOUTRACK_BASE_URL", baseURL)
-	updated = upsertEnvLine(updated, "YOUTRACK_TOKEN", token)
-	if err := os.WriteFile(envFile, []byte(updated), 0600); err != nil {
-		return fmt.Errorf("writing env file: %w", err)
+	data, err := os.ReadFile(envFile)
+	if err != nil {
+		return nil
 	}
-	res.EnvFile = envFile
-	res.Hint = "Token saved. The CLI will load it automatically on next run."
+	content := string(data)
+	existingURL := extractEnvValue(content, "YOUTRACK_BASE_URL")
+	existingToken := extractEnvValue(content, "YOUTRACK_TOKEN")
+	if existingURL == "" || existingToken == "" {
+		return nil
+	}
+
+	derivedAlias := config.DeriveAlias(existingURL)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
+		"\nFound existing credentials in ~/.youtrack-cli-env\n  %s (%s)\n\n",
+		existingURL, derivedAlias)
+
+	confirmed, err := internal.Confirm(cmd, "Import them as a named instance before adding the new one?")
+	if err != nil || !confirmed {
+		return nil
+	}
+
+	cfg.AddInstance("", existingURL, existingToken)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
+		"Tip: ~/.youtrack-cli-env is no longer needed. You can delete it safely.\n\n")
 	return nil
 }
 

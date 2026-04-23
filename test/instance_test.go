@@ -195,3 +195,82 @@ func TestGetClient_ActiveConfigInstance(t *testing.T) {
 	require.NoError(t, json.Unmarshal(stdout.Bytes(), &result))
 	assert.Equal(t, "authenticated", result.Status)
 }
+
+func TestAuthGetToken_SavesToConfig(t *testing.T) {
+	requireE2EEnv(t)
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	tmpHome := t.TempDir()
+
+	// Option 3 (direct paste), --alias mywork, default --save=true.
+	runCmdWithEnv(t, "3\n"+token+"\n",
+		[]string{"HOME=" + tmpHome},
+		"--base-url", baseURL, "auth", "get-token",
+		"--alias", "mywork",
+	)
+
+	data, err := os.ReadFile(filepath.Join(tmpHome, ".youtrack-cli-config.json"))
+	require.NoError(t, err)
+	var result struct {
+		CurrentInstance string `json:"currentInstance"`
+		Instances       map[string]struct {
+			URL   string `json:"url"`
+			Token string `json:"token"`
+		} `json:"instances"`
+	}
+	require.NoError(t, json.Unmarshal(data, &result))
+	assert.Equal(t, "mywork", result.CurrentInstance)
+	require.Contains(t, result.Instances, "mywork")
+	assert.Equal(t, baseURL, result.Instances["mywork"].URL)
+	assert.Equal(t, token, result.Instances["mywork"].Token)
+}
+
+func TestAuthGetToken_EnvFileImport_Yes(t *testing.T) {
+	requireE2EEnv(t)
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	tmpHome := t.TempDir()
+
+	envContent := "YOUTRACK_BASE_URL=" + baseURL + "\nYOUTRACK_TOKEN=" + token + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(tmpHome, ".youtrack-cli-env"), []byte(envContent), 0600))
+
+	// Stdin: auth method "3", token paste, then "y" to import existing env credentials.
+	runCmdWithEnv(t, "3\n"+token+"\ny\n",
+		[]string{"HOME=" + tmpHome},
+		"--base-url", baseURL, "auth", "get-token", "--alias", "newinstance",
+	)
+
+	data, err := os.ReadFile(filepath.Join(tmpHome, ".youtrack-cli-config.json"))
+	require.NoError(t, err)
+	var result struct {
+		Instances map[string]json.RawMessage `json:"instances"`
+	}
+	require.NoError(t, json.Unmarshal(data, &result))
+	assert.Len(t, result.Instances, 2)
+	assert.Contains(t, result.Instances, "newinstance")
+}
+
+func TestAuthGetToken_EnvFileImport_No(t *testing.T) {
+	requireE2EEnv(t)
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	tmpHome := t.TempDir()
+
+	envContent := "YOUTRACK_BASE_URL=" + baseURL + "\nYOUTRACK_TOKEN=" + token + "\n"
+	require.NoError(t, os.WriteFile(filepath.Join(tmpHome, ".youtrack-cli-env"), []byte(envContent), 0600))
+
+	// "n" — decline import; only the new instance should be saved.
+	runCmdWithEnv(t, "3\n"+token+"\nn\n",
+		[]string{"HOME=" + tmpHome},
+		"--base-url", baseURL, "auth", "get-token", "--alias", "onlynew",
+	)
+
+	data, err := os.ReadFile(filepath.Join(tmpHome, ".youtrack-cli-config.json"))
+	require.NoError(t, err)
+	var result struct {
+		Instances map[string]json.RawMessage `json:"instances"`
+	}
+	require.NoError(t, json.Unmarshal(data, &result))
+	assert.Len(t, result.Instances, 1)
+	assert.Contains(t, result.Instances, "onlynew")
+}
