@@ -3,13 +3,18 @@ package internal
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
+	"github.com/JetBrains/youtrack-cli/internal/config"
 )
 
-// GetClient builds an API client from global flags and env vars.
+// GetClient builds an API client using a three-tier resolution chain:
+//  1. --base-url / --token flags (explicit per-command override, always wins)
+//  2. Active instance from ~/.youtrack-cli-config.json
+//  3. YOUTRACK_BASE_URL / YOUTRACK_TOKEN env vars (legacy single-instance fallback)
 func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	flags := cmd.Root().PersistentFlags()
 
@@ -17,6 +22,36 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	token, _ := flags.GetString("token")
 	verbose, _ := flags.GetBool("verbose")
 
+	// Tier 2: active config instance fills any slot not already set by flags.
+	if baseURL == "" || token == "" {
+		cfg, err := config.Load()
+		if err == nil && len(cfg.Instances) > 0 {
+			inst, alias := cfg.ActiveInstance()
+			switch {
+			case inst != nil:
+				if baseURL == "" {
+					baseURL = inst.URL
+				}
+				if token == "" {
+					token = inst.Token
+				}
+			case alias != "":
+				// currentInstance is set but the alias is missing from the map (stale pointer).
+				return nil, fmt.Errorf(
+					"active instance %q not found in config — run: youtrack instance use <alias>\nKnown: %s",
+					alias, strings.Join(cfg.Aliases(), ", "),
+				)
+			default:
+				// Config has instances but none is selected as active.
+				return nil, fmt.Errorf(
+					"no active instance — run: youtrack instance use <alias>\nKnown: %s",
+					strings.Join(cfg.Aliases(), ", "),
+				)
+			}
+		}
+	}
+
+	// Tier 3: env vars (legacy single-instance fallback).
 	if baseURL == "" {
 		baseURL = os.Getenv("YOUTRACK_BASE_URL")
 	}
@@ -25,10 +60,16 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	}
 
 	if baseURL == "" {
-		return nil, fmt.Errorf("YOUTRACK_BASE_URL is not set. Set it via env or --base-url flag")
+		return nil, fmt.Errorf(
+			"no instance configured — run: youtrack auth get-token\n" +
+				"(or set YOUTRACK_BASE_URL + YOUTRACK_TOKEN, or use --base-url + --token flags)",
+		)
 	}
 	if token == "" {
-		return nil, fmt.Errorf("YOUTRACK_TOKEN is not set. Set it via env or --token flag")
+		return nil, fmt.Errorf(
+			"YOUTRACK_TOKEN is not set — run: youtrack auth get-token\n" +
+				"(or set YOUTRACK_TOKEN, or use --token flag)",
+		)
 	}
 
 	c := api.NewClient(baseURL, token)

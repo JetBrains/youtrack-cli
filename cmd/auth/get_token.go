@@ -13,6 +13,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
+	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
@@ -22,7 +23,9 @@ type getTokenResult struct {
 	Hint    string `json:"_hint,omitempty"`
 }
 
-func newGetTokenCmd() *cobra.Command {
+// NewGetTokenCmd constructs the "get-token" command. Exported so cmd/instance
+// can register it as "instance add" without duplicating the implementation.
+func NewGetTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-token",
 		Short: "Authenticate interactively and save a permanent token",
@@ -40,11 +43,11 @@ Use --format json for machine-readable output.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reader := bufio.NewReader(os.Stdin)
 
-			// Resolve base URL — flag → env → interactive prompt.
+			// Resolve base URL — flag → interactive prompt.
+			// YOUTRACK_BASE_URL is intentionally ignored here: get-token is used to
+			// set up credentials (possibly for a new instance), so the URL should
+			// always be confirmed. Use --base-url to skip the prompt in scripts.
 			baseURL, _ := cmd.Root().PersistentFlags().GetString("base-url")
-			if baseURL == "" {
-				baseURL = os.Getenv("YOUTRACK_BASE_URL")
-			}
 			if baseURL == "" {
 				if _, err := fmt.Fprint(cmd.ErrOrStderr(), "YouTrack base URL: "); err != nil {
 					return err
@@ -62,6 +65,28 @@ Use --format json for machine-readable output.`,
 			}
 			if baseURL == "" {
 				return fmt.Errorf("base URL is required")
+			}
+
+			// Resolve alias — flag → interactive prompt with derived default.
+			// Only prompt when saving: alias is meaningless without a config entry.
+			// Skip prompt when --alias was explicitly provided or --save=false.
+			save, _ := cmd.Flags().GetBool("save")
+			if save && !flagChanged(cmd, "alias") {
+				derived := config.DeriveAlias(baseURL)
+				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Instance alias [%s]: ", derived); err != nil {
+					return err
+				}
+				raw, err := reader.ReadString('\n')
+				if err != nil {
+					return fmt.Errorf("reading alias: %w", err)
+				}
+				alias := strings.TrimSpace(raw)
+				if alias == "" {
+					alias = derived
+				}
+				if err := cmd.Flags().Set("alias", alias); err != nil {
+					return err
+				}
 			}
 
 			// Auth-type selection.
@@ -89,6 +114,7 @@ Use --format json for machine-readable output.`,
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("save", true, "Write YOUTRACK_BASE_URL and YOUTRACK_TOKEN to ~/.youtrack-cli-env")
+	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	return cmd
 }
 
@@ -156,7 +182,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 
 	res := getTokenResult{HubToken: tok}
 	if save {
-		if err := saveToEnvFile(baseURL, tok.Token, &res); err != nil {
+		if _, err := saveCredentials(cmd, reader, baseURL, tok.Token, &res); err != nil {
 			return err
 		}
 	}
@@ -226,7 +252,7 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 
 	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
 	if save {
-		if err := saveToEnvFile(baseURL, token, &res); err != nil {
+		if _, err := saveCredentials(cmd, reader, baseURL, token, &res); err != nil {
 			return err
 		}
 	}
@@ -294,7 +320,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 
 	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
 	if save {
-		if err := saveToEnvFile(baseURL, token, &res); err != nil {
+		if _, err := saveCredentials(cmd, reader, baseURL, token, &res); err != nil {
 			return err
 		}
 	}
@@ -305,23 +331,84 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 	return output.Print(cmd, res)
 }
 
-// saveToEnvFile writes YOUTRACK_BASE_URL and YOUTRACK_TOKEN to ~/.youtrack-cli-env
-// and updates res with the file path and a hint message.
-func saveToEnvFile(baseURL, token string, res *getTokenResult) error {
+// saveCredentials persists baseURL + token to ~/.youtrack-cli-config.json.
+// If ~/.youtrack-cli-env exists with credentials and config is still empty,
+// the user is offered a one-time import prompt.
+// Returns the alias under which the new instance was saved.
+func saveCredentials(cmd *cobra.Command, reader *bufio.Reader, baseURL, token string, res *getTokenResult) (string, error) {
+	alias, _ := cmd.Flags().GetString("alias")
+
+	cfg, err := config.Load()
+	if err != nil {
+		return "", err
+	}
+
+	// One-time import prompt when env file has credentials and config is still empty.
+	// config.Load() always initializes Instances to a non-nil map, so len == 0 is safe.
+	if len(cfg.Instances) == 0 {
+		offerEnvFileImport(cmd, cfg, reader)
+	}
+
+	finalAlias := cfg.AddInstance(alias, baseURL, token)
+	if cfg.CurrentInstance == "" {
+		cfg.CurrentInstance = finalAlias
+	}
+	if err := cfg.Save(); err != nil {
+		return "", fmt.Errorf("saving config: %w", err)
+	}
+
+	path, _ := config.ConfigPath()
+	res.EnvFile = path
+	if cfg.CurrentInstance == finalAlias {
+		res.Hint = fmt.Sprintf("Token saved as %q (active). The CLI will load it automatically.", finalAlias)
+	} else {
+		res.Hint = fmt.Sprintf("Token saved as %q. Run: youtrack instance use %s", finalAlias, finalAlias)
+	}
+	return finalAlias, nil
+}
+
+// offerEnvFileImport checks ~/.youtrack-cli-env for existing credentials and, if found,
+// prompts the user to import them as a named instance into cfg.
+// This is a best-effort helper — errors are swallowed so they never block get-token.
+func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config, reader *bufio.Reader) {
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("resolving home dir: %w", err)
+		return
 	}
 	envFile := filepath.Join(home, ".youtrack-cli-env")
-	existing, _ := os.ReadFile(envFile) // ignore error — file may not exist yet
-	updated := upsertEnvLine(string(existing), "YOUTRACK_BASE_URL", baseURL)
-	updated = upsertEnvLine(updated, "YOUTRACK_TOKEN", token)
-	if err := os.WriteFile(envFile, []byte(updated), 0600); err != nil {
-		return fmt.Errorf("writing env file: %w", err)
+	data, err := os.ReadFile(envFile)
+	if err != nil {
+		return
 	}
-	res.EnvFile = envFile
-	res.Hint = "Token saved. The CLI will load it automatically on next run."
-	return nil
+	content := string(data)
+	existingURL := extractEnvValue(content, "YOUTRACK_BASE_URL")
+	existingToken := extractEnvValue(content, "YOUTRACK_TOKEN")
+	if existingURL == "" || existingToken == "" {
+		return
+	}
+
+	derivedAlias := config.DeriveAlias(existingURL)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
+		"\nFound existing credentials in ~/.youtrack-cli-env\n  %s (%s)\n\n",
+		existingURL, derivedAlias)
+
+	// Check --force flag first (same logic as internal.Confirm).
+	force, _ := cmd.Flags().GetBool("force")
+	if !force {
+		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Import them as a named instance before adding the new one? [y/N]: "); err != nil {
+			return
+		}
+		answer, err := reader.ReadString('\n')
+		if err != nil || strings.ToLower(strings.TrimSpace(answer)) != "y" && strings.ToLower(strings.TrimSpace(answer)) != "yes" {
+			return
+		}
+	}
+
+	importedAlias := cfg.AddInstance("", existingURL, existingToken)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
+		"Imported as %q (inactive). Run: youtrack instance use %s to activate it.\n", importedAlias, importedAlias)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
+		"Tip: ~/.youtrack-cli-env is no longer needed. You can delete it safely.\n\n")
 }
 
 // resolveScope maps the --scope flag to Hub service IDs.
@@ -360,29 +447,6 @@ func resolveScope(scope string, services []api.HubService) ([]string, error) {
 		}
 	}
 	return ids, nil
-}
-
-// upsertEnvLine sets KEY=value in an env file's content string,
-// replacing an existing line for that key or appending one if absent.
-func upsertEnvLine(content, key, value string) string {
-	prefix := key + "="
-	newLine := key + "=" + value
-	var lines []string
-	found := false
-	if content != "" {
-		for _, line := range strings.Split(strings.TrimRight(content, "\n"), "\n") {
-			if strings.HasPrefix(line, prefix) {
-				lines = append(lines, newLine)
-				found = true
-			} else {
-				lines = append(lines, line)
-			}
-		}
-	}
-	if !found {
-		lines = append(lines, newLine)
-	}
-	return strings.Join(lines, "\n") + "\n"
 }
 
 // hyperlink returns an OSC 8 terminal hyperlink for the given URL.

@@ -41,52 +41,47 @@ make dist   # produces binaries in dist/ for linux-amd64, darwin-arm64, darwin-a
 
 ### Set credentials
 
-Export environment variables:
+**Single instance** — export environment variables or write to `~/.youtrack-cli-env`:
 
 ```bash
 export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
 export YOUTRACK_TOKEN=perm:...
 ```
 
-Or write them to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automatically on every run.
-
-Alternatively, use the `auth get-token` command to authenticate interactively:
+**Multi-instance** — use `auth get-token` to authenticate interactively. Each instance is saved under a named alias:
 
 ```bash
-youtrack auth get-token
-# YouTrack base URL: https://your-instance.youtrack.cloud
-#
-# Select authentication method:
-#   1) Basic auth (login + password)
-#   2) Web browser (open token page and paste)
-#   3) Paste token directly
-# Select [1-3]: 1
-# Login: alice
-# Password: (prompted, hidden)
+youtrack auth get-token --alias work
+# YouTrack base URL: https://work.youtrack.cloud
+# Select authentication method: ...
+# ✓ Authenticated as Jane Doe (jane.doe)
+#   Saved as: "work" (~/.youtrack-cli-config.json)
+
+youtrack auth get-token --alias personal
+# YouTrack base URL: https://personal.youtrack.cloud
+# ...
+
+youtrack instance use personal   # switch active context
+youtrack instance list            # show all instances
+youtrack auth logout              # remove active instance credentials
 ```
 
-To remove saved credentials:
-
-```bash
-youtrack auth logout
-# Remove credentials for https://your-instance? [y/N]: y
-# Logged out from https://your-instance
-```
-
-Note: this only removes the local credentials — the token remains valid on the server until deleted from your YouTrack profile.
+If a `~/.youtrack-cli-env` file is present when running `auth get-token` for the first time, the CLI offers to import its credentials as a named instance.
 
 Three auth methods are available:
 - **Basic auth** — login + password via Hub API. Requires the Hub basic-auth endpoint to be enabled.
 - **Web browser** — the CLI detects your Hub URL, opens the token management page in a browser, then asks you to paste the token.
 - **Paste token directly** — shows the token page URL for you to open manually, then asks you to paste the token. Used automatically as a fallback when basic auth is unavailable (e.g. cloud or SSO-only instances).
 
-Saves `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` to `~/.youtrack-cli-env` by default (`--save=false` to skip).
+Credentials are saved to `~/.youtrack-cli-config.json` by default (`--save=false` to skip).
+Env vars `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN` still work as a single-instance fallback.
 
 ## Commands
 
 | Group | Subcommands |
 |---|---|
 | `auth` | `get-token`, `logout`, `status` |
+| `instance` | `list`, `use`, `remove` |
 | `issue` | `get`, `list`, `add`, `update`, `delete`, `command`, `comment list`, `comment add`, `comment delete` |
 | `project` | `list`, `get`, `add`, `delete` |
 | `user` | `list`, `get`, `current`, `add`, `delete`, `ban`, `unban` |
