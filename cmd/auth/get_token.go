@@ -67,6 +67,26 @@ Use --format json for machine-readable output.`,
 				return fmt.Errorf("base URL is required")
 			}
 
+			// Resolve alias — flag → interactive prompt with derived default.
+			// Skip prompt when --alias was explicitly provided.
+			if !flagChanged(cmd, "alias") {
+				derived := config.DeriveAlias(baseURL)
+				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Instance alias [%s]: ", derived); err != nil {
+					return err
+				}
+				raw, err := reader.ReadString('\n')
+				if err != nil {
+					return fmt.Errorf("reading alias: %w", err)
+				}
+				alias := strings.TrimSpace(raw)
+				if alias == "" {
+					alias = derived
+				}
+				if err := cmd.Flags().Set("alias", alias); err != nil {
+					return err
+				}
+			}
+
 			// Auth-type selection.
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
 				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\nSelect [1-3]: ")
