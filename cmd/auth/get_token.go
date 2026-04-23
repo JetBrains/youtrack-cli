@@ -91,7 +91,7 @@ Use --format json for machine-readable output.`,
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("save", true, "Write YOUTRACK_BASE_URL and YOUTRACK_TOKEN to ~/.youtrack-cli-env")
-	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted)")
+	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	return cmd
 }
 
@@ -321,6 +321,7 @@ func saveCredentials(cmd *cobra.Command, baseURL, token string, res *getTokenRes
 	}
 
 	// One-time import prompt when env file has credentials and config is still empty.
+	// config.Load() always initialises Instances to a non-nil map, so len == 0 is safe.
 	if len(cfg.Instances) == 0 {
 		if err := offerEnvFileImport(cmd, cfg); err != nil {
 			return "", err
@@ -375,7 +376,9 @@ func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config) error {
 		return nil
 	}
 
-	cfg.AddInstance("", existingURL, existingToken)
+	importedAlias := cfg.AddInstance("", existingURL, existingToken)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
+		"Imported as %q (inactive). Run: youtrack instance use %s to activate it.\n", importedAlias, importedAlias)
 	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
 		"Tip: ~/.youtrack-cli-env is no longer needed. You can delete it safely.\n\n")
 	return nil
