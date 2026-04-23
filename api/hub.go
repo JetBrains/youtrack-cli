@@ -13,6 +13,13 @@ import (
 
 var hubHTTPClient = &http.Client{}
 
+// hubVerboseOut, when non-nil, receives verbose Hub HTTP log lines (same role as Client.Verbose).
+var hubVerboseOut io.Writer
+
+// SetHubVerbose sets the writer for Hub API verbose output. Pass nil to disable.
+// Call this before Hub API operations and defer SetHubVerbose(nil) to clean up.
+func SetHubVerbose(w io.Writer) { hubVerboseOut = w }
+
 // HubUser is the authenticated user record from Hub.
 type HubUser struct {
 	ID    string `json:"id"`
@@ -111,6 +118,9 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
+	if hubVerboseOut != nil {
+		fmt.Fprintf(hubVerboseOut, "> %s %s\n", method, baseURL+path)
+	}
 	resp, err := hubHTTPClient.Do(req)
 	if err != nil {
 		return nil, err
@@ -119,6 +129,9 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return nil, err
+	}
+	if hubVerboseOut != nil {
+		fmt.Fprintf(hubVerboseOut, "< %d %s\n", resp.StatusCode, string(data))
 	}
 	if resp.StatusCode >= 300 {
 		// Extract a human-readable message from the Hub JSON error body when available.

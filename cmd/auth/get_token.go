@@ -82,6 +82,11 @@ Note: --format table is not supported for this command and falls back to JSON.`,
 
 // runBasicAuthFlow handles the Hub login/password → permanent-token creation flow.
 func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error {
+	if flagChanged(cmd, "verbose") {
+		api.SetHubVerbose(cmd.ErrOrStderr())
+		defer api.SetHubVerbose(nil)
+	}
+
 	login, _ := cmd.Flags().GetString("login")
 	password, _ := cmd.Flags().GetString("password")
 	tokenName, _ := cmd.Flags().GetString("token-name")
@@ -139,7 +144,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 			return err
 		}
 	}
-	if !cmd.Root().PersistentFlags().Changed("format") {
+	if !flagChanged(cmd, "format") {
 		printTokenResult(cmd, res)
 		return nil
 	}
@@ -150,6 +155,11 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 // It detects whether Hub is internal or external, opens the appropriate token
 // management page, then prompts the user to paste the token they created.
 func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error {
+	if flagChanged(cmd, "verbose") {
+		api.SetHubVerbose(cmd.ErrOrStderr())
+		defer api.SetHubVerbose(nil)
+	}
+
 	save, _ := cmd.Flags().GetBool("save")
 
 	fmt.Fprintf(cmd.ErrOrStderr(), "Detecting Hub configuration for %s...\n", baseURL)
@@ -203,7 +213,7 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 			return err
 		}
 	}
-	if !cmd.Root().PersistentFlags().Changed("format") {
+	if !flagChanged(cmd, "format") {
 		printTokenResult(cmd, res)
 		return nil
 	}
@@ -307,6 +317,14 @@ func upsertEnvLine(content, key, value string) string {
 		lines = append(lines, newLine)
 	}
 	return strings.Join(lines, "\n") + "\n"
+}
+
+// flagChanged reports whether a flag (local or inherited persistent) was explicitly
+// set by the user. Using cmd.Flag() is more reliable than cmd.Root().PersistentFlags()
+// because Cobra sets Changed on the child command's merged flag set, not the original.
+func flagChanged(cmd *cobra.Command, name string) bool {
+	f := cmd.Flag(name)
+	return f != nil && f.Changed
 }
 
 // openBrowser opens the given URL in the system's default browser.

@@ -44,7 +44,7 @@ Use --format json for machine-readable output.`,
 					URL:    baseURL,
 					Status: fmt.Sprintf("not configured: %s", err.Error()),
 				}
-				if !cmd.Root().PersistentFlags().Changed("format") {
+				if !flagChanged(cmd, "format") {
 					printAuthStatus(cmd, s)
 					return nil
 				}
@@ -57,7 +57,7 @@ Use --format json for machine-readable output.`,
 					URL:    client.BaseURL,
 					Status: fmt.Sprintf("invalid token: %s", err.Error()),
 				}
-				if !cmd.Root().PersistentFlags().Changed("format") {
+				if !flagChanged(cmd, "format") {
 					printAuthStatus(cmd, s)
 					return nil
 				}
@@ -70,7 +70,7 @@ Use --format json for machine-readable output.`,
 				FullName: user.FullName,
 				Status:   "authenticated",
 			}
-			if !cmd.Root().PersistentFlags().Changed("format") {
+			if !flagChanged(cmd, "format") {
 				printAuthStatus(cmd, s)
 				return nil
 			}
