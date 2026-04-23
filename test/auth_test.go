@@ -278,7 +278,7 @@ func TestAuth_Logout_Cancel(t *testing.T) {
 	out := runCmdWithEnv(t, "n\n", []string{"HOME=" + tmpHome},
 		"auth", "logout")
 
-	assert.Contains(t, out, "Cancelled.")
+	assert.Contains(t, out, "Canceled.")
 	data, err := os.ReadFile(envFile)
 	require.NoError(t, err)
 	assert.Equal(t, original, string(data))

@@ -83,15 +83,15 @@ func printAuthStatus(cmd *cobra.Command, s AuthStatus) {
 	w := cmd.OutOrStdout()
 	switch {
 	case s.Status == "authenticated":
-		fmt.Fprintf(w, "Authenticated\n")
-		fmt.Fprintf(w, "  URL:   %s\n", s.URL)
-		fmt.Fprintf(w, "  User:  %s (%s)\n", s.FullName, s.Login)
+		_, _ = fmt.Fprintf(w, "Authenticated\n")
+		_, _ = fmt.Fprintf(w, "  URL:   %s\n", s.URL)
+		_, _ = fmt.Fprintf(w, "  User:  %s (%s)\n", s.FullName, s.Login)
 	case strings.HasPrefix(s.Status, "invalid token"):
-		fmt.Fprintf(w, "Token invalid\n")
-		fmt.Fprintf(w, "  URL:   %s\n", s.URL)
-		fmt.Fprintf(w, "  Error: %s\n", strings.TrimPrefix(s.Status, "invalid token: "))
+		_, _ = fmt.Fprintf(w, "Token invalid\n")
+		_, _ = fmt.Fprintf(w, "  URL:   %s\n", s.URL)
+		_, _ = fmt.Fprintf(w, "  Error: %s\n", strings.TrimPrefix(s.Status, "invalid token: "))
 	default:
-		fmt.Fprintf(w, "Not configured\n")
-		fmt.Fprintf(w, "  Run:   youtrack auth get-token\n")
+		_, _ = fmt.Fprintf(w, "Not configured\n")
+		_, _ = fmt.Fprintf(w, "  Run:   youtrack auth get-token\n")
 	}
 }

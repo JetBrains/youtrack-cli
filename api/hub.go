@@ -119,7 +119,7 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 		req.Header.Set("Content-Type", contentType)
 	}
 	if hubVerboseOut != nil {
-		fmt.Fprintf(hubVerboseOut, "> %s %s\n", method, baseURL+path)
+		_, _ = fmt.Fprintf(hubVerboseOut, "> %s %s\n", method, baseURL+path)
 	}
 	resp, err := hubHTTPClient.Do(req)
 	if err != nil {
@@ -131,7 +131,7 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 		return nil, err
 	}
 	if hubVerboseOut != nil {
-		fmt.Fprintf(hubVerboseOut, "< %d %s\n", resp.StatusCode, string(data))
+		_, _ = fmt.Fprintf(hubVerboseOut, "< %d %s\n", resp.StatusCode, string(data))
 	}
 	// Detect HTML responses — the Hub API endpoint is unreachable and returned a web page.
 	// This typically means basic auth is not available for this instance (e.g. cloud/SSO-only).

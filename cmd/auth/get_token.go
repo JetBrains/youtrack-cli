@@ -65,7 +65,7 @@ Use --format json for machine-readable output.`,
 			}
 
 			// Auth-type selection.
-			fmt.Fprintf(cmd.ErrOrStderr(),
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
 				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\nSelect [1-3]: ")
 			choiceRaw, err := reader.ReadString('\n')
 			if err != nil {
@@ -133,7 +133,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 	me, err := api.GetHubMe(baseURL, login, password)
 	if err != nil {
 		if strings.Contains(err.Error(), "basic auth is not available") {
-			fmt.Fprintf(cmd.ErrOrStderr(), "\nBasic auth is not available for this instance.\nFalling back to direct token input.\n\n")
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\nBasic auth is not available for this instance.\nFalling back to direct token input.\n\n")
 			return runDirectTokenFlow(cmd, reader, baseURL)
 		}
 		return err
@@ -178,7 +178,7 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 
 	save, _ := cmd.Flags().GetBool("save")
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "Detecting Hub configuration for %s...\n", baseURL)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Detecting Hub configuration for %s...\n", baseURL)
 	hubURL, isInternal, err := api.DetectHubURL(baseURL)
 	if err != nil {
 		return fmt.Errorf("detecting Hub: %w", err)
@@ -191,15 +191,15 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 		tokenPageURL = hubURL + "/users/me?tab=authentication"
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "Token page:\n  %s\n\n", hyperlink(tokenPageURL))
-	fmt.Fprintln(cmd.ErrOrStderr(), "Steps:")
-	fmt.Fprintln(cmd.ErrOrStderr(), "  1. Log in if prompted")
-	fmt.Fprintln(cmd.ErrOrStderr(), "  2. Click 'New token' (or 'Generate new token')")
-	fmt.Fprintln(cmd.ErrOrStderr(), "  3. Copy the token value and return here")
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Token page:\n  %s\n\n", hyperlink(tokenPageURL))
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Steps:")
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "  1. Log in if prompted")
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "  2. Click 'New token' (or 'Generate new token')")
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "  3. Copy the token value and return here")
 
 	if term.IsTerminal(int(os.Stdin.Fd())) {
 		if err := openBrowser(tokenPageURL); err != nil {
-			fmt.Fprintf(cmd.ErrOrStderr(), "  (Could not open browser: %v)\n", err)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  (Could not open browser: %v)\n", err)
 		}
 	}
 
@@ -216,13 +216,13 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 	}
 
 	// Verify before saving — do not persist an invalid token.
-	fmt.Fprintln(cmd.ErrOrStderr(), "Verifying token...")
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Verifying token...")
 	verifyClient := api.NewClient(baseURL, token)
 	user, err := verifyClient.GetCurrentUser()
 	if err != nil {
 		return fmt.Errorf("token verification failed: %w\nRe-run and paste the token again", err)
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "Authenticated as %s (%s)\n", user.FullName, user.Login)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Authenticated as %s (%s)\n", user.FullName, user.Login)
 
 	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
 	if save {
@@ -244,15 +244,15 @@ func printTokenResult(cmd *cobra.Command, res getTokenResult) {
 	if res.HubToken != nil && res.Name != "" {
 		name = res.Name
 	}
-	fmt.Fprintf(w, "Token ready: %s\n", name)
+	_, _ = fmt.Fprintf(w, "Token ready: %s\n", name)
 	if res.HubToken != nil && res.Token != "" {
-		fmt.Fprintf(w, "  Token:  %s\n", res.Token)
+		_, _ = fmt.Fprintf(w, "  Token:  %s\n", res.Token)
 	}
 	if res.EnvFile != "" {
-		fmt.Fprintf(w, "  Saved:  %s\n", res.EnvFile)
+		_, _ = fmt.Fprintf(w, "  Saved:  %s\n", res.EnvFile)
 	}
 	if res.Hint != "" {
-		fmt.Fprintf(w, "\n%s\n", res.Hint)
+		_, _ = fmt.Fprintf(w, "\n%s\n", res.Hint)
 	}
 }
 
@@ -269,7 +269,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 		}
 	}
 
-	fmt.Fprintf(cmd.ErrOrStderr(), "Create a permanent token at:\n  %s\n\n", hyperlink(tokenPageURL))
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Create a permanent token at:\n  %s\n\n", hyperlink(tokenPageURL))
 
 	if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Paste your token: "); err != nil {
 		return err
@@ -284,13 +284,13 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 	}
 
 	// Verify before saving — do not persist an invalid token.
-	fmt.Fprintln(cmd.ErrOrStderr(), "Verifying token...")
+	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Verifying token...")
 	verifyClient := api.NewClient(baseURL, token)
 	user, err := verifyClient.GetCurrentUser()
 	if err != nil {
 		return fmt.Errorf("token verification failed: %w\nRe-run and paste the token again", err)
 	}
-	fmt.Fprintf(cmd.ErrOrStderr(), "Authenticated as %s (%s)\n", user.FullName, user.Login)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Authenticated as %s (%s)\n", user.FullName, user.Login)
 
 	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
 	if save {

@@ -51,7 +51,7 @@ Use --format json for machine-readable output.`,
 			if !hasCredentials {
 				res := LogoutResult{Status: "not configured"}
 				if !flagChanged(cmd, "format") {
-					fmt.Fprintln(cmd.OutOrStdout(), "Not logged in — nothing to remove.")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Not logged in — nothing to remove.")
 					return nil
 				}
 				return output.Print(cmd, res)
@@ -72,9 +72,9 @@ Use --format json for machine-readable output.`,
 				}
 				answer = strings.ToLower(strings.TrimSpace(answer))
 				if answer != "y" && answer != "yes" {
-					res := LogoutResult{URL: url, Status: "cancelled"}
+					res := LogoutResult{URL: url, Status: "canceled"}
 					if !flagChanged(cmd, "format") {
-						fmt.Fprintln(cmd.OutOrStdout(), "Cancelled.")
+						_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
 						return nil
 					}
 					return output.Print(cmd, res)
@@ -90,9 +90,9 @@ Use --format json for machine-readable output.`,
 			res := LogoutResult{URL: url, Status: "logged out"}
 			if !flagChanged(cmd, "format") {
 				if url != "" {
-					fmt.Fprintf(cmd.OutOrStdout(), "Logged out from %s\n", url)
+					_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Logged out from %s\n", url)
 				} else {
-					fmt.Fprintln(cmd.OutOrStdout(), "Logged out.")
+					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Logged out.")
 				}
 				return nil
 			}
