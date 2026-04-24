@@ -181,12 +181,8 @@ cat << 'LOGO'
 
 LOGO
 
-printf 'This script installs \033[1myoutrack\033[0m to \033[4m%s/youtrack\033[0m\n' "$OUT_DIR"
+printf 'This script installs \033[1myoutrack\033[0m to your PATH.\n'
 printf 'Install to a different directory:  \033[0;90mgh release download ... -O - | bash -s -- "" ~/.local/bin\033[0m\n'
 printf 'Install a specific version:        \033[0;90mgh release download v1.0.0 ... -O - | bash\033[0m\n\n'
-
-if [[ -z "$USER_SET_OUT_DIR" && -d "$OUT_DIR" && ! -w "$OUT_DIR" ]]; then
-    printf '\033[33mNote:\033[0m /usr/local/bin is not writable — will install to ~/.local/bin instead.\n\n'
-fi
 
 install_youtrack
