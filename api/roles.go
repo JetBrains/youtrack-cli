@@ -76,3 +76,19 @@ func (c *Client) GrantRoleToGroup(groupID, roleID, projectID string) error {
 	}
 	return c.Post(pathAssignedRoles, body, nil)
 }
+
+func (c *Client) ListAssignedRoles(holderID string) ([]AssignedRole, error) {
+	path := pathAssignedRoles +
+		"?fields=id,role(id,name,description),holder($type,id,name,login,email)," +
+		"scope($type,id,project(id,name,shortName))&$top=-1"
+	if holderID != "" {
+		path += "&query=" + url.QueryEscape("holder: "+holderID)
+	}
+	var result []AssignedRole
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) RevokeRole(assignedRoleID string) error {
+	return c.Delete(fmt.Sprintf(pathAssignedRole, url.PathEscape(assignedRoleID)))
+}

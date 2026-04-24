@@ -18,6 +18,8 @@ func newRoleCmd() *cobra.Command {
 		newRoleDeleteCmd(),
 		newRoleUpdateCmd(),
 		newRoleGrantCmd(),
+		newRoleRevokeCmd(),
+		newRoleAssignmentsCmd(),
 		newRolePermissionsCmd(),
 	)
 	return cmd
@@ -132,6 +134,66 @@ func newRoleGrantCmd() *cobra.Command {
 	cmd.Flags().String("group", "", "Group ID to grant role to")
 	cmd.Flags().String("project", "", "Scope to this project ID (optional)")
 	internal.MustMarkRequired(cmd, "role")
+	return cmd
+}
+
+func newRoleRevokeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use: "revoke <assignedRoleID>", Short: "Revoke a role assignment by ID",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.RevokeRole(args[0]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "revoked role assignment "+args[0])
+			return nil
+		},
+	}
+}
+
+func newRoleAssignmentsCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use: "assignments", Short: "List role assignments, optionally filtered by a holder ID",
+		Long: "List role assignments. --holder accepts any holder ID: user, group, team, or organization. " +
+			"--user and --group are aliases kept for readability; the YouTrack API does not distinguish them.",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			holderID, _ := cmd.Flags().GetString("holder")
+			userID, _ := cmd.Flags().GetString("user")
+			groupID, _ := cmd.Flags().GetString("group")
+			specified := 0
+			for _, v := range []string{holderID, userID, groupID} {
+				if v != "" {
+					specified++
+				}
+			}
+			if specified > 1 {
+				return fmt.Errorf("specify only one of --holder, --user, or --group")
+			}
+			if holderID == "" {
+				if userID != "" {
+					holderID = userID
+				} else {
+					holderID = groupID
+				}
+			}
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			rows, err := client.ListAssignedRoles(holderID)
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, rows)
+		},
+	}
+	cmd.Flags().String("holder", "", "Filter by holder ID (user, group, team, or organization)")
+	cmd.Flags().String("user", "", "Alias for --holder")
+	cmd.Flags().String("group", "", "Alias for --holder")
 	return cmd
 }
 

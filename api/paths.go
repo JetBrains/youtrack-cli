@@ -107,6 +107,7 @@ const (
 	pathRole          = "/api/roles/%s"
 	pathPermissions   = "/api/permissions"
 	pathAssignedRoles = "/api/assignedRoles"
+	pathAssignedRole  = "/api/assignedRoles/%s"
 
 	// Saved Searches
 	pathSavedQueries = "/api/savedQueries"
