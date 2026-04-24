@@ -11,12 +11,6 @@ A Go CLI for interacting with YouTrack via its REST API. Designed for use by dev
 curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash
 ```
 
-**Debian/Ubuntu:**
-```bash
-curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.deb
-sudo dpkg -i youtrack_linux_amd64.deb
-```
-
 **Go install:**
 ```bash
 go install github.com/JetBrains/youtrack-cli@latest
