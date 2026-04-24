@@ -157,7 +157,7 @@ printf 'This script installs \033[1myoutrack\033[0m to \033[4m%s/youtrack\033[0m
 printf 'Install to a different directory:  \033[0;90mbash <(curl -fsSL ...) "" ~/.local/bin\033[0m\n'
 printf 'Install a specific version:        \033[0;90mbash <(curl -fsSL ...) v1.0.0\033[0m\n\n'
 
-if [[ ! -w "$OUT_DIR" ]]; then
+if [[ -d "$OUT_DIR" && ! -w "$OUT_DIR" ]]; then
     printf '\033[33mNote:\033[0m %s is not writable. Re-run with sudo or specify a writable directory.\n\n' "$OUT_DIR"
 fi
 
