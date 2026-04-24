@@ -80,6 +80,28 @@ type Role struct {
 	Permissions []Permission `json:"permissions,omitempty"`
 }
 
+type AssignedRole struct {
+	Type   string      `json:"$type,omitempty"`
+	ID     string      `json:"id,omitempty"`
+	Role   *Role       `json:"role,omitempty"`
+	Holder *RoleHolder `json:"holder,omitempty"`
+	Scope  *RoleScope  `json:"scope,omitempty"`
+}
+
+type RoleHolder struct {
+	Type  string `json:"$type,omitempty"`
+	ID    string `json:"id,omitempty"`
+	Name  string `json:"name,omitempty"`
+	Login string `json:"login,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+type RoleScope struct {
+	Type    string   `json:"$type,omitempty"`
+	ID      string   `json:"id,omitempty"`
+	Project *Project `json:"project,omitempty"`
+}
+
 type Workflow struct {
 	ID    string         `json:"id,omitempty"`
 	Name  string         `json:"name,omitempty"`

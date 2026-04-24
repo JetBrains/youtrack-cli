@@ -77,6 +77,11 @@ func PrintTable(out io.Writer, data any) error {
 		for _, p := range v {
 			_, _ = fmt.Fprintf(w, "%s\t%s\n", p.ID, p.Name)
 		}
+	case []api.AssignedRole:
+		_, _ = fmt.Fprintln(w, "ID\tHOLDER\tROLE\tSCOPE")
+		for _, a := range v {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", a.ID, assignedRoleHolder(a.Holder), roleName(a.Role), assignedRoleScope(a.Scope))
+		}
 	case *api.Workflow:
 		_, _ = fmt.Fprintln(w, "ID\tNAME\tTITLE")
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.ID, v.Name, v.Title)
@@ -259,4 +264,39 @@ func projectKey(p *api.Project) string {
 		return ""
 	}
 	return p.ShortName
+}
+
+func roleName(r *api.Role) string {
+	if r == nil {
+		return ""
+	}
+	return r.Name
+}
+
+func assignedRoleHolder(h *api.RoleHolder) string {
+	if h == nil {
+		return ""
+	}
+	if h.Login != "" {
+		return h.Login
+	}
+	return h.Name
+}
+
+func assignedRoleScope(s *api.RoleScope) string {
+	if s == nil {
+		return ""
+	}
+	if s.Project != nil && s.Project.ShortName != "" {
+		return s.Project.ShortName
+	}
+	switch s.Type {
+	case "GlobalScope":
+		return "global"
+	case "ProjectScope":
+		return "project"
+	case "OrganizationScope":
+		return "organization"
+	}
+	return s.Type
 }
