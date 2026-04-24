@@ -52,7 +52,9 @@ Use --format json for machine-readable output.`,
 			}
 
 			// Multi-instance path: config exists with at least one instance.
-			if len(cfg.Instances) > 0 {
+			// Skip if the caller explicitly overrode the URL or token via flags —
+			// explicit flags mean "check this specific instance", not all instances.
+			if len(cfg.Instances) > 0 && !flagChanged(cmd, "base-url") && !flagChanged(cmd, "token") {
 				return runMultiInstanceStatus(cmd, cfg)
 			}
 
