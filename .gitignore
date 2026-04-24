@@ -2,7 +2,7 @@
 .e2e/
 dist/
 youtrack
-/youtrack-cli
+youtrack-cli
 .DS_Store
 .idea/
 docs/superpowers/

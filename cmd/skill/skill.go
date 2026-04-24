@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"embed"
 	"errors"
 	"fmt"
 	"io"
@@ -15,7 +16,8 @@ import (
 const defaultSkill = "youtrack-cli"
 
 // NewCmd returns the root `skill` command with subcommands.
-func NewCmd() *cobra.Command {
+// fs is the embedded filesystem containing bundled skill files.
+func NewCmd(fs embed.FS) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "skill",
 		Short: "Manage AI coding agent skills",
@@ -26,10 +28,10 @@ to drive the youtrack CLI effectively. Skills can be installed
 globally for the current user or locally into a project.`,
 		Args: cobra.NoArgs,
 	}
-	cmd.AddCommand(newSkillListCmd())
-	cmd.AddCommand(newSkillInstallCmd())
-	cmd.AddCommand(newSkillUpdateCmd())
-	cmd.AddCommand(newSkillRemoveCmd())
+	cmd.AddCommand(newSkillListCmd(fs))
+	cmd.AddCommand(newSkillInstallCmd(fs))
+	cmd.AddCommand(newSkillUpdateCmd(fs))
+	cmd.AddCommand(newSkillRemoveCmd(fs))
 	return cmd
 }
 
@@ -46,13 +48,13 @@ type skillOptions struct {
 	project bool
 }
 
-func newSkillListCmd() *cobra.Command {
+func newSkillListCmd(fs embed.FS) *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
 		Short: "List available skills bundled with this release",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			metas := instill.ListSkills(skillsFS)
+			metas := instill.ListSkills(fs)
 			if len(metas) == 0 {
 				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No skills bundled.")
 				return nil
@@ -84,7 +86,7 @@ func printSkillTable(w io.Writer, infos []SkillInfo) error {
 	return nil
 }
 
-func newSkillInstallCmd() *cobra.Command {
+func newSkillInstallCmd(fs embed.FS) *cobra.Command {
 	opts := &skillOptions{}
 	cmd := &cobra.Command{
 		Use:   "install [skill-name...]",
@@ -101,14 +103,14 @@ Auto-detects installed agents when --agent is not specified.`,
   youtrack skill install --agent claude-code
   youtrack skill install --project`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSkillInstall(cmd, opts, args, false)
+			return runSkillInstall(cmd, fs, opts, args, false)
 		},
 	}
 	addSkillFlags(cmd, opts)
 	return cmd
 }
 
-func newSkillUpdateCmd() *cobra.Command {
+func newSkillUpdateCmd(fs embed.FS) *cobra.Command {
 	opts := &skillOptions{}
 	cmd := &cobra.Command{
 		Use:   "update [skill-name...]",
@@ -124,14 +126,14 @@ Auto-detects installed agents when --agent is not specified.`,
   youtrack skill update --agent claude-code
   youtrack skill update --project`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSkillInstall(cmd, opts, args, true)
+			return runSkillInstall(cmd, fs, opts, args, true)
 		},
 	}
 	addSkillFlags(cmd, opts)
 	return cmd
 }
 
-func newSkillRemoveCmd() *cobra.Command {
+func newSkillRemoveCmd(fs embed.FS) *cobra.Command {
 	opts := &skillOptions{}
 	cmd := &cobra.Command{
 		Use:   "remove [skill-name...]",
@@ -145,7 +147,7 @@ Use --all to remove every bundled skill.`,
   youtrack skill remove --agent claude-code
   youtrack skill remove --project`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runSkillRemove(cmd, opts, args)
+			return runSkillRemove(cmd, fs, opts, args)
 		},
 	}
 	addSkillFlags(cmd, opts)
@@ -158,16 +160,16 @@ func addSkillFlags(cmd *cobra.Command, opts *skillOptions) {
 	cmd.Flags().BoolVar(&opts.project, "project", false, "Install to current project instead of globally")
 }
 
-func runSkillInstall(cmd *cobra.Command, opts *skillOptions, args []string, checkVersion bool) error {
+func runSkillInstall(cmd *cobra.Command, fs embed.FS, opts *skillOptions, args []string, checkVersion bool) error {
 	agents, err := resolveAgents(cmd, opts)
 	if err != nil {
 		return err
 	}
-	names, err := resolveNames(opts, args)
+	names, err := resolveNames(fs, opts, args)
 	if err != nil {
 		return err
 	}
-	versions := bundledVersions()
+	versions := bundledVersions(fs)
 	for _, name := range names {
 		if _, ok := versions[name]; !ok {
 			return fmt.Errorf("unknown skill %q; run 'youtrack skill list' to see available skills", name)
@@ -198,7 +200,7 @@ func runSkillInstall(cmd *cobra.Command, opts *skillOptions, args []string, chec
 			return nil
 		}
 	}
-	results, err := instill.Install(skillsFS, instillOpts)
+	results, err := instill.Install(fs, instillOpts)
 	if err != nil {
 		return err
 	}
@@ -218,16 +220,16 @@ func runSkillInstall(cmd *cobra.Command, opts *skillOptions, args []string, chec
 	return nil
 }
 
-func runSkillRemove(cmd *cobra.Command, opts *skillOptions, args []string) error {
+func runSkillRemove(cmd *cobra.Command, fs embed.FS, opts *skillOptions, args []string) error {
 	agents, err := resolveAgents(cmd, opts)
 	if err != nil {
 		return err
 	}
-	names, err := resolveNames(opts, args)
+	names, err := resolveNames(fs, opts, args)
 	if err != nil {
 		return err
 	}
-	versions := bundledVersions()
+	versions := bundledVersions(fs)
 	for _, name := range names {
 		if _, ok := versions[name]; !ok {
 			return fmt.Errorf("unknown skill %q; run 'youtrack skill list' to see available skills", name)
@@ -253,12 +255,12 @@ func runSkillRemove(cmd *cobra.Command, opts *skillOptions, args []string) error
 	return nil
 }
 
-func resolveNames(opts *skillOptions, args []string) ([]string, error) {
+func resolveNames(fs embed.FS, opts *skillOptions, args []string) ([]string, error) {
 	if opts.all && len(args) > 0 {
 		return nil, errors.New("cannot specify both --all and skill names")
 	}
 	if opts.all {
-		skills := instill.ListSkills(skillsFS)
+		skills := instill.ListSkills(fs)
 		names := make([]string, len(skills))
 		for i, s := range skills {
 			names[i] = s.Name
@@ -271,8 +273,8 @@ func resolveNames(opts *skillOptions, args []string) ([]string, error) {
 	return args, nil
 }
 
-func bundledVersions() map[string]string {
-	skills := instill.ListSkills(skillsFS)
+func bundledVersions(fs embed.FS) map[string]string {
+	skills := instill.ListSkills(fs)
 	m := make(map[string]string, len(skills))
 	for _, s := range skills {
 		m[s.Name] = s.Version

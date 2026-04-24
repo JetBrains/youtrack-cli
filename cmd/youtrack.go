@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"embed"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -17,7 +18,7 @@ import (
 )
 
 // NewRootCmd constructs the root command. Called by Execute() and by tests.
-func NewRootCmd() *cobra.Command {
+func NewRootCmd(fs embed.FS) *cobra.Command {
 	rootCmd := &cobra.Command{
 		Use:           "youtrack",
 		Short:         "YouTrack CLI",
@@ -69,15 +70,15 @@ func NewRootCmd() *cobra.Command {
 	rootCmd.AddCommand(newBoardCmd())
 	rootCmd.AddCommand(newDashboardCmd())
 	rootCmd.AddCommand(newRawCmd())
-	rootCmd.AddCommand(skill.NewCmd())
+	rootCmd.AddCommand(skill.NewCmd(fs))
 
 	return rootCmd
 }
 
 // Execute is the entrypoint called from main.go.
-func Execute() error {
+func Execute(fs embed.FS) error {
 	internal.LoadEnvFile()
-	root := NewRootCmd()
+	root := NewRootCmd(fs)
 	if err := root.Execute(); err != nil {
 		format, _ := root.PersistentFlags().GetString("format")
 		quiet, _ := root.PersistentFlags().GetBool("quiet")
