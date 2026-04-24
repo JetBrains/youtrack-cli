@@ -4,6 +4,26 @@ Create issues, manage projects, and automate YouTrack – without leaving your t
 
 A Go CLI for interacting with YouTrack via its REST API. Designed for use by developers and AI agents.
 
+## Installation
+
+**macOS & Linux:**
+```bash
+curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash
+```
+
+**Debian/Ubuntu:**
+```bash
+curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.deb
+sudo dpkg -i youtrack_linux_amd64.deb
+```
+
+**Go install:**
+```bash
+go install github.com/JetBrains/youtrack-cli@latest
+```
+
+**Windows / manual:** Download the archive for your platform from [Releases](https://github.com/JetBrains/youtrack-cli/releases/latest), extract, and add `youtrack` to your PATH.
+
 ## Quick Start
 
 ```bash

@@ -75,6 +75,8 @@ release:
   draft: false
   prerelease: auto
   mode: replace
+  extra_files:
+    - glob: install.sh
   footer: |
     ## Installation
 
