@@ -26,6 +26,11 @@ jobs:
         with:
           go-version-file: go.mod
 
+      - name: Delete existing release if present
+        run: gh release delete "${{ github.ref_name }}" --yes 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
         with:
