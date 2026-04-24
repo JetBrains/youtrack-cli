@@ -143,13 +143,15 @@ install_youtrack() {
 trap cleanup EXIT
 trap 'fail "interrupted"' INT TERM
 
-printf '
+cat << 'LOGO'
+
  __   __         _____               _
  \ \ / /__  _   |_   _| __ __ _  ___| | __
-  \ V / _ \| | | || || '"'"'__/ _` + "`" + `|/ __| |/ /
+  \ V / _ \| | | || || '__/ _`|/ __| |/ /
    | | (_) | |_| || || | | (_| | (__|   <
-   |_|\___/ \__,_||_||_|  \__,_|\___|_|\_\\
-'
+   |_|\___/ \__,_||_||_|  \__,_|\___|_|\_\
+
+LOGO
 
 printf 'This script installs \033[1myoutrack\033[0m to \033[4m%s/youtrack\033[0m\n' "$OUT_DIR"
 printf 'Install to a different directory:  \033[0;90mbash <(curl -fsSL ...) "" ~/.local/bin\033[0m\n'
