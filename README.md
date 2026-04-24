@@ -20,6 +20,7 @@ go install github.com/JetBrains/youtrack-cli@latest
 
 **Windows / manual:** Download the archive for your platform from [Releases](https://github.com/JetBrains/youtrack-cli/releases/latest), extract, and add `youtrack` to your PATH.
 
+
 ## Quick Start
 
 ```bash
@@ -40,20 +41,66 @@ youtrack issue add --project MYPROJ --summary "Bug title"
 youtrack issue command MYPROJ-42 "State In Progress"
 ```
 
+## Installation
+
+### macOS & Linux
+
+**Homebrew (recommended):**
+```bash
+brew install jetbrains/utils/youtrack
+```
+
+**Debian/Ubuntu:**
+```bash
+curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.deb
+sudo dpkg -i youtrack_linux_amd64.deb
+```
+
+**RHEL/Fedora:**
+```bash
+sudo rpm -i https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.rpm
+```
+
+**Arch Linux (AUR):**
+```bash
+yay -S youtrack-bin
+```
+
+### Windows
+
+**Winget (recommended):**
+```powershell
+winget install JetBrains.YouTrackCLI
+```
+
+**Chocolatey:**
+```powershell
+choco install YouTrackCLI
+```
+
+**Scoop:**
+```powershell
+scoop bucket add jetbrains https://github.com/JetBrains/scoop-utils
+scoop install youtrack
+```
+
+### npm
+
+```bash
+npm install -g @jetbrains/youtrack-cli
+```
+
+### Go Install
+
+```bash
+go install github.com/JetBrains/youtrack-cli@latest
+```
+
+### Pre-built Binaries
+
+Download the archive for your platform from the [latest release](https://github.com/JetBrains/youtrack-cli/releases/latest), extract, and add `youtrack` to your PATH.
+
 ## Setup
-
-### Build the binary
-
-```bash
-make build
-cp youtrack /usr/local/bin/
-```
-
-Or cross-compile for your target platform:
-
-```bash
-make dist   # produces binaries in dist/ for linux-amd64, darwin-arm64, darwin-amd64, windows-amd64
-```
 
 ### Set credentials
 
@@ -166,17 +213,7 @@ Or reference it manually in your agent's context:
 
 ## Build
 
-```bash
-make build           # compile ./youtrack binary
-make fmt             # apply gofmt to the repo
-make fmt-check       # fail if any Go file is not gofmt'd
-make lint            # run a pinned golangci-lint via go run
-make check           # fmt-check + lint + build + test (run before pushing)
-make test            # boot local Docker YouTrack and run the full E2E suite
-make e2e-up          # start or reuse the local Docker YouTrack instance
-make e2e-down        # stop and remove the local Docker YouTrack instance
-make dist            # cross-compile for linux-amd64, darwin-arm64, darwin-amd64, windows-amd64
-```
+See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions, development setup, and how to run E2E tests.
 
 ## Development
 
@@ -223,7 +260,7 @@ set +a
 
 ## Contributing
 
-Contributions are welcome. Please open an issue before submitting a pull request for significant changes.
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for how to build from source, run tests, and open a pull request.
 
 ## License
 
