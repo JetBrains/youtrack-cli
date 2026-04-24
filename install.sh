@@ -124,7 +124,9 @@ install_youtrack() {
     printf '\033[0;90mInstalling %s %s for %s/%s...\033[0m\n\n' "$PROG" "$RELEASE" "$os" "$arch"
 
     mkdir -p "$OUT_DIR" || fail "failed to create $OUT_DIR"
-    [[ -w "$OUT_DIR" ]] || fail "$OUT_DIR is not writable (try: sudo $0 $RELEASE)"
+    [[ -w "$OUT_DIR" ]] || fail "$OUT_DIR is not writable
+  Run with sudo:       gh release download --repo ${REPO} --pattern install.sh -O - | sudo bash
+  Use writable dir:    gh release download --repo ${REPO} --pattern install.sh -O - | bash -s -- \"\" ~/.local/bin"
 
     TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/${PROG}.XXXXXX")"
     cd "$TMP_DIR"
