@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup Go
         uses: actions/setup-go@v6
@@ -37,16 +39,14 @@ jobs:
       - name: Build
         run: make build
 
-      - name: Build distribution artifacts
-        run: make dist
-
-      - name: Upload distribution artifacts
-        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: actions/upload-artifact@v4
+      - name: GoReleaser snapshot
+        if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+        uses: goreleaser/goreleaser-action@v6
         with:
-          name: youtrack-dist-${{ github.sha }}
-          path: dist/
-          if-no-files-found: error
+          distribution: goreleaser
+          args: release --snapshot --clean --skip=publish
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   e2e:
     needs: verify
