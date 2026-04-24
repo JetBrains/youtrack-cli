@@ -55,18 +55,7 @@ snapshot:
   version_template: '{{ incpatch .Version }}-snapshot'
 
 changelog:
-  sort: asc
-  use: github
-  filters:
-    exclude:
-      - '^docs[(:]'
-      - '^test[(:]'
-      - '^ci[(:]'
-      - '^chore[(:]'
-      - '^lint[(:]'
-      - '^fixup!'
-      - Merge pull request
-      - Merge branch
+  use: github-native
 
 release:
   github:
