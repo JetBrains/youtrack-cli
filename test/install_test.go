@@ -111,6 +111,13 @@ func TestInstallScript(t *testing.T) {
 	)
 	require.NotEqual(t, string(scriptSrc), patched, "URL replacement in install.sh did not match — check the script's download URL pattern")
 
+	// Disable the `gh` CLI branches so the patched curl URL is always used.
+	// gh release download would attempt to hit the real GitHub repo, bypassing our mock server.
+	patched = strings.ReplaceAll(patched,
+		"if command -v gh >/dev/null 2>&1; then",
+		"if false; then",
+	)
+
 	patchedScript := filepath.Join(t.TempDir(), "install.sh")
 	require.NoError(t, os.WriteFile(patchedScript, []byte(patched), 0755))
 
