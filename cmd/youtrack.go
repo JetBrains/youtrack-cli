@@ -45,32 +45,43 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 	f.Bool("verbose", false, "Print HTTP request/response to stderr")
 	f.Bool("quiet", false, "Suppress tips and hints (useful for scripting)")
 
-	// Domain sub-packages
-	rootCmd.AddCommand(auth.NewCmd())
-	rootCmd.AddCommand(instance.NewCmd())
-	rootCmd.AddCommand(issue.NewCmd())
-	rootCmd.AddCommand(project.NewCmd())
-	rootCmd.AddCommand(user.NewCmd())
+	rootCmd.AddGroup(
+		&cobra.Group{ID: "youtrack", Title: "YouTrack Commands:"},
+		&cobra.Group{ID: "access", Title: "Access Commands:"},
+		&cobra.Group{ID: "util", Title: "Utilities:"},
+	)
 
-	// Single-file commands (stay in package cmd)
-	rootCmd.AddCommand(newSettingsCmd())
-	rootCmd.AddCommand(newVCSCmd())
-	rootCmd.AddCommand(newMailboxCmd())
-	rootCmd.AddCommand(newTagCmd())
-	rootCmd.AddCommand(newSearchCmd())
-	rootCmd.AddCommand(newOrgCmd())
-	rootCmd.AddCommand(newAppCmd())
-	rootCmd.AddCommand(newCanvasCmd())
-	rootCmd.AddCommand(newReportCmd())
-	rootCmd.AddCommand(newArticleCmd())
-	rootCmd.AddCommand(newGroupCmd())
-	rootCmd.AddCommand(newRoleCmd())
-	rootCmd.AddCommand(newWorkflowCmd())
-	rootCmd.AddCommand(newFieldCmd())
-	rootCmd.AddCommand(newBoardCmd())
-	rootCmd.AddCommand(newDashboardCmd())
-	rootCmd.AddCommand(newRawCmd())
-	rootCmd.AddCommand(skill.NewCmd(fs))
+	add := func(cmd *cobra.Command, groupID string) {
+		cmd.GroupID = groupID
+		rootCmd.AddCommand(cmd)
+	}
+
+	add(auth.NewCmd(), "access")
+	add(instance.NewCmd(), "access")
+
+	add(issue.NewCmd(), "youtrack")
+	add(project.NewCmd(), "youtrack")
+	add(user.NewCmd(), "youtrack")
+	add(newTagCmd(), "youtrack")
+	add(newSearchCmd(), "youtrack")
+	add(newCanvasCmd(), "youtrack")
+	add(newReportCmd(), "youtrack")
+	add(newArticleCmd(), "youtrack")
+	add(newBoardCmd(), "youtrack")
+	add(newDashboardCmd(), "youtrack")
+
+	add(newSettingsCmd(), "youtrack")
+	add(newVCSCmd(), "youtrack")
+	add(newMailboxCmd(), "youtrack")
+	add(newOrgCmd(), "youtrack")
+	add(newAppCmd(), "youtrack")
+	add(newGroupCmd(), "youtrack")
+	add(newRoleCmd(), "youtrack")
+	add(newWorkflowCmd(), "youtrack")
+	add(newFieldCmd(), "youtrack")
+
+	add(newRawCmd(), "util")
+	add(skill.NewCmd(fs), "util")
 
 	return rootCmd
 }
