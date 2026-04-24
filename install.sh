@@ -26,6 +26,7 @@ for _arg in "$@"; do
 done
 RELEASE="${_POSITIONAL[0]:-}"
 OUT_DIR="${_POSITIONAL[1]:-/usr/local/bin}"
+USER_SET_OUT_DIR="${_POSITIONAL[1]:+yes}"
 unset _arg _POSITIONAL
 
 cleanup() {
@@ -123,8 +124,18 @@ install_youtrack() {
 
     printf '\033[0;90mInstalling %s %s for %s/%s...\033[0m\n\n' "$PROG" "$RELEASE" "$os" "$arch"
 
+    # Fall back to ~/.local/bin if the default dir is not writable and user didn't set a dir.
+    if [[ -z "$USER_SET_OUT_DIR" ]] && ! { mkdir -p "$OUT_DIR" 2>/dev/null && [[ -w "$OUT_DIR" ]]; }; then
+        OUT_DIR="${HOME}/.local/bin"
+        target="${OUT_DIR}/${PROG}"
+        printf '\033[33mNote:\033[0m /usr/local/bin is not writable, installing to %s instead.\n' "$OUT_DIR"
+        printf '      Add it to your PATH if needed: export PATH="%s:$PATH"\n\n' "$OUT_DIR"
+    fi
+
     mkdir -p "$OUT_DIR" || fail "failed to create $OUT_DIR"
-    [[ -w "$OUT_DIR" ]] || fail "$OUT_DIR is not writable (try: sudo $0 $RELEASE)"
+    [[ -w "$OUT_DIR" ]] || fail "$OUT_DIR is not writable
+  Run with sudo:       gh release download --repo ${REPO} --pattern install.sh -O - | sudo bash
+  Use writable dir:    gh release download --repo ${REPO} --pattern install.sh -O - | bash -s -- \"\" ~/.local/bin"
 
     TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/${PROG}.XXXXXX")"
     cd "$TMP_DIR"
@@ -170,12 +181,8 @@ cat << 'LOGO'
 
 LOGO
 
-printf 'This script installs \033[1myoutrack\033[0m to \033[4m%s/youtrack\033[0m\n' "$OUT_DIR"
+printf 'This script installs \033[1myoutrack\033[0m to your PATH.\n'
 printf 'Install to a different directory:  \033[0;90mgh release download ... -O - | bash -s -- "" ~/.local/bin\033[0m\n'
 printf 'Install a specific version:        \033[0;90mgh release download v1.0.0 ... -O - | bash\033[0m\n\n'
-
-if [[ -d "$OUT_DIR" && ! -w "$OUT_DIR" ]]; then
-    printf '\033[33mNote:\033[0m %s is not writable. Re-run with sudo or specify a writable directory.\n\n' "$OUT_DIR"
-fi
 
 install_youtrack
