@@ -8,12 +8,12 @@ A Go CLI for interacting with YouTrack via its REST API. Designed for use by dev
 
 > The repository is currently internal. Use one of the options below.
 
-**Via GitHub CLI (recommended):**
+**Via GitHub CLI** — requires [GitHub CLI](https://cli.github.com/) installed and authenticated (`gh auth login`):
 ```bash
 gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash
 ```
 
-**Via `go install`:**
+**Via `go install`** — requires [Go 1.21+](https://go.dev/dl/), binary is placed in `$GOPATH/bin` (make sure it's on your `$PATH`):
 ```bash
 go install github.com/JetBrains/youtrack-cli@latest
 ```
