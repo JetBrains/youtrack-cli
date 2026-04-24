@@ -133,10 +133,9 @@ install_youtrack() {
     printf '%s Installed %s at %s\n\n' "$CHECK_MARK" "$PROG" "$target"
     "$target" --version
 
-    printf '\n\033[1mNext steps:\033[0m\n'
-    printf '  Set credentials:\n'
-    printf '    \033[0;90mexport YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud\033[0m\n'
-    printf '    \033[0;90mexport YOUTRACK_TOKEN=perm:...\033[0m\n\n'
+    printf '\n\033[1mNext steps:\033[0m\n\n'
+    printf '  Authenticate with your YouTrack instance:\n'
+    printf '    \033[0;90myoutrack instance add\033[0m\n\n'
     printf '  Verify connection:\n'
     printf '    \033[0;90myoutrack user current\033[0m\n\n'
 }
@@ -145,12 +144,11 @@ trap cleanup EXIT
 trap 'fail "interrupted"' INT TERM
 
 printf '
- ██╗   ██╗ ██████╗ ██╗   ██╗████████╗██████╗  █████╗  ██████╗██╗  ██╗
- ╚██╗ ██╔╝██╔═══██╗██║   ██║╚══██╔══╝██╔══██╗██╔══██╗██╔════╝██║ ██╔╝
-  ╚████╔╝ ██║   ██║██║   ██║   ██║   ██████╔╝███████║██║     █████╔╝
-   ╚██╔╝  ██║   ██║██║   ██║   ██║   ██╔══██╗██╔══██║██║     ██╔═██╗
-    ██║   ╚██████╔╝╚██████╔╝   ██║   ██║  ██║██║  ██║╚██████╗██║  ██╗
-    ╚═╝    ╚═════╝  ╚═════╝    ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
+ __   __         _____               _
+ \ \ / /__  _   |_   _| __ __ _  ___| | __
+  \ V / _ \| | | || || '"'"'__/ _` + "`" + `|/ __| |/ /
+   | | (_) | |_| || || | | (_| | (__|   <
+   |_|\___/ \__,_||_||_|  \__,_|\___|_|\_\\
 '
 
 printf 'This script installs \033[1myoutrack\033[0m to \033[4m%s/youtrack\033[0m\n' "$OUT_DIR"
