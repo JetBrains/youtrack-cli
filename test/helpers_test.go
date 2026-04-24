@@ -120,11 +120,14 @@ func createTempProject(t *testing.T, c *api.Client) *api.Project {
 
 // runCmd executes the compiled CLI binary with given args, returns stdout.
 // Env vars YOUTRACK_BASE_URL and YOUTRACK_TOKEN must be set.
+// HOME is overridden to an empty temp dir so the binary does not pick up the
+// developer's ~/.youtrack-cli-config.json and instead falls back to the E2E env vars.
 func runCmd(t *testing.T, args ...string) string {
 	t.Helper()
 	requireE2EEnv(t)
 
 	cmd := exec.Command(binaryPath, args...)
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -135,11 +138,14 @@ func runCmd(t *testing.T, args ...string) string {
 
 // runCmdWithInput executes the compiled CLI binary with the given args and provides
 // stdinInput as the command's stdin. Returns stdout as a string.
+// HOME is overridden to an empty temp dir so the binary does not pick up the
+// developer's ~/.youtrack-cli-config.json and instead falls back to the E2E env vars.
 func runCmdWithInput(t *testing.T, stdinInput string, args ...string) string {
 	t.Helper()
 	requireE2EEnv(t)
 
 	cmd := exec.Command(binaryPath, args...)
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
 	// The subprocess inherits the full test-process environment, including YOUTRACK_TOKEN.
 	// Callers that need a specific token should pass it via --token flag.
 	cmd.Stdin = strings.NewReader(stdinInput)
@@ -155,6 +161,19 @@ func runCmdWithInput(t *testing.T, stdinInput string, args ...string) string {
 // and extra environment variables appended to the current process env.
 // Unlike runCmd/runCmdWithInput, it does NOT call requireE2EEnv — callers manage
 // their own skip conditions.
+// runCmdInDir runs the compiled binary in a specific working directory.
+// Does NOT require YOUTRACK_BASE_URL or YOUTRACK_TOKEN — skill commands are filesystem-only.
+func runCmdInDir(t *testing.T, dir string, args ...string) (stdout, stderr string, err error) {
+	t.Helper()
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Dir = dir
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	err = cmd.Run()
+	return outBuf.String(), errBuf.String(), err
+}
+
 func runCmdWithEnv(t *testing.T, stdinInput string, extraEnv []string, args ...string) string {
 	t.Helper()
 

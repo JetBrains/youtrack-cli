@@ -4,11 +4,36 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 E2E_DIR="${ROOT_DIR}/.e2e"
-BASE_URL="http://127.0.0.1:8088"
-YOUTRACK_E2E_VERSION="${YOUTRACK_E2E_VERSION:-2026.1.12024}"
-HUB_API_URL="${BASE_URL}/hub/api/rest"
 ENV_FILE="${E2E_DIR}/youtrack.env"
+PORT_FILE="${E2E_DIR}/port"
 LOG_DIR="${E2E_DIR}/logs"
+YOUTRACK_E2E_VERSION="${YOUTRACK_E2E_VERSION:-2026.1.12024}"
+
+find_free_port() {
+  local port
+  for port in $(seq 8080 8099); do
+    if ! lsof -i ":${port}" -sTCP:LISTEN >/dev/null 2>&1; then
+      echo "${port}"
+      return 0
+    fi
+  done
+  echo "no free port found in range 8080-8099" >&2
+  return 1
+}
+
+if [[ -z "${YOUTRACK_E2E_PORT:-}" ]]; then
+  if [[ -f "${PORT_FILE}" ]]; then
+    YOUTRACK_E2E_PORT="$(cat "${PORT_FILE}")"
+  else
+    mkdir -p "${E2E_DIR}"
+    YOUTRACK_E2E_PORT="$(find_free_port)"
+    echo "${YOUTRACK_E2E_PORT}" > "${PORT_FILE}"
+  fi
+  export YOUTRACK_E2E_PORT
+fi
+
+BASE_URL="http://127.0.0.1:${YOUTRACK_E2E_PORT}"
+HUB_API_URL="${BASE_URL}/hub/api/rest"
 
 ADMIN_LOGIN="admin"
 ADMIN_PASSWORD="admin"
@@ -86,7 +111,7 @@ api_with_token() {
   local token="$1"
   local path="$2"
 
-  curl -fsS \
+  curl -fsS --connect-timeout 5 \
     -H "Authorization: Bearer ${token}" \
     -H "Accept: application/json" \
     "${BASE_URL}${path}"
