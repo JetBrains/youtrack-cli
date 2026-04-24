@@ -74,6 +74,16 @@ download() {
 }
 
 resolve_latest() {
+    # Prefer gh CLI — works with private/internal repos
+    if command -v gh >/dev/null 2>&1; then
+        local tag
+        tag="$(gh api "repos/${REPO}/releases/latest" --jq '.tag_name' 2>/dev/null)"
+        [[ -n "$tag" ]] || fail "failed to resolve latest release via gh (run: gh auth login)"
+        printf '%s' "$tag"
+        return
+    fi
+
+    # Public fallback: follow GitHub's /releases/latest redirect
     local location tag
     if command -v curl >/dev/null 2>&1; then
         location="$(curl -sI "https://github.com/${REPO}/releases/latest" \
@@ -83,7 +93,8 @@ resolve_latest() {
             | grep -i '^\s*location:' | tail -1 | tr -d '\r' | sed 's/^\s*//')"
     fi
     tag="${location##*/}"
-    [[ -n "$tag" && "$tag" != "$location" ]] || fail "failed to resolve latest release"
+    [[ -n "$tag" && "$tag" != "$location" ]] || \
+        fail "failed to resolve latest release (install gh CLI and run: gh auth login)"
     printf '%s' "$tag"
 }
 
@@ -118,7 +129,13 @@ install_youtrack() {
     TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/${PROG}.XXXXXX")"
     cd "$TMP_DIR"
 
-    download "$url" | tar -xzf - || fail "download or extract failed from $url"
+    local archive="${PROG}_${version}_${os}_${arch}.tar.gz"
+    if command -v gh >/dev/null 2>&1; then
+        gh release download "${RELEASE}" --repo "${REPO}" --pattern "${archive}" --output - \
+            | tar -xzf - || fail "gh release download failed (run: gh auth login)"
+    else
+        download "$url" | tar -xzf - || fail "download or extract failed from $url"
+    fi
 
     local tmp_bin
     tmp_bin="$(find . -type f -name "$PROG" -print -quit)"
@@ -154,8 +171,8 @@ cat << 'LOGO'
 LOGO
 
 printf 'This script installs \033[1myoutrack\033[0m to \033[4m%s/youtrack\033[0m\n' "$OUT_DIR"
-printf 'Install to a different directory:  \033[0;90mbash <(curl -fsSL ...) "" ~/.local/bin\033[0m\n'
-printf 'Install a specific version:        \033[0;90mbash <(curl -fsSL ...) v1.0.0\033[0m\n\n'
+printf 'Install to a different directory:  \033[0;90mgh release download ... -O - | bash -s -- "" ~/.local/bin\033[0m\n'
+printf 'Install a specific version:        \033[0;90mgh release download v1.0.0 ... -O - | bash\033[0m\n\n'
 
 if [[ -d "$OUT_DIR" && ! -w "$OUT_DIR" ]]; then
     printf '\033[33mNote:\033[0m %s is not writable. Re-run with sudo or specify a writable directory.\n\n' "$OUT_DIR"
