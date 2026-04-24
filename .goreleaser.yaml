@@ -1,0 +1,104 @@
+version: 2
+project_name: youtrack
+
+builds:
+  - binary: youtrack
+    main: .
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+      - -X github.com/JetBrains/youtrack-cli/internal.Version={{ .Version }}
+      - -X github.com/JetBrains/youtrack-cli/internal.Commit={{ .Commit }}
+      - -X github.com/JetBrains/youtrack-cli/internal.Date={{ .Date }}
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+
+archives:
+  - name_template: 'youtrack_{{ .Version }}_{{ .Os }}_{{- if eq .Arch "amd64" }}x86_64{{- else }}{{ .Arch }}{{ end }}'
+    format_overrides:
+      - goos: windows
+        formats: ['zip']
+    files:
+      - LICENSE
+      - README.md
+
+nfpms:
+  - package_name: youtrack
+    file_name_template: '{{ .PackageName }}_{{ .Os }}_{{ .Arch }}'
+    vendor: JetBrains s.r.o.
+    homepage: https://github.com/JetBrains/youtrack-cli
+    maintainer: JetBrains <youtrack-support@jetbrains.com>
+    description: A command-line interface for JetBrains YouTrack
+    license: Apache-2.0
+    formats:
+      - apk
+      - deb
+      - rpm
+    bindir: /usr/bin
+    contents:
+      - src: LICENSE
+        dst: /usr/share/licenses/youtrack/LICENSE
+      - src: README.md
+        dst: /usr/share/doc/youtrack/README.md
+
+checksum:
+  name_template: checksums.txt
+  algorithm: sha256
+
+snapshot:
+  version_template: '{{ incpatch .Version }}-snapshot'
+
+changelog:
+  use: github-native
+
+release:
+  github:
+    owner: JetBrains
+    name: youtrack-cli
+  draft: false
+  prerelease: auto
+  mode: replace
+  extra_files:
+    - glob: install.sh
+  footer: |
+    ## Installation
+
+    ### macOS & Linux
+
+    **Install script (recommended):**
+    ```bash
+    curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash
+    ```
+
+    **Debian/Ubuntu:**
+    ```bash
+    curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/download/v{{ .Version }}/youtrack_linux_amd64.deb
+    sudo dpkg -i youtrack_linux_amd64.deb
+    ```
+
+    **RHEL/Fedora:**
+    ```bash
+    sudo rpm -i https://github.com/JetBrains/youtrack-cli/releases/download/v{{ .Version }}/youtrack_linux_amd64.rpm
+    ```
+
+    ### Windows
+
+    **Manual:** Download `youtrack_{{ .Version }}_windows_x86_64.zip`, extract, and add to PATH.
+
+    ### Go Install
+
+    ```bash
+    go install github.com/JetBrains/youtrack-cli@v{{ .Version }}
+    ```
+
+report_sizes: true
+
+git:
+  ignore_tags:
+    - nightly

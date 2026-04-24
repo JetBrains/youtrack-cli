@@ -44,15 +44,11 @@ e2e-down:
 e2e-logs:
 	./scripts/e2e/logs.sh
 
-dist:
-	mkdir -p dist
-	GOOS=linux   GOARCH=amd64 $(GO) build -ldflags "$(LDFLAGS)" -o dist/youtrack-linux-amd64 .
-	GOOS=darwin  GOARCH=arm64 $(GO) build -ldflags "$(LDFLAGS)" -o dist/youtrack-darwin-arm64 .
-	GOOS=darwin  GOARCH=amd64 $(GO) build -ldflags "$(LDFLAGS)" -o dist/youtrack-darwin-amd64 .
-	GOOS=windows GOARCH=amd64 $(GO) build -ldflags "$(LDFLAGS)" -o dist/youtrack-windows-amd64.exe .
+snapshot:
+	goreleaser release --snapshot --clean --skip=publish
 
 clean:
 	rm -f $(BINARY)
 	rm -rf dist/
 
-.PHONY: build fmt fmt-check lint check test e2e-up e2e-down e2e-logs dist clean
+.PHONY: build fmt fmt-check lint check test e2e-up e2e-down e2e-logs snapshot clean
