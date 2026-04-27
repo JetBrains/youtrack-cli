@@ -112,7 +112,7 @@ func createTempProject(t *testing.T, c *api.Client) *api.Project {
 		ShortName: shortName,
 		Name:      "Temp " + shortName,
 		Leader:    &api.User{Login: me.Login},
-	})
+	}, "")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteProject(proj.ShortName) })
 	return proj

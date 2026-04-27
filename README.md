@@ -127,6 +127,7 @@ youtrack issue comment delete MYPROJ-42 <commentId>
 youtrack project list
 youtrack project get MYPROJ
 youtrack project add --shortName MYPROJ --name "My Project" --leader john.doe
+youtrack project add --shortName HELP --name "HelpDesk" --template helpdesk
 youtrack project delete MYPROJ
 
 # Users

@@ -34,9 +34,13 @@ func (c *Client) GetProject(shortName string) (*Project, error) {
 	return nil, fmt.Errorf("project '%s' not found", shortName)
 }
 
-func (c *Client) AddProject(req AddProjectRequest) (*Project, error) {
+func (c *Client) AddProject(req AddProjectRequest, template string) (*Project, error) {
 	var result Project
-	err := c.Post(pathAdminProjects+"?fields="+projectFields, req, &result)
+	path := pathAdminProjects + "?fields=" + projectFields
+	if template != "" {
+		path += "&template=" + url.QueryEscape(template)
+	}
+	err := c.Post(path, req, &result)
 	return &result, err
 }
 
