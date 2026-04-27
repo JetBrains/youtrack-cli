@@ -95,6 +95,8 @@ const (
 	pathAdminProjectWorkflows    = "/api/admin/projects/%s/workflows"
 	pathAdminProjectTimeTracking = "/api/admin/projects/%s/timeTrackingSettings"
 	pathAdminProjectTemplates    = "/api/admin/projectTemplates"
+	pathAdminProjectHelpDesk     = "/api/admin/projects/%s/plugins/helpDeskSettings"
+	pathAdminProjectHelpDeskAgents = "/api/admin/projects/%s/plugins/helpDeskSettings/agents"
 
 	// Reports / Restored docs
 	pathRemovedDocuments = "/api/removedDocuments"

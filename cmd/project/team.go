@@ -17,10 +17,14 @@ func newProjectTeamCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if err := client.AddUserToProjectTeam(args[0], args[1]); err != nil {
+			registeredAsAgent, err := client.AddUserToProjectTeam(args[0], args[1])
+			if err != nil {
 				return err
 			}
 			output.PrintSuccess(cmd, "added user "+args[1]+" to project "+args[0])
+			if registeredAsAgent {
+				output.PrintSuccess(cmd, "registered user "+args[1]+" as a Helpdesk agent of project "+args[0])
+			}
 			return nil
 		},
 	}

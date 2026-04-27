@@ -81,12 +81,49 @@ func (c *Client) AddProjectCustomField(shortName, fieldID string) error {
 	}, nil)
 }
 
-func (c *Client) AddUserToProjectTeam(shortName, userID string) error {
+func (c *Client) AddUserToProjectTeam(shortName, userID string) (bool, error) {
 	p, err := c.GetProject(shortName)
 	if err != nil {
-		return err
+		return false, err
 	}
 	path := fmt.Sprintf(pathAdminProjectTeamOwnUsers, url.PathEscape(p.ID))
+	if err := c.Post(path, map[string]any{"id": userID}, nil); err != nil {
+		return false, err
+	}
+
+	helpdesk, err := c.IsHelpdeskProject(p.ID)
+	if err != nil {
+		return false, err
+	}
+	if !helpdesk {
+		return false, nil
+	}
+	user, err := c.GetUser(userID)
+	if err != nil {
+		return false, err
+	}
+	if user.UserType == nil || user.UserType.ID != "AGENT" {
+		return false, nil
+	}
+	if err := c.AddHelpdeskAgent(p.ID, userID); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (c *Client) IsHelpdeskProject(projectID string) (bool, error) {
+	var result struct {
+		Enabled bool `json:"enabled"`
+	}
+	path := fmt.Sprintf(pathAdminProjectHelpDesk+"?fields=enabled", url.PathEscape(projectID))
+	if err := c.Get(path, &result); err != nil {
+		return false, err
+	}
+	return result.Enabled, nil
+}
+
+func (c *Client) AddHelpdeskAgent(projectID, userID string) error {
+	path := fmt.Sprintf(pathAdminProjectHelpDeskAgents, url.PathEscape(projectID))
 	return c.Post(path, map[string]any{"id": userID}, nil)
 }
 

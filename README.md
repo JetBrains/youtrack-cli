@@ -128,6 +128,7 @@ youtrack project list
 youtrack project get MYPROJ
 youtrack project add --shortName MYPROJ --name "My Project" --leader john.doe
 youtrack project add --shortName HELP --name "HelpDesk" --template helpdesk
+youtrack project team add-user MYPROJ 2-9   # adds an AGENT to a Helpdesk project: also registers them as a project agent
 youtrack project delete MYPROJ
 
 # Users
