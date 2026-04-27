@@ -127,6 +127,8 @@ youtrack issue comment delete MYPROJ-42 <commentId>
 youtrack project list
 youtrack project get MYPROJ
 youtrack project add --shortName MYPROJ --name "My Project" --leader john.doe
+youtrack project add --shortName HELP --name "HelpDesk" --template helpdesk
+youtrack project team add-user MYPROJ 2-9   # adds an AGENT to a Helpdesk project: also registers them as a project agent
 youtrack project delete MYPROJ
 
 # Users
@@ -134,6 +136,8 @@ youtrack user list --query "john"
 youtrack user get john.doe
 youtrack user current
 youtrack user add --login john.doe --fullName "John Doe" --email john.doe@example.com --password "Test1234!"
+youtrack user add --login agent.smith --fullName "Agent Smith" --email a.smith@example.com --password "Test1234!" --type agent
+youtrack user add --login rita --fullName "Rita Reporter" --email rita@example.com --password "Test1234!" --type reporter
 youtrack user ban john.doe
 youtrack user delete john.doe --successor admin
 ```

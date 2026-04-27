@@ -16,6 +16,7 @@ func newProjectAddCmd() *cobra.Command {
 			shortName, _ := cmd.Flags().GetString("shortName")
 			name, _ := cmd.Flags().GetString("name")
 			leader, _ := cmd.Flags().GetString("leader")
+			template, _ := cmd.Flags().GetString("template")
 
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -40,7 +41,7 @@ func newProjectAddCmd() *cobra.Command {
 				ShortName: shortName,
 				Name:      name,
 				Leader:    &api.User{ID: leaderUser.ID},
-			})
+			}, template)
 			if err != nil {
 				return err
 			}
@@ -50,6 +51,7 @@ func newProjectAddCmd() *cobra.Command {
 	cmd.Flags().String("shortName", "", "Project short name / key (required)")
 	cmd.Flags().String("name", "", "Project full name (required)")
 	cmd.Flags().String("leader", "", "Leader login (defaults to current user)")
+	cmd.Flags().String("template", "", "Project template: default (empty/omit), helpdesk, taskManagement, scrum, kanban, projectManagement, demo, or marketing")
 	internal.MustMarkRequired(cmd, "shortName", "name")
 	return cmd
 }

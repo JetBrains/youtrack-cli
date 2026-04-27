@@ -66,7 +66,7 @@ func TestCmd_RoleGrantAssignmentsRevoke(t *testing.T) {
 	successor, err := c.GetCurrentUser()
 	require.NoError(t, err)
 	login := fmt.Sprintf("cmdrole%d", time.Now().UnixMilli()%100000)
-	user, err := c.AddUser(api.AddUserRequest{
+	user, err := c.AddUser(&api.AddUserRequest{
 		Login:    login,
 		FullName: "Cmd Role User",
 		Email:    login + "@example.com",

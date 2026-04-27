@@ -71,12 +71,14 @@ youtrack issue command MYPROJ-1 "State Fixed"                                 # 
 
 **ID vs login/name:** Some commands (e.g. `project team add-user`, `project team add-group`) expect opaque entity IDs (`2-9`, `4-1`), not logins or names. When creating entities, capture the `id` from the JSON response. When using existing entities, retrieve the ID first with `youtrack user get <login>` or `youtrack group get <name>`.
 
+**Helpdesk agent auto-registration:** `project team add-user` registers the user as a Helpdesk agent of the project when (a) the project is a Helpdesk project AND (b) the user has type `AGENT`. In every other combination it only adds the user to the team.
+
 ## Common Commands
 
 - Discovery: `youtrack user current`, `youtrack project list`, `youtrack issue list`
 - Issue work: `youtrack issue add`, `youtrack issue get`, `youtrack issue update`, `youtrack issue delete`, `youtrack issue command`
 - Collaboration: `youtrack issue comment add`, `youtrack issue comment list`, `youtrack issue comment delete`
-- Admin work: `youtrack project add`, `youtrack project delete`, `youtrack user add`
+- Admin work: `youtrack project add`, `youtrack project delete`, `youtrack user add` (use `--type standard|agent|reporter`; defaults to `standard`)
 - Roles: `youtrack role grant --user <id>|--group <id> --role <id> [--project <id>]`, `youtrack role assignments [--holder <id>]`, `youtrack role revoke <assignedRoleID>`
 
 ## Global Flags
