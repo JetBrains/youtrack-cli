@@ -30,12 +30,19 @@ type Project struct {
 
 // User is a YouTrack user.
 type User struct {
-	ID       string `json:"id,omitempty"`
-	Login    string `json:"login,omitempty"`
-	FullName string `json:"fullName,omitempty"`
-	Email    string `json:"email,omitempty"`
-	Guest    bool   `json:"guest,omitempty"`
-	Online   bool   `json:"online,omitempty"`
+	ID       string    `json:"id,omitempty"`
+	Login    string    `json:"login,omitempty"`
+	FullName string    `json:"fullName,omitempty"`
+	Email    string    `json:"email,omitempty"`
+	Guest    bool      `json:"guest,omitempty"`
+	Online   bool      `json:"online,omitempty"`
+	UserType *UserType `json:"userType,omitempty"`
+}
+
+// UserType represents a YouTrack user type (STANDARD_USER, AGENT, REPORTER).
+type UserType struct {
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
 }
 
 // LinkType describes a type of issue link (e.g. "depends on").

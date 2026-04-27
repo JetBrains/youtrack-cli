@@ -1,12 +1,20 @@
 package user
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
+
+var userTypeAPIIDs = map[string]string{
+	"standard": "STANDARD_USER",
+	"agent":    "AGENT",
+	"reporter": "REPORTER",
+}
 
 func newUserAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -17,16 +25,23 @@ func newUserAddCmd() *cobra.Command {
 			fullName, _ := cmd.Flags().GetString("fullName")
 			email, _ := cmd.Flags().GetString("email")
 			password, _ := cmd.Flags().GetString("password")
+			typeFlag, _ := cmd.Flags().GetString("type")
+
+			apiID, ok := userTypeAPIIDs[typeFlag]
+			if !ok {
+				return fmt.Errorf("invalid --type %q: must be one of standard, agent, reporter", typeFlag)
+			}
 
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			user, err := client.AddUser(api.AddUserRequest{
+			user, err := client.AddUser(&api.AddUserRequest{
 				Login:    login,
 				FullName: fullName,
 				Email:    email,
 				Password: password,
+				UserType: &api.UserType{ID: apiID},
 			})
 			if err != nil {
 				return err
@@ -38,6 +53,7 @@ func newUserAddCmd() *cobra.Command {
 	cmd.Flags().String("fullName", "", "User full name (required)")
 	cmd.Flags().String("email", "", "User email (required)")
 	cmd.Flags().String("password", "", "User password (required)")
+	cmd.Flags().String("type", "standard", "User type: standard, agent, or reporter")
 	internal.MustMarkRequired(cmd, "login", "fullName", "email", "password")
 	return cmd
 }

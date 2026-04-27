@@ -76,7 +76,7 @@ youtrack issue command MYPROJ-1 "State Fixed"                                 # 
 - Discovery: `youtrack user current`, `youtrack project list`, `youtrack issue list`
 - Issue work: `youtrack issue add`, `youtrack issue get`, `youtrack issue update`, `youtrack issue delete`, `youtrack issue command`
 - Collaboration: `youtrack issue comment add`, `youtrack issue comment list`, `youtrack issue comment delete`
-- Admin work: `youtrack project add`, `youtrack project delete`, `youtrack user add`
+- Admin work: `youtrack project add`, `youtrack project delete`, `youtrack user add` (use `--type standard|agent|reporter`; defaults to `standard`)
 - Roles: `youtrack role grant --user <id>|--group <id> --role <id> [--project <id>]`, `youtrack role assignments [--holder <id>]`, `youtrack role revoke <assignedRoleID>`
 
 ## Global Flags

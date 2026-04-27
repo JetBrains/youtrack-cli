@@ -134,6 +134,8 @@ youtrack user list --query "john"
 youtrack user get john.doe
 youtrack user current
 youtrack user add --login john.doe --fullName "John Doe" --email john.doe@example.com --password "Test1234!"
+youtrack user add --login agent.smith --fullName "Agent Smith" --email a.smith@example.com --password "Test1234!" --type agent
+youtrack user add --login rita --fullName "Rita Reporter" --email rita@example.com --password "Test1234!" --type reporter
 youtrack user ban john.doe
 youtrack user delete john.doe --successor admin
 ```

@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const userFields = "id,login,fullName,email,guest,online"
+const userFields = "id,login,fullName,email,guest,online,userType(id,name)"
 
 const (
 	entityDeleteSyncTimeout  = 5 * time.Second
@@ -16,10 +16,11 @@ const (
 
 // AddUserRequest is the body for creating a user.
 type AddUserRequest struct {
-	Login    string `json:"login"`
-	FullName string `json:"fullName"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Login    string    `json:"login,omitempty"`
+	FullName string    `json:"fullName"`
+	Email    string    `json:"email"`
+	Password string    `json:"password"`
+	UserType *UserType `json:"userType,omitempty"`
 }
 
 func (c *Client) ListUsers(query string) ([]User, error) {
@@ -55,7 +56,7 @@ func (c *Client) GetCurrentUser() (*User, error) {
 	return &result, err
 }
 
-func (c *Client) AddUser(req AddUserRequest) (*User, error) {
+func (c *Client) AddUser(req *AddUserRequest) (*User, error) {
 	var result User
 	err := c.Post(pathUsers+"?fields="+userFields, req, &result)
 	return &result, err
