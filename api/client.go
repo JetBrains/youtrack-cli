@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"net/textproto"
 	"os"
+	"strings"
 )
 
 // Client sends authenticated requests to a YouTrack instance.
@@ -21,7 +22,7 @@ type Client struct {
 
 func NewClient(baseURL, token string) *Client {
 	return &Client{
-		BaseURL:    baseURL,
+		BaseURL:    strings.TrimRight(baseURL, "/"),
 		Token:      token,
 		HTTPClient: &http.Client{},
 	}
