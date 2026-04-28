@@ -82,7 +82,18 @@ func handleResponse(resp *http.Response, result any) error {
 	if result == nil || len(data) == 0 {
 		return nil
 	}
-	return json.Unmarshal(data, result)
+	if err := json.Unmarshal(data, result); err != nil {
+		return unexpectedResponseError(resp, err)
+	}
+	return nil
+}
+
+func unexpectedResponseError(resp *http.Response, err error) error {
+	return &UnexpectedResponseError{
+		StatusCode:  resp.StatusCode,
+		ContentType: resp.Header.Get("Content-Type"),
+		Err:         err,
+	}
 }
 
 func (c *Client) Get(path string, result any) error {
