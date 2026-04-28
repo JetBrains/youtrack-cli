@@ -1,0 +1,32 @@
+package api_test
+
+import (
+	"encoding/json"
+	"os"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func TestCmd_RawUnexpectedResponse(t *testing.T) {
+	requireE2EEnv(t)
+
+	out := runCmdExpectError(t,
+		"--base-url", os.Getenv("YOUTRACK_BASE_URL"),
+		"--token", os.Getenv("YOUTRACK_TOKEN"),
+		"raw", "/",
+	)
+
+	var result struct {
+		Error struct {
+			Code       string `json:"code"`
+			Message    string `json:"message"`
+			Suggestion string `json:"suggestion"`
+		} `json:"error"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result))
+	assert.Equal(t, "unexpected_response", result.Error.Code)
+	assert.Contains(t, result.Error.Message, "unexpected YouTrack API response")
+	assert.Contains(t, result.Error.Suggestion, "youtrack auth status")
+}

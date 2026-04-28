@@ -136,6 +136,20 @@ func runCmd(t *testing.T, args ...string) string {
 	return stdout.String()
 }
 
+func runCmdExpectError(t *testing.T, args ...string) string {
+	t.Helper()
+	requireE2EEnv(t)
+
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	require.Error(t, err, "binary stdout: %s\nbinary stderr: %s", stdout.String(), stderr.String())
+	return stdout.String()
+}
+
 // runCmdWithInput executes the compiled CLI binary with the given args and provides
 // stdinInput as the command's stdin. Returns stdout as a string.
 // HOME is overridden to an empty temp dir so the binary does not pick up the

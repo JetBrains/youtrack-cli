@@ -62,6 +62,10 @@ func tipFor(err error) string {
 			return "YouTrack unreachable — check YOUTRACK_BASE_URL"
 		}
 	}
+	var unexpectedErr *api.UnexpectedResponseError
+	if errors.As(err, &unexpectedErr) {
+		return "Run 'youtrack auth status' or retry with '--verbose' to confirm which configured instance is being used"
+	}
 	msg := err.Error()
 	if strings.Contains(msg, "YOUTRACK_BASE_URL") {
 		return "Set it via env var or --base-url flag"
@@ -87,6 +91,10 @@ func errorCode(err error) string {
 		default:
 			return "api_error"
 		}
+	}
+	var unexpectedErr *api.UnexpectedResponseError
+	if errors.As(err, &unexpectedErr) {
+		return "unexpected_response"
 	}
 	return "internal_error"
 }
