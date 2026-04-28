@@ -1,10 +1,8 @@
 package api_test
 
 import (
-	"fmt"
 	"net/url"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -31,8 +29,7 @@ func TestCmd_ProjectAdd(t *testing.T) {
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
 
-	shortName := fmt.Sprintf("CMDP%d", time.Now().UnixMilli()%100000)
-	t.Cleanup(func() { _ = c.DeleteProject(shortName) })
+	shortName := uniqueProjectShortName("CMDP")
 
 	out := runCmd(t, "project", "add",
 		"--shortName", shortName,

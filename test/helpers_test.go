@@ -2,12 +2,13 @@ package api_test
 
 import (
 	"bytes"
-	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -22,6 +23,7 @@ var (
 	binaryVersion string
 	binaryCommit  string
 	binaryDate    string
+	nameCounter   uint64
 )
 
 func TestMain(m *testing.M) {
@@ -99,23 +101,37 @@ func newTestClient(t *testing.T) *api.Client {
 	)
 }
 
-// createTempProject creates a fresh project and registers t.Cleanup to delete it.
+// createTempProject creates a fresh project.
 // The project is owned by the current user.
+//
+// Project deletion in YouTrack is asynchronous and can briefly poison the
+// global /api/admin/projects list with "Project[...] was removed" errors.
+// The Docker E2E harness resets state between CI runs, so fixture projects are
+// intentionally left in place instead of being deleted during the test run.
 func createTempProject(t *testing.T, c *api.Client) *api.Project {
 	t.Helper()
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
 
-	// short name: max 10 chars, letters+digits, unique per millisecond
-	shortName := fmt.Sprintf("T%07d", time.Now().UnixMilli()%10000000)
+	shortName := uniqueProjectShortName("T")
 	proj, err := c.AddProject(api.AddProjectRequest{
 		ShortName: shortName,
 		Name:      "Temp " + shortName,
 		Leader:    &api.User{Login: me.Login},
 	}, "")
 	require.NoError(t, err)
-	t.Cleanup(func() { _ = c.DeleteProject(proj.ShortName) })
 	return proj
+}
+
+func uniqueProjectShortName(prefix string) string {
+	const maxProjectShortNameLength = 10
+
+	seq := atomic.AddUint64(&nameCounter, 1)
+	suffix := strconv.FormatInt(time.Now().UnixMilli(), 36) + strconv.FormatUint(seq%36, 36)
+	if len(prefix)+len(suffix) > maxProjectShortNameLength {
+		prefix = prefix[:maxProjectShortNameLength-len(suffix)]
+	}
+	return strings.ToUpper(prefix + suffix)
 }
 
 // runCmd executes the compiled CLI binary with given args, returns stdout.
