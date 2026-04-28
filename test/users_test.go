@@ -3,6 +3,8 @@ package api_test
 import (
 	"fmt"
 	"net/url"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +14,20 @@ import (
 
 func TestCmd_UserCurrent(t *testing.T) {
 	out := runCmd(t, "user", "current", "--format", "json")
+	assert.Contains(t, out, "login")
+}
+
+func TestCmd_UserCurrentTrailingSlashBaseURL(t *testing.T) {
+	requireE2EEnv(t)
+
+	baseURL := strings.TrimRight(os.Getenv("YOUTRACK_BASE_URL"), "/")
+	out := runCmd(t,
+		"--base-url", baseURL+"/",
+		"--token", os.Getenv("YOUTRACK_TOKEN"),
+		"user", "current",
+		"--format", "json",
+	)
+
 	assert.Contains(t, out, "login")
 }
 
