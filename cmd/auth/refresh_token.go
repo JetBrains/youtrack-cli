@@ -54,7 +54,7 @@ Use --format json for machine-readable output.`,
 				return fmt.Errorf("instance %q not found — run: youtrack instance list", alias)
 			}
 
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Refreshing token for %q (%s)...\n\n", alias, inst.URL)
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Refreshing token for %q (%s)...\n", alias, inst.URL)
 
 			reader := bufio.NewReader(os.Stdin)
 
