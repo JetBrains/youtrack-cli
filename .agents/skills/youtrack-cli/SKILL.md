@@ -46,6 +46,18 @@ youtrack instance remove --force <alias>      # skip confirmation
 youtrack auth logout                          # remove active instance (or --instance <alias> for a specific one)
 ```
 
+### Refreshing a Token
+
+To replace the saved token for a configured instance (e.g. when it expires):
+
+```bash
+youtrack auth refresh-token [<alias>]
+youtrack instance update-token <alias>
+```
+
+If no alias is given, `auth refresh-token` uses the active instance. Presents the same three
+auth methods as `auth get-token`. The alias and URL are preserved; only the token is replaced.
+
 ## Setup (run silently before every task)
 
 1. **CLI available?** `which youtrack` — if not found, run `make build && cp youtrack /usr/local/bin/` from the repo root.
