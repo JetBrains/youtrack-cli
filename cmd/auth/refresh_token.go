@@ -47,7 +47,7 @@ Use --format json for machine-readable output.`,
 				alias = cfg.CurrentInstance
 			}
 			if alias == "" {
-				return fmt.Errorf("no active instance — specify one: youtrack auth refresh-token <alias>")
+				return fmt.Errorf("no active instance")
 			}
 			inst, ok := cfg.Instances[alias]
 			if !ok {

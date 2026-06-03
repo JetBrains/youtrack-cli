@@ -73,6 +73,12 @@ func tipFor(err error) string {
 	if strings.Contains(msg, "YOUTRACK_TOKEN") {
 		return "Run 'youtrack auth get-token' to authenticate"
 	}
+	if strings.Contains(msg, "alias is required") {
+		return "Run 'youtrack instance list' to see available instances"
+	}
+	if strings.Contains(msg, "no active instance") {
+		return "Run 'youtrack instance use <alias>' to set one, or pass the alias directly"
+	}
 	return ""
 }
 

@@ -476,5 +476,5 @@ func TestInstanceUpdateToken_MissingArg(t *testing.T) {
 	out, err := cmd.CombinedOutput()
 
 	assert.Error(t, err)
-	assert.Contains(t, string(out), "accepts 1 arg")
+	assert.Contains(t, string(out), "alias is required")
 }
