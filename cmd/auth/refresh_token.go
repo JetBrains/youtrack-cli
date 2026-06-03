@@ -59,7 +59,7 @@ Use --format json for machine-readable output.`,
 			reader := bufio.NewReader(os.Stdin)
 
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
-				"Select authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\nSelect [1-3]: ")
+				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\nSelect [1-3]: ")
 			choiceRaw, err := reader.ReadString('\n')
 			if err != nil {
 				return fmt.Errorf("reading auth type: %w", err)
@@ -111,7 +111,7 @@ Use --format json for machine-readable output.`,
 	cmd.Flags().String("login", "", "Hub login (basic auth; prompted interactively if omitted)")
 	cmd.Flags().String("password", "", "Password (basic auth; prompted interactively if omitted — avoid in scripts)")
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
-	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only)")
+	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
 	return cmd
 }
 

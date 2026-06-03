@@ -8,6 +8,7 @@ func NewCmd() *cobra.Command {
 		Short: "Authentication utilities",
 	}
 	cmd.AddCommand(NewGetTokenCmd())
+	cmd.AddCommand(NewRefreshTokenCmd())
 	cmd.AddCommand(newLogoutCmd())
 	cmd.AddCommand(newStatusCmd())
 	return cmd
