@@ -9,7 +9,9 @@ func NewCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newProjectListCmd())
 	cmd.AddCommand(newProjectGetCmd())
+	cmd.AddCommand(newProjectViewCmd())
 	cmd.AddCommand(newProjectAddCmd())
+	cmd.AddCommand(newProjectCreateCmd())
 	cmd.AddCommand(newProjectDeleteCmd())
 	cmd.AddCommand(newProjectArchiveCmd())
 	cmd.AddCommand(newProjectTemplateCmd())

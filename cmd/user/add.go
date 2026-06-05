@@ -19,7 +19,7 @@ var userTypeAPIIDs = map[string]string{
 func newUserAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Create a new user",
+		Short: "Create a new user (alias: create)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			login, _ := cmd.Flags().GetString("login")
 			fullName, _ := cmd.Flags().GetString("fullName")

@@ -10,7 +10,7 @@ import (
 func newProjectGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <shortName>",
-		Short: "Get a project by short name",
+		Short: "Get a project by short name (alias: view)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)

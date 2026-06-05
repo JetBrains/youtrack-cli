@@ -9,8 +9,11 @@ func NewCmd() *cobra.Command {
 	}
 	cmd.AddCommand(newUserListCmd())
 	cmd.AddCommand(newUserGetCmd())
+	cmd.AddCommand(newUserViewCmd())
 	cmd.AddCommand(newUserCurrentCmd())
+	cmd.AddCommand(newUserMeCmd())
 	cmd.AddCommand(newUserAddCmd())
+	cmd.AddCommand(newUserCreateCmd())
 	cmd.AddCommand(newUserDeleteCmd())
 	cmd.AddCommand(newUserBanCmd())
 	cmd.AddCommand(newUserUnbanCmd())

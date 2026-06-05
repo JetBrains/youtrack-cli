@@ -11,7 +11,7 @@ import (
 func newIssueAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Create a new issue",
+		Short: "Create a new issue (alias: create)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectShortName, _ := cmd.Flags().GetString("project")
 			summary, _ := cmd.Flags().GetString("summary")
