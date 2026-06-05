@@ -62,7 +62,7 @@ auth methods as `auth get-token`. The alias and URL are preserved; only the toke
 
 1. **CLI available?** `which youtrack` — if not found, run `make build && cp youtrack /usr/local/bin/` from the repo root.
 2. **Credentials set?** Check `~/.youtrack-cli-config.json` (multi-instance) or `~/.youtrack-cli-env` / `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN` (single-instance). If missing, guide the user to run `youtrack auth get-token`. To check the active instance: `youtrack instance list`.
-3. **Connectivity OK?** `youtrack user current` — stop and report if it fails.
+3. **Connectivity OK?** `youtrack user me` — stop and report if it fails.
 
 ## Behaviour rules
 
@@ -73,9 +73,9 @@ auth methods as `auth get-token`. The alias and URL are preserved; only the toke
 ## Quick Start
 
 ```bash
-youtrack user current                                                          # verify auth
+youtrack user me                                                               # verify auth
 youtrack issue list --query "assignee: me State: Open"                        # find issues
-youtrack issue add --project MYPROJ --summary "Bug title"                     # create issue
+youtrack issue create --project MYPROJ --summary "Bug title"                  # create issue
 youtrack issue command MYPROJ-1 "State Fixed"                                 # update state
 ```
 
@@ -85,12 +85,23 @@ youtrack issue command MYPROJ-1 "State Fixed"                                 # 
 
 **Helpdesk agent auto-registration:** `project team add-user` registers the user as a Helpdesk agent of the project when (a) the project is a Helpdesk project AND (b) the user has type `AGENT`. In every other combination it only adds the user to the team.
 
+## Verb Aliases
+
+Each command group registers both the canonical verb and a more intuitive alias — both appear in `--help` and work identically:
+
+| Canonical | Alias | Group |
+|---|---|---|
+| `get` | `view` | `issue`, `project`, `user`, `board`, `group` |
+| `add` | `create` | `issue`, `project`, `user`, `board`, `dashboard`, `group` |
+| `current` | `me` | `user` |
+| `get-token` | `login` | `auth` |
+
 ## Common Commands
 
-- Discovery: `youtrack user current`, `youtrack project list`, `youtrack issue list`
-- Issue work: `youtrack issue add`, `youtrack issue get`, `youtrack issue update`, `youtrack issue delete`, `youtrack issue command`
+- Discovery: `youtrack user me`, `youtrack project list`, `youtrack issue list`
+- Issue work: `youtrack issue create`, `youtrack issue view <id>`, `youtrack issue update`, `youtrack issue delete`, `youtrack issue command`
 - Collaboration: `youtrack issue comment add`, `youtrack issue comment list`, `youtrack issue comment delete`
-- Admin work: `youtrack project add`, `youtrack project delete`, `youtrack user add` (use `--type standard|agent|reporter`; defaults to `standard`)
+- Admin work: `youtrack project create`, `youtrack project delete`, `youtrack user create` (use `--type standard|agent|reporter`; defaults to `standard`)
 - Roles: `youtrack role grant --user <id>|--group <id> --role <id> [--project <id>]`, `youtrack role assignments [--holder <id>]`, `youtrack role revoke <assignedRoleID>`
 
 ## Global Flags
