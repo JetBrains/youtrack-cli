@@ -68,7 +68,7 @@ auth methods as `auth get-token`. The alias and URL are preserved; only the toke
 
 - **No confirmations.** Execute all actions autonomously — `youtrack` commands, directory creation, sourcing `~/.youtrack-cli-env`. Gather ambiguous params upfront, then run to completion.
 - **Summarise, don't narrate.** Concise summary after completion; never dump raw JSON.
-- **Output format.** Default output is JSON. Use `--format table` for human-readable output in TTY contexts.
+- **Output format.** Default output is table when stdout is a TTY, JSON when piped or redirected. Use `--json` to force JSON, `--plain` for tab-separated no-header output.
 
 ## Quick Start
 
@@ -96,11 +96,23 @@ youtrack issue command MYPROJ-1 "State Fixed"                                 # 
 ## Global Flags
 
 ```
---format json|table    Output format (default: json)
+--json / -j            Force JSON output
+--plain                Force tab-separated output (no headers, pipeline-friendly)
+--format json|table|plain  Explicit format override (default: table on TTY, json when piped)
+--fields FIELDS / -f   Comma-separated field projection, e.g. id,summary,reporter
+--server ALIAS / -s    Use a named instance profile for this invocation (does not persist)
 --base-url URL         Override YOUTRACK_BASE_URL
 --token TOKEN          Override YOUTRACK_TOKEN
 --verbose              Print HTTP requests/responses to stderr
 ```
+
+`YOUTRACK_RO=1` — env var blocking all write operations (reads still work).
+
+**`--fields` syntax:**
+- Bare names: `--fields id,summary,reporter` (nested entities auto-expand)
+- Sub-field spec: `--fields 'comments(id,text)'` (shell quotes required for parens)
+- Dot path: `--fields project.shortName`
+- Auto-expanded: `reporter` → `reporter(id,login,fullName)`, `project` → `project(id,shortName,name)`
 
 ## References
 
