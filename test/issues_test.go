@@ -11,6 +11,93 @@ import (
 	"github.com/JetBrains/youtrack-cli/api"
 )
 
+func TestCmd_IssueFieldsProjection(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary:     "fields projection test",
+		Description: "test description content",
+		Project:     &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	_, err = c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "test comment"})
+	require.NoError(t, err)
+
+	t.Run("scalar fields render as plain values without map[] or scientific notation", func(t *testing.T) {
+		out := runCmd(t, "issue", "list",
+			"--query", "project: "+proj.ShortName,
+			"--fields", "idReadable,summary,created,updated,numberInProject,commentsCount,votes,isDraft",
+			"--format", "plain",
+		)
+		assert.Contains(t, out, issue.IDReadable)
+		assert.Contains(t, out, "fields projection test")
+		assert.Contains(t, out, "2026-") // created rendered as date, not epoch
+		assert.NotContains(t, out, "map[")
+		assert.NotContains(t, out, "e+12") // no scientific notation for timestamps
+	})
+
+	t.Run("reporter auto-expands and displays login", func(t *testing.T) {
+		out := runCmd(t, "issue", "list",
+			"--query", "project: "+proj.ShortName,
+			"--fields", "idReadable,reporter",
+			"--format", "plain",
+		)
+		assert.Contains(t, out, me.Login)
+		assert.NotContains(t, out, "map[")
+	})
+
+	t.Run("project auto-expands and displays shortName", func(t *testing.T) {
+		out := runCmd(t, "issue", "list",
+			"--query", "project: "+proj.ShortName,
+			"--fields", "idReadable,project",
+			"--format", "plain",
+		)
+		assert.Contains(t, out, proj.ShortName)
+		assert.NotContains(t, out, "map[")
+	})
+
+	t.Run("comments array displays as count not raw map", func(t *testing.T) {
+		out := runCmd(t, "issue", "list",
+			"--query", "project: "+proj.ShortName,
+			"--fields", "idReadable,commentsCount,comments",
+			"--format", "plain",
+		)
+		assert.Contains(t, out, issue.IDReadable)
+		assert.NotContains(t, out, "map[")
+		// commentsCount is a scalar int — 1 after adding the comment above
+		assert.Contains(t, out, "1")
+	})
+
+	t.Run("id and idReadable together use KEY header to avoid duplicate ID columns", func(t *testing.T) {
+		out := runCmd(t, "issue", "list",
+			"--query", "project: "+proj.ShortName,
+			"--fields", "id,idReadable",
+			"--format", "table",
+		)
+		lines := strings.Split(strings.TrimSpace(out), "\n")
+		require.NotEmpty(t, lines)
+		header := lines[0]
+		assert.Contains(t, header, "KEY")
+		assert.Equal(t, 1, strings.Count(header, "ID"), "expected exactly one ID column, got: %q", header)
+	})
+
+	t.Run("description renders on single line in table format", func(t *testing.T) {
+		out := runCmd(t, "issue", "list",
+			"--query", "project: "+proj.ShortName,
+			"--fields", "idReadable,description",
+			"--format", "table",
+		)
+		assert.Contains(t, out, "test description content")
+		assert.NotContains(t, out, "map[")
+	})
+}
+
 func TestIssue_WrapUserValues(t *testing.T) {
 	cases := []struct{ in, out string }{
 		{"assignee alice", "assignee alice"},

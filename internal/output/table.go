@@ -17,12 +17,12 @@ func PrintTable(out io.Writer, data any) error {
 
 	switch v := data.(type) {
 	case *api.Issue:
-		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
-		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.IDReadable, truncate(v.Summary, 72), projectKey(v.Project))
+		_, _ = fmt.Fprintln(w, "ID\tSUMMARY")
+		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.IDReadable, truncate(v.Summary, 72))
 	case []api.Issue:
-		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
+		_, _ = fmt.Fprintln(w, "ID\tSUMMARY")
 		for i := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v[i].IDReadable, truncate(v[i].Summary, 72), projectKey(v[i].Project))
+			_, _ = fmt.Fprintf(w, "%s\t%s\n", v[i].IDReadable, truncate(v[i].Summary, 72))
 		}
 	case *api.Project:
 		_, _ = fmt.Fprintln(w, "KEY\tNAME")
@@ -250,10 +250,10 @@ func PrintPlain(out io.Writer, data any) error {
 	}
 	switch v := data.(type) {
 	case *api.Issue:
-		write(v.IDReadable, v.Summary, projectKey(v.Project))
+		write(v.IDReadable, v.Summary)
 	case []api.Issue:
 		for i := range v {
-			write(v[i].IDReadable, v[i].Summary, projectKey(v[i].Project))
+			write(v[i].IDReadable, v[i].Summary)
 		}
 	case *api.Project:
 		write(v.ShortName, v.Name)

@@ -4,21 +4,34 @@ import "encoding/json"
 
 // Issue represents a YouTrack issue.
 type Issue struct {
-	ID                  string   `json:"id,omitempty"`
-	IDReadable          string   `json:"idReadable,omitempty"`
-	Summary             string   `json:"summary,omitempty"`
-	Description         string   `json:"description,omitempty"`
-	WikifiedDescription string   `json:"wikifiedDescription,omitempty"`
-	Project             *Project `json:"project,omitempty"`
-	Reporter            *User    `json:"reporter,omitempty"`
-	Updater             *User    `json:"updater,omitempty"`
-	Resolved            *int64   `json:"resolved,omitempty"`
-	Created             int64    `json:"created,omitempty"`
-	Updated             int64    `json:"updated,omitempty"`
-	NumberInProject     int64    `json:"numberInProject,omitempty"`
-	CommentsCount       int      `json:"commentsCount,omitempty"`
-	Votes               int      `json:"votes,omitempty"`
-	IsDraft             bool     `json:"isDraft,omitempty"`
+	ID                  string            `json:"id,omitempty"`
+	IDReadable          string            `json:"idReadable,omitempty"`
+	Summary             string            `json:"summary,omitempty"`
+	Description         string            `json:"description,omitempty"`
+	WikifiedDescription string            `json:"wikifiedDescription,omitempty"`
+	Project             *Project          `json:"project,omitempty"`
+	Reporter            *User             `json:"reporter,omitempty"`
+	Updater             *User             `json:"updater,omitempty"`
+	DraftOwner          *User             `json:"draftOwner,omitempty"`
+	Resolved            *int64            `json:"resolved,omitempty"`
+	Created             int64             `json:"created,omitempty"`
+	Updated             int64             `json:"updated,omitempty"`
+	NumberInProject     int64             `json:"numberInProject,omitempty"`
+	CommentsCount       int               `json:"commentsCount,omitempty"`
+	Votes               int               `json:"votes,omitempty"`
+	IsDraft             bool              `json:"isDraft,omitempty"`
+	Parent              *IssueLink        `json:"parent,omitempty"`
+	Subtasks            *IssueLink        `json:"subtasks,omitempty"`
+	Links               []IssueLink       `json:"links,omitempty"`
+	Attachments         []IssueAttachment `json:"attachments,omitempty"`
+	Comments            []Comment         `json:"comments,omitempty"`
+	PinnedComments      []Comment         `json:"pinnedComments,omitempty"`
+	Tags                []Tag             `json:"tags,omitempty"`
+	CustomFields        []IssueField      `json:"customFields,omitempty"`
+	Voters              *IssueVoters      `json:"voters,omitempty"`
+	Watchers            *IssueWatchers    `json:"watchers,omitempty"`
+	Visibility          *Visibility       `json:"visibility,omitempty"`
+	ExternalIssue       *ExternalIssue    `json:"externalIssue,omitempty"`
 
 	// raw preserves the original API JSON so --fields projection can access
 	// any field returned by YouTrack, not just the ones declared above.
@@ -244,6 +257,27 @@ type IssueField struct {
 	ID    string `json:"id,omitempty"`
 	Name  string `json:"name,omitempty"`
 	Value any    `json:"value,omitempty"`
+}
+
+type IssueVoters struct {
+	HasVote bool `json:"hasVote,omitempty"`
+	Votes   int  `json:"votes,omitempty"`
+}
+
+type IssueWatchers struct {
+	HasWatchedIssue bool `json:"hasWatchedIssue,omitempty"`
+}
+
+type Visibility struct {
+	Type            string  `json:"$type,omitempty"`
+	PermittedGroups []Group `json:"permittedGroups,omitempty"`
+	PermittedUsers  []User  `json:"permittedUsers,omitempty"`
+}
+
+type ExternalIssue struct {
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+	URL  string `json:"url,omitempty"`
 }
 
 type WorkTimeSettings struct {
