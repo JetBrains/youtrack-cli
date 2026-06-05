@@ -106,8 +106,6 @@ youtrack issue command MYPROJ-1 "State Fixed"                                 # 
 --verbose              Print HTTP requests/responses to stderr
 ```
 
-`YOUTRACK_RO=1` — env var blocking all write operations (reads still work).
-
 **`--fields` syntax:**
 - Bare names: `--fields id,summary,reporter` (nested entities auto-expand)
 - Sub-field spec: `--fields 'comments(id,text)'` (shell quotes required for parens)
