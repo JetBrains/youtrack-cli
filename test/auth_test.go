@@ -235,7 +235,8 @@ func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
 	)
 
 	assert.Contains(t, out, "Token ready:")
-	assert.Contains(t, out, token)
+	assert.Contains(t, out, "****")        // token is masked in human output
+	assert.NotContains(t, out, token)      // full token must not appear
 	assert.NotContains(t, out, `"token":`) // must not be JSON
 }
 
@@ -432,6 +433,30 @@ func TestAuthRefreshToken_JSONOutput(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
 	assert.Equal(t, token, result.Token)
+}
+
+func TestAuthRefreshToken_HumanReadableOutput(t *testing.T) {
+	requireE2EEnv(t)
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	tmpHome := t.TempDir()
+
+	cfg := `{
+  "currentInstance": "myinst",
+  "instances": {
+    "myinst": {"url": "` + baseURL + `", "token": "` + token + `"}
+  }
+}`
+	configFixture(t, tmpHome, cfg)
+
+	out := runCmdWithEnv(t, "3\n"+token+"\n",
+		[]string{"HOME=" + tmpHome},
+		"auth", "refresh-token", "myinst",
+	)
+
+	assert.Contains(t, out, "Token ready:")
+	assert.Contains(t, out, "****")   // token is masked in human output
+	assert.NotContains(t, out, token) // full token must not appear
 }
 
 func TestInstanceUpdateToken_ByAlias(t *testing.T) {
