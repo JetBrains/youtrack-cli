@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
@@ -119,5 +121,25 @@ func resolveField(m map[string]any, path string) string {
 		}
 		return ""
 	}
-	return fmt.Sprintf("%v", val)
+	return formatValue(val)
+}
+
+// formatValue converts a JSON-unmarshalled value to a display string.
+// float64 integers in the millisecond-epoch range are rendered as timestamps;
+// other whole-number floats are rendered as plain integers.
+func formatValue(val any) string {
+	f, ok := val.(float64)
+	if !ok {
+		return fmt.Sprintf("%v", val)
+	}
+	n := int64(f)
+	if float64(n) != f {
+		// has fractional part — render as-is
+		return strconv.FormatFloat(f, 'f', -1, 64)
+	}
+	// millisecond epoch: 2001-09-09 to 2286-11-20
+	if n > 1_000_000_000_000 && n < 10_000_000_000_000 {
+		return time.UnixMilli(n).UTC().Format("2006-01-02 15:04:05")
+	}
+	return strconv.FormatInt(n, 10)
 }
