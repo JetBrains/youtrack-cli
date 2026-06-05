@@ -3,6 +3,7 @@ package output
 import (
 	"fmt"
 	"io"
+	"strings"
 	"text/tabwriter"
 	"unicode/utf8"
 
@@ -234,6 +235,131 @@ func PrintTable(out io.Writer, data any) error {
 				name = f.Field.Name
 			}
 			_, _ = fmt.Fprintf(w, "%s\t%s\n", f.ID, name)
+		}
+	default:
+		return printJSON(out, data)
+	}
+	return nil
+}
+
+// PrintPlain writes data as tab-separated values with no headers or borders.
+// Falls back to JSON for types without a defined plain formatter.
+func PrintPlain(out io.Writer, data any) error {
+	write := func(fields ...string) {
+		_, _ = fmt.Fprintln(out, strings.Join(fields, "\t"))
+	}
+	switch v := data.(type) {
+	case *api.Issue:
+		write(v.IDReadable, v.Summary, projectKey(v.Project))
+	case []api.Issue:
+		for _, i := range v {
+			write(i.IDReadable, i.Summary, projectKey(i.Project))
+		}
+	case *api.Project:
+		write(v.ShortName, v.Name)
+	case []api.Project:
+		for _, p := range v {
+			write(p.ShortName, p.Name)
+		}
+	case *api.User:
+		write(v.Login, v.FullName, v.Email)
+	case []api.User:
+		for _, u := range v {
+			write(u.Login, u.FullName, u.Email)
+		}
+	case []api.Comment:
+		for _, c := range v {
+			author := ""
+			if c.Author != nil {
+				author = c.Author.Login
+			}
+			write(c.ID, author, c.Text)
+		}
+	case *api.Article:
+		write(v.IDReadable, v.Summary, projectKey(v.Project))
+	case []api.Article:
+		for _, a := range v {
+			write(a.IDReadable, a.Summary, projectKey(a.Project))
+		}
+	case *api.Group:
+		write(v.ID, v.Name)
+	case []api.Group:
+		for _, g := range v {
+			write(g.ID, g.Name)
+		}
+	case *api.Role:
+		write(v.ID, v.Name, v.Description)
+	case []api.Role:
+		for _, r := range v {
+			write(r.ID, r.Name, r.Description)
+		}
+	case []api.Permission:
+		for _, p := range v {
+			write(p.ID, p.Name)
+		}
+	case []api.Workflow:
+		for _, wf := range v {
+			write(wf.ID, wf.Name, wf.Title)
+		}
+	case []api.CustomField:
+		for _, f := range v {
+			typeID := ""
+			if f.FieldType != nil {
+				typeID = f.FieldType.ID
+			}
+			write(f.ID, f.Name, typeID)
+		}
+	case []api.Bundle:
+		for _, b := range v {
+			write(b.ID, b.Name)
+		}
+	case []api.Board:
+		for _, b := range v {
+			write(b.ID, b.Name)
+		}
+	case []api.Dashboard:
+		for _, d := range v {
+			write(d.ID, d.Name)
+		}
+	case []api.Tag:
+		for _, t := range v {
+			write(t.ID, t.Name)
+		}
+	case []api.SavedSearch:
+		for _, s := range v {
+			write(s.ID, s.Name, s.Query)
+		}
+	case []api.App:
+		for _, a := range v {
+			write(a.ID, a.Name, a.Title, a.Version)
+		}
+	case []api.IssueLink:
+		for _, l := range v {
+			typeName := ""
+			if l.LinkType != nil {
+				typeName = l.LinkType.Name
+			}
+			ids := make([]string, len(l.Issues))
+			for i, is := range l.Issues {
+				ids[i] = is.IDReadable
+			}
+			write(l.ID, typeName, joinStrings(ids))
+		}
+	case []api.LinkType:
+		for _, lt := range v {
+			write(lt.ID, lt.Name, lt.SourceToTarget, lt.TargetToSource)
+		}
+	case []api.ProjectCustomField:
+		for _, f := range v {
+			name := ""
+			if f.Field != nil {
+				name = f.Field.Name
+			}
+			write(f.ID, name)
+		}
+	case []api.IssueDraft:
+		for _, d := range v {
+			write(d.ID, d.Summary)
 		}
 	default:
 		return printJSON(out, data)
