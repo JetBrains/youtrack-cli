@@ -21,8 +21,8 @@ func PrintTable(out io.Writer, data any) error {
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.IDReadable, truncate(v.Summary, 72), projectKey(v.Project))
 	case []api.Issue:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
-		for _, i := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", i.IDReadable, truncate(i.Summary, 72), projectKey(i.Project))
+		for i := range v {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v[i].IDReadable, truncate(v[i].Summary, 72), projectKey(v[i].Project))
 		}
 	case *api.Project:
 		_, _ = fmt.Fprintln(w, "KEY\tNAME")
@@ -217,8 +217,8 @@ func PrintTable(out io.Writer, data any) error {
 				typeName = l.LinkType.Name
 			}
 			ids := make([]string, len(l.Issues))
-			for i, is := range l.Issues {
-				ids[i] = is.IDReadable
+			for i := range l.Issues {
+				ids[i] = l.Issues[i].IDReadable
 			}
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", l.ID, typeName, joinStrings(ids))
 		}
@@ -252,8 +252,8 @@ func PrintPlain(out io.Writer, data any) error {
 	case *api.Issue:
 		write(v.IDReadable, v.Summary, projectKey(v.Project))
 	case []api.Issue:
-		for _, i := range v {
-			write(i.IDReadable, i.Summary, projectKey(i.Project))
+		for i := range v {
+			write(v[i].IDReadable, v[i].Summary, projectKey(v[i].Project))
 		}
 	case *api.Project:
 		write(v.ShortName, v.Name)
@@ -340,8 +340,8 @@ func PrintPlain(out io.Writer, data any) error {
 				typeName = l.LinkType.Name
 			}
 			ids := make([]string, len(l.Issues))
-			for i, is := range l.Issues {
-				ids[i] = is.IDReadable
+			for i := range l.Issues {
+				ids[i] = l.Issues[i].IDReadable
 			}
 			write(l.ID, typeName, joinStrings(ids))
 		}

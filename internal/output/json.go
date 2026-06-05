@@ -84,7 +84,11 @@ func printProjected(w io.Writer, data any, fields string, withHeader bool) error
 	writeRow := func(obj map[string]any) {
 		vals := make([]string, len(names))
 		for i, name := range names {
-			vals[i] = resolveField(obj, name)
+			v := resolveField(obj, name)
+			if withHeader {
+				v = singleLine(v, 72)
+			}
+			vals[i] = v
 		}
 		_, _ = fmt.Fprintln(w, strings.Join(vals, "\t"))
 	}
@@ -140,6 +144,19 @@ func headerNames(names []string) []string {
 		}
 	}
 	return out
+}
+
+// singleLine collapses a multi-line string to its first non-empty line,
+// then truncates to max runes with "…" if needed.
+func singleLine(s string, max int) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = strings.TrimSpace(s[:i])
+	}
+	r := []rune(s)
+	if len(r) > max {
+		return string(r[:max-1]) + "…"
+	}
+	return s
 }
 
 // formatValue converts a JSON-unmarshalled value to a display string.

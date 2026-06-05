@@ -4,14 +4,21 @@ import "encoding/json"
 
 // Issue represents a YouTrack issue.
 type Issue struct {
-	ID          string   `json:"id,omitempty"`
-	IDReadable  string   `json:"idReadable,omitempty"`
-	Summary     string   `json:"summary,omitempty"`
-	Description string   `json:"description,omitempty"`
-	Project     *Project `json:"project,omitempty"`
-	Reporter    *User    `json:"reporter,omitempty"`
-	Resolved    *int64   `json:"resolved,omitempty"`
-	Created     int64    `json:"created,omitempty"`
+	ID                  string   `json:"id,omitempty"`
+	IDReadable          string   `json:"idReadable,omitempty"`
+	Summary             string   `json:"summary,omitempty"`
+	Description         string   `json:"description,omitempty"`
+	WikifiedDescription string   `json:"wikifiedDescription,omitempty"`
+	Project             *Project `json:"project,omitempty"`
+	Reporter            *User    `json:"reporter,omitempty"`
+	Updater             *User    `json:"updater,omitempty"`
+	Resolved            *int64   `json:"resolved,omitempty"`
+	Created             int64    `json:"created,omitempty"`
+	Updated             int64    `json:"updated,omitempty"`
+	NumberInProject     int64    `json:"numberInProject,omitempty"`
+	CommentsCount       int      `json:"commentsCount,omitempty"`
+	Votes               int      `json:"votes,omitempty"`
+	IsDraft             bool     `json:"isDraft,omitempty"`
 
 	// raw preserves the original API JSON so --fields projection can access
 	// any field returned by YouTrack, not just the ones declared above.
