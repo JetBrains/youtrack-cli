@@ -82,6 +82,8 @@ youtrack instance add
 youtrack instance use personal   # switch active context
 youtrack instance list            # show all instances with auth status
 youtrack instance remove work     # remove an instance
+youtrack instance update-token work   # replace the saved token for an instance
+youtrack auth refresh-token           # replace token for the active instance
 youtrack auth logout              # remove active instance credentials
 ```
 
@@ -99,8 +101,8 @@ Env vars `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN` still work as a single-instance 
 
 | Group | Subcommands |
 |---|---|
-| `auth` | `get-token`, `logout`, `status` |
-| `instance` | `add`, `list`, `use`, `remove` |
+| `auth` | `get-token`, `refresh-token`, `logout`, `status` |
+| `instance` | `add`, `list`, `use`, `remove`, `update-token` |
 | `issue` | `get`, `list`, `add`, `update`, `delete`, `command`, `comment list`, `comment add`, `comment delete` |
 | `project` | `list`, `get`, `add`, `delete` |
 | `user` | `list`, `get`, `current`, `add`, `delete`, `ban`, `unban` |

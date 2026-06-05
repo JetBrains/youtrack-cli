@@ -235,7 +235,8 @@ func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
 	)
 
 	assert.Contains(t, out, "Token ready:")
-	assert.Contains(t, out, token)
+	assert.Contains(t, out, "****")        // token is masked in human output
+	assert.NotContains(t, out, token)      // full token must not appear
 	assert.NotContains(t, out, `"token":`) // must not be JSON
 }
 
@@ -312,4 +313,193 @@ func TestAuth_Logout_JSONFormat(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
 	assert.Equal(t, "logged out", result.Status)
 	assert.Equal(t, "https://test.example.com", result.URL)
+}
+
+func TestAuthRefreshToken_UpdatesConfig(t *testing.T) {
+	requireE2EEnv(t)
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	tmpHome := t.TempDir()
+
+	cfg := `{
+  "currentInstance": "myinst",
+  "instances": {
+    "myinst": {"url": "` + baseURL + `", "token": "` + token + `"}
+  }
+}`
+	cfgPath := configFixture(t, tmpHome, cfg)
+
+	// Option 3 (paste), pipe the existing token so verification passes.
+	runCmdWithEnv(t, "3\n"+token+"\n",
+		[]string{"HOME=" + tmpHome},
+		"auth", "refresh-token", "myinst",
+	)
+
+	data, err := os.ReadFile(cfgPath)
+	require.NoError(t, err)
+	var result struct {
+		CurrentInstance string `json:"currentInstance"`
+		Instances       map[string]struct {
+			URL   string `json:"url"`
+			Token string `json:"token"`
+		} `json:"instances"`
+	}
+	require.NoError(t, json.Unmarshal(data, &result))
+	assert.Equal(t, "myinst", result.CurrentInstance, "active instance must not change")
+	require.Contains(t, result.Instances, "myinst")
+	assert.Equal(t, baseURL, result.Instances["myinst"].URL, "URL must not change")
+	assert.Equal(t, token, result.Instances["myinst"].Token)
+}
+
+func TestAuthRefreshToken_DefaultsToActive(t *testing.T) {
+	requireE2EEnv(t)
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	tmpHome := t.TempDir()
+
+	cfg := `{
+  "currentInstance": "myinst",
+  "instances": {
+    "myinst": {"url": "` + baseURL + `", "token": "` + token + `"}
+  }
+}`
+	cfgPath := configFixture(t, tmpHome, cfg)
+
+	// No alias arg — should default to currentInstance ("myinst").
+	runCmdWithEnv(t, "3\n"+token+"\n",
+		[]string{"HOME=" + tmpHome},
+		"auth", "refresh-token",
+	)
+
+	data, err := os.ReadFile(cfgPath)
+	require.NoError(t, err)
+	var result struct {
+		Instances map[string]struct {
+			Token string `json:"token"`
+		} `json:"instances"`
+	}
+	require.NoError(t, json.Unmarshal(data, &result))
+	require.Contains(t, result.Instances, "myinst")
+	assert.Equal(t, token, result.Instances["myinst"].Token)
+}
+
+func TestAuthRefreshToken_UnknownAlias(t *testing.T) {
+	tmpHome := t.TempDir()
+	configFixture(t, tmpHome, twoInstanceConfig)
+
+	cmd := exec.Command(binaryPath, "auth", "refresh-token", "doesnotexist")
+	cmd.Env = append(os.Environ(), "HOME="+tmpHome)
+	out, err := cmd.CombinedOutput()
+
+	assert.Error(t, err)
+	assert.Contains(t, string(out), "doesnotexist")
+	assert.Contains(t, string(out), "not found")
+}
+
+func TestAuthRefreshToken_NoActiveInstance(t *testing.T) {
+	tmpHome := t.TempDir()
+	// Config exists but currentInstance is empty.
+	configFixture(t, tmpHome, `{"currentInstance":"","instances":{}}`)
+
+	cmd := exec.Command(binaryPath, "auth", "refresh-token")
+	cmd.Env = append(os.Environ(), "HOME="+tmpHome)
+	out, err := cmd.CombinedOutput()
+
+	assert.Error(t, err)
+	assert.Contains(t, string(out), "no active instance")
+}
+
+func TestAuthRefreshToken_JSONOutput(t *testing.T) {
+	requireE2EEnv(t)
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	tmpHome := t.TempDir()
+
+	cfg := `{
+  "currentInstance": "myinst",
+  "instances": {
+    "myinst": {"url": "` + baseURL + `", "token": "` + token + `"}
+  }
+}`
+	configFixture(t, tmpHome, cfg)
+
+	out := runCmdWithEnv(t, "3\n"+token+"\n",
+		[]string{"HOME=" + tmpHome},
+		"--format", "json", "auth", "refresh-token", "myinst",
+	)
+
+	var result struct {
+		Token string `json:"token"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
+	assert.Equal(t, token, result.Token)
+}
+
+func TestAuthRefreshToken_HumanReadableOutput(t *testing.T) {
+	requireE2EEnv(t)
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	tmpHome := t.TempDir()
+
+	cfg := `{
+  "currentInstance": "myinst",
+  "instances": {
+    "myinst": {"url": "` + baseURL + `", "token": "` + token + `"}
+  }
+}`
+	configFixture(t, tmpHome, cfg)
+
+	out := runCmdWithEnv(t, "3\n"+token+"\n",
+		[]string{"HOME=" + tmpHome},
+		"auth", "refresh-token", "myinst",
+	)
+
+	assert.Contains(t, out, "Token ready:")
+	assert.Contains(t, out, "****")   // token is masked in human output
+	assert.NotContains(t, out, token) // full token must not appear
+}
+
+func TestInstanceUpdateToken_ByAlias(t *testing.T) {
+	requireE2EEnv(t)
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	tmpHome := t.TempDir()
+
+	cfg := `{
+  "currentInstance": "myinst",
+  "instances": {
+    "myinst": {"url": "` + baseURL + `", "token": "` + token + `"}
+  }
+}`
+	cfgPath := configFixture(t, tmpHome, cfg)
+
+	runCmdWithEnv(t, "3\n"+token+"\n",
+		[]string{"HOME=" + tmpHome},
+		"instance", "update-token", "myinst",
+	)
+
+	data, err := os.ReadFile(cfgPath)
+	require.NoError(t, err)
+	var result struct {
+		Instances map[string]struct {
+			URL   string `json:"url"`
+			Token string `json:"token"`
+		} `json:"instances"`
+	}
+	require.NoError(t, json.Unmarshal(data, &result))
+	require.Contains(t, result.Instances, "myinst")
+	assert.Equal(t, baseURL, result.Instances["myinst"].URL)
+	assert.Equal(t, token, result.Instances["myinst"].Token)
+}
+
+func TestInstanceUpdateToken_MissingArg(t *testing.T) {
+	tmpHome := t.TempDir()
+	configFixture(t, tmpHome, twoInstanceConfig)
+
+	cmd := exec.Command(binaryPath, "instance", "update-token")
+	cmd.Env = append(os.Environ(), "HOME="+tmpHome)
+	out, err := cmd.CombinedOutput()
+
+	assert.Error(t, err)
+	assert.Contains(t, string(out), "alias is required")
 }

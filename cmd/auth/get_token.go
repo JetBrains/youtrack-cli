@@ -272,7 +272,7 @@ func printTokenResult(cmd *cobra.Command, res getTokenResult) {
 	}
 	_, _ = fmt.Fprintf(w, "Token ready: %s\n", name)
 	if res.HubToken != nil && res.Token != "" {
-		_, _ = fmt.Fprintf(w, "  Token:  %s\n", res.Token)
+		_, _ = fmt.Fprintf(w, "  Token:  %s\n", maskToken(res.Token))
 	}
 	if res.EnvFile != "" {
 		_, _ = fmt.Fprintf(w, "  Saved:  %s\n", res.EnvFile)
@@ -280,6 +280,19 @@ func printTokenResult(cmd *cobra.Command, res getTokenResult) {
 	if res.Hint != "" {
 		_, _ = fmt.Fprintf(w, "\n%s\n", res.Hint)
 	}
+}
+
+// maskToken replaces the secret segment of a token with ****.
+// For perm-<a>.<b>.<secret> tokens, the last dot-separated segment is masked.
+// Other token formats show only the first 4 characters followed by ****.
+func maskToken(token string) string {
+	if i := strings.LastIndex(token, "."); i >= 0 {
+		return token[:i+1] + "****"
+	}
+	if len(token) > 4 {
+		return token[:4] + "****"
+	}
+	return "****"
 }
 
 // runDirectTokenFlow prompts the user to paste a token directly, without opening a browser.
