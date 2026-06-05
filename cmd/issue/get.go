@@ -10,7 +10,7 @@ import (
 func newIssueGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <issueId>",
-		Short: "Get issue by ID",
+		Short: "Get issue by ID (alias: view)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)

@@ -10,7 +10,7 @@ import (
 func newUserGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <login>",
-		Short: "Get user by login",
+		Short: "Get user by login (alias: view)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)

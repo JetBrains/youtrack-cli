@@ -12,11 +12,27 @@ func newBoardCmd() *cobra.Command {
 	cmd.AddCommand(
 		newBoardListCmd(),
 		newBoardGetCmd(),
+		newBoardViewCmd(),
 		newBoardAddCmd(),
+		newBoardCreateCmd(),
 		newBoardDeleteCmd(),
 		newBoardSprintCmd(),
 	)
 	return cmd
+}
+
+func newBoardViewCmd() *cobra.Command {
+	c := newBoardGetCmd()
+	c.Use = "view <id>"
+	c.Short = "View a board by ID"
+	return c
+}
+
+func newBoardCreateCmd() *cobra.Command {
+	c := newBoardAddCmd()
+	c.Use = "create"
+	c.Short = "Create a new board"
+	return c
 }
 
 func newBoardListCmd() *cobra.Command {
@@ -38,7 +54,7 @@ func newBoardListCmd() *cobra.Command {
 
 func newBoardGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "get <id>", Short: "Get a board by ID",
+		Use: "get <id>", Short: "Get a board by ID (alias: view)",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -56,7 +72,7 @@ func newBoardGetCmd() *cobra.Command {
 
 func newBoardAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "add", Short: "Create a new board",
+		Use: "add", Short: "Create a new board (alias: create)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			client, err := internal.GetClient(cmd)

@@ -10,7 +10,7 @@ import (
 func newUserCurrentCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "current",
-		Short: "Get the currently authenticated user",
+		Short: "Get the currently authenticated user (alias: me)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {

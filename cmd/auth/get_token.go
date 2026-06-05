@@ -28,7 +28,7 @@ type getTokenResult struct {
 func NewGetTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-token",
-		Short: "Authenticate interactively and save a permanent token",
+		Short: "Authenticate interactively and save a permanent token (alias: login)",
 		Long: `Prompts for the YouTrack URL (if not already configured) and lets you choose
 an authentication method:
 

@@ -8,8 +8,10 @@ func NewCmd() *cobra.Command {
 		Short: "Manage issues",
 	}
 	cmd.AddCommand(newIssueGetCmd())
+	cmd.AddCommand(newIssueViewCmd())
 	cmd.AddCommand(newIssueListCmd())
 	cmd.AddCommand(newIssueAddCmd())
+	cmd.AddCommand(newIssueCreateCmd())
 	cmd.AddCommand(newIssueUpdateCmd())
 	cmd.AddCommand(newIssueDeleteCmd())
 	cmd.AddCommand(newIssueCommentCmd())

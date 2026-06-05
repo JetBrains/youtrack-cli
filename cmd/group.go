@@ -9,8 +9,22 @@ import (
 
 func newGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "group", Short: "Manage user groups"}
-	cmd.AddCommand(newGroupListCmd(), newGroupGetCmd(), newGroupAddCmd(), newGroupDeleteCmd())
+	cmd.AddCommand(newGroupListCmd(), newGroupGetCmd(), newGroupViewCmd(), newGroupAddCmd(), newGroupCreateCmd(), newGroupDeleteCmd())
 	return cmd
+}
+
+func newGroupViewCmd() *cobra.Command {
+	c := newGroupGetCmd()
+	c.Use = "view <name>"
+	c.Short = "View a group by name"
+	return c
+}
+
+func newGroupCreateCmd() *cobra.Command {
+	c := newGroupAddCmd()
+	c.Use = "create"
+	c.Short = "Create a new group"
+	return c
 }
 
 func newGroupListCmd() *cobra.Command {
@@ -35,7 +49,7 @@ func newGroupListCmd() *cobra.Command {
 
 func newGroupGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "get <name>", Short: "Get a group by name",
+		Use: "get <name>", Short: "Get a group by name (alias: view)",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -53,7 +67,7 @@ func newGroupGetCmd() *cobra.Command {
 
 func newGroupAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "add", Short: "Create a new group",
+		Use: "add", Short: "Create a new group (alias: create)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			client, err := internal.GetClient(cmd)

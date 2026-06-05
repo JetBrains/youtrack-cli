@@ -14,6 +14,7 @@ func newDashboardCmd() *cobra.Command {
 	cmd.AddCommand(
 		newDashboardListCmd(),
 		newDashboardAddCmd(),
+		newDashboardCreateCmd(),
 		newDashboardDeleteCmd(),
 		newDashboardUpdateCmd(),
 	)
@@ -39,7 +40,7 @@ func newDashboardListCmd() *cobra.Command {
 
 func newDashboardAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "add", Short: "Create a new dashboard",
+		Use: "add", Short: "Create a new dashboard (alias: create)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			client, err := internal.GetClient(cmd)
@@ -56,6 +57,13 @@ func newDashboardAddCmd() *cobra.Command {
 	cmd.Flags().String("name", "", "Dashboard name (required)")
 	internal.MustMarkRequired(cmd, "name")
 	return cmd
+}
+
+func newDashboardCreateCmd() *cobra.Command {
+	c := newDashboardAddCmd()
+	c.Use = "create"
+	c.Short = "Create a new dashboard"
+	return c
 }
 
 func newDashboardDeleteCmd() *cobra.Command {
