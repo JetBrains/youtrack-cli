@@ -12,12 +12,15 @@ import (
 	"strings"
 )
 
+const envReadOnly = "YOUTRACK_RO"
+
 // Client sends authenticated requests to a YouTrack instance.
 type Client struct {
 	BaseURL    string
 	Token      string
 	HTTPClient *http.Client
 	Verbose    bool
+	Fields     string // when non-empty, overrides the fields= query param on GET requests
 }
 
 func NewClient(baseURL, token string) *Client {
@@ -98,6 +101,9 @@ func unexpectedResponseError(resp *http.Response, err error) error {
 }
 
 func (c *Client) Get(path string, result any) error {
+	if c.Fields != "" {
+		path = overrideFieldsParam(path, c.Fields)
+	}
 	resp, err := c.doRequest("GET", path, nil, "")
 	if err != nil {
 		return err
@@ -106,7 +112,27 @@ func (c *Client) Get(path string, result any) error {
 	return handleResponse(resp, result)
 }
 
+// overrideFieldsParam replaces or appends the fields= query parameter in a URL path.
+func overrideFieldsParam(path, fields string) string {
+	idx := strings.Index(path, "fields=")
+	if idx < 0 {
+		sep := "?"
+		if strings.Contains(path, "?") {
+			sep = "&"
+		}
+		return path + sep + "fields=" + fields
+	}
+	end := strings.IndexByte(path[idx:], '&')
+	if end < 0 {
+		return path[:idx] + "fields=" + fields
+	}
+	return path[:idx] + "fields=" + fields + path[idx+end:]
+}
+
 func (c *Client) Post(path string, body, result any) error {
+	if os.Getenv(envReadOnly) == "1" {
+		return fmt.Errorf("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
+	}
 	data, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -120,6 +146,9 @@ func (c *Client) Post(path string, body, result any) error {
 }
 
 func (c *Client) Put(path string, body, result any) error {
+	if os.Getenv(envReadOnly) == "1" {
+		return fmt.Errorf("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
+	}
 	data, err := json.Marshal(body)
 	if err != nil {
 		return err
@@ -133,6 +162,9 @@ func (c *Client) Put(path string, body, result any) error {
 }
 
 func (c *Client) Delete(path string) error {
+	if os.Getenv(envReadOnly) == "1" {
+		return fmt.Errorf("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
+	}
 	resp, err := c.doRequest("DELETE", path, nil, "")
 	if err != nil {
 		return err
@@ -143,6 +175,9 @@ func (c *Client) Delete(path string) error {
 
 // Multipart uploads a file as a multipart/form-data attachment.
 func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any) error {
+	if os.Getenv(envReadOnly) == "1" {
+		return fmt.Errorf("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
+	}
 	f, err := os.Open(filePath)
 	if err != nil {
 		return err

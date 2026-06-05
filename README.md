@@ -148,10 +148,32 @@ youtrack user delete john.doe --successor admin
 
 | Flag | Description |
 |---|---|
-| `--format json\|table` | Output format (default: `json`) |
+| `--json` / `-j` | Force JSON output (overrides TTY detection) |
+| `--plain` | Force tab-separated output with no headers (pipeline-friendly) |
+| `--format json\|table\|plain` | Explicit format override |
+| `--fields FIELDS` / `-f` | Comma-separated field projection, e.g. `--fields id,summary,reporter` |
+| `--server ALIAS` / `-s` | Use a named instance profile for this invocation (does not change the active instance) |
 | `--base-url URL` | Override `YOUTRACK_BASE_URL` |
 | `--token TOKEN` | Override `YOUTRACK_TOKEN` |
 | `--verbose` | Print HTTP requests/responses to stderr |
+
+**Output defaults:** table when stdout is a TTY; JSON when piped or redirected.
+
+**`YOUTRACK_RO=1`** — env var that blocks all write operations. Read commands still work; any `POST`/`PUT`/`DELETE` returns an error immediately.
+
+### --fields projection
+
+`--fields` controls which fields are fetched from the API and shown in the output:
+
+```bash
+youtrack issue list --fields id,summary,reporter
+youtrack issue list --fields 'comments(id,text)'   # sub-fields (quotes required in most shells)
+youtrack issue list --fields project.shortName     # dot-path navigation
+```
+
+Nested entity names are auto-expanded: `reporter` → `reporter(id,login,fullName)`, `project` → `project(id,shortName,name)`.
+
+In table output, sub-field specs appear in the column header: `comments(text)` → `COMMENTS(TEXT)`.
 
 ## AI Agent Integration
 

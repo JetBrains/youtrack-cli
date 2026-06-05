@@ -11,18 +11,42 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/config"
 )
 
-// GetClient builds an API client using a three-tier resolution chain:
+// GetClient builds an API client using a four-tier resolution chain:
 //  1. --base-url / --token flags (explicit per-command override, always wins)
-//  2. Active instance from ~/.youtrack-cli-config.json
-//  3. YOUTRACK_BASE_URL / YOUTRACK_TOKEN env vars (legacy single-instance fallback)
+//  2. --server flag (selects a named profile from config by alias)
+//  3. Active instance from ~/.youtrack-cli-config.json
+//  4. YOUTRACK_BASE_URL / YOUTRACK_TOKEN env vars (legacy single-instance fallback)
 func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	flags := cmd.Root().PersistentFlags()
 
 	baseURL, _ := flags.GetString("base-url")
 	token, _ := flags.GetString("token")
 	verbose, _ := flags.GetBool("verbose")
+	serverAlias, _ := flags.GetString("server")
+	fields, _ := flags.GetString("fields")
 
-	// Tier 2: active config instance fills any slot not already set by flags.
+	// Tier 2: --server flag selects a named profile (per-invocation, does not persist).
+	if (baseURL == "" || token == "") && serverAlias != "" {
+		cfg, err := config.Load()
+		if err != nil {
+			return nil, fmt.Errorf("loading config: %w", err)
+		}
+		inst, ok := cfg.Instances[serverAlias]
+		if !ok {
+			return nil, fmt.Errorf(
+				"unknown server profile %q — run: youtrack instance list\nKnown: %s",
+				serverAlias, strings.Join(cfg.Aliases(), ", "),
+			)
+		}
+		if baseURL == "" {
+			baseURL = inst.URL
+		}
+		if token == "" {
+			token = inst.Token
+		}
+	}
+
+	// Tier 3: active config instance fills any slot not already set by flags.
 	if baseURL == "" || token == "" {
 		cfg, err := config.Load()
 		if err == nil && len(cfg.Instances) > 0 {
@@ -51,7 +75,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 		}
 	}
 
-	// Tier 3: env vars (legacy single-instance fallback).
+	// Tier 4: env vars (legacy single-instance fallback).
 	if baseURL == "" {
 		baseURL = os.Getenv("YOUTRACK_BASE_URL")
 	}
@@ -74,5 +98,51 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 
 	c := api.NewClient(baseURL, token)
 	c.Verbose = verbose
+	c.Fields = expandFields(fields)
 	return c, nil
+}
+
+// expandFields auto-expands bare nested entity names to include useful sub-fields.
+// This ensures e.g. "--fields reporter" fetches reporter(id,login,fullName) from the API
+// so the display layer has real data to work with, not just the $type discriminator.
+// Splitting is paren-aware so "reporter(login,fullName)" is not mis-split on the inner comma.
+func expandFields(fields string) string {
+	if fields == "" {
+		return ""
+	}
+	defaults := map[string]string{
+		"reporter":   "reporter(id,login,fullName)",
+		"updater":    "updater(id,login,fullName)",
+		"draftOwner": "draftOwner(id,login,fullName)",
+		"project":    "project(id,shortName,name)",
+	}
+	parts := splitFieldsInternal(fields)
+	for i, p := range parts {
+		// Only expand bare names (no sub-field spec already present).
+		if expanded, ok := defaults[p]; ok {
+			parts[i] = expanded
+		}
+	}
+	return strings.Join(parts, ",")
+}
+
+// splitFieldsInternal is a copy of the output package's splitFields kept here
+// to avoid a cross-package import cycle. Both must stay in sync.
+func splitFieldsInternal(s string) []string {
+	var parts []string
+	depth, start := 0, 0
+	for i := 0; i < len(s); i++ {
+		switch s[i] {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		case ',':
+			if depth == 0 {
+				parts = append(parts, strings.TrimSpace(s[start:i]))
+				start = i + 1
+			}
+		}
+	}
+	return append(parts, strings.TrimSpace(s[start:]))
 }

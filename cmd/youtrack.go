@@ -39,11 +39,16 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 	rootCmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
 
 	f := rootCmd.PersistentFlags()
-	f.String("format", "json", "Output format: json or table")
+	f.String("format", "table", "Output format: table, json, or plain (deprecated: use --json or --plain)")
+	f.BoolP("json", "j", false, "Output as JSON (auto-enabled when stdout is not a TTY)")
+	f.Bool("plain", false, "Tab-separated output, no headers or colors (for grep/awk pipelines)")
+	f.StringP("server", "s", "", "Select named server profile (see 'youtrack instance list')")
+	f.StringP("fields", "f", "", "Comma-separated field projection (e.g. id,summary,project.shortName)")
 	f.String("base-url", "", "Override YOUTRACK_BASE_URL")
 	f.String("token", "", "Override YOUTRACK_TOKEN")
 	f.Bool("verbose", false, "Print HTTP request/response to stderr")
 	f.Bool("quiet", false, "Suppress tips and hints (useful for scripting)")
+	_ = f.MarkHidden("format")
 
 	rootCmd.AddGroup(
 		&cobra.Group{ID: "youtrack", Title: "YouTrack Commands:"},
@@ -91,7 +96,7 @@ func Execute(fs embed.FS) error {
 	internal.LoadEnvFile()
 	root := NewRootCmd(fs)
 	if err := root.Execute(); err != nil {
-		format, _ := root.PersistentFlags().GetString("format")
+		format := output.Format(root)
 		quiet, _ := root.PersistentFlags().GetBool("quiet")
 		output.RenderError(root.ErrOrStderr(), root.OutOrStdout(), err, format == "json", quiet)
 		return err
