@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -51,7 +52,10 @@ func Print(cmd *cobra.Command, data any) error {
 		return printJSON(w, data)
 	default:
 		if fields != "" {
-			return printProjected(w, data, fields, true)
+			tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+			err := printProjected(tw, data, fields, true)
+			_ = tw.Flush()
+			return err
 		}
 		return PrintTable(w, data)
 	}
@@ -88,7 +92,7 @@ func printProjected(w io.Writer, data any, fields string, withHeader bool) error
 	var arr []map[string]any
 	if json.Unmarshal(b, &arr) == nil {
 		if withHeader {
-			_, _ = fmt.Fprintln(w, strings.Join(names, "\t"))
+			_, _ = fmt.Fprintln(w, strings.Join(headerNames(names), "\t"))
 		}
 		for _, item := range arr {
 			writeRow(item)
@@ -99,7 +103,7 @@ func printProjected(w io.Writer, data any, fields string, withHeader bool) error
 	var obj map[string]any
 	if json.Unmarshal(b, &obj) == nil {
 		if withHeader {
-			_, _ = fmt.Fprintln(w, strings.Join(names, "\t"))
+			_, _ = fmt.Fprintln(w, strings.Join(headerNames(names), "\t"))
 		}
 		writeRow(obj)
 		return nil
@@ -122,6 +126,20 @@ func resolveField(m map[string]any, path string) string {
 		return ""
 	}
 	return formatValue(val)
+}
+
+// headerNames converts API field names to display column headers.
+func headerNames(names []string) []string {
+	out := make([]string, len(names))
+	for i, n := range names {
+		switch n {
+		case "idReadable":
+			out[i] = "ID"
+		default:
+			out[i] = strings.ToUpper(n)
+		}
+	}
+	return out
 }
 
 // formatValue converts a JSON-unmarshalled value to a display string.

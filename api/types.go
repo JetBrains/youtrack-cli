@@ -1,5 +1,7 @@
 package api
 
+import "encoding/json"
+
 // Issue represents a YouTrack issue.
 type Issue struct {
 	ID          string   `json:"id,omitempty"`
@@ -10,6 +12,27 @@ type Issue struct {
 	Reporter    *User    `json:"reporter,omitempty"`
 	Resolved    *int64   `json:"resolved,omitempty"`
 	Created     int64    `json:"created,omitempty"`
+
+	// raw preserves the original API JSON so --fields projection can access
+	// any field returned by YouTrack, not just the ones declared above.
+	raw json.RawMessage
+}
+
+func (i *Issue) UnmarshalJSON(data []byte) error {
+	type issueAlias Issue
+	if err := json.Unmarshal(data, (*issueAlias)(i)); err != nil {
+		return err
+	}
+	i.raw = append(json.RawMessage(nil), data...)
+	return nil
+}
+
+func (i *Issue) MarshalJSON() ([]byte, error) {
+	if i.raw != nil {
+		return i.raw, nil
+	}
+	type issueAlias Issue
+	return json.Marshal((*issueAlias)(i))
 }
 
 // Comment on an issue or article.
