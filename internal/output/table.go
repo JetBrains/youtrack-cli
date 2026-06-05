@@ -191,6 +191,9 @@ func PrintTable(out io.Writer, data any) error {
 		for _, t := range v {
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", t.ID, t.Name, t.ShortName)
 		}
+	case *api.IssueDraft:
+		_, _ = fmt.Fprintln(w, "ID\tSUMMARY")
+		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.ID, truncate(v.Summary, 72))
 	case []api.IssueDraft:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY")
 		for _, d := range v {
@@ -357,6 +360,8 @@ func PrintPlain(out io.Writer, data any) error {
 			}
 			write(f.ID, name)
 		}
+	case *api.IssueDraft:
+		write(v.ID, v.Summary)
 	case []api.IssueDraft:
 		for _, d := range v {
 			write(d.ID, d.Summary)
