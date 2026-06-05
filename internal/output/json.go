@@ -118,7 +118,9 @@ func printProjected(w io.Writer, data any, fields string, withHeader bool) error
 		for i, name := range names {
 			v := resolveField(obj, name)
 			if withHeader {
-				v = singleLine(v, 72)
+				// Collapse newlines so the tab-separated row stays on one line,
+				// but do not truncate — callers control width via terminal/pager.
+				v = firstLine(v)
 			}
 			vals[i] = v
 		}
@@ -203,47 +205,45 @@ func resolveSubFields(m map[string]any, subNames []string) string {
 }
 
 // headerNames converts field specs to display column headers.
-// Sub-field specs are stripped: "comments(id,text)" → "COMMENTS".
+// Sub-field specs are uppercased and preserved: "comments(id,text)" → "COMMENTS(ID,TEXT)".
 // When both "id" and "idReadable" are present, idReadable is labeled KEY
 // to distinguish the human-readable project key from the internal opaque ID.
 func headerNames(names []string) []string {
-	// Resolve outer keys first (strip sub-field specs) for the hasID check.
-	keys := make([]string, len(names))
-	for i, n := range names {
-		keys[i], _ = parseFieldSpec(n)
-	}
 	hasID := false
-	for _, k := range keys {
-		if k == "id" {
+	for _, n := range names {
+		if k, _ := parseFieldSpec(n); k == "id" {
 			hasID = true
 			break
 		}
 	}
-	out := make([]string, len(keys))
-	for i, k := range keys {
-		switch k {
+	out := make([]string, len(names))
+	for i, n := range names {
+		outerKey, innerSpec := parseFieldSpec(n)
+		var label string
+		switch outerKey {
 		case "idReadable":
 			if hasID {
-				out[i] = "KEY"
+				label = "KEY"
 			} else {
-				out[i] = "ID"
+				label = "ID"
 			}
 		default:
-			out[i] = strings.ToUpper(k)
+			label = strings.ToUpper(outerKey)
 		}
+		if innerSpec != "" {
+			label += "(" + strings.ToUpper(innerSpec) + ")"
+		}
+		out[i] = label
 	}
 	return out
 }
 
-// singleLine collapses a multi-line string to its first non-empty line,
-// then truncates to max runes with "…" if needed.
-func singleLine(s string, max int) string {
+// firstLine returns the first non-empty line of s with surrounding whitespace
+// stripped. Used in projected table output to keep rows single-line without
+// truncating the value.
+func firstLine(s string) string {
 	if i := strings.IndexByte(s, '\n'); i >= 0 {
-		s = strings.TrimSpace(s[:i])
-	}
-	r := []rune(s)
-	if len(r) > max {
-		return string(r[:max-1]) + "…"
+		return strings.TrimSpace(s[:i])
 	}
 	return s
 }
