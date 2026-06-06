@@ -46,7 +46,7 @@ func TestCmd_OrgList(t *testing.T) {
 	out := runCmd(t, "org", "list", "--format", "json")
 	var items []json.RawMessage
 	err := json.Unmarshal([]byte(strings.TrimSpace(out)), &items)
-	assert.NoError(t, err, "org list should return a JSON array")
+	require.NoError(t, err, "org list should return a JSON array")
 }
 
 func TestCmd_OrgAddDelete(t *testing.T) {
