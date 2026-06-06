@@ -11,6 +11,13 @@ func (c *Client) ListCustomFields() ([]CustomField, error) {
 	return result, err
 }
 
+func (c *Client) GetCustomField(id string) (*CustomField, error) {
+	var result CustomField
+	path := fmt.Sprintf(pathAdminCustomField+"?fields=id,name,fieldType(id)", url.PathEscape(id))
+	err := c.Get(path, &result)
+	return &result, err
+}
+
 func (c *Client) AddCustomField(name, fieldTypeID string) (*CustomField, error) {
 	var result CustomField
 	err := c.Post(pathAdminCustomFields+"?fields=id,name,fieldType(id)", map[string]any{
@@ -142,15 +149,17 @@ func (c *Client) ListWorkItemTypes() ([]WorkItemType, error) {
 func (c *Client) AddWorkItemType(name string, autoAttach bool) (*WorkItemType, error) {
 	var result WorkItemType
 	err := c.Post(pathAdminWorkItemTypes+"?fields=id,name,autoAttach", map[string]any{
-		"name":       name,
-		"autoAttach": autoAttach,
+		"name":         name,
+		"autoAttached": autoAttach,
 	}, &result)
 	return &result, err
 }
 
 func (c *Client) ChangeCustomFieldPrivacy(fieldID string, isPrivate bool) error {
 	path := fmt.Sprintf(pathAdminCustomField, url.PathEscape(fieldID))
-	return c.Post(path, map[string]any{"isPrivate": isPrivate}, nil)
+	return c.Post(path, map[string]any{
+		"fieldDefaults": map[string]any{"isPublic": !isPrivate},
+	}, nil)
 }
 
 func (c *Client) GetWorkTimeSettings() (*WorkTimeSettings, error) {

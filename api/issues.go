@@ -158,14 +158,14 @@ func (c *Client) GetIssueLinkType(id string) (*IssueLinkType, error) {
 	return nil, fmt.Errorf("link type %q not found", id)
 }
 
-func (c *Client) AddIssueLinkType(name, sourceToTarget, targetToSource string) (*IssueLinkType, error) {
+func (c *Client) AddIssueLinkType(name, sourceToTarget, targetToSource string, directed, aggregation bool) (*IssueLinkType, error) {
 	var result IssueLinkType
 	err := c.Post(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource,directed", map[string]any{
 		"name":           name,
 		"sourceToTarget": sourceToTarget,
 		"targetToSource": targetToSource,
-		"directed":       true,
-		"aggregation":    false,
+		"directed":       directed,
+		"aggregation":    aggregation,
 	}, &result)
 	return &result, err
 }

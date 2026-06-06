@@ -27,7 +27,7 @@ func (c *Client) DeleteCanvas(id string) error {
 }
 
 func (c *Client) ReloadCanvas(id string) error {
-	return c.Post(fmt.Sprintf(pathPlanningCanvas, url.PathEscape(id)), map[string]any{"reload": true}, nil)
+	return c.Post(fmt.Sprintf(pathPlanningCanvas, url.PathEscape(id)), map[string]any{"reload": "true"}, nil)
 }
 
 func (c *Client) AddCanvasNode(canvasID string, x, y int, label, description string) (*CanvasNode, error) {
@@ -58,11 +58,7 @@ func (c *Client) LinkCanvasNodes(canvasID, sourceCardID, targetCardID string, ki
 		kind = CanvasLinkKindOneWay
 	}
 	body := map[string]any{
-		"$type": "PlanningCanvasLink",
-		"type": map[string]any{
-			"$type": "PlanningCanvasLinkType",
-			"id":    kind,
-		},
+		"type":       map[string]any{"id": kind},
 		"sourceCard": map[string]any{"id": sourceCardID},
 		"targetCard": map[string]any{"id": targetCardID},
 	}

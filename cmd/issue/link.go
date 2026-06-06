@@ -102,11 +102,13 @@ func newIssueLinkTypeCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			s2t, _ := cmd.Flags().GetString("source-to-target")
 			t2s, _ := cmd.Flags().GetString("target-to-source")
+			directed, _ := cmd.Flags().GetBool("directed")
+			aggregation, _ := cmd.Flags().GetBool("aggregation")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			lt, err := client.AddIssueLinkType(name, s2t, t2s)
+			lt, err := client.AddIssueLinkType(name, s2t, t2s, directed, aggregation)
 			if err != nil {
 				return err
 			}
@@ -116,6 +118,8 @@ func newIssueLinkTypeCmd() *cobra.Command {
 	add.Flags().String("name", "", "Link type name (required)")
 	add.Flags().String("source-to-target", "", "Source-to-target label (required)")
 	add.Flags().String("target-to-source", "", "Target-to-source label (required)")
+	add.Flags().Bool("directed", true, "Create a directed link type")
+	add.Flags().Bool("aggregation", false, "Create an aggregation link type")
 	internal.MustMarkRequired(add, "name", "source-to-target", "target-to-source")
 	cmd.AddCommand(list, add)
 	return cmd

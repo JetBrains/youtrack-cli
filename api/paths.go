@@ -105,8 +105,8 @@ const (
 	// Reports / Restored docs
 	pathRemovedDocuments = "/api/removedDocuments"
 	pathReport           = "/api/reports/%s"
-	pathGanttCharts      = "/api/ganttCharts"
-	pathGanttChart       = "/api/ganttCharts/%s"
+	pathGanttCharts      = "/api/gantts"
+	pathGanttChart       = "/api/gantts/%s"
 
 	// Roles / Permissions
 	pathRoles         = "/api/roles"
