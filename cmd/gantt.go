@@ -42,7 +42,11 @@ func newGanttDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return client.DeleteGanttChart(args[0])
+			if err := client.DeleteGanttChart(args[0]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "deleted gantt chart "+args[0])
+			return nil
 		},
 	}
 }
