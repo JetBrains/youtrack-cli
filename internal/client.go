@@ -14,8 +14,8 @@ import (
 // GetClient builds an API client using a four-tier resolution chain:
 //  1. --base-url / --token flags (explicit per-command override, always wins)
 //  2. --server flag (selects a named profile from config by alias)
-//  3. Active instance from ~/.youtrack-cli-config.json
-//  4. YOUTRACK_BASE_URL / YOUTRACK_TOKEN env vars (legacy single-instance fallback)
+//  3. YOUTRACK_BASE_URL / YOUTRACK_TOKEN env vars (explicit, process-scoped)
+//  4. Active instance from ~/.youtrack-cli-config.json (convenience fallback)
 func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	flags := cmd.Root().PersistentFlags()
 
@@ -46,7 +46,15 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 		}
 	}
 
-	// Tier 3: active config instance fills any slot not already set by flags.
+	// Tier 3: env vars win over stored config — explicit, process-scoped, CI-safe.
+	if baseURL == "" {
+		baseURL = os.Getenv("YOUTRACK_BASE_URL")
+	}
+	if token == "" {
+		token = os.Getenv("YOUTRACK_TOKEN")
+	}
+
+	// Tier 4: active config instance as convenience fallback.
 	if baseURL == "" || token == "" {
 		cfg, err := config.Load()
 		if err == nil && len(cfg.Instances) > 0 {
@@ -60,27 +68,17 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 					token = inst.Token
 				}
 			case alias != "":
-				// currentInstance is set but the alias is missing from the map (stale pointer).
 				return nil, fmt.Errorf(
 					"active instance %q not found in config — run: youtrack instance use <alias>\nKnown: %s",
 					alias, strings.Join(cfg.Aliases(), ", "),
 				)
 			default:
-				// Config has instances but none is selected as active.
 				return nil, fmt.Errorf(
 					"no active instance — run: youtrack instance use <alias>\nKnown: %s",
 					strings.Join(cfg.Aliases(), ", "),
 				)
 			}
 		}
-	}
-
-	// Tier 4: env vars (legacy single-instance fallback).
-	if baseURL == "" {
-		baseURL = os.Getenv("YOUTRACK_BASE_URL")
-	}
-	if token == "" {
-		token = os.Getenv("YOUTRACK_TOKEN")
 	}
 
 	if baseURL == "" {

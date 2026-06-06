@@ -3,6 +3,8 @@ package api_test
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -77,6 +79,23 @@ func TestCmd_OrgAddDelete(t *testing.T) {
 func TestCmd_AppList(t *testing.T) {
 	out := runCmd(t, "app", "list", "--format", "json")
 	assert.NotEmpty(t, out)
+}
+
+// ---------- Credential precedence ----------
+
+func TestCmd_EnvVarPrecedenceOverConfig(t *testing.T) {
+	requireE2EEnv(t)
+
+	// Write a config file that points at a non-existent server.
+	home := t.TempDir()
+	fakeCfg := `{"instances":{"fake":{"url":"http://127.0.0.1:1","token":"bad"}},"currentInstance":"fake"}`
+	err := os.WriteFile(filepath.Join(home, ".youtrack-cli-config.json"), []byte(fakeCfg), 0600)
+	require.NoError(t, err)
+
+	// The process env already has real YOUTRACK_BASE_URL + YOUTRACK_TOKEN.
+	// With new precedence (env > config), the command should use them and succeed.
+	out := runCmdWithEnv(t, "", []string{"HOME=" + home}, "user", "me", "--format", "json")
+	assert.Contains(t, out, `"login"`)
 }
 
 // ---------- Canvas ----------
