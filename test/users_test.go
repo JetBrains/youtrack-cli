@@ -86,6 +86,16 @@ func TestCmd_UserLocaleSet(t *testing.T) {
 	runCmd(t, "user", "locale", "set", me.Login, "en_US")
 }
 
+func TestCmd_UserPinProject(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	// Pass login (not opaque ID) — should succeed after the fix
+	runCmd(t, "user", "pin-project", me.Login, proj.ID)
+}
+
 func assertUserBanState(t *testing.T, c interface {
 	Get(path string, result any) error
 }, login string, want bool) {

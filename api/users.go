@@ -143,7 +143,11 @@ func (c *Client) GetUserArticleDrafts(id string) ([]ArticleDraft, error) {
 }
 
 func (c *Client) PinProjectForUser(userID, projectID string) error {
-	path := fmt.Sprintf(pathUserPinnedProjects, url.PathEscape(userID))
+	user, err := c.GetUser(userID)
+	if err != nil {
+		return err
+	}
+	path := fmt.Sprintf(pathUserPinnedProjects, url.PathEscape(user.ID))
 	return c.Post(path, map[string]any{"id": projectID}, nil)
 }
 
