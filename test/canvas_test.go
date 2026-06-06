@@ -55,6 +55,7 @@ func TestCmd_CanvasDeletePrintsSuccess(t *testing.T) {
 
 	canvas, err := c.AddCanvas(api.AddCanvasRequest{Name: "delete-test", Owner: &api.User{ID: me.ID}})
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteCanvas(canvas.ID) })
 
 	out := runCmd(t, "canvas", "delete", canvas.ID)
 	assert.Contains(t, out, canvas.ID)
