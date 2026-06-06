@@ -103,35 +103,84 @@ Env vars `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN` still work as a single-instance 
 |---|---|
 | `auth` | `get-token` (`login`), `refresh-token`, `logout`, `status` |
 | `instance` | `add`, `list`, `use`, `remove`, `update-token` |
-| `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `comment list`, `comment add`, `comment delete` |
-| `project` | `list`, `get` (`view`), `add` (`create`), `delete` |
-| `user` | `list`, `get` (`view`), `current` (`me`), `add` (`create`), `delete`, `ban`, `unban` |
+| `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `count`, `suggest`, `assist` |
+| `issue comment` | `list`, `add`, `update`, `delete`, `pin`, `visibility` |
+| `issue link` | `list`, `add`, `remove` |
+| `issue link type` | `list`, `add` |
+| `issue attachment` | `list`, `add`, `delete` |
+| `issue field` | `get`, `set` |
+| `issue reaction` | `add`, `delete` |
+| `issue draft` | `create` |
+| `issue` (actions) | `assign`, `unassign`, `watch`, `unwatch`, `vote`, `unvote`, `tag`, `visibility`, `workitem add` |
+| `project` | `list`, `get` (`view`), `add` (`create`), `delete`, `archive` |
+| `project team` | `add-user`, `add-group` |
+| `project field` | `list`, `add` |
+| `project template` | `list`, `convert` |
+| `project timetrack` | `set` |
+| `project workflow` | `add` |
+| `user` | `list`, `get` (`view`), `current` (`me`), `add` (`create`), `delete`, `ban`, `unban`, `pin-project` |
+| `user drafts` | `list`, `delete`, `articles` |
+| `user locale` | `set` |
+| `user timezone` | `get`, `set` |
+| `user profile` | `general`, `appearance`, `notifications`, `articles`, `issues-list`, `grazie`, `tips`, `property` |
 
 ## Examples
 
 ```bash
-# Issues
+# Issues — CRUD
 youtrack issue get MYPROJ-42
 youtrack issue list --query "assignee: me State: Open" --limit 50
 youtrack issue add --project MYPROJ --summary "Login button unresponsive on Safari"
-youtrack issue add --project MYPROJ --summary "RFC: Auth redesign" --description "See attached doc."
+youtrack issue add --project MYPROJ --summary "Child issue" --parent MYPROJ-10
 youtrack issue update MYPROJ-42 --summary "New title"
 youtrack issue delete MYPROJ-42
+youtrack issue count --query "State: Open"
+
+# Issues — commands and workflow
 youtrack issue command MYPROJ-42 "State In Progress"
 youtrack issue command MYPROJ-42 "assignee alice.doe"
+youtrack issue suggest MYPROJ-42 "State "       # get command completions
+youtrack issue assign MYPROJ-42 john.doe
+youtrack issue unassign MYPROJ-42
+youtrack issue watch MYPROJ-42
+youtrack issue unwatch MYPROJ-42
+youtrack issue vote MYPROJ-42
+youtrack issue unvote MYPROJ-42
 
-# Comments
+# Issues — comments
 youtrack issue comment list MYPROJ-42
 youtrack issue comment add MYPROJ-42 --text "Reproducing locally."
+youtrack issue comment update MYPROJ-42 <commentId> --text "Updated text"
 youtrack issue comment delete MYPROJ-42 <commentId>
+
+# Issues — links
+youtrack issue link list MYPROJ-42
+youtrack issue link add MYPROJ-42 --target MYPROJ-10 --type <linkTypeId>
+youtrack issue link remove MYPROJ-42 <linkId>
+youtrack issue link type list
+
+# Issues — attachments, fields, tags
+youtrack issue attachment list MYPROJ-42
+youtrack issue attachment add MYPROJ-42 ./screenshot.png
+youtrack issue field get MYPROJ-42 Priority
+youtrack issue field set MYPROJ-42 Priority Critical
+youtrack issue tag MYPROJ-42 <tagId>
+
+# Issues — drafts and work items
+youtrack issue draft create --project MYPROJ --summary "Draft idea"
+youtrack issue workitem add MYPROJ-42 --duration PT1H30M --description "Investigation"
 
 # Projects
 youtrack project list
 youtrack project get MYPROJ
 youtrack project add --shortName MYPROJ --name "My Project" --leader john.doe
 youtrack project add --shortName HELP --name "HelpDesk" --template helpdesk
-youtrack project team add-user MYPROJ 2-9   # adds an AGENT to a Helpdesk project: also registers them as a project agent
+youtrack project archive MYPROJ
 youtrack project delete MYPROJ
+youtrack project team add-user MYPROJ 2-9   # user must be passed as opaque ID (user get <login> --json | jq .id)
+youtrack project team add-group MYPROJ 4-1  # group opaque ID (group get <name> --json | jq .id)
+youtrack project field list MYPROJ
+youtrack project timetrack set MYPROJ --enabled true
 
 # Users
 youtrack user list --query "john"
@@ -142,6 +191,9 @@ youtrack user add --login agent.smith --fullName "Agent Smith" --email a.smith@e
 youtrack user add --login rita --fullName "Rita Reporter" --email rita@example.com --password "Test1234!" --type reporter
 youtrack user ban john.doe
 youtrack user delete john.doe --successor admin
+youtrack user timezone get john.doe
+youtrack user timezone set john.doe "Europe/Berlin"
+youtrack user drafts list john.doe
 ```
 
 ## Global flags

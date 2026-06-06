@@ -104,6 +104,186 @@ Each command group registers both the canonical verb and a more intuitive alias 
 - Admin work: `youtrack project create`, `youtrack project delete`, `youtrack user create` (use `--type standard|agent|reporter`; defaults to `standard`)
 - Roles: `youtrack role grant --user <id>|--group <id> --role <id> [--project <id>]`, `youtrack role assignments [--holder <id>]`, `youtrack role revoke <assignedRoleID>`
 
+## Full Command Reference
+
+### issue
+
+```bash
+youtrack issue get <issueId>           # alias: view
+youtrack issue list [--query Q] [--limit N]
+youtrack issue add --project P --summary S [--description D] [--parent <issueId>] [--description-file path]
+                                       # alias: create
+youtrack issue update <issueId> [--summary S] [--description D]
+youtrack issue delete <issueId>
+youtrack issue command <issueId[,issueId...]> <query>   # apply a YouTrack command string
+youtrack issue count [--query Q]       # may return -1 on first call (async); retry manually
+youtrack issue suggest <issueId[,issueId...]> <query>   # get command completions
+youtrack issue assist <query> <issueId...>              # AI-assisted command suggestions
+```
+
+**issue — social actions**
+```bash
+youtrack issue assign <issueId> <login>
+youtrack issue unassign <issueId>
+youtrack issue watch <issueId>
+youtrack issue unwatch <issueId>
+youtrack issue vote <issueId>          # cannot vote on issues you reported yourself
+youtrack issue unvote <issueId>
+youtrack issue tag <issueId> <tagId>
+youtrack issue visibility <issueId> [flags]
+```
+
+**issue comment**
+```bash
+youtrack issue comment list <issueId>
+youtrack issue comment add <issueId> --text "..."
+youtrack issue comment update <issueId> <commentId> --text "..."
+youtrack issue comment delete <issueId> <commentId>
+youtrack issue comment pin <issueId> <commentId>
+youtrack issue comment visibility <issueId> <commentId> [flags]
+```
+
+**issue link**
+```bash
+youtrack issue link list <issueId>
+youtrack issue link add <issueId> --target <targetId> --type <linkTypeId>   # ⚠ known bug: HTTP 405 (F-01)
+youtrack issue link remove <issueId> <linkId>   # linkId from 'issue link list --json | jq .[].id'
+youtrack issue link type list
+youtrack issue link type add [flags]
+```
+
+**issue attachment**
+```bash
+youtrack issue attachment list <issueId>
+youtrack issue attachment add <issueId> <filepath>
+youtrack issue attachment delete <issueId> <attachmentId>
+```
+
+**issue field (custom fields)**
+```bash
+youtrack issue field get <issueId> <fieldName>
+youtrack issue field set <issueId> <fieldName> <value>
+```
+
+**issue reaction**
+```bash
+youtrack issue reaction add <issueId> <commentId> <reaction>
+youtrack issue reaction delete <issueId> <commentId> <reactionId>
+```
+
+**issue draft**
+```bash
+youtrack issue draft create [--project P] [--summary S]
+```
+
+**issue workitem**
+```bash
+youtrack issue workitem add <issueId> --duration <ISO8601>   # e.g. PT1H30M, P1DT2H
+```
+
+---
+
+### project
+
+```bash
+youtrack project list
+youtrack project get <shortName>       # alias: view
+youtrack project add --shortName P --name "..." --leader <login> [--template helpdesk]
+                                       # alias: create; --leader is required (API rejects without it)
+youtrack project delete <shortName>
+youtrack project archive <shortName>
+```
+
+**project team**
+```bash
+# ⚠ Both commands require opaque IDs, not logins/names
+youtrack project team add-user <shortName> <userId>    # userId: 'user get <login> --json | jq .id'
+youtrack project team add-group <shortName> <groupId>  # groupId: 'group get <name> --json | jq .id'
+```
+
+**project field**
+```bash
+youtrack project field list <shortName>
+youtrack project field add <shortName> [flags]
+```
+
+**project template**
+```bash
+youtrack project template list
+youtrack project template convert <shortName>
+```
+
+**project timetrack**
+```bash
+youtrack project timetrack set <shortName> --enabled true|false
+```
+
+**project workflow**
+```bash
+youtrack project workflow add <shortName> [flags]
+```
+
+---
+
+### user
+
+```bash
+youtrack user list [--query Q]
+youtrack user get <login>              # alias: view
+youtrack user current                  # alias: me
+youtrack user add --login L --fullName "..." --email E --password P [--type standard|agent|reporter]
+                                       # alias: create; defaults to standard
+youtrack user delete <login> --successor <login>   # --successor is required; cannot delete yourself
+youtrack user ban <login>
+youtrack user unban <login>
+youtrack user pin-project <userId> <projectId>     # ⚠ userId is opaque (not login)
+```
+
+**user drafts**
+```bash
+youtrack user drafts list <login>
+youtrack user drafts articles <login>
+youtrack user drafts delete <login>     # deletes ALL issue drafts for the user
+```
+
+**user locale**
+```bash
+youtrack user locale set <login> <locale>   # e.g. en_US, de_DE  ⚠ known bug: HTTP 500 (F-03)
+```
+
+**user timezone**
+```bash
+youtrack user timezone get <login>
+youtrack user timezone set <login> <timezoneId>   # e.g. "Europe/Berlin"
+```
+
+**user profile** (set arbitrary profile fields via JSON body flags)
+```bash
+youtrack user profile general <login> [flags]
+youtrack user profile appearance <login> [flags]
+youtrack user profile notifications <login> [flags]
+youtrack user profile articles <login> [flags]
+youtrack user profile issues-list <login> [flags]
+youtrack user profile grazie <login> [flags]
+youtrack user profile tips <login> <key=true|false>...
+youtrack user profile property <login> <key> <value>
+```
+
+---
+
+### Known Limitations
+
+See `.agents/skills/youtrack-cli/references/cli-research-findings.md` for full details.
+
+| Command | Problem |
+|---|---|
+| `issue link add` | HTTP 405 — wrong API endpoint (F-01) |
+| `field bundle *` | HTTP 404 — PascalCase bundle type in path (F-02) |
+| `user locale set` | HTTP 500 — wrong payload key (F-03) |
+| `issue count` | Returns `-1` when async not ready; no retry (F-05) |
+| `user pin-project` | Requires opaque userId, not login (F-06) |
+| `issue link remove` | Requires opaque linkId from `link list --json` (F-07) |
+
 ## Global Flags
 
 ```

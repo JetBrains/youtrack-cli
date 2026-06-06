@@ -10,6 +10,7 @@ import (
 )
 
 const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created"
+const issueDetailFields = issueFields + ",customFields(name,value(name,login,text,presentation))"
 const commentFields = "id,text,author(id,login,fullName),created"
 
 // AddIssueRequest is the body for creating an issue.
@@ -55,6 +56,13 @@ func WrapUserValues(query string) string {
 		}
 		return keyword + " {" + login + "}"
 	})
+}
+
+func (c *Client) GetIssueDetail(id string) (*Issue, error) {
+	var result Issue
+	path := fmt.Sprintf(pathIssue+"?fields=%s", url.PathEscape(id), issueDetailFields)
+	err := c.Get(path, &result)
+	return &result, err
 }
 
 func (c *Client) GetIssue(id string) (*Issue, error) {
@@ -348,4 +356,61 @@ func (c *Client) ApplyCommand(query string, issueIDs []string) error {
 		Query:  WrapUserValues(query),
 		Issues: issues,
 	}, nil)
+}
+
+func (c *Client) CreateIssueDraft(projectShortName, summary string) (*IssueDraft, error) {
+	project, err := c.GetProject(projectShortName)
+	if err != nil {
+		return nil, err
+	}
+	var result IssueDraft
+	path := fmt.Sprintf(pathIssueDrafts+"?fields=id,summary", "me")
+	err = c.Post(path, map[string]any{
+		"project": map[string]any{"id": project.ID},
+		"summary": summary,
+	}, &result)
+	return &result, err
+}
+
+func (c *Client) WatchIssue(id string) error {
+	issue, err := c.GetIssue(id)
+	if err != nil {
+		return err
+	}
+	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
+	return c.Post(path, map[string]any{"hasWatchedIssue": true}, nil)
+}
+
+func (c *Client) UnwatchIssue(id string) error {
+	issue, err := c.GetIssue(id)
+	if err != nil {
+		return err
+	}
+	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
+	return c.Post(path, map[string]any{"hasWatchedIssue": false}, nil)
+}
+
+func (c *Client) VoteIssue(id string) error {
+	issue, err := c.GetIssue(id)
+	if err != nil {
+		return err
+	}
+	path := fmt.Sprintf(pathIssueVoters, url.PathEscape(issue.ID))
+	return c.Post(path, map[string]any{"hasVote": true}, nil)
+}
+
+func (c *Client) UnvoteIssue(id string) error {
+	issue, err := c.GetIssue(id)
+	if err != nil {
+		return err
+	}
+	path := fmt.Sprintf(pathIssueVoters, url.PathEscape(issue.ID))
+	return c.Post(path, map[string]any{"hasVote": false}, nil)
+}
+
+func (c *Client) ListRecentComments(issueID string, top int) ([]Comment, error) {
+	var result []Comment
+	path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=%d", url.PathEscape(issueID), commentFields, top)
+	err := c.Get(path, &result)
+	return result, err
 }

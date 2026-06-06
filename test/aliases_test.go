@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -121,15 +122,10 @@ func TestCmd_BoardCreateAlias(t *testing.T) {
 	out := runCmd(t, "board", "create", "--name", boardName, "--format", "json")
 	assert.Contains(t, out, boardName)
 
-	// fetch and cleanup
-	boards, err := c.ListBoards()
-	require.NoError(t, err)
-	for _, b := range boards {
-		if b.Name == boardName {
-			t.Cleanup(func() { _ = c.DeleteBoard(b.ID) })
-			break
-		}
-	}
+	var created api.Board
+	require.NoError(t, json.Unmarshal([]byte(out), &created))
+	require.NotEmpty(t, created.ID)
+	t.Cleanup(func() { _ = c.DeleteBoard(created.ID) })
 }
 
 // TestCmd_DashboardCreateAlias verifies that "dashboard create" routes to the same handler as "dashboard add".

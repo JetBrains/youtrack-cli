@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"text/tabwriter"
+	"time"
 	"unicode/utf8"
 
 	"github.com/JetBrains/youtrack-cli/api"
@@ -191,6 +192,9 @@ func PrintTable(out io.Writer, data any) error {
 		for _, t := range v {
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", t.ID, t.Name, t.ShortName)
 		}
+	case *api.IssueDraft:
+		_, _ = fmt.Fprintln(w, "ID\tSUMMARY")
+		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.ID, truncate(v.Summary, 72))
 	case []api.IssueDraft:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY")
 		for _, d := range v {
@@ -357,6 +361,8 @@ func PrintPlain(out io.Writer, data any) error {
 			}
 			write(f.ID, name)
 		}
+	case *api.IssueDraft:
+		write(v.ID, v.Summary)
 	case []api.IssueDraft:
 		for _, d := range v {
 			write(d.ID, d.Summary)
@@ -365,6 +371,66 @@ func PrintPlain(out io.Writer, data any) error {
 		return printJSON(out, data)
 	}
 	return nil
+}
+
+// PrintIssueDetail renders a single issue in a rich multi-line plain-text format,
+// including custom fields (State, Priority, Assignee, etc.) and the full description.
+func PrintIssueDetail(w io.Writer, v *api.Issue) {
+	_, _ = fmt.Fprintf(w, "%s  %s\n", v.IDReadable, v.Summary)
+
+	label := func(k, val string) {
+		if val != "" {
+			_, _ = fmt.Fprintf(w, "%-12s%s\n", k+":", val)
+		}
+	}
+
+	_, _ = fmt.Fprintln(w)
+	reporter := ""
+	if v.Reporter != nil {
+		reporter = v.Reporter.Login
+	}
+	label("Reporter", reporter)
+	label("Project", projectKey(v.Project))
+	if v.Created != 0 {
+		label("Created", time.UnixMilli(v.Created).UTC().Format("2006-01-02 15:04:05"))
+	}
+	if v.Resolved != nil && *v.Resolved != 0 {
+		label("Resolved", time.UnixMilli(*v.Resolved).UTC().Format("2006-01-02 15:04:05"))
+	}
+
+	if len(v.CustomFields) > 0 {
+		_, _ = fmt.Fprintln(w)
+		for _, f := range v.CustomFields {
+			label(f.Name, issueFieldValue(f.Value))
+		}
+	}
+
+	if v.Description != "" {
+		_, _ = fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w, v.Description)
+	}
+}
+
+// issueFieldValue converts a custom field value (any) to a display string.
+func issueFieldValue(v any) string {
+	switch val := v.(type) {
+	case nil:
+		return ""
+	case map[string]any:
+		return compactObject(val)
+	case []any:
+		parts := make([]string, 0, len(val))
+		for _, item := range val {
+			if m, ok := item.(map[string]any); ok {
+				if s := compactObject(m); s != "" {
+					parts = append(parts, s)
+				}
+			}
+		}
+		return strings.Join(parts, ", ")
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 func truncate(s string, max int) string {

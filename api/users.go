@@ -74,6 +74,13 @@ func (c *Client) DeleteUser(identifier, successorIdentifier string) error {
 	if user.ID == successor.ID {
 		return fmt.Errorf("successor must be different from user '%s'", identifier)
 	}
+	me, err := c.GetCurrentUser()
+	if err != nil {
+		return err
+	}
+	if user.ID == me.ID {
+		return fmt.Errorf("cannot delete the currently authenticated user '%s'", user.Login)
+	}
 	path := fmt.Sprintf(pathUser, url.PathEscape(user.ID)) + "?successor=" + url.QueryEscape(successor.ID)
 	if err := c.Delete(path); err != nil {
 		return err
