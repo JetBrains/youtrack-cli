@@ -78,6 +78,14 @@ func TestCmd_UserCRUD(t *testing.T) {
 	}
 }
 
+func TestCmd_UserLocaleSet(t *testing.T) {
+	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+	// Should not error — HTTP 500 means the body key is wrong
+	runCmd(t, "user", "locale", "set", me.Login, "en_US")
+}
+
 func assertUserBanState(t *testing.T, c interface {
 	Get(path string, result any) error
 }, login string, want bool) {

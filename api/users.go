@@ -120,7 +120,7 @@ func (c *Client) SetUserTimezone(id, timezoneID string) error {
 
 func (c *Client) SetUserLocale(id, locale string) error {
 	path := fmt.Sprintf(pathUserProfileGeneral, url.PathEscape(id))
-	return c.Post(path, map[string]any{"locale": map[string]any{"locale": locale}}, nil)
+	return c.Post(path, map[string]any{"locale": map[string]any{"id": locale}}, nil)
 }
 
 func (c *Client) GetUserIssueDrafts(id string) ([]IssueDraft, error) {
