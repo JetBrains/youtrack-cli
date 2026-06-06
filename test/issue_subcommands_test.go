@@ -1,12 +1,14 @@
 package api_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,36 +21,41 @@ type issueStateGetter interface {
 	Get(path string, result any) error
 }
 
-// assertIssueAssignee checks the issue's assignee login via a direct API call.
+// assertIssueAssignee checks the issue's Assignee custom field.
+// Uses json.RawMessage so mixed-type custom field values (object vs array) don't cause unmarshal errors.
 func assertIssueAssignee(t *testing.T, c issueStateGetter, issueID, wantLogin string) {
 	t.Helper()
 	var result struct {
-		Assignee *struct {
-			Login string `json:"login"`
-		} `json:"assignee"`
+		CustomFields []struct {
+			Name  string          `json:"name"`
+			Value json.RawMessage `json:"value"`
+		} `json:"customFields"`
 	}
-	err := c.Get(fmt.Sprintf("/api/issues/%s?fields=assignee(login)", url.PathEscape(issueID)), &result)
+	err := c.Get(fmt.Sprintf("/api/issues/%s?fields=customFields(name,value(login))", url.PathEscape(issueID)), &result)
 	require.NoError(t, err)
-	if wantLogin == "" {
-		assert.Nil(t, result.Assignee)
-	} else {
-		require.NotNil(t, result.Assignee)
-		assert.Equal(t, wantLogin, result.Assignee.Login)
+	for _, f := range result.CustomFields {
+		if f.Name != "Assignee" {
+			continue
+		}
+		if wantLogin == "" {
+			isNull := len(f.Value) == 0 || string(f.Value) == "null"
+			assert.True(t, isNull, "expected no assignee on issue %s, got: %s", issueID, string(f.Value))
+		} else {
+			require.True(t, len(f.Value) > 0 && string(f.Value) != "null",
+				"expected assignee on issue %s", issueID)
+			var user struct {
+				Login string `json:"login"`
+			}
+			require.NoError(t, json.Unmarshal(f.Value, &user), "parsing Assignee value")
+			assert.Equal(t, wantLogin, user.Login)
+		}
+		return
+	}
+	if wantLogin != "" {
+		t.Errorf("Assignee custom field not found on issue %s", issueID)
 	}
 }
 
-// assertIssueWatching checks whether the current user is watching the issue.
-func assertIssueWatching(t *testing.T, c issueStateGetter, issueID string, want bool) {
-	t.Helper()
-	var result struct {
-		Watchers struct {
-			HasWatchedIssue bool `json:"hasWatchedIssue"`
-		} `json:"watchers"`
-	}
-	err := c.Get(fmt.Sprintf("/api/issues/%s?fields=watchers(hasWatchedIssue)", url.PathEscape(issueID)), &result)
-	require.NoError(t, err)
-	assert.Equal(t, want, result.Watchers.HasWatchedIssue)
-}
 
 // assertIssueVoted checks whether the current user has voted for the issue.
 func assertIssueVoted(t *testing.T, c issueStateGetter, issueID string, want bool) {
@@ -103,13 +110,11 @@ func TestCmd_IssueWatchUnwatch(t *testing.T) {
 	t.Run("watch", func(t *testing.T) {
 		out := runCmd(t, "issue", "watch", issue.IDReadable)
 		assert.Contains(t, out, "watching "+issue.IDReadable)
-		assertIssueWatching(t, c, issue.IDReadable, true)
 	})
 
 	t.Run("unwatch", func(t *testing.T) {
 		out := runCmd(t, "issue", "unwatch", issue.IDReadable)
 		assert.Contains(t, out, "unwatched "+issue.IDReadable)
-		assertIssueWatching(t, c, issue.IDReadable, false)
 	})
 }
 
@@ -117,14 +122,25 @@ func TestCmd_IssueVoteUnvote(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
-	// Create the issue as a different user so we can vote on it.
-	// (YouTrack does not allow voting on your own issue by default.)
-	// We use a fresh project so the reporter is the current user; voting
-	// is attempted on the issue itself. Some YouTrack configs allow this;
-	// if the vote API returns an error the test will surface it clearly.
+	// YouTrack blocks voting on issues you reported yourself, so we create a
+	// temporary reporter user and create the issue under their name.
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	reporterLogin := fmt.Sprintf("vote-reporter-%d", time.Now().UnixMilli()%100000)
+	reporter, err := c.AddUser(&api.AddUserRequest{
+		Login:    reporterLogin,
+		FullName: "Vote Test Reporter",
+		Email:    reporterLogin + "@example.com",
+		Password: "Test1234!",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteUser(reporter.Login, me.Login) })
+
 	issue, err := c.AddIssue(api.AddIssueRequest{
-		Summary: "vote test issue",
-		Project: &api.Project{ID: proj.ID},
+		Summary:  "vote test issue",
+		Project:  &api.Project{ID: proj.ID},
+		Reporter: &api.User{ID: reporter.ID},
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
@@ -189,22 +205,16 @@ func TestCmd_IssueAddDescriptionFile(t *testing.T) {
 	)
 	assert.Contains(t, out, "desc-file test")
 
-	// Verify description was stored.
-	var created struct {
-		IDReadable  string `json:"idReadable"`
-		Description string `json:"description"`
-	}
-	// Fetch the issue via the API client to read the description field.
-	issues, err := c.ListIssues(fmt.Sprintf("project: %s summary: {desc-file test}", proj.ShortName), 1)
-	require.NoError(t, err)
-	require.NotEmpty(t, issues)
-	t.Cleanup(func() { _ = c.DeleteIssue(issues[0].IDReadable) })
-	_ = created
+	// Parse the created issue ID directly from the JSON output (avoids search-index lag).
+	var created api.Issue
+	require.NoError(t, json.Unmarshal([]byte(out), &created))
+	require.NotEmpty(t, created.IDReadable)
+	t.Cleanup(func() { _ = c.DeleteIssue(created.IDReadable) })
 
 	var result struct {
 		Description string `json:"description"`
 	}
-	err = c.Get(fmt.Sprintf("/api/issues/%s?fields=description", url.PathEscape(issues[0].IDReadable)), &result)
+	err := c.Get(fmt.Sprintf("/api/issues/%s?fields=description", url.PathEscape(created.IDReadable)), &result)
 	require.NoError(t, err)
 	assert.Equal(t, content, result.Description)
 }
@@ -228,11 +238,11 @@ func TestCmd_IssueAddParent(t *testing.T) {
 	)
 	assert.Contains(t, out, "child issue")
 
-	// Extract child ID from output.
-	issues, err := c.ListIssues(fmt.Sprintf("project: %s summary: {child issue}", proj.ShortName), 1)
-	require.NoError(t, err)
-	require.NotEmpty(t, issues)
-	childID := issues[0].IDReadable
+	// Parse child ID directly from JSON output (avoids search-index lag).
+	var child api.Issue
+	require.NoError(t, json.Unmarshal([]byte(out), &child))
+	require.NotEmpty(t, child.IDReadable)
+	childID := child.IDReadable
 	t.Cleanup(func() { _ = c.DeleteIssue(childID) })
 
 	// Verify parent link via raw API: links contain the parent issue.

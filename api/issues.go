@@ -369,12 +369,8 @@ func (c *Client) WatchIssue(id string) error {
 	if err != nil {
 		return err
 	}
-	me, err := c.GetCurrentUser()
-	if err != nil {
-		return err
-	}
 	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"id": me.ID}, nil)
+	return c.Post(path, map[string]any{"hasWatchedIssue": true}, nil)
 }
 
 func (c *Client) UnwatchIssue(id string) error {
@@ -382,11 +378,8 @@ func (c *Client) UnwatchIssue(id string) error {
 	if err != nil {
 		return err
 	}
-	me, err := c.GetCurrentUser()
-	if err != nil {
-		return err
-	}
-	return c.Delete(fmt.Sprintf(pathIssueWatcher, url.PathEscape(issue.ID), url.PathEscape(me.ID)))
+	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
+	return c.Post(path, map[string]any{"hasWatchedIssue": false}, nil)
 }
 
 func (c *Client) VoteIssue(id string) error {
@@ -394,12 +387,8 @@ func (c *Client) VoteIssue(id string) error {
 	if err != nil {
 		return err
 	}
-	me, err := c.GetCurrentUser()
-	if err != nil {
-		return err
-	}
 	path := fmt.Sprintf(pathIssueVoters, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"id": me.ID}, nil)
+	return c.Post(path, map[string]any{"hasVote": true}, nil)
 }
 
 func (c *Client) UnvoteIssue(id string) error {
@@ -407,11 +396,8 @@ func (c *Client) UnvoteIssue(id string) error {
 	if err != nil {
 		return err
 	}
-	me, err := c.GetCurrentUser()
-	if err != nil {
-		return err
-	}
-	return c.Delete(fmt.Sprintf(pathIssueVoter, url.PathEscape(issue.ID), url.PathEscape(me.ID)))
+	path := fmt.Sprintf(pathIssueVoters, url.PathEscape(issue.ID))
+	return c.Post(path, map[string]any{"hasVote": false}, nil)
 }
 
 func (c *Client) ListRecentComments(issueID string, top int) ([]Comment, error) {
