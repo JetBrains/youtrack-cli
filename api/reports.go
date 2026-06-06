@@ -21,13 +21,3 @@ func (c *Client) RestoreDocument(id string) error {
 func (c *Client) DeleteReport(id string) error {
 	return c.Delete(fmt.Sprintf(pathReport, url.PathEscape(id)))
 }
-
-func (c *Client) ListGanttCharts() ([]GanttChart, error) {
-	var result []GanttChart
-	err := c.Get(pathGanttCharts+"?fields=id,name&$top=-1", &result)
-	return result, err
-}
-
-func (c *Client) DeleteGanttChart(id string) error {
-	return c.Delete(fmt.Sprintf(pathGanttChart, url.PathEscape(id)))
-}
