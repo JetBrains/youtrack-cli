@@ -17,6 +17,22 @@ func newIssueGetCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if output.Format(cmd) == "plain" {
+				issue, err := client.GetIssueDetail(args[0])
+				if err != nil {
+					return err
+				}
+				output.PrintIssueDetail(cmd.OutOrStdout(), issue)
+				n, _ := cmd.Flags().GetInt("comments")
+				if n > 0 {
+					comments, err := client.ListRecentComments(args[0], n)
+					if err != nil {
+						return err
+					}
+					return output.Print(cmd, comments)
+				}
+				return nil
+			}
 			issue, err := client.GetIssue(args[0])
 			if err != nil {
 				return err

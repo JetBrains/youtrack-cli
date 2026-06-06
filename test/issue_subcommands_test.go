@@ -56,7 +56,6 @@ func assertIssueAssignee(t *testing.T, c issueStateGetter, issueID, wantLogin st
 	}
 }
 
-
 // assertIssueVoted checks whether the current user has voted for the issue.
 func assertIssueVoted(t *testing.T, c issueStateGetter, issueID string, want bool) {
 	t.Helper()
@@ -286,4 +285,25 @@ func TestCmd_IssueGetComments(t *testing.T) {
 	out := runCmd(t, "issue", "get", issue.IDReadable, "--comments", "5", "--format", "json")
 	// Output includes the issue JSON followed by the comments JSON array.
 	assert.True(t, strings.Contains(out, "hello from test"), "expected comment text in output")
+}
+
+func TestCmd_IssueGetPlain(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary:     "plain view test issue",
+		Description: "full description text here",
+		Project:     &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "get", issue.IDReadable, "--plain")
+	assert.Contains(t, out, issue.IDReadable)
+	assert.Contains(t, out, "plain view test issue")
+	assert.Contains(t, out, "full description text here")
+	assert.Contains(t, out, "Reporter:")
+	assert.Contains(t, out, "Project:")
+	assert.Contains(t, out, proj.ShortName)
 }

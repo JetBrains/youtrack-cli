@@ -10,6 +10,7 @@ import (
 )
 
 const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created"
+const issueDetailFields = issueFields + ",customFields(name,value(name,login,text,presentation))"
 const commentFields = "id,text,author(id,login,fullName),created"
 
 // AddIssueRequest is the body for creating an issue.
@@ -55,6 +56,13 @@ func WrapUserValues(query string) string {
 		}
 		return keyword + " {" + login + "}"
 	})
+}
+
+func (c *Client) GetIssueDetail(id string) (*Issue, error) {
+	var result Issue
+	path := fmt.Sprintf(pathIssue+"?fields=%s", url.PathEscape(id), issueDetailFields)
+	err := c.Get(path, &result)
+	return &result, err
 }
 
 func (c *Client) GetIssue(id string) (*Issue, error) {

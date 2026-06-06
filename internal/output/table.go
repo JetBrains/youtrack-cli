@@ -5,6 +5,7 @@ import (
 	"io"
 	"strings"
 	"text/tabwriter"
+	"time"
 	"unicode/utf8"
 
 	"github.com/JetBrains/youtrack-cli/api"
@@ -370,6 +371,66 @@ func PrintPlain(out io.Writer, data any) error {
 		return printJSON(out, data)
 	}
 	return nil
+}
+
+// PrintIssueDetail renders a single issue in a rich multi-line plain-text format,
+// including custom fields (State, Priority, Assignee, etc.) and the full description.
+func PrintIssueDetail(w io.Writer, v *api.Issue) {
+	fmt.Fprintf(w, "%s  %s\n", v.IDReadable, v.Summary)
+
+	label := func(k, val string) {
+		if val != "" {
+			fmt.Fprintf(w, "%-12s%s\n", k+":", val)
+		}
+	}
+
+	fmt.Fprintln(w)
+	reporter := ""
+	if v.Reporter != nil {
+		reporter = v.Reporter.Login
+	}
+	label("Reporter", reporter)
+	label("Project", projectKey(v.Project))
+	if v.Created != 0 {
+		label("Created", time.UnixMilli(v.Created).UTC().Format("2006-01-02 15:04:05"))
+	}
+	if v.Resolved != nil && *v.Resolved != 0 {
+		label("Resolved", time.UnixMilli(*v.Resolved).UTC().Format("2006-01-02 15:04:05"))
+	}
+
+	if len(v.CustomFields) > 0 {
+		fmt.Fprintln(w)
+		for _, f := range v.CustomFields {
+			label(f.Name, issueFieldValue(f.Value))
+		}
+	}
+
+	if v.Description != "" {
+		fmt.Fprintln(w)
+		fmt.Fprintln(w, v.Description)
+	}
+}
+
+// issueFieldValue converts a custom field value (any) to a display string.
+func issueFieldValue(v any) string {
+	switch val := v.(type) {
+	case nil:
+		return ""
+	case map[string]any:
+		return compactObject(val)
+	case []any:
+		parts := make([]string, 0, len(val))
+		for _, item := range val {
+			if m, ok := item.(map[string]any); ok {
+				if s := compactObject(m); s != "" {
+					parts = append(parts, s)
+				}
+			}
+		}
+		return strings.Join(parts, ", ")
+	default:
+		return fmt.Sprintf("%v", v)
+	}
 }
 
 func truncate(s string, max int) string {
