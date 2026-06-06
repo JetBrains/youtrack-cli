@@ -168,7 +168,7 @@ youtrack issue tag MYPROJ-42 <tagId>
 
 # Issues — drafts and work items
 youtrack issue draft create --project MYPROJ --summary "Draft idea"
-youtrack issue workitem add MYPROJ-42 --duration PT1H30M --description "Investigation"
+youtrack issue workitem add MYPROJ-42 --minutes 90 --text "Investigation"
 
 # Projects
 youtrack project list
