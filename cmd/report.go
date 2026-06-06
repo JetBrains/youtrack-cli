@@ -15,8 +15,6 @@ func newReportCmd() *cobra.Command {
 	cmd.AddCommand(newReportDeletedListCmd())
 	cmd.AddCommand(newReportRestoreCmd())
 	cmd.AddCommand(newReportDeleteCmd())
-	cmd.AddCommand(newReportGanttListCmd())
-	cmd.AddCommand(newReportGanttDeleteCmd())
 	return cmd
 }
 
@@ -64,39 +62,6 @@ func newReportDeleteCmd() *cobra.Command {
 				return err
 			}
 			return client.DeleteReport(args[0])
-		},
-	}
-}
-
-func newReportGanttListCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "gantt-list",
-		Short: "List all Gantt charts",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := internal.GetClient(cmd)
-			if err != nil {
-				return err
-			}
-			charts, err := client.ListGanttCharts()
-			if err != nil {
-				return err
-			}
-			return output.Print(cmd, charts)
-		},
-	}
-}
-
-func newReportGanttDeleteCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "gantt-delete <id>",
-		Short: "Delete a Gantt chart by ID",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := internal.GetClient(cmd)
-			if err != nil {
-				return err
-			}
-			return client.DeleteGanttChart(args[0])
 		},
 	}
 }

@@ -103,6 +103,7 @@ func newGroupDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().String("successor", "", "ID or name of the group that inherits references from the deleted group (optional)")
+	cmd.Flags().String("successor", "", "ID or name of the group that inherits references from the deleted group")
+	internal.MustMarkRequired(cmd, "successor")
 	return cmd
 }
