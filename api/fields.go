@@ -25,7 +25,7 @@ func (c *Client) DeleteCustomField(id string) error {
 }
 
 func (c *Client) ListBundles(bundleType string) ([]Bundle, error) {
-	bundleType = normalizeBundlePathType(bundleType)
+	bundleType = NormalizeBundlePathType(bundleType)
 	var result []Bundle
 	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name&$top=-1", url.PathEscape(bundleType))
 	err := c.Get(path, &result)
@@ -33,7 +33,8 @@ func (c *Client) ListBundles(bundleType string) ([]Bundle, error) {
 }
 
 // bundleTypeName maps a lowercase path type (e.g. "enum") to the YouTrack $type value
-// (e.g. "EnumBundle"). Accepts either form — if already in PascalCase it passes through.
+// (e.g. "EnumBundle"). It expects a normalized lowercase path key (e.g., "enum", "state")
+// as returned by NormalizeBundlePathType.
 func bundleTypeName(pathType string) string {
 	switch pathType {
 	case "enum":
@@ -54,7 +55,7 @@ func bundleTypeName(pathType string) string {
 }
 
 func (c *Client) CreateBundle(bundleType, name string) (*Bundle, error) {
-	bundleType = normalizeBundlePathType(bundleType)
+	bundleType = NormalizeBundlePathType(bundleType)
 	var result Bundle
 	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name", url.PathEscape(bundleType))
 	err := c.Post(path, map[string]any{
@@ -64,9 +65,9 @@ func (c *Client) CreateBundle(bundleType, name string) (*Bundle, error) {
 	return &result, err
 }
 
-// normalizeBundlePathType accepts either the YouTrack $type name ("EnumBundle") or the
+// NormalizeBundlePathType accepts either the YouTrack $type name ("EnumBundle") or the
 // lowercase URL path key ("enum") and always returns the correct URL path key.
-func normalizeBundlePathType(t string) string {
+func NormalizeBundlePathType(t string) string {
 	switch t {
 	case "enum", "EnumBundle":
 		return "enum"
@@ -86,6 +87,8 @@ func normalizeBundlePathType(t string) string {
 }
 
 // bundleElementTypeName maps a bundle path type to the YouTrack $type for its elements.
+// It expects a normalized lowercase path key (e.g., "enum", "state") as returned by
+// NormalizeBundlePathType, not a PascalCase $type name.
 func bundleElementTypeName(pathType string) string {
 	switch pathType {
 	case "state":
@@ -102,7 +105,7 @@ func bundleElementTypeName(pathType string) string {
 }
 
 func (c *Client) AddBundleValue(bundleType, bundleID, value string) error {
-	bundleType = normalizeBundlePathType(bundleType)
+	bundleType = NormalizeBundlePathType(bundleType)
 	path := fmt.Sprintf(pathAdminBundleValues,
 		url.PathEscape(bundleType), url.PathEscape(bundleID))
 	return c.Post(path, map[string]any{
@@ -112,14 +115,14 @@ func (c *Client) AddBundleValue(bundleType, bundleID, value string) error {
 }
 
 func (c *Client) DeleteBundle(bundleType, bundleID string) error {
-	bundleType = normalizeBundlePathType(bundleType)
+	bundleType = NormalizeBundlePathType(bundleType)
 	path := fmt.Sprintf(pathAdminBundle,
 		url.PathEscape(bundleType), url.PathEscape(bundleID))
 	return c.Delete(path)
 }
 
 func (c *Client) AttachBundleToField(fieldID, bundleID, bundleType string) error {
-	bundleType = normalizeBundlePathType(bundleType)
+	bundleType = NormalizeBundlePathType(bundleType)
 	path := fmt.Sprintf(pathAdminCustomFieldBundle,
 		url.PathEscape(fieldID))
 	return c.Put(path, map[string]any{"id": bundleID, "$type": bundleTypeName(bundleType)}, nil)
