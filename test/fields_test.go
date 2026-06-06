@@ -56,6 +56,12 @@ func TestCmd_FieldBundleList(t *testing.T) {
 	assert.NotEmpty(t, out)
 }
 
+func TestCmd_FieldBundleList_PascalCaseType(t *testing.T) {
+	// Should accept "EnumBundle" as alias for "enum"
+	out := runCmd(t, "field", "bundle", "list", "--type", "EnumBundle", "--format", "json")
+	assert.NotEmpty(t, out)
+}
+
 func TestCmd_FieldWorktimeGet(t *testing.T) {
 	out := runCmd(t, "field", "worktime", "get", "--format", "json")
 	assert.NotEmpty(t, out)

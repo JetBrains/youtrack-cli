@@ -25,6 +25,7 @@ func (c *Client) DeleteCustomField(id string) error {
 }
 
 func (c *Client) ListBundles(bundleType string) ([]Bundle, error) {
+	bundleType = normalizeBundlePathType(bundleType)
 	var result []Bundle
 	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name&$top=-1", url.PathEscape(bundleType))
 	err := c.Get(path, &result)
@@ -53,6 +54,7 @@ func bundleTypeName(pathType string) string {
 }
 
 func (c *Client) CreateBundle(bundleType, name string) (*Bundle, error) {
+	bundleType = normalizeBundlePathType(bundleType)
 	var result Bundle
 	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name", url.PathEscape(bundleType))
 	err := c.Post(path, map[string]any{
@@ -60,6 +62,27 @@ func (c *Client) CreateBundle(bundleType, name string) (*Bundle, error) {
 		"name":  name,
 	}, &result)
 	return &result, err
+}
+
+// normalizeBundlePathType accepts either the YouTrack $type name ("EnumBundle") or the
+// lowercase URL path key ("enum") and always returns the correct URL path key.
+func normalizeBundlePathType(t string) string {
+	switch t {
+	case "enum", "EnumBundle":
+		return "enum"
+	case "state", "StateBundle":
+		return "state"
+	case "version", "VersionBundle":
+		return "version"
+	case "build", "BuildBundle":
+		return "build"
+	case "ownedField", "owned", "OwnedBundle":
+		return "ownedField"
+	case "user", "UserBundle":
+		return "user"
+	default:
+		return t
+	}
 }
 
 // bundleElementTypeName maps a bundle path type to the YouTrack $type for its elements.
@@ -79,6 +102,7 @@ func bundleElementTypeName(pathType string) string {
 }
 
 func (c *Client) AddBundleValue(bundleType, bundleID, value string) error {
+	bundleType = normalizeBundlePathType(bundleType)
 	path := fmt.Sprintf(pathAdminBundleValues,
 		url.PathEscape(bundleType), url.PathEscape(bundleID))
 	return c.Post(path, map[string]any{
@@ -88,12 +112,14 @@ func (c *Client) AddBundleValue(bundleType, bundleID, value string) error {
 }
 
 func (c *Client) DeleteBundle(bundleType, bundleID string) error {
+	bundleType = normalizeBundlePathType(bundleType)
 	path := fmt.Sprintf(pathAdminBundle,
 		url.PathEscape(bundleType), url.PathEscape(bundleID))
 	return c.Delete(path)
 }
 
 func (c *Client) AttachBundleToField(fieldID, bundleID, bundleType string) error {
+	bundleType = normalizeBundlePathType(bundleType)
 	path := fmt.Sprintf(pathAdminCustomFieldBundle,
 		url.PathEscape(fieldID))
 	return c.Put(path, map[string]any{"id": bundleID, "$type": bundleTypeName(bundleType)}, nil)
