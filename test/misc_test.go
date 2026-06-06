@@ -94,6 +94,7 @@ func TestCmd_EnvVarPrecedenceOverConfig(t *testing.T) {
 
 	// The process env already has real YOUTRACK_BASE_URL + YOUTRACK_TOKEN.
 	// With new precedence (env > config), the command should use them and succeed.
+	// On macOS/Linux the last HOME= entry wins; the fake config dir overrides the real one.
 	out := runCmdWithEnv(t, "", []string{"HOME=" + home}, "user", "me", "--format", "json")
 	assert.Contains(t, out, `"login"`)
 }

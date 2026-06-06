@@ -47,6 +47,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	}
 
 	// Tier 3: env vars win over stored config — explicit, process-scoped, CI-safe.
+	// Independent guards allow partial fills: one credential from env, the other from config.
 	if baseURL == "" {
 		baseURL = os.Getenv("YOUTRACK_BASE_URL")
 	}
@@ -60,19 +61,19 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 		if err == nil && len(cfg.Instances) > 0 {
 			inst, alias := cfg.ActiveInstance()
 			switch {
-			case inst != nil:
+			case inst != nil: // Active instance found; fill any still-empty slot.
 				if baseURL == "" {
 					baseURL = inst.URL
 				}
 				if token == "" {
 					token = inst.Token
 				}
-			case alias != "":
+			case alias != "": // currentInstance is set but the alias is missing from the map (stale pointer).
 				return nil, fmt.Errorf(
 					"active instance %q not found in config — run: youtrack instance use <alias>\nKnown: %s",
 					alias, strings.Join(cfg.Aliases(), ", "),
 				)
-			default:
+			default: // Config has instances but none is selected as active.
 				return nil, fmt.Errorf(
 					"no active instance — run: youtrack instance use <alias>\nKnown: %s",
 					strings.Join(cfg.Aliases(), ", "),
