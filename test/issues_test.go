@@ -371,8 +371,18 @@ func TestCmd_IssueLinkList_ShowsID(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(src.IDReadable) })
 
+	dst, err := c.AddIssue(api.AddIssueRequest{Summary: "link dst", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(dst.IDReadable) })
+
+	types, err := c.GetIssueLinkTypes()
+	require.NoError(t, err)
+	require.NotEmpty(t, types)
+
+	err = c.LinkIssues(src.IDReadable, dst.IDReadable, types[0].ID)
+	require.NoError(t, err)
+
 	out := runCmd(t, "issue", "link", "list", src.IDReadable, "--format", "json")
-	// JSON output must include "id" key for each link entry
 	assert.Contains(t, out, `"id"`)
 }
 
