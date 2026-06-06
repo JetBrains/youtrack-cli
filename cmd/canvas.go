@@ -93,7 +93,11 @@ func newCanvasDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return client.DeleteCanvas(args[0])
+			if err := client.DeleteCanvas(args[0]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "deleted canvas "+args[0])
+			return nil
 		},
 	}
 }

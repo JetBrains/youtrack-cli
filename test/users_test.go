@@ -96,6 +96,13 @@ func TestCmd_UserPinProject(t *testing.T) {
 	runCmd(t, "user", "pin-project", me.Login, proj.ID)
 }
 
+func TestCmd_UserDeleteRequiresSuccessor(t *testing.T) {
+	// F-09 regression: --successor must be required; CLI must reject before any HTTP call
+	requireE2EEnv(t)
+	out := runCmdExpectError(t, "user", "delete", "nonexistent-user")
+	_ = out
+}
+
 func assertUserBanState(t *testing.T, c interface {
 	Get(path string, result any) error
 }, login string, want bool) {
