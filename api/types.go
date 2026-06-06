@@ -89,11 +89,15 @@ type UserType struct {
 }
 
 // LinkType describes a type of issue link (e.g. "depends on").
-type LinkType struct {
+type LinkType = IssueLinkType
+
+// IssueLinkType describes a type of issue link (e.g. "depends on").
+type IssueLinkType struct {
 	ID             string `json:"id,omitempty"`
 	Name           string `json:"name,omitempty"`
 	SourceToTarget string `json:"sourceToTarget,omitempty"`
 	TargetToSource string `json:"targetToSource,omitempty"`
+	Directed       bool   `json:"directed,omitempty"`
 }
 
 type Article struct {

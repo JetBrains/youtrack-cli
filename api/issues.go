@@ -139,15 +139,28 @@ func (c *Client) GetIssueCount(query string) (int, error) {
 	}
 }
 
-func (c *Client) GetIssueLinkTypes() ([]LinkType, error) {
-	var result []LinkType
-	err := c.Get(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource&$top=-1", &result)
+func (c *Client) GetIssueLinkTypes() ([]IssueLinkType, error) {
+	var result []IssueLinkType
+	err := c.Get(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource,directed&$top=-1", &result)
 	return result, err
 }
 
-func (c *Client) AddIssueLinkType(name, sourceToTarget, targetToSource string) (*LinkType, error) {
-	var result LinkType
-	err := c.Post(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource", map[string]any{
+func (c *Client) GetIssueLinkType(id string) (*IssueLinkType, error) {
+	types, err := c.GetIssueLinkTypes()
+	if err != nil {
+		return nil, err
+	}
+	for i := range types {
+		if types[i].ID == id {
+			return &types[i], nil
+		}
+	}
+	return nil, fmt.Errorf("link type %q not found", id)
+}
+
+func (c *Client) AddIssueLinkType(name, sourceToTarget, targetToSource string) (*IssueLinkType, error) {
+	var result IssueLinkType
+	err := c.Post(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource,directed", map[string]any{
 		"name":           name,
 		"sourceToTarget": sourceToTarget,
 		"targetToSource": targetToSource,
@@ -170,13 +183,18 @@ func (c *Client) LinkIssues(issueID, targetID, linkTypeID string) error {
 	if err != nil {
 		return fmt.Errorf("resolve target issue %s: %w", targetID, err)
 	}
-	path := fmt.Sprintf(pathIssueLinks, url.PathEscape(issueID))
-	return c.Post(path, map[string]any{
-		"$type":     "IssueLink",
-		"direction": "BOTH", // BOTH is the correct value for CLI link creation; directed link types (OUTWARD/INWARD) are not exposed via --direction flag (YAGNI).
-		"linkType":  map[string]any{"$type": "IssueLinkType", "id": linkTypeID},
-		"issues":    []map[string]any{{"$type": "Issue", "id": target.ID}},
-	}, nil)
+	// For directed link types, append 's' (OUTWARD) unless the caller already
+	// included a direction marker ('s' or 't'). Non-directed link types use the ID as-is.
+	linkID := linkTypeID
+	last := linkTypeID[len(linkTypeID)-1]
+	if last != 's' && last != 't' {
+		lt, err := c.GetIssueLinkType(linkTypeID)
+		if err == nil && lt.Directed {
+			linkID = linkTypeID + "s"
+		}
+	}
+	path := fmt.Sprintf(pathIssueLinkTypeIssues, url.PathEscape(issueID), url.PathEscape(linkID))
+	return c.Post(path, map[string]any{"id": target.ID}, nil)
 }
 
 func (c *Client) RemoveIssueLink(issueID, linkID string) error {
