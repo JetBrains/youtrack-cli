@@ -69,7 +69,11 @@ func newTagDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return client.DeleteTag(args[0])
+			if err := client.DeleteTag(args[0]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "deleted tag "+args[0])
+			return nil
 		},
 	}
 }
