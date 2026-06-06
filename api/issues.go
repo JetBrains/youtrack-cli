@@ -117,11 +117,26 @@ func (c *Client) DeleteComment(issueID, commentID string) error {
 }
 
 func (c *Client) GetIssueCount(query string) (int, error) {
-	var result struct {
-		Count int `json:"count"`
+	const pollTimeout = 5 * time.Second
+	const pollInterval = 200 * time.Millisecond
+
+	deadline := time.Now().Add(pollTimeout)
+	for {
+		var result struct {
+			Count int `json:"count"`
+		}
+		if err := c.Post(pathIssuesGetterCount+"?fields=count",
+			map[string]any{"query": query}, &result); err != nil {
+			return 0, err
+		}
+		if result.Count >= 0 {
+			return result.Count, nil
+		}
+		if time.Now().After(deadline) {
+			return -1, fmt.Errorf("issue count still -1 after %v: YouTrack async computation timed out", pollTimeout)
+		}
+		time.Sleep(pollInterval)
 	}
-	err := c.Post(pathIssuesGetterCount+"?fields=count", map[string]any{"query": query}, &result)
-	return result.Count, err
 }
 
 func (c *Client) GetIssueLinkTypes() ([]LinkType, error) {

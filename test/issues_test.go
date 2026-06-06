@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -344,4 +345,18 @@ func TestCmd_IssueLinkAdd(t *testing.T) {
 	links, err := c.GetLinkedIssues(src.IDReadable)
 	require.NoError(t, err)
 	assert.NotEmpty(t, links, "expected at least one link after issue link add")
+}
+
+func TestCmd_IssueCountNonNegative(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "count test", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "count", "--query", "project: "+proj.ShortName)
+	count, err := strconv.Atoi(strings.TrimSpace(out))
+	require.NoError(t, err, "output should be a plain integer, got: %q", out)
+	assert.GreaterOrEqual(t, count, 0, "count must never be -1 after the retry loop")
 }
