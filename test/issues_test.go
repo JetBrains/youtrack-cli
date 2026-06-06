@@ -362,3 +362,26 @@ func TestCmd_IssueCountNonNegative(t *testing.T) {
 	// not that the just-created issue has been indexed yet (indexing may lag).
 	assert.GreaterOrEqual(t, count, 0, "count must never be -1 after the retry loop")
 }
+
+func TestCmd_IssueLinkList_ShowsID(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	src, err := c.AddIssue(api.AddIssueRequest{Summary: "link src", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(src.IDReadable) })
+
+	out := runCmd(t, "issue", "link", "list", src.IDReadable, "--format", "json")
+	// JSON output must include "id" key for each link entry
+	assert.Contains(t, out, `"id"`)
+}
+
+func TestCmd_UserDeleteSelfRejected(t *testing.T) {
+	// F-17 regression: deleting the authenticated user must be rejected
+	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	out := runCmdExpectError(t, "user", "delete", me.Login, "--successor", me.Login, "--force")
+	_ = out // error is on stderr; runCmdExpectError asserts non-zero exit
+}

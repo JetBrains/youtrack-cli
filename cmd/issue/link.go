@@ -20,7 +20,12 @@ func newIssueLinkCmd() *cobra.Command {
 
 func newIssueLinkListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "list <issueId>", Short: "List links on an issue",
+		Use:   "list <issueId>",
+		Short: "List links on an issue",
+		Long: `List all links on an issue. The ID column contains the opaque link ID
+needed by 'issue link remove'. To extract it programmatically:
+
+  youtrack issue link list <issueId> --format json | jq '.[].id'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -58,7 +63,12 @@ func newIssueLinkAddCmd() *cobra.Command {
 
 func newIssueLinkRemoveCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "remove <issueId> <linkId>", Short: "Remove a link from an issue",
+		Use:   "remove <issueId> <linkId>",
+		Short: "Remove a link from an issue",
+		Long: `Remove a link from an issue. <linkId> is the opaque ID shown in the ID
+column of 'issue link list' (e.g. 100-1). To find it:
+
+  youtrack issue link list <issueId>`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
