@@ -150,10 +150,16 @@ func (c *Client) GetLinkedIssues(issueID string) ([]IssueLink, error) {
 }
 
 func (c *Client) LinkIssues(issueID, targetID, linkTypeID string) error {
+	target, err := c.GetIssue(targetID)
+	if err != nil {
+		return fmt.Errorf("resolve target issue %s: %w", targetID, err)
+	}
 	path := fmt.Sprintf(pathIssueLinks, url.PathEscape(issueID))
 	return c.Post(path, map[string]any{
-		"linkType": map[string]any{"id": linkTypeID},
-		"issues":   []map[string]any{{"id": targetID}},
+		"$type":     "IssueLink",
+		"direction": "BOTH",
+		"linkType":  map[string]any{"$type": "IssueLinkType", "id": linkTypeID},
+		"issues":    []map[string]any{{"$type": "Issue", "id": target.ID}},
 	}, nil)
 }
 

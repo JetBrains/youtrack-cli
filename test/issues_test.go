@@ -319,3 +319,29 @@ func TestCmd_IssueDelete_Cancel(t *testing.T) {
 	require.NoError(t, err, "issue should still exist after canceling")
 	assert.Equal(t, issue.IDReadable, got.IDReadable)
 }
+
+func TestCmd_IssueLinkAdd(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	src, err := c.AddIssue(api.AddIssueRequest{Summary: "link source", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(src.IDReadable) })
+
+	dst, err := c.AddIssue(api.AddIssueRequest{Summary: "link target", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(dst.IDReadable) })
+
+	types, err := c.GetIssueLinkTypes()
+	require.NoError(t, err)
+	require.NotEmpty(t, types, "YouTrack instance must have at least one link type")
+
+	runCmd(t, "issue", "link", "add", src.IDReadable,
+		"--target", dst.IDReadable,
+		"--type", types[0].ID,
+	)
+
+	links, err := c.GetLinkedIssues(src.IDReadable)
+	require.NoError(t, err)
+	assert.NotEmpty(t, links, "expected at least one link after issue link add")
+}
