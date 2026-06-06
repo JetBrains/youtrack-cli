@@ -215,7 +215,8 @@ youtrack project template convert <shortName>
 
 **project timetrack**
 ```bash
-youtrack project timetrack set <shortName> --enabled true|false
+youtrack project timetrack set <shortName> --enabled        # enable time tracking
+youtrack project timetrack set <shortName> --enabled=false  # disable time tracking
 ```
 
 **project workflow**
@@ -268,6 +269,20 @@ youtrack user profile grazie <login> [flags]
 youtrack user profile tips <login> <key=true|false>...
 youtrack user profile property <login> <key> <value>
 ```
+
+### user profile examples
+
+| Subcommand | Example `--body` JSON |
+|---|---|
+| `general` | `'{"timezone":{"id":"Europe/Berlin"}}'` |
+| `appearance` | `'{"theme":"DARK","language":"en"}'` |
+| `notifications` | `'{"notifyOnOwnChanges":false}'` |
+| `articles` | `'{"showSidebar":true}'` |
+| `issues-list` | `'{"defaultQuery":"for: me"}'` |
+| `grazie` | `'{"enableGrazie":true}'` |
+| `tips` | `'{"showNavigationTips":false}'` |
+
+Run `youtrack user profile general <userId> --help` for all available flag names.
 
 ---
 
