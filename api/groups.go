@@ -11,7 +11,7 @@ const groupDeleteSyncTimeout = 30 * time.Second
 
 func (c *Client) ListGroups(query string) ([]Group, error) {
 	var result []Group
-	path := pathGroups + fmt.Sprintf("?fields=id,name&query=%s&$top=-1", url.QueryEscape(query))
+	path := pathGroups + fmt.Sprintf("?fields=id,name&searchQuery=%s&$top=-1", url.QueryEscape(query))
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -46,14 +46,17 @@ func (c *Client) DeleteGroup(identifier, successorIdentifier string) error {
 	if err != nil {
 		return err
 	}
-	successor, err := c.GetGroup(successorIdentifier)
-	if err != nil {
-		return err
+	path := fmt.Sprintf(pathGroup, url.PathEscape(group.ID))
+	if successorIdentifier != "" {
+		successor, err := c.GetGroup(successorIdentifier)
+		if err != nil {
+			return err
+		}
+		if group.ID == successor.ID {
+			return fmt.Errorf("successor must be different from group '%s'", identifier)
+		}
+		path += "?successor=" + url.QueryEscape(successor.ID)
 	}
-	if group.ID == successor.ID {
-		return fmt.Errorf("successor must be different from group '%s'", identifier)
-	}
-	path := fmt.Sprintf(pathGroup, url.PathEscape(group.ID)) + "?successor=" + url.QueryEscape(successor.ID)
 	if err := c.Delete(path); err != nil {
 		return err
 	}

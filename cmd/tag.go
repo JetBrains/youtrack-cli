@@ -43,23 +43,11 @@ func newTagAddCmd() *cobra.Command {
 		Short: "Create a new tag",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
-			ownerLogin, _ := cmd.Flags().GetString("owner")
-
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-
-			req := api.AddTagRequest{Name: name}
-			if ownerLogin != "" {
-				u, err := client.GetUser(ownerLogin)
-				if err != nil {
-					return err
-				}
-				req.Owner = &api.User{ID: u.ID}
-			}
-
-			tag, err := client.AddTag(req)
+			tag, err := client.AddTag(api.AddTagRequest{Name: name})
 			if err != nil {
 				return err
 			}
@@ -67,7 +55,6 @@ func newTagAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "Tag name (required)")
-	cmd.Flags().String("owner", "", "Owner login")
 	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }
@@ -82,7 +69,11 @@ func newTagDeleteCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return client.DeleteTag(args[0])
+			if err := client.DeleteTag(args[0]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "deleted tag "+args[0])
+			return nil
 		},
 	}
 }

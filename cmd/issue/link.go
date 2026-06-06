@@ -20,7 +20,12 @@ func newIssueLinkCmd() *cobra.Command {
 
 func newIssueLinkListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "list <issueId>", Short: "List links on an issue",
+		Use:   "list <issueId>",
+		Short: "List links on an issue",
+		Long: `List all links on an issue. The ID column contains the opaque link ID
+needed by 'issue link remove'. To extract it programmatically:
+
+  youtrack issue link list <issueId> --format json | jq '.[].id'`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -58,7 +63,12 @@ func newIssueLinkAddCmd() *cobra.Command {
 
 func newIssueLinkRemoveCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "remove <issueId> <linkId>", Short: "Remove a link from an issue",
+		Use:   "remove <issueId> <linkId>",
+		Short: "Remove a link from an issue",
+		Long: `Remove a link from an issue. <linkId> is the opaque ID shown in the ID
+column of 'issue link list' (e.g. 100-1). To find it:
+
+  youtrack issue link list <issueId>`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -92,11 +102,13 @@ func newIssueLinkTypeCmd() *cobra.Command {
 			name, _ := cmd.Flags().GetString("name")
 			s2t, _ := cmd.Flags().GetString("source-to-target")
 			t2s, _ := cmd.Flags().GetString("target-to-source")
+			directed, _ := cmd.Flags().GetBool("directed")
+			aggregation, _ := cmd.Flags().GetBool("aggregation")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			lt, err := client.AddIssueLinkType(name, s2t, t2s)
+			lt, err := client.AddIssueLinkType(name, s2t, t2s, directed, aggregation)
 			if err != nil {
 				return err
 			}
@@ -106,6 +118,8 @@ func newIssueLinkTypeCmd() *cobra.Command {
 	add.Flags().String("name", "", "Link type name (required)")
 	add.Flags().String("source-to-target", "", "Source-to-target label (required)")
 	add.Flags().String("target-to-source", "", "Target-to-source label (required)")
+	add.Flags().Bool("directed", true, "Create a directed link type")
+	add.Flags().Bool("aggregation", false, "Create an aggregation link type")
 	internal.MustMarkRequired(add, "name", "source-to-target", "target-to-source")
 	cmd.AddCommand(list, add)
 	return cmd

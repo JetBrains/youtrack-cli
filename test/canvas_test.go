@@ -48,6 +48,19 @@ func addTestCanvasNode(t *testing.T, canvasID, label string, x, y int) string {
 	return node.ID
 }
 
+func TestCmd_CanvasDeletePrintsSuccess(t *testing.T) {
+	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	canvas, err := c.AddCanvas(api.AddCanvasRequest{Name: "delete-test", Owner: &api.User{ID: me.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteCanvas(canvas.ID) })
+
+	out := runCmd(t, "canvas", "delete", canvas.ID)
+	assert.Contains(t, out, canvas.ID)
+}
+
 func TestCmd_CanvasAdd(t *testing.T) {
 	c := newTestClient(t)
 	canvasID := createTestCanvas(t, c)

@@ -11,6 +11,13 @@ func (c *Client) ListCustomFields() ([]CustomField, error) {
 	return result, err
 }
 
+func (c *Client) GetCustomField(id string) (*CustomField, error) {
+	var result CustomField
+	path := fmt.Sprintf(pathAdminCustomField+"?fields=id,name,fieldType(id)", url.PathEscape(id))
+	err := c.Get(path, &result)
+	return &result, err
+}
+
 func (c *Client) AddCustomField(name, fieldTypeID string) (*CustomField, error) {
 	var result CustomField
 	err := c.Post(pathAdminCustomFields+"?fields=id,name,fieldType(id)", map[string]any{
@@ -25,6 +32,7 @@ func (c *Client) DeleteCustomField(id string) error {
 }
 
 func (c *Client) ListBundles(bundleType string) ([]Bundle, error) {
+	bundleType = NormalizeBundlePathType(bundleType)
 	var result []Bundle
 	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name&$top=-1", url.PathEscape(bundleType))
 	err := c.Get(path, &result)
@@ -32,7 +40,8 @@ func (c *Client) ListBundles(bundleType string) ([]Bundle, error) {
 }
 
 // bundleTypeName maps a lowercase path type (e.g. "enum") to the YouTrack $type value
-// (e.g. "EnumBundle"). Accepts either form — if already in PascalCase it passes through.
+// (e.g. "EnumBundle"). It expects a normalized lowercase path key (e.g., "enum", "state")
+// as returned by NormalizeBundlePathType.
 func bundleTypeName(pathType string) string {
 	switch pathType {
 	case "enum":
@@ -53,16 +62,45 @@ func bundleTypeName(pathType string) string {
 }
 
 func (c *Client) CreateBundle(bundleType, name string) (*Bundle, error) {
+	bundleType = NormalizeBundlePathType(bundleType)
 	var result Bundle
 	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name", url.PathEscape(bundleType))
-	err := c.Post(path, map[string]any{
+	body := map[string]any{
 		"$type": bundleTypeName(bundleType),
 		"name":  name,
-	}, &result)
+	}
+	if bundleType == "state" {
+		// StateBundle requires isUpdateable per the YouTrack API schema.
+		body["isUpdateable"] = true
+	}
+	err := c.Post(path, body, &result)
 	return &result, err
 }
 
+// NormalizeBundlePathType accepts either the YouTrack $type name ("EnumBundle") or the
+// lowercase URL path key ("enum") and always returns the correct URL path key.
+func NormalizeBundlePathType(t string) string {
+	switch t {
+	case "enum", "EnumBundle":
+		return "enum"
+	case "state", "StateBundle":
+		return "state"
+	case "version", "VersionBundle":
+		return "version"
+	case "build", "BuildBundle":
+		return "build"
+	case "ownedField", "owned", "OwnedBundle":
+		return "ownedField"
+	case "user", "UserBundle":
+		return "user"
+	default:
+		return t
+	}
+}
+
 // bundleElementTypeName maps a bundle path type to the YouTrack $type for its elements.
+// It expects a normalized lowercase path key (e.g., "enum", "state") as returned by
+// NormalizeBundlePathType, not a PascalCase $type name.
 func bundleElementTypeName(pathType string) string {
 	switch pathType {
 	case "state":
@@ -79,6 +117,7 @@ func bundleElementTypeName(pathType string) string {
 }
 
 func (c *Client) AddBundleValue(bundleType, bundleID, value string) error {
+	bundleType = NormalizeBundlePathType(bundleType)
 	path := fmt.Sprintf(pathAdminBundleValues,
 		url.PathEscape(bundleType), url.PathEscape(bundleID))
 	return c.Post(path, map[string]any{
@@ -88,12 +127,14 @@ func (c *Client) AddBundleValue(bundleType, bundleID, value string) error {
 }
 
 func (c *Client) DeleteBundle(bundleType, bundleID string) error {
+	bundleType = NormalizeBundlePathType(bundleType)
 	path := fmt.Sprintf(pathAdminBundle,
 		url.PathEscape(bundleType), url.PathEscape(bundleID))
 	return c.Delete(path)
 }
 
 func (c *Client) AttachBundleToField(fieldID, bundleID, bundleType string) error {
+	bundleType = NormalizeBundlePathType(bundleType)
 	path := fmt.Sprintf(pathAdminCustomFieldBundle,
 		url.PathEscape(fieldID))
 	return c.Put(path, map[string]any{"id": bundleID, "$type": bundleTypeName(bundleType)}, nil)
@@ -108,15 +149,17 @@ func (c *Client) ListWorkItemTypes() ([]WorkItemType, error) {
 func (c *Client) AddWorkItemType(name string, autoAttach bool) (*WorkItemType, error) {
 	var result WorkItemType
 	err := c.Post(pathAdminWorkItemTypes+"?fields=id,name,autoAttach", map[string]any{
-		"name":       name,
-		"autoAttach": autoAttach,
+		"name":         name,
+		"autoAttached": autoAttach,
 	}, &result)
 	return &result, err
 }
 
 func (c *Client) ChangeCustomFieldPrivacy(fieldID string, isPrivate bool) error {
 	path := fmt.Sprintf(pathAdminCustomField, url.PathEscape(fieldID))
-	return c.Post(path, map[string]any{"isPrivate": isPrivate}, nil)
+	return c.Post(path, map[string]any{
+		"fieldDefaults": map[string]any{"isPublic": !isPrivate},
+	}, nil)
 }
 
 func (c *Client) GetWorkTimeSettings() (*WorkTimeSettings, error) {

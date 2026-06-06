@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"encoding/json"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -318,4 +319,79 @@ func TestCmd_IssueDelete_Cancel(t *testing.T) {
 	got, err := c.GetIssue(issue.IDReadable)
 	require.NoError(t, err, "issue should still exist after canceling")
 	assert.Equal(t, issue.IDReadable, got.IDReadable)
+}
+
+func TestCmd_IssueLinkAdd(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	src, err := c.AddIssue(api.AddIssueRequest{Summary: "link source", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(src.IDReadable) })
+
+	dst, err := c.AddIssue(api.AddIssueRequest{Summary: "link target", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(dst.IDReadable) })
+
+	types, err := c.GetIssueLinkTypes()
+	require.NoError(t, err)
+	require.NotEmpty(t, types, "YouTrack instance must have at least one link type")
+
+	runCmd(t, "issue", "link", "add", src.IDReadable,
+		"--target", dst.IDReadable,
+		"--type", types[0].ID,
+	)
+
+	links, err := c.GetLinkedIssues(src.IDReadable)
+	require.NoError(t, err)
+	assert.NotEmpty(t, links, "expected at least one link after issue link add")
+}
+
+func TestCmd_IssueCountNonNegative(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "count test", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "count", "--query", "project: "+proj.ShortName)
+	count, err := strconv.Atoi(strings.TrimSpace(out))
+	require.NoError(t, err, "output should be a plain integer, got: %q", out)
+	// Assert >= 0, not >= 1: this test verifies the -1 sentinel is never returned,
+	// not that the just-created issue has been indexed yet (indexing may lag).
+	assert.GreaterOrEqual(t, count, 0, "count must never be -1 after the retry loop")
+}
+
+func TestCmd_IssueLinkList_ShowsID(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	src, err := c.AddIssue(api.AddIssueRequest{Summary: "link src", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(src.IDReadable) })
+
+	dst, err := c.AddIssue(api.AddIssueRequest{Summary: "link dst", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(dst.IDReadable) })
+
+	types, err := c.GetIssueLinkTypes()
+	require.NoError(t, err)
+	require.NotEmpty(t, types)
+
+	err = c.LinkIssues(src.IDReadable, dst.IDReadable, types[0].ID)
+	require.NoError(t, err)
+
+	out := runCmd(t, "issue", "link", "list", src.IDReadable, "--format", "json")
+	assert.Contains(t, out, `"id"`)
+}
+
+func TestCmd_UserDeleteSelfRejected(t *testing.T) {
+	// F-17 regression: deleting the authenticated user must be rejected
+	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	out := runCmdExpectError(t, "user", "delete", me.Login, "--successor", me.Login, "--force")
+	_ = out // error is on stderr; runCmdExpectError asserts non-zero exit
 }

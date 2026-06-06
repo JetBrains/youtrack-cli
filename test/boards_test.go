@@ -9,7 +9,8 @@ import (
 
 func TestCmd_BoardList(t *testing.T) {
 	c := newTestClient(t)
-	board, err := c.AddBoard("Test Board " + t.Name())
+	proj := createTempProject(t, c)
+	board, err := c.AddBoard("Test Board "+t.Name(), proj.ShortName)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteBoard(board.ID) })
 
@@ -19,7 +20,8 @@ func TestCmd_BoardList(t *testing.T) {
 
 func TestCmd_BoardGet(t *testing.T) {
 	c := newTestClient(t)
-	board, err := c.AddBoard("Test Board " + t.Name())
+	proj := createTempProject(t, c)
+	board, err := c.AddBoard("Test Board "+t.Name(), proj.ShortName)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteBoard(board.ID) })
 

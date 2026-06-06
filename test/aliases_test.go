@@ -106,7 +106,8 @@ func TestCmd_ProjectCreateAlias(t *testing.T) {
 // TestCmd_BoardViewAlias verifies that "board view" routes to the same handler as "board get".
 func TestCmd_BoardViewAlias(t *testing.T) {
 	c := newTestClient(t)
-	board, err := c.AddBoard("View Alias Board " + t.Name())
+	proj := createTempProject(t, c)
+	board, err := c.AddBoard("View Alias Board "+t.Name(), proj.ShortName)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteBoard(board.ID) })
 
@@ -117,9 +118,10 @@ func TestCmd_BoardViewAlias(t *testing.T) {
 // TestCmd_BoardCreateAlias verifies that "board create" routes to the same handler as "board add".
 func TestCmd_BoardCreateAlias(t *testing.T) {
 	c := newTestClient(t)
+	proj := createTempProject(t, c)
 	boardName := "Create Alias Board " + t.Name()
 
-	out := runCmd(t, "board", "create", "--name", boardName, "--format", "json")
+	out := runCmd(t, "board", "create", "--name", boardName, "--project", proj.ShortName, "--format", "json")
 	assert.Contains(t, out, boardName)
 
 	var created api.Board

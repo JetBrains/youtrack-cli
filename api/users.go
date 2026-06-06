@@ -16,7 +16,7 @@ const (
 
 // AddUserRequest is the body for creating a user.
 type AddUserRequest struct {
-	Login    string    `json:"login,omitempty"`
+	Login    string    `json:"login"`
 	FullName string    `json:"fullName"`
 	Email    string    `json:"email"`
 	Password string    `json:"password"`
@@ -25,7 +25,7 @@ type AddUserRequest struct {
 
 func (c *Client) ListUsers(query string) ([]User, error) {
 	var result []User
-	path := pathUsers + fmt.Sprintf("?query=%s&fields=%s&$top=-1", url.QueryEscape(query), userFields)
+	path := pathUsers + fmt.Sprintf("?searchQuery=%s&fields=%s&$top=-1", url.QueryEscape(query), userFields)
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -120,7 +120,7 @@ func (c *Client) SetUserTimezone(id, timezoneID string) error {
 
 func (c *Client) SetUserLocale(id, locale string) error {
 	path := fmt.Sprintf(pathUserProfileGeneral, url.PathEscape(id))
-	return c.Post(path, map[string]any{"locale": map[string]any{"locale": locale}}, nil)
+	return c.Post(path, map[string]any{"locale": map[string]any{"id": locale}}, nil)
 }
 
 func (c *Client) GetUserIssueDrafts(id string) ([]IssueDraft, error) {
@@ -143,7 +143,11 @@ func (c *Client) GetUserArticleDrafts(id string) ([]ArticleDraft, error) {
 }
 
 func (c *Client) PinProjectForUser(userID, projectID string) error {
-	path := fmt.Sprintf(pathUserPinnedProjects, url.PathEscape(userID))
+	user, err := c.GetUser(userID)
+	if err != nil {
+		return err
+	}
+	path := fmt.Sprintf(pathUserPinnedProjects, url.PathEscape(user.ID))
 	return c.Post(path, map[string]any{"id": projectID}, nil)
 }
 

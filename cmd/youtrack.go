@@ -70,6 +70,7 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 	add(newTagCmd(), "youtrack")
 	add(newSearchCmd(), "youtrack")
 	add(newCanvasCmd(), "youtrack")
+	add(newGanttCmd(), "youtrack")
 	add(newReportCmd(), "youtrack")
 	add(newArticleCmd(), "youtrack")
 	add(newBoardCmd(), "youtrack")

@@ -25,8 +25,11 @@ func (c *Client) SetLicense(username, license string) error {
 func (c *Client) SetEmailSettings(server string, port int, from string) error {
 	return c.Post(pathAdminGlobalSettingsNotifications, map[string]any{
 		"emailSettings": map[string]any{
-			"mailServerSettings": map[string]any{"host": server, "port": port},
-			"from":               from,
+			"isEnabled":    true,
+			"host":         server,
+			"port":         port,
+			"from":         from,
+			"mailProtocol": "SMTP",
 		},
 	}, nil)
 }
@@ -40,14 +43,14 @@ func (c *Client) DisableEmailSettings() error {
 func (c *Client) SetGlobalBanner(message string, enabled bool) error {
 	return c.Post(pathAdminGlobalSettings, map[string]any{
 		"appearanceSettings": map[string]any{
-			"globalBannerText": message, "showGlobalBanner": enabled,
+			"globalBanner": message, "globalBannerEnabled": enabled,
 		},
 	}, nil)
 }
 
 func (c *Client) SetReactionsEnabled(enabled bool) error {
 	return c.Post(pathAdminGlobalSettings, map[string]any{
-		"appearanceSettings": map[string]any{"enableReactions": enabled},
+		"appearanceSettings": map[string]any{"reactionsEnabled": enabled},
 	}, nil)
 }
 
@@ -91,7 +94,7 @@ func (c *Client) DeleteVCSProcessor(id string) error {
 }
 
 type AddMailboxServerRequest struct {
-	Protocol string `json:"protocol"`
+	Protocol string `json:"-"`
 	Host     string `json:"host"`
 	Port     int    `json:"port,omitempty"`
 	Login    string `json:"login"`
@@ -106,7 +109,16 @@ func (c *Client) ListMailboxServers() ([]MailboxServer, error) {
 
 func (c *Client) AddMailboxServer(req AddMailboxServerRequest) (*MailboxServer, error) {
 	var result MailboxServer
-	err := c.Post(pathAdminMailboxes+"?fields=id,login,host,port", req, &result)
+	body := map[string]any{
+		"host":         req.Host,
+		"login":        req.Login,
+		"password":     req.Password,
+		"mailProtocol": map[string]any{"id": req.Protocol},
+	}
+	if req.Port != 0 {
+		body["port"] = req.Port
+	}
+	err := c.Post(pathAdminMailboxes+"?fields=id,login,host,port", body, &result)
 	return &result, err
 }
 

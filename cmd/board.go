@@ -75,11 +75,12 @@ func newBoardAddCmd() *cobra.Command {
 		Use: "add", Short: "Create a new board (alias: create)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
+			project, _ := cmd.Flags().GetString("project")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			board, err := client.AddBoard(name)
+			board, err := client.AddBoard(name, project)
 			if err != nil {
 				return err
 			}
@@ -87,7 +88,9 @@ func newBoardAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("name", "", "Board name (required)")
+	cmd.Flags().String("project", "", "Project short name to attach the board to (required)")
 	internal.MustMarkRequired(cmd, "name")
+	internal.MustMarkRequired(cmd, "project")
 	return cmd
 }
 

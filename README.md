@@ -97,6 +97,17 @@ Three auth methods are available:
 Credentials are saved to `~/.youtrack-cli-config.json` by default (`--save=false` to skip).
 Env vars `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN` still work as a single-instance fallback.
 
+## Credential Precedence
+
+The CLI resolves credentials in this order (highest wins):
+
+1. `--base-url` / `--token` flags — per-invocation override
+2. `--server <alias>` flag — selects a named profile from `~/.youtrack-cli-config.json`
+3. `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN` env vars — explicit, process-scoped (CI/Docker)
+4. Active instance in `~/.youtrack-cli-config.json` — convenience fallback
+
+**Common gotcha:** Env vars (Tier 3) always win over the active config instance (Tier 4). If you set `YOUTRACK_BASE_URL`/`YOUTRACK_TOKEN` in your environment, they will take effect even when a config instance is active. Use `youtrack instance use <alias>` to switch which config instance is active, but env vars will still override it.
+
 ## Commands
 
 | Group | Subcommands |
@@ -168,7 +179,7 @@ youtrack issue tag MYPROJ-42 <tagId>
 
 # Issues — drafts and work items
 youtrack issue draft create --project MYPROJ --summary "Draft idea"
-youtrack issue workitem add MYPROJ-42 --duration PT1H30M --description "Investigation"
+youtrack issue workitem add MYPROJ-42 --minutes 90 --text "Investigation"
 
 # Projects
 youtrack project list
@@ -180,7 +191,8 @@ youtrack project delete MYPROJ
 youtrack project team add-user MYPROJ 2-9   # user must be passed as opaque ID (user get <login> --json | jq .id)
 youtrack project team add-group MYPROJ 4-1  # group opaque ID (group get <name> --json | jq .id)
 youtrack project field list MYPROJ
-youtrack project timetrack set MYPROJ --enabled true
+youtrack project timetrack set MYPROJ --enabled          # enable time tracking
+youtrack project timetrack set MYPROJ --enabled=false    # disable time tracking
 
 # Users
 youtrack user list --query "john"

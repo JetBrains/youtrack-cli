@@ -46,6 +46,33 @@ func TestBundlePathForFieldType_BundleTypes(t *testing.T) {
 	}
 }
 
+func TestNormalizeBundlePathType(t *testing.T) {
+	cases := []struct {
+		input string
+		want  string
+	}{
+		{"enum", "enum"},
+		{"EnumBundle", "enum"},
+		{"state", "state"},
+		{"StateBundle", "state"},
+		{"version", "version"},
+		{"VersionBundle", "version"},
+		{"build", "build"},
+		{"BuildBundle", "build"},
+		{"ownedField", "ownedField"},
+		{"owned", "ownedField"},
+		{"OwnedBundle", "ownedField"},
+		{"user", "user"},
+		{"UserBundle", "user"},
+		{"unknown", "unknown"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.input, func(t *testing.T) {
+			assert.Equal(t, tc.want, api.NormalizeBundlePathType(tc.input))
+		})
+	}
+}
+
 func TestCmd_FieldList(t *testing.T) {
 	out := runCmd(t, "field", "list", "--format", "json")
 	assert.NotEmpty(t, out)
@@ -53,6 +80,12 @@ func TestCmd_FieldList(t *testing.T) {
 
 func TestCmd_FieldBundleList(t *testing.T) {
 	out := runCmd(t, "field", "bundle", "list", "--type", "enum", "--format", "json")
+	assert.NotEmpty(t, out)
+}
+
+func TestCmd_FieldBundleList_PascalCaseType(t *testing.T) {
+	// Should accept "EnumBundle" as alias for "enum"
+	out := runCmd(t, "field", "bundle", "list", "--type", "EnumBundle", "--format", "json")
 	assert.NotEmpty(t, out)
 }
 

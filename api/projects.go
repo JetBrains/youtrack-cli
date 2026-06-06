@@ -69,14 +69,43 @@ func (c *Client) GetProjectCustomFields(shortName string) ([]ProjectCustomField,
 	return result, err
 }
 
+// projectCustomFieldType maps a custom field's fieldType.id to the $type for the project field.
+func projectCustomFieldType(fieldTypeID string) string {
+	switch {
+	case len(fieldTypeID) >= 5 && fieldTypeID[:5] == "state":
+		return "StateProjectCustomField"
+	case len(fieldTypeID) >= 4 && fieldTypeID[:4] == "enum":
+		return "EnumProjectCustomField"
+	case len(fieldTypeID) >= 7 && fieldTypeID[:7] == "version":
+		return "VersionProjectCustomField"
+	case len(fieldTypeID) >= 5 && fieldTypeID[:5] == "build":
+		return "BuildProjectCustomField"
+	case len(fieldTypeID) >= 10 && fieldTypeID[:10] == "ownedField":
+		return "OwnedProjectCustomField"
+	case len(fieldTypeID) >= 4 && fieldTypeID[:4] == "user":
+		return "UserProjectCustomField"
+	default:
+		return "SimpleProjectCustomField"
+	}
+}
+
 func (c *Client) AddProjectCustomField(shortName, fieldID string) error {
+	// Look up the custom field to determine the correct $type for the project custom field.
+	cf, err := c.GetCustomField(fieldID)
+	if err != nil {
+		return err
+	}
+	fieldType := "SimpleProjectCustomField"
+	if cf.FieldType != nil {
+		fieldType = projectCustomFieldType(cf.FieldType.ID)
+	}
 	p, err := c.GetProject(shortName)
 	if err != nil {
 		return err
 	}
 	path := fmt.Sprintf(pathAdminProjectFields, url.PathEscape(p.ID))
 	return c.Post(path, map[string]any{
-		"$type": "SimpleProjectCustomField",
+		"$type": fieldType,
 		"field": map[string]any{"id": fieldID},
 	}, nil)
 }
@@ -142,7 +171,7 @@ func (c *Client) AttachWorkflowToProject(shortName, workflowID string) error {
 		return err
 	}
 	path := fmt.Sprintf(pathAdminProjectWorkflows, url.PathEscape(p.ID))
-	return c.Post(path, map[string]any{"id": workflowID}, nil)
+	return c.Post(path, map[string]any{"workflow": map[string]any{"id": workflowID}}, nil)
 }
 
 func (c *Client) DeleteProject(shortName string) error {

@@ -117,27 +117,55 @@ func (c *Client) DeleteComment(issueID, commentID string) error {
 }
 
 func (c *Client) GetIssueCount(query string) (int, error) {
-	var result struct {
-		Count int `json:"count"`
+	const pollTimeout = 5 * time.Second
+	const pollInterval = 200 * time.Millisecond
+
+	deadline := time.Now().Add(pollTimeout)
+	for {
+		var result struct {
+			Count int `json:"count"`
+		}
+		if err := c.Post(pathIssuesGetterCount+"?fields=count",
+			map[string]any{"query": query}, &result); err != nil {
+			return 0, err
+		}
+		if result.Count >= 0 {
+			return result.Count, nil
+		}
+		if time.Now().After(deadline) {
+			return 0, fmt.Errorf("issue count timed out after %v (query: %q): YouTrack async computation did not complete", pollTimeout, query)
+		}
+		time.Sleep(pollInterval)
 	}
-	err := c.Post(pathIssuesGetterCount+"?fields=count", map[string]any{"query": query}, &result)
-	return result.Count, err
 }
 
-func (c *Client) GetIssueLinkTypes() ([]LinkType, error) {
-	var result []LinkType
-	err := c.Get(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource&$top=-1", &result)
+func (c *Client) GetIssueLinkTypes() ([]IssueLinkType, error) {
+	var result []IssueLinkType
+	err := c.Get(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource,directed&$top=-1", &result)
 	return result, err
 }
 
-func (c *Client) AddIssueLinkType(name, sourceToTarget, targetToSource string) (*LinkType, error) {
-	var result LinkType
-	err := c.Post(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource", map[string]any{
+func (c *Client) GetIssueLinkType(id string) (*IssueLinkType, error) {
+	types, err := c.GetIssueLinkTypes()
+	if err != nil {
+		return nil, err
+	}
+	for i := range types {
+		if types[i].ID == id {
+			return &types[i], nil
+		}
+	}
+	return nil, fmt.Errorf("link type %q not found", id)
+}
+
+func (c *Client) AddIssueLinkType(name, sourceToTarget, targetToSource string, directed, aggregation bool) (*IssueLinkType, error) {
+	var result IssueLinkType
+	err := c.Post(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource,directed", map[string]any{
 		"name":           name,
 		"sourceToTarget": sourceToTarget,
 		"targetToSource": targetToSource,
-		"directed":       true,
-		"aggregation":    false,
+		"directed":       directed,
+		"aggregation":    aggregation,
 	}, &result)
 	return &result, err
 }
@@ -150,11 +178,23 @@ func (c *Client) GetLinkedIssues(issueID string) ([]IssueLink, error) {
 }
 
 func (c *Client) LinkIssues(issueID, targetID, linkTypeID string) error {
-	path := fmt.Sprintf(pathIssueLinks, url.PathEscape(issueID))
-	return c.Post(path, map[string]any{
-		"linkType": map[string]any{"id": linkTypeID},
-		"issues":   []map[string]any{{"id": targetID}},
-	}, nil)
+	// Body requires the opaque internal ID; URL path segment accepts the readable form.
+	target, err := c.GetIssue(targetID)
+	if err != nil {
+		return fmt.Errorf("resolve target issue %s: %w", targetID, err)
+	}
+	// For directed link types, append 's' (OUTWARD) unless the caller already
+	// included a direction marker ('s' or 't'). Non-directed link types use the ID as-is.
+	linkID := linkTypeID
+	last := linkTypeID[len(linkTypeID)-1]
+	if last != 's' && last != 't' {
+		lt, err := c.GetIssueLinkType(linkTypeID)
+		if err == nil && lt.Directed {
+			linkID = linkTypeID + "s"
+		}
+	}
+	path := fmt.Sprintf(pathIssueLinkTypeIssues, url.PathEscape(issueID), url.PathEscape(linkID))
+	return c.Post(path, map[string]any{"id": target.ID}, nil)
 }
 
 func (c *Client) RemoveIssueLink(issueID, linkID string) error {
@@ -163,7 +203,7 @@ func (c *Client) RemoveIssueLink(issueID, linkID string) error {
 
 func (c *Client) TagIssue(issueID, tagID string) error {
 	path := fmt.Sprintf(pathIssueTags, url.PathEscape(issueID))
-	return c.Post(path, map[string]any{"$type": "Tag", "id": tagID}, nil)
+	return c.Post(path, map[string]any{"id": tagID}, nil)
 }
 
 func (c *Client) GetIssueAttachments(issueID string) ([]IssueAttachment, error) {
@@ -174,10 +214,15 @@ func (c *Client) GetIssueAttachments(issueID string) ([]IssueAttachment, error) 
 }
 
 func (c *Client) AddIssueAttachment(issueID, filePath string) (*IssueAttachment, error) {
-	var result IssueAttachment
+	var result []IssueAttachment
 	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created", url.PathEscape(issueID))
-	err := c.Multipart(path, filePath, filepath.Base(filePath), "application/octet-stream", &result)
-	return &result, err
+	if err := c.Multipart(path, filePath, filepath.Base(filePath), "application/octet-stream", &result); err != nil {
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("attachment upload returned empty response")
+	}
+	return &result[0], nil
 }
 
 func (c *Client) DeleteIssueAttachment(issueID, attachmentID string) error {
@@ -197,7 +242,7 @@ func (c *Client) AddWorkItem(issueID string, minutes int, text, typeID string) (
 	if typeID != "" {
 		body["type"] = map[string]any{"id": typeID}
 	}
-	path := fmt.Sprintf(pathIssueWorkItems+"?fields=id,text,date,duration(minutes),author(id,login)", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueWorkItems+"?fields=id,text,date,duration(minutes),author(id,name)", url.PathEscape(issueID))
 	err := c.Post(path, body, &result)
 	return &result, err
 }
@@ -327,7 +372,7 @@ func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]a
 		issues[i] = map[string]any{"id": issue.ID}
 	}
 	var result map[string]any
-	err := c.Post(pathCommandsAssist+"?fields=commands(error,description),query",
+	err := c.Post(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
 		map[string]any{"query": query, "issues": issues}, &result)
 	return result, err
 }

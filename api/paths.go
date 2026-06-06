@@ -70,6 +70,7 @@ const (
 	pathIssueCommentReaction  = "/api/issues/%s/comments/%s/reactions/%s"
 	pathIssueLinks            = "/api/issues/%s/links"
 	pathIssueLink             = "/api/issues/%s/links/%s"
+	pathIssueLinkTypeIssues   = "/api/issues/%s/links/%s/issues"
 	pathIssueTags             = "/api/issues/%s/tags"
 	pathIssueAttachments      = "/api/issues/%s/attachments"
 	pathIssueAttachment       = "/api/issues/%s/attachments/%s"
@@ -104,8 +105,8 @@ const (
 	// Reports / Restored docs
 	pathRemovedDocuments = "/api/removedDocuments"
 	pathReport           = "/api/reports/%s"
-	pathGanttCharts      = "/api/ganttCharts"
-	pathGanttChart       = "/api/ganttCharts/%s"
+	pathGanttCharts      = "/api/gantts"
+	pathGanttChart       = "/api/gantts/%s"
 
 	// Roles / Permissions
 	pathRoles         = "/api/roles"

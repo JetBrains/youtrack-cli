@@ -27,7 +27,7 @@ func newIssueWorkitemCmd() *cobra.Command {
 			return output.Print(cmd, item)
 		},
 	}
-	add.Flags().Int("minutes", 0, "Duration in minutes (required)")
+	add.Flags().Int("minutes", 0, "Work duration in minutes, e.g. 90 for 1h30m (required)")
 	add.Flags().String("text", "", "Work item description")
 	add.Flags().String("type", "", "Work item type ID")
 	internal.MustMarkRequired(add, "minutes")

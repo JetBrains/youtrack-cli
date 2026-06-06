@@ -62,8 +62,21 @@ func (c *Client) GrantRoleToUser(userID, roleID, projectID string) error {
 }
 
 func (c *Client) GrantRoleToGroup(groupID, roleID, projectID string) error {
+	// Fetch the group to get its concrete $type (NestedGroup, RegisteredUsersGroup, AllUsersGroup)
+	// required by YouTrack's polymorphic Jackson deserialization on the holder field.
+	var g struct {
+		ID   string `json:"id"`
+		Type string `json:"$type"`
+	}
+	if err := c.Get(fmt.Sprintf(pathGroup+"?fields=id,$type", url.PathEscape(groupID)), &g); err != nil {
+		return err
+	}
+	groupType := g.Type
+	if groupType == "" {
+		groupType = "NestedGroup"
+	}
 	body := map[string]any{
-		"holder": map[string]any{"id": groupID, "$type": "UserGroup"},
+		"holder": map[string]any{"id": groupID, "$type": groupType},
 		"role":   map[string]any{"id": roleID},
 	}
 	if projectID != "" {
