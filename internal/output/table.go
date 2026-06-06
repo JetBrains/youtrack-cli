@@ -376,15 +376,15 @@ func PrintPlain(out io.Writer, data any) error {
 // PrintIssueDetail renders a single issue in a rich multi-line plain-text format,
 // including custom fields (State, Priority, Assignee, etc.) and the full description.
 func PrintIssueDetail(w io.Writer, v *api.Issue) {
-	fmt.Fprintf(w, "%s  %s\n", v.IDReadable, v.Summary)
+	_, _ = fmt.Fprintf(w, "%s  %s\n", v.IDReadable, v.Summary)
 
 	label := func(k, val string) {
 		if val != "" {
-			fmt.Fprintf(w, "%-12s%s\n", k+":", val)
+			_, _ = fmt.Fprintf(w, "%-12s%s\n", k+":", val)
 		}
 	}
 
-	fmt.Fprintln(w)
+	_, _ = fmt.Fprintln(w)
 	reporter := ""
 	if v.Reporter != nil {
 		reporter = v.Reporter.Login
@@ -399,15 +399,15 @@ func PrintIssueDetail(w io.Writer, v *api.Issue) {
 	}
 
 	if len(v.CustomFields) > 0 {
-		fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w)
 		for _, f := range v.CustomFields {
 			label(f.Name, issueFieldValue(f.Value))
 		}
 	}
 
 	if v.Description != "" {
-		fmt.Fprintln(w)
-		fmt.Fprintln(w, v.Description)
+		_, _ = fmt.Fprintln(w)
+		_, _ = fmt.Fprintln(w, v.Description)
 	}
 }
 
