@@ -358,5 +358,7 @@ func TestCmd_IssueCountNonNegative(t *testing.T) {
 	out := runCmd(t, "issue", "count", "--query", "project: "+proj.ShortName)
 	count, err := strconv.Atoi(strings.TrimSpace(out))
 	require.NoError(t, err, "output should be a plain integer, got: %q", out)
+	// Assert >= 0, not >= 1: this test verifies the -1 sentinel is never returned,
+	// not that the just-created issue has been indexed yet (indexing may lag).
 	assert.GreaterOrEqual(t, count, 0, "count must never be -1 after the retry loop")
 }
