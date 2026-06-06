@@ -150,6 +150,7 @@ func (c *Client) GetLinkedIssues(issueID string) ([]IssueLink, error) {
 }
 
 func (c *Client) LinkIssues(issueID, targetID, linkTypeID string) error {
+	// Body requires the opaque internal ID; URL path segment accepts the readable form.
 	target, err := c.GetIssue(targetID)
 	if err != nil {
 		return fmt.Errorf("resolve target issue %s: %w", targetID, err)
@@ -157,7 +158,7 @@ func (c *Client) LinkIssues(issueID, targetID, linkTypeID string) error {
 	path := fmt.Sprintf(pathIssueLinks, url.PathEscape(issueID))
 	return c.Post(path, map[string]any{
 		"$type":     "IssueLink",
-		"direction": "BOTH",
+		"direction": "BOTH", // BOTH is the correct value for CLI link creation; directed link types (OUTWARD/INWARD) are not exposed via --direction flag (YAGNI).
 		"linkType":  map[string]any{"$type": "IssueLinkType", "id": linkTypeID},
 		"issues":    []map[string]any{{"$type": "Issue", "id": target.ID}},
 	}, nil)
