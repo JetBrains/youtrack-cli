@@ -272,7 +272,7 @@ youtrack user profile property <login> <key> <value>
 
 ### user profile examples
 
-| Subcommand | Example `--body` JSON |
+| Subcommand | Example invocation |
 |---|---|
 | `general` | `'{"timezone":{"id":"Europe/Berlin"}}'` |
 | `appearance` | `'{"theme":"DARK","language":"en"}'` |
@@ -280,7 +280,7 @@ youtrack user profile property <login> <key> <value>
 | `articles` | `'{"showSidebar":true}'` |
 | `issues-list` | `'{"defaultQuery":"for: me"}'` |
 | `grazie` | `'{"enableGrazie":true}'` |
-| `tips` | `'{"showNavigationTips":false}'` |
+| `tips` | `youtrack user profile tips <userId> showNavigationTips=false` |
 
 Run `youtrack user profile general <userId> --help` for all available flag names.
 

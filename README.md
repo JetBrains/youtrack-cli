@@ -106,7 +106,7 @@ The CLI resolves credentials in this order (highest wins):
 3. `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN` env vars — explicit, process-scoped (CI/Docker)
 4. Active instance in `~/.youtrack-cli-config.json` — convenience fallback
 
-**Common gotcha:** If you set env vars expecting them to take effect but have an active config instance, they will (env vars are Tier 3). Use `youtrack instance use <alias>` to switch active config instances.
+**Common gotcha:** Env vars (Tier 3) always win over the active config instance (Tier 4). If you set `YOUTRACK_BASE_URL`/`YOUTRACK_TOKEN` in your environment, they will take effect even when a config instance is active. Use `youtrack instance use <alias>` to switch which config instance is active, but env vars will still override it.
 
 ## Commands
 
