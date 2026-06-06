@@ -58,10 +58,15 @@ func (c *Client) CreateBundle(bundleType, name string) (*Bundle, error) {
 	bundleType = NormalizeBundlePathType(bundleType)
 	var result Bundle
 	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name", url.PathEscape(bundleType))
-	err := c.Post(path, map[string]any{
+	body := map[string]any{
 		"$type": bundleTypeName(bundleType),
 		"name":  name,
-	}, &result)
+	}
+	if bundleType == "state" {
+		// StateBundle requires isUpdateable per the YouTrack API schema.
+		body["isUpdateable"] = true
+	}
+	err := c.Post(path, body, &result)
 	return &result, err
 }
 

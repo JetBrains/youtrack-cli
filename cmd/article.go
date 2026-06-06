@@ -179,20 +179,11 @@ func newArticleCommentCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			text, _ := cmd.Flags().GetString("text")
-			asUser, _ := cmd.Flags().GetString("asUser")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			authorID := ""
-			if asUser != "" {
-				u, err := client.GetUser(asUser)
-				if err != nil {
-					return err
-				}
-				authorID = u.ID
-			}
-			comment, err := client.AddArticleComment(args[0], text, authorID)
+			comment, err := client.AddArticleComment(args[0], text)
 			if err != nil {
 				return err
 			}
@@ -200,7 +191,6 @@ func newArticleCommentCmd() *cobra.Command {
 		},
 	}
 	add.Flags().String("text", "", "Comment text (required)")
-	add.Flags().String("asUser", "", "Post as this user login")
 	internal.MustMarkRequired(add, "text")
 	del := &cobra.Command{
 		Use: "delete <articleId> <commentId>", Short: "Delete a comment from an article",

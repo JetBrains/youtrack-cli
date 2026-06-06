@@ -7,10 +7,7 @@ import (
 
 type AddTagRequest struct {
 	Name           string `json:"name"`
-	Owner          *User  `json:"owner,omitempty"`
-	IsShareable    bool   `json:"isShareable,omitempty"`
 	UntagOnResolve bool   `json:"untagOnResolve,omitempty"`
-	Pinned         bool   `json:"pinned,omitempty"`
 }
 
 func (c *Client) ListTags() ([]Tag, error) {

@@ -77,14 +77,10 @@ func (c *Client) ListArticleComments(articleID string) ([]Comment, error) {
 	return result, err
 }
 
-func (c *Client) AddArticleComment(articleID, text, authorID string) (*Comment, error) {
+func (c *Client) AddArticleComment(articleID, text string) (*Comment, error) {
 	var result Comment
-	body := map[string]any{"text": text}
-	if authorID != "" {
-		body["author"] = map[string]any{"id": authorID}
-	}
 	path := fmt.Sprintf(pathArticleComments+"?fields=%s", url.PathEscape(articleID), articleCommentFields)
-	err := c.Post(path, body, &result)
+	err := c.Post(path, map[string]any{"text": text}, &result)
 	return &result, err
 }
 

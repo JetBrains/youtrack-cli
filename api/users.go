@@ -16,7 +16,7 @@ const (
 
 // AddUserRequest is the body for creating a user.
 type AddUserRequest struct {
-	Login    string    `json:"login,omitempty"`
+	Login    string    `json:"login"`
 	FullName string    `json:"fullName"`
 	Email    string    `json:"email"`
 	Password string    `json:"password"`

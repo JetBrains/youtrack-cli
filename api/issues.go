@@ -203,7 +203,7 @@ func (c *Client) RemoveIssueLink(issueID, linkID string) error {
 
 func (c *Client) TagIssue(issueID, tagID string) error {
 	path := fmt.Sprintf(pathIssueTags, url.PathEscape(issueID))
-	return c.Post(path, map[string]any{"$type": "Tag", "id": tagID}, nil)
+	return c.Post(path, map[string]any{"id": tagID}, nil)
 }
 
 func (c *Client) GetIssueAttachments(issueID string) ([]IssueAttachment, error) {
@@ -214,10 +214,15 @@ func (c *Client) GetIssueAttachments(issueID string) ([]IssueAttachment, error) 
 }
 
 func (c *Client) AddIssueAttachment(issueID, filePath string) (*IssueAttachment, error) {
-	var result IssueAttachment
+	var result []IssueAttachment
 	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created", url.PathEscape(issueID))
-	err := c.Multipart(path, filePath, filepath.Base(filePath), "application/octet-stream", &result)
-	return &result, err
+	if err := c.Multipart(path, filePath, filepath.Base(filePath), "application/octet-stream", &result); err != nil {
+		return nil, err
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("attachment upload returned empty response")
+	}
+	return &result[0], nil
 }
 
 func (c *Client) DeleteIssueAttachment(issueID, attachmentID string) error {
@@ -237,7 +242,7 @@ func (c *Client) AddWorkItem(issueID string, minutes int, text, typeID string) (
 	if typeID != "" {
 		body["type"] = map[string]any{"id": typeID}
 	}
-	path := fmt.Sprintf(pathIssueWorkItems+"?fields=id,text,date,duration(minutes),author(id,login)", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueWorkItems+"?fields=id,text,date,duration(minutes),author(id,name)", url.PathEscape(issueID))
 	err := c.Post(path, body, &result)
 	return &result, err
 }
@@ -367,7 +372,7 @@ func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]a
 		issues[i] = map[string]any{"id": issue.ID}
 	}
 	var result map[string]any
-	err := c.Post(pathCommandsAssist+"?fields=commands(error,description),query",
+	err := c.Post(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
 		map[string]any{"query": query, "issues": issues}, &result)
 	return result, err
 }

@@ -18,9 +18,12 @@ func (c *Client) GetBoard(id string) (*Board, error) {
 	return &result, err
 }
 
-func (c *Client) AddBoard(name string) (*Board, error) {
+func (c *Client) AddBoard(name, projectID string) (*Board, error) {
 	var result Board
-	err := c.Post(pathBoards+"?fields=id,name", map[string]any{"name": name}, &result)
+	err := c.Post(pathBoards+"?fields=id,name", map[string]any{
+		"name":     name,
+		"projects": []map[string]any{{"id": projectID}},
+	}, &result)
 	return &result, err
 }
 

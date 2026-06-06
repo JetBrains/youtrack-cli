@@ -188,7 +188,7 @@ func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any
 	w := multipart.NewWriter(&buf)
 
 	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="attachment"; filename="%s"`, fileName)) //nolint:gocritic // %q uses Go escaping, not RFC 6266 HTTP header quoting
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="upload"; filename="%s"`, fileName)) //nolint:gocritic // %q uses Go escaping, not RFC 6266 HTTP header quoting
 	h.Set("Content-Type", mimeType)
 
 	part, err := w.CreatePart(h)
