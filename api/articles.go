@@ -106,6 +106,40 @@ func (c *Client) TagArticle(articleID, tagID string) error {
 	return c.Post(path, map[string]any{"$type": "Tag", "id": tagID}, nil)
 }
 
+func (c *Client) ListArticleChildren(articleID string) ([]Article, error) {
+	article, err := c.GetArticle(articleID)
+	if err != nil {
+		return nil, err
+	}
+	return article.ChildArticles, nil
+}
+
+func (c *Client) AddArticleChild(parentID, childID string) error {
+	path := fmt.Sprintf(pathArticle, url.PathEscape(childID))
+	return c.Post(path, map[string]any{"parentArticle": map[string]any{"id": parentID}}, nil)
+}
+
+func (c *Client) GetArticleParent(articleID string) (*Article, error) {
+	article, err := c.GetArticle(articleID)
+	if err != nil {
+		return nil, err
+	}
+	return article.ParentArticle, nil
+}
+
+func (c *Client) ListArticleCommentReactions(articleID, commentID string) ([]Reaction, error) {
+	var result []Reaction
+	path := fmt.Sprintf(pathArticleCommentReactions+"?fields=id,reaction,author(id,login,fullName)&$top=-1",
+		url.PathEscape(articleID), url.PathEscape(commentID))
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) AddArticleCommentReaction(articleID, commentID, reaction string) error {
+	path := fmt.Sprintf(pathArticleCommentReactions, url.PathEscape(articleID), url.PathEscape(commentID))
+	return c.Post(path, map[string]any{"reaction": reaction}, nil)
+}
+
 func (c *Client) UpdateArticleVisibility(articleID string, groupIDs, userIDs []string) error {
 	groups := make([]map[string]any, len(groupIDs))
 	for i, id := range groupIDs {

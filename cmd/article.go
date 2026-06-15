@@ -22,6 +22,8 @@ func newArticleCmd() *cobra.Command {
 		newArticleTagCmd(),
 		newArticleVisibilityCmd(),
 		newArticleSetParentCmd(),
+		newArticleChildCmd(),
+		newArticleParentCmd(),
 	)
 	return cmd
 }
@@ -234,7 +236,47 @@ func newArticleCommentCmd() *cobra.Command {
 	}
 	update.Flags().String("text", "", "New comment text (required)")
 	internal.MustMarkRequired(update, "text")
-	cmd.AddCommand(list, add, del, update)
+	reaction := newArticleCommentReactionCmd()
+	cmd.AddCommand(list, add, del, update, reaction)
+	return cmd
+}
+
+func newArticleCommentReactionCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "reaction", Short: "Manage reactions on article comments"}
+	list := &cobra.Command{
+		Use: "list <articleId> <commentId>", Short: "List reactions on an article comment",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			reactions, err := client.ListArticleCommentReactions(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, reactions)
+		},
+	}
+	add := &cobra.Command{
+		Use: "add <articleId> <commentId>", Short: "Add a reaction to an article comment",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			reaction, _ := cmd.Flags().GetString("reaction")
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.AddArticleCommentReaction(args[0], args[1], reaction); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "added reaction to comment "+args[1])
+			return nil
+		},
+	}
+	add.Flags().String("reaction", "", "Reaction emoji or name (required)")
+	internal.MustMarkRequired(add, "reaction")
+	cmd.AddCommand(list, add)
 	return cmd
 }
 
@@ -333,5 +375,66 @@ func newArticleAttachmentCmd() *cobra.Command {
 	add.Flags().String("file", "", "Path to file (required)")
 	internal.MustMarkRequired(add, "file")
 	cmd.AddCommand(list, add)
+	return cmd
+}
+
+func newArticleChildCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "child", Short: "Manage child articles"}
+	list := &cobra.Command{
+		Use: "list <articleId>", Short: "List child articles of an article",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			children, err := client.ListArticleChildren(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, children)
+		},
+	}
+	add := &cobra.Command{
+		Use: "add <parentId> <childId>", Short: "Set an article as a child of another",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.AddArticleChild(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "set "+args[1]+" as child of "+args[0])
+			return nil
+		},
+	}
+	cmd.AddCommand(list, add)
+	return cmd
+}
+
+func newArticleParentCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "parent", Short: "Manage article parent"}
+	get := &cobra.Command{
+		Use: "get <articleId>", Short: "Get the parent article",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			parent, err := client.GetArticleParent(args[0])
+			if err != nil {
+				return err
+			}
+			if parent == nil {
+				output.PrintTip(cmd, "article has no parent")
+				return nil
+			}
+			return output.Print(cmd, parent)
+		},
+	}
+	cmd.AddCommand(get)
 	return cmd
 }
