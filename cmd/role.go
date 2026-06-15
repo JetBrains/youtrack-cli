@@ -14,6 +14,7 @@ func newRoleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "role", Short: "Manage roles and permissions"}
 	cmd.AddCommand(
 		newRoleListCmd(),
+		newRoleGetCmd(),
 		newRoleAddCmd(),
 		newRoleDeleteCmd(),
 		newRoleUpdateCmd(),
@@ -21,7 +22,77 @@ func newRoleCmd() *cobra.Command {
 		newRoleRevokeCmd(),
 		newRoleAssignmentsCmd(),
 		newRolePermissionsCmd(),
+		newRolePermissionCmd(),
 	)
+	return cmd
+}
+
+func newRoleGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use: "get <id>", Short: "Get a role by ID",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			role, err := client.GetRole(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, role)
+		},
+	}
+}
+
+func newRolePermissionCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "permission", Short: "Manage permissions on a role"}
+	list := &cobra.Command{
+		Use: "list <roleId>", Short: "List permissions for a role",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			role, err := client.GetRole(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, role.Permissions)
+		},
+	}
+	add := &cobra.Command{
+		Use: "add <roleId> <permId>", Short: "Add a permission to a role",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.AddRolePermission(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "added permission "+args[1]+" to role "+args[0])
+			return nil
+		},
+	}
+	remove := &cobra.Command{
+		Use: "remove <roleId> <permId>", Short: "Remove a permission from a role",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.RemoveRolePermission(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "removed permission "+args[1]+" from role "+args[0])
+			return nil
+		},
+	}
+	cmd.AddCommand(list, add, remove)
 	return cmd
 }
 
