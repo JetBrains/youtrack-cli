@@ -7,13 +7,13 @@ import (
 
 func (c *Client) ListCustomFields() ([]CustomField, error) {
 	var result []CustomField
-	err := c.Get(pathAdminCustomFields+"?fields=id,name,fieldType(id)&$top=-1", &result)
+	err := c.Get(pathAdminCustomFields+"?fields=id,name,fieldType(id),isPrivate,isAutoAttached,isDisplayedInIssueList,localizedName,isUpdateable&$top=-1", &result)
 	return result, err
 }
 
 func (c *Client) GetCustomField(id string) (*CustomField, error) {
 	var result CustomField
-	path := fmt.Sprintf(pathAdminCustomField+"?fields=id,name,fieldType(id)", url.PathEscape(id))
+	path := fmt.Sprintf(pathAdminCustomField+"?fields=id,name,fieldType(id),isPrivate,isAutoAttached,isDisplayedInIssueList,localizedName,isUpdateable,fieldDefaults", url.PathEscape(id))
 	err := c.Get(path, &result)
 	return &result, err
 }
@@ -34,7 +34,7 @@ func (c *Client) DeleteCustomField(id string) error {
 func (c *Client) ListBundles(bundleType string) ([]Bundle, error) {
 	bundleType = NormalizeBundlePathType(bundleType)
 	var result []Bundle
-	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name&$top=-1", url.PathEscape(bundleType))
+	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name,isUpdateable,$type&$top=-1", url.PathEscape(bundleType))
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -64,7 +64,7 @@ func bundleTypeName(pathType string) string {
 func (c *Client) CreateBundle(bundleType, name string) (*Bundle, error) {
 	bundleType = NormalizeBundlePathType(bundleType)
 	var result Bundle
-	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name", url.PathEscape(bundleType))
+	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name,isUpdateable,$type", url.PathEscape(bundleType))
 	body := map[string]any{
 		"$type": bundleTypeName(bundleType),
 		"name":  name,
