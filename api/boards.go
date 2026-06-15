@@ -35,6 +35,20 @@ func (c *Client) DeleteBoard(id string) error {
 	return c.Delete(fmt.Sprintf(pathBoard, url.PathEscape(id)))
 }
 
+func (c *Client) ListSprints(boardID string) ([]Sprint, error) {
+	var result []Sprint
+	path := fmt.Sprintf(pathBoardSprints+"?fields=id,name,goal,start,finish,archived,isDefault&$top=-1", url.PathEscape(boardID))
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) GetSprint(boardID, sprintID string) (*Sprint, error) {
+	var result Sprint
+	path := fmt.Sprintf(pathBoardSprint+"?fields=id,name,goal,start,finish,archived,isDefault", url.PathEscape(boardID), url.PathEscape(sprintID))
+	err := c.Get(path, &result)
+	return &result, err
+}
+
 func (c *Client) AddSprint(boardID, name string, start, finish int64, goal string) (*Sprint, error) {
 	var result Sprint
 	body := map[string]any{"name": name}
