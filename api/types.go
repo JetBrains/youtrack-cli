@@ -315,10 +315,19 @@ type IssueDraft struct {
 	Created int64  `json:"created,omitempty"`
 }
 
+type SystemSettings struct {
+	ID                  string `json:"id,omitempty"`
+	BaseURL             string `json:"baseUrl,omitempty"`
+	MaxUploadFileSize   int64  `json:"maxUploadFileSize,omitempty"`
+	IsAutoUpdateEnabled bool   `json:"isAutoUpdateEnabled,omitempty"`
+	StatisticsEnabled   bool   `json:"statisticsEnabled,omitempty"`
+}
+
 type GlobalSettings struct {
-	ID                string `json:"id,omitempty"`
-	BaseURL           string `json:"baseUrl,omitempty"`
-	MaxUploadFileSize int64  `json:"maxUploadFileSize,omitempty"`
+	ID                string          `json:"id,omitempty"`
+	BaseURL           string          `json:"baseUrl,omitempty"`
+	MaxUploadFileSize int64           `json:"maxUploadFileSize,omitempty"`
+	SystemSettings    *SystemSettings `json:"systemSettings,omitempty"`
 }
 
 type VCSServer struct {

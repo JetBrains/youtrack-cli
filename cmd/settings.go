@@ -11,6 +11,7 @@ func newSettingsCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "settings", Short: "Manage instance settings"}
 	cmd.AddCommand(
 		newSettingsGetCmd(),
+		newSettingsSystemCmd(),
 		newSettingsFeatureCmd(),
 		newSettingsEmailCmd(),
 		newSettingsBannerCmd(),
@@ -19,6 +20,44 @@ func newSettingsCmd() *cobra.Command {
 		newSettingsAICmd(),
 		newSettingsFrontendCmd(),
 	)
+	return cmd
+}
+
+func newSettingsSystemCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "system", Short: "Manage system settings"}
+	get := &cobra.Command{
+		Use: "get", Short: "Get system settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			s, err := client.GetSystemSettings()
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, s)
+		},
+	}
+	update := &cobra.Command{
+		Use: "update", Short: "Update system settings",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			baseURL, _ := cmd.Flags().GetString("base-url")
+			maxSize, _ := cmd.Flags().GetInt64("max-upload-size")
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			s, err := client.UpdateSystemSettings(baseURL, maxSize)
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, s)
+		},
+	}
+	update.Flags().String("base-url", "", "Instance base URL")
+	update.Flags().Int64("max-upload-size", 0, "Max upload file size in bytes")
+	cmd.AddCommand(get, update)
 	return cmd
 }
 

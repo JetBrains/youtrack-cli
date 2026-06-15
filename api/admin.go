@@ -11,6 +11,34 @@ func (c *Client) GetGlobalSettings() (*GlobalSettings, error) {
 	return &result, err
 }
 
+func (c *Client) GetSystemSettings() (*SystemSettings, error) {
+	var result GlobalSettings
+	err := c.Get(pathAdminGlobalSettings+"?fields=systemSettings(id,baseUrl,maxUploadFileSize,isAutoUpdateEnabled,statisticsEnabled)", &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.SystemSettings, nil
+}
+
+func (c *Client) UpdateSystemSettings(baseURL string, maxUploadFileSize int64) (*SystemSettings, error) {
+	body := map[string]any{}
+	if baseURL != "" {
+		body["systemSettings"] = map[string]any{"baseUrl": baseURL}
+	}
+	if maxUploadFileSize > 0 {
+		if body["systemSettings"] == nil {
+			body["systemSettings"] = map[string]any{}
+		}
+		body["systemSettings"].(map[string]any)["maxUploadFileSize"] = maxUploadFileSize
+	}
+	var result GlobalSettings
+	err := c.Post(pathAdminGlobalSettings+"?fields=systemSettings(id,baseUrl,maxUploadFileSize,isAutoUpdateEnabled,statisticsEnabled)", body, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.SystemSettings, nil
+}
+
 func (c *Client) EnableFeatureFlag(feature string, enabled bool) error {
 	path := fmt.Sprintf(pathAdminFeatureFlag, url.PathEscape(feature))
 	return c.Post(path, map[string]any{"id": feature, "enabled": enabled}, nil)
