@@ -386,8 +386,15 @@ type CanvasNode struct {
 }
 
 type GanttChart struct {
-	ID   string `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	StartDate int64  `json:"startDate,omitempty"`
+}
+
+type GanttResource struct {
+	ID        string `json:"id,omitempty"`
+	User      *User  `json:"user,omitempty"`
+	StartDate int64  `json:"startDate,omitempty"`
 }
 
 // CanvasLinkKind enumerates the valid link types for planning canvas links.

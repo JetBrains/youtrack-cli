@@ -118,6 +118,9 @@ const (
 	pathReport           = "/api/reports/%s"
 	pathGanttCharts      = "/api/gantts"
 	pathGanttChart       = "/api/gantts/%s"
+	pathGanttResources   = "/api/gantts/%s/resources"
+	pathGanttResource    = "/api/gantts/%s/resources/%s"
+	pathGanttSettings    = "/api/gantts/%s/settings"
 
 	// Roles / Permissions
 	pathRoles         = "/api/roles"
