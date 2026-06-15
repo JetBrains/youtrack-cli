@@ -149,7 +149,7 @@ func (c *Client) ListWorkItemTypes() ([]WorkItemType, error) {
 func (c *Client) AddWorkItemType(name string, autoAttach bool) (*WorkItemType, error) {
 	var result WorkItemType
 	err := c.Post(pathAdminWorkItemTypes+"?fields=id,name,autoAttach", map[string]any{
-		"name":         name,
+		"name":       name,
 		"autoAttach": autoAttach,
 	}, &result)
 	return &result, err
