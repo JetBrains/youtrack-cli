@@ -17,5 +17,7 @@ func (c *Client) AddSavedSearch(req AddSavedSearchRequest) (*SavedSearch, error)
 }
 
 func (c *Client) ShareSavedSearch(id string) error {
-	return c.Post(fmt.Sprintf(pathSavedQuery, url.PathEscape(id)), map[string]any{"isShareable": true}, nil)
+	return c.Post(fmt.Sprintf(pathSavedQuery, url.PathEscape(id)), map[string]any{
+		"readSharingSettings": map[string]any{"$type": "AllUsersVisibility"},
+	}, nil)
 }
