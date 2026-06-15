@@ -44,6 +44,7 @@ const (
 	pathPlanningCanvases    = "/api/planningCanvases"
 	pathPlanningCanvas      = "/api/planningCanvases/%s"
 	pathPlanningCanvasCards = "/api/planningCanvases/%s/cards"
+	pathPlanningCanvasCard  = "/api/planningCanvases/%s/cards/%s"
 	pathPlanningCanvasLinks = "/api/planningCanvases/%s/links"
 
 	// Dashboards
