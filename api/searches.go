@@ -12,7 +12,7 @@ type AddSavedSearchRequest struct {
 
 func (c *Client) AddSavedSearch(req AddSavedSearchRequest) (*SavedSearch, error) {
 	var result SavedSearch
-	err := c.Post(pathSavedQueries+"?fields=id,name,query", req, &result)
+	err := c.Post(pathSavedQueries+"?fields=id,name,query,owner(id,login,fullName),readSharingSettings,updateSharingSettings", req, &result)
 	return &result, err
 }
 
