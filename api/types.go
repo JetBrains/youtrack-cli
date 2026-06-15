@@ -123,8 +123,10 @@ type Group struct {
 }
 
 type Permission struct {
-	ID   string `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
+	ID          string `json:"id,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Key         string `json:"key,omitempty"`
+	Description string `json:"description,omitempty"`
 }
 
 type Role struct {

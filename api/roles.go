@@ -7,7 +7,7 @@ import (
 
 func (c *Client) ListRoles() ([]Role, error) {
 	var result []Role
-	err := c.Get(pathRoles+"?fields=id,name,description&$top=-1", &result)
+	err := c.Get(pathRoles+"?fields=id,name,description,permissions(id,name,key)&$top=-1", &result)
 	return result, err
 }
 
@@ -41,7 +41,7 @@ func (c *Client) UpdateRole(id string, permissionIDs []string) error {
 
 func (c *Client) GetPermissions() ([]Permission, error) {
 	var result []Permission
-	err := c.Get(pathPermissions+"?fields=id,name,description&$top=-1", &result)
+	err := c.Get(pathPermissions+"?fields=id,name,description,key&$top=-1", &result)
 	return result, err
 }
 
