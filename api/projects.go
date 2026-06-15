@@ -5,7 +5,7 @@ import (
 	"net/url"
 )
 
-const projectFields = "id,shortName,name,leader(id,login,fullName)"
+const projectFields = "id,shortName,name,leader(id,login,fullName),archived,description,createdBy(id,login,fullName)"
 
 // AddProjectRequest is the body for creating a project.
 type AddProjectRequest struct {
