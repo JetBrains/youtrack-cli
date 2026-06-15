@@ -20,6 +20,14 @@ func (c *Client) ListProjects() ([]Project, error) {
 	return result, err
 }
 
+// GetProjectByID retrieves a project by its opaque ID directly.
+func (c *Client) GetProjectByID(id string) (*Project, error) {
+	var result Project
+	path := fmt.Sprintf(pathAdminProject+"?fields="+projectFields, url.PathEscape(id))
+	err := c.Get(path, &result)
+	return &result, err
+}
+
 // GetProject finds a project by its short name (case-sensitive).
 func (c *Client) GetProject(shortName string) (*Project, error) {
 	projects, err := c.ListProjects()
