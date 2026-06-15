@@ -459,3 +459,52 @@ func (c *Client) ListRecentComments(issueID string, top int) ([]Comment, error) 
 	err := c.Get(path, &result)
 	return result, err
 }
+
+func (c *Client) GetComment(issueID, commentID string) (*Comment, error) {
+	var result Comment
+	path := fmt.Sprintf(pathIssueComment+"?fields=%s", url.PathEscape(issueID), url.PathEscape(commentID), commentFields)
+	err := c.Get(path, &result)
+	return &result, err
+}
+
+func (c *Client) GetWorkItem(issueID, workItemID string) (*WorkItem, error) {
+	var result WorkItem
+	path := fmt.Sprintf(pathIssueWorkItem+"?fields=id,text,date,duration(minutes),author(id,login,fullName)", url.PathEscape(issueID), url.PathEscape(workItemID))
+	err := c.Get(path, &result)
+	return &result, err
+}
+
+func (c *Client) UpdateWorkItem(issueID, workItemID string, minutes int, text string) (*WorkItem, error) {
+	var result WorkItem
+	body := map[string]any{}
+	if minutes > 0 {
+		body["duration"] = map[string]any{"minutes": minutes}
+	}
+	if text != "" {
+		body["text"] = text
+	}
+	path := fmt.Sprintf(pathIssueWorkItem+"?fields=id,text,date,duration(minutes),author(id,login,fullName)", url.PathEscape(issueID), url.PathEscape(workItemID))
+	err := c.Post(path, body, &result)
+	return &result, err
+}
+
+func (c *Client) ListIssueActivities(issueID string) ([]map[string]any, error) {
+	var result []map[string]any
+	path := fmt.Sprintf(pathIssueActivities+"?fields=id,timestamp,author(id,login,fullName),target,added,removed,field(id,name)&categories=CommentsCategory,IssueResolvedCategory,CustomFieldCategory&$top=-1", url.PathEscape(issueID))
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) ListIssueSprints(issueID string) ([]Sprint, error) {
+	var result []Sprint
+	path := fmt.Sprintf(pathIssueSprints+"?fields=id,name,archived,isDefault&$top=-1", url.PathEscape(issueID))
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) ListIssueVCSChanges(issueID string) ([]map[string]any, error) {
+	var result []map[string]any
+	path := fmt.Sprintf(pathIssueVCSChanges+"?fields=id,date,text,version,urls,state,author(id,login,fullName)&$top=-1", url.PathEscape(issueID))
+	err := c.Get(path, &result)
+	return result, err
+}

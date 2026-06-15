@@ -16,6 +16,7 @@ func newIssueCommentCmd() *cobra.Command {
 		Short: "Manage issue comments",
 	}
 	cmd.AddCommand(newCommentListCmd())
+	cmd.AddCommand(newCommentGetCmd())
 	cmd.AddCommand(newCommentAddCmd())
 	cmd.AddCommand(newCommentDeleteCmd())
 	cmd.AddCommand(newCommentUpdateCmd())
@@ -153,6 +154,25 @@ func newCommentVisibilityCmd() *cobra.Command {
 	cmd.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")
 	cmd.Flags().StringSlice("users", nil, "Permitted user IDs (comma-separated)")
 	return cmd
+}
+
+func newCommentGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <issueId> <commentId>",
+		Short: "Get a comment by ID",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			comment, err := client.GetComment(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, comment)
+		},
+	}
 }
 
 func newCommentPinCmd() *cobra.Command {

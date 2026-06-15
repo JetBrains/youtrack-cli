@@ -33,5 +33,8 @@ func NewCmd() *cobra.Command {
 	cmd.AddCommand(newIssueUnwatchCmd())
 	cmd.AddCommand(newIssueVoteCmd())
 	cmd.AddCommand(newIssueUnvoteCmd())
+	cmd.AddCommand(newIssueActivityCmd())
+	cmd.AddCommand(newIssueSprintCmd())
+	cmd.AddCommand(newIssueVCSCmd())
 	return cmd
 }
