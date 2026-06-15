@@ -225,6 +225,31 @@ func (c *Client) waitForUserDeletion(login, id string) error {
 	}
 }
 
+func (c *Client) GetUserProfile(id string) (map[string]any, error) {
+	var result map[string]any
+	path := fmt.Sprintf(pathUserProfileGeneral+"?fields=id,login,fullName,email,avatarUrl", url.PathEscape(id))
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) ListUserTags(id string) ([]Tag, error) {
+	var result []Tag
+	path := fmt.Sprintf(pathUserTags+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve&$top=-1", url.PathEscape(id))
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) GetUserTimeTracking(id string) (map[string]any, error) {
+	var result map[string]any
+	path := fmt.Sprintf(pathUserProfileTimeTracking+"?fields=id,autoAttach,draftWorkItem(date,duration(id,minutes),type(id,name))", url.PathEscape(id))
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) SetUserTimeTracking(id string, body map[string]any) error {
+	return c.Post(fmt.Sprintf(pathUserProfileTimeTracking, url.PathEscape(id)), body, nil)
+}
+
 func isUserDeletionObserved(err error) bool {
 	if err == nil {
 		return false
