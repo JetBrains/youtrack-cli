@@ -73,13 +73,18 @@ type Project struct {
 
 // User is a YouTrack user.
 type User struct {
-	ID       string    `json:"id,omitempty"`
-	Login    string    `json:"login,omitempty"`
-	FullName string    `json:"fullName,omitempty"`
-	Email    string    `json:"email,omitempty"`
-	Guest    bool      `json:"guest,omitempty"`
-	Online   bool      `json:"online,omitempty"`
-	UserType *UserType `json:"userType,omitempty"`
+	ID           string  `json:"id,omitempty"`
+	Login        string  `json:"login,omitempty"`
+	FullName     string  `json:"fullName,omitempty"`
+	Email        string  `json:"email,omitempty"`
+	Guest        bool    `json:"guest,omitempty"`
+	Online       bool    `json:"online,omitempty"`
+	Banned       bool    `json:"banned,omitempty"`
+	AvatarURL    string  `json:"avatarUrl,omitempty"`
+	RingID       string  `json:"ringId,omitempty"`
+	UserType     *UserType `json:"userType,omitempty"`
+	Tags         []Tag   `json:"tags,omitempty"`
+	SavedQueries []SavedSearch `json:"savedQueries,omitempty"`
 }
 
 // UserType represents a YouTrack user type (STANDARD_USER, AGENT, REPORTER).

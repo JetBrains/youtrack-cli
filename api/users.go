@@ -12,6 +12,8 @@ const userFields = "id,login,fullName,email,guest,online,banned,avatarUrl,ringId
 const (
 	entityDeleteSyncTimeout  = 5 * time.Second
 	entityDeletePollInterval = 100 * time.Millisecond
+	hubSyncTimeout           = 5 * time.Second
+	hubSyncPollInterval      = 200 * time.Millisecond
 )
 
 // AddUserRequest is the body for creating a user.
@@ -62,6 +64,25 @@ func (c *Client) AddUser(req *AddUserRequest) (*User, error) {
 	return &result, err
 }
 
+// WaitForHubSync polls until the user has a non-empty ringId (Hub registration complete).
+// Returns true if Hub sync completed, false if it timed out without completing.
+func (c *Client) WaitForHubSync(userID string) (bool, error) {
+	deadline := time.Now().Add(hubSyncTimeout)
+	for {
+		var u User
+		if err := c.Get(fmt.Sprintf(pathUser+"?fields=ringId", url.PathEscape(userID)), &u); err != nil {
+			return false, err
+		}
+		if u.RingID != "" {
+			return true, nil
+		}
+		if time.Now().After(deadline) {
+			return false, nil
+		}
+		time.Sleep(hubSyncPollInterval)
+	}
+}
+
 func (c *Client) DeleteUser(identifier, successorIdentifier string) error {
 	user, err := c.GetUser(identifier)
 	if err != nil {
@@ -82,10 +103,17 @@ func (c *Client) DeleteUser(identifier, successorIdentifier string) error {
 		return fmt.Errorf("cannot delete the currently authenticated user '%s'", user.Login)
 	}
 	path := fmt.Sprintf(pathUser, url.PathEscape(user.ID)) + "?successor=" + url.QueryEscape(successor.ID)
-	if err := c.Delete(path); err != nil {
-		return err
+	deadline := time.Now().Add(hubSyncTimeout)
+	for {
+		err = c.Delete(path)
+		if err == nil {
+			return c.waitForUserDeletion(user.Login, user.ID)
+		}
+		if !isHubNotMappedError(err) || time.Now().After(deadline) {
+			return err
+		}
+		time.Sleep(hubSyncPollInterval)
 	}
-	return c.waitForUserDeletion(user.Login, user.ID)
 }
 
 func (c *Client) BanUser(identifier string, ban bool) error {
@@ -93,7 +121,26 @@ func (c *Client) BanUser(identifier string, ban bool) error {
 	if err != nil {
 		return err
 	}
-	return c.Post(fmt.Sprintf(pathUser, url.PathEscape(user.ID)), map[string]any{"banned": ban}, nil)
+	path := fmt.Sprintf(pathUser, url.PathEscape(user.ID))
+	deadline := time.Now().Add(hubSyncTimeout)
+	for {
+		err = c.Post(path, map[string]any{"banned": ban}, nil)
+		if err == nil || !isHubNotMappedError(err) {
+			return err
+		}
+		if time.Now().After(deadline) {
+			return err
+		}
+		time.Sleep(hubSyncPollInterval)
+	}
+}
+
+func isHubNotMappedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "not mapped to hub") || strings.Contains(msg, "is not mapped")
 }
 
 func (c *Client) GetUserTimezone(id string) (string, error) {

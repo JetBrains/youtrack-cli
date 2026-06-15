@@ -60,6 +60,16 @@ func TestCmd_UserCRUD(t *testing.T) {
 	out = runCmd(t, "user", "list", "--query", login, "--format", "json")
 	assert.Contains(t, out, login)
 
+	// Ban/unban/delete require Hub registration. Skip those steps if Hub sync is
+	// unavailable on this instance (Hub not linked or sync is broken).
+	newUser, err := c.GetUser(login)
+	require.NoError(t, err)
+	hubReady, err := c.WaitForHubSync(newUser.ID)
+	require.NoError(t, err)
+	if !hubReady {
+		t.Skip("Hub sync not available on this instance — skipping ban/unban/delete assertions")
+	}
+
 	out = runCmd(t, "user", "ban", login)
 	assert.Contains(t, out, "banned user "+login)
 	assertUserBanState(t, c, login, true)
