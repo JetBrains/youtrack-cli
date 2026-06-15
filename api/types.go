@@ -101,13 +101,18 @@ type IssueLinkType struct {
 }
 
 type Article struct {
-	ID         string   `json:"id,omitempty"`
-	IDReadable string   `json:"idReadable,omitempty"`
-	Summary    string   `json:"summary,omitempty"`
-	Content    string   `json:"content,omitempty"`
-	Reporter   *User    `json:"reporter,omitempty"`
-	Project    *Project `json:"project,omitempty"`
-	Created    int64    `json:"created,omitempty"`
+	ID            string    `json:"id,omitempty"`
+	IDReadable    string    `json:"idReadable,omitempty"`
+	Summary       string    `json:"summary,omitempty"`
+	Content       string    `json:"content,omitempty"`
+	Reporter      *User     `json:"reporter,omitempty"`
+	Project       *Project  `json:"project,omitempty"`
+	Created       int64     `json:"created,omitempty"`
+	Updated       int64     `json:"updated,omitempty"`
+	UpdatedBy     *User     `json:"updatedBy,omitempty"`
+	ParentArticle *Article  `json:"parentArticle,omitempty"`
+	Tags          []Tag     `json:"tags,omitempty"`
+	ChildArticles []Article `json:"childArticles,omitempty"`
 }
 
 type ArticleAttachment struct {

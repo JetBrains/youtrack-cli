@@ -28,9 +28,11 @@ const (
 	pathArticles           = "/api/articles"
 	pathArticle            = "/api/articles/%s"
 	pathArticleAttachments = "/api/articles/%s/attachments"
-	pathArticleComments    = "/api/articles/%s/comments"
-	pathArticleComment     = "/api/articles/%s/comments/%s"
-	pathArticleTags        = "/api/articles/%s/tags"
+	pathArticleComments           = "/api/articles/%s/comments"
+	pathArticleComment            = "/api/articles/%s/comments/%s"
+	pathArticleCommentReactions   = "/api/articles/%s/comments/%s/reactions"
+	pathArticleCommentReaction    = "/api/articles/%s/comments/%s/reactions/%s"
+	pathArticleTags               = "/api/articles/%s/tags"
 
 	// Boards (Agiles) / Sprints
 	pathBoards       = "/api/agiles"
