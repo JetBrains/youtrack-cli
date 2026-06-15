@@ -41,6 +41,29 @@ func (c *Client) AddGroup(name string) (*Group, error) {
 	return &result, err
 }
 
+func (c *Client) ListGroupMembers(groupID string) ([]User, error) {
+	var result []User
+	path := fmt.Sprintf(pathGroupMembers+"?fields="+userFields+"&$top=-1", url.PathEscape(groupID))
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) ListGroupProjectRoles(groupID string) ([]AssignedRole, error) {
+	var result []AssignedRole
+	path := fmt.Sprintf(pathGroupProjectRoles+"?fields=id,role(id,name),project(id,shortName,name)&$top=-1", url.PathEscape(groupID))
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) AddGroupProjectRole(groupID, roleID, projectID string) error {
+	body := map[string]any{"role": map[string]any{"id": roleID}}
+	if projectID != "" {
+		body["project"] = map[string]any{"id": projectID}
+	}
+	path := fmt.Sprintf(pathGroupProjectRoles+"?fields=id", url.PathEscape(groupID))
+	return c.Post(path, body, nil)
+}
+
 func (c *Client) DeleteGroup(identifier, successorIdentifier string) error {
 	group, err := c.GetGroup(identifier)
 	if err != nil {

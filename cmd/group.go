@@ -9,7 +9,7 @@ import (
 
 func newGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "group", Short: "Manage user groups"}
-	cmd.AddCommand(newGroupListCmd(), newGroupGetCmd(), newGroupViewCmd(), newGroupAddCmd(), newGroupCreateCmd(), newGroupDeleteCmd())
+	cmd.AddCommand(newGroupListCmd(), newGroupGetCmd(), newGroupViewCmd(), newGroupAddCmd(), newGroupCreateCmd(), newGroupDeleteCmd(), newGroupMemberCmd(), newGroupRoleCmd())
 	return cmd
 }
 
@@ -105,5 +105,67 @@ func newGroupDeleteCmd() *cobra.Command {
 	}
 	cmd.Flags().String("successor", "", "ID or name of the group that inherits references from the deleted group")
 	internal.MustMarkRequired(cmd, "successor")
+	return cmd
+}
+
+func newGroupMemberCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "member", Short: "Manage group members"}
+	list := &cobra.Command{
+		Use: "list <group-id>", Short: "List members of a group",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			members, err := client.ListGroupMembers(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, members)
+		},
+	}
+	cmd.AddCommand(list)
+	return cmd
+}
+
+func newGroupRoleCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "role", Short: "Manage group project roles"}
+	list := &cobra.Command{
+		Use: "list <group-id>", Short: "List project roles assigned to a group",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			roles, err := client.ListGroupProjectRoles(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, roles)
+		},
+	}
+	add := &cobra.Command{
+		Use: "add <group-id>", Short: "Add a project role to a group",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			roleID, _ := cmd.Flags().GetString("role")
+			projectID, _ := cmd.Flags().GetString("project")
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.AddGroupProjectRole(args[0], roleID, projectID); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "role assigned to group")
+			return nil
+		},
+	}
+	add.Flags().String("role", "", "Role ID (required)")
+	add.Flags().String("project", "", "Project ID (optional, for project-scoped role)")
+	internal.MustMarkRequired(add, "role")
+	cmd.AddCommand(list, add)
 	return cmd
 }
