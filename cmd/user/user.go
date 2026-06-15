@@ -22,5 +22,6 @@ func NewCmd() *cobra.Command {
 	cmd.AddCommand(newUserDraftsCmd())
 	cmd.AddCommand(newUserProfileCmd())
 	cmd.AddCommand(newUserPinProjectCmd())
+	cmd.AddCommand(newUserTagCmd())
 	return cmd
 }
