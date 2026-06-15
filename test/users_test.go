@@ -60,15 +60,17 @@ func TestCmd_UserCRUD(t *testing.T) {
 	out = runCmd(t, "user", "list", "--query", login, "--format", "json")
 	assert.Contains(t, out, login)
 
-	// Ban/unban/delete require Hub registration. Skip those steps if Hub sync is
-	// unavailable on this instance (Hub not linked or sync is broken).
+	// Ban/unban/delete require Hub registration (ringId must be set).
+	// Hub sync should complete on any properly configured YouTrack instance.
+	// If it doesn't, that's a bug — fail loudly so it gets investigated.
 	newUser, err := c.GetUser(login)
 	require.NoError(t, err)
 	hubReady, err := c.WaitForHubSync(newUser.ID)
 	require.NoError(t, err)
-	if !hubReady {
-		t.Skip("Hub sync not available on this instance — skipping ban/unban/delete assertions")
-	}
+	require.True(t, hubReady,
+		"Hub sync failed: user %s (id=%s) has ringId=null after creation — Hub is not registering new users on this instance",
+		login, newUser.ID,
+	)
 
 	out = runCmd(t, "user", "ban", login)
 	assert.Contains(t, out, "banned user "+login)
