@@ -134,6 +134,8 @@ The CLI resolves credentials in this order (highest wins):
 | `user locale` | `set` |
 | `user timezone` | `get`, `set` |
 | `user profile` | `general`, `appearance`, `notifications`, `articles`, `issues-list`, `grazie`, `tips`, `property` |
+| `board` | `list`, `get` (`view`), `add` (`create`), `delete` |
+| `board sprint` | `list`, `get`, `add` |
 
 ## Examples
 

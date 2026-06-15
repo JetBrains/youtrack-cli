@@ -227,8 +227,13 @@ type Board struct {
 }
 
 type Sprint struct {
-	ID   string `json:"id,omitempty"`
-	Name string `json:"name,omitempty"`
+	ID        string `json:"id,omitempty"`
+	Name      string `json:"name,omitempty"`
+	Goal      string `json:"goal,omitempty"`
+	Start     int64  `json:"start,omitempty"`
+	Finish    int64  `json:"finish,omitempty"`
+	Archived  bool   `json:"archived,omitempty"`
+	IsDefault bool   `json:"isDefault,omitempty"`
 }
 
 type Dashboard struct {

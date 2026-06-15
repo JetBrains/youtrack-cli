@@ -114,6 +114,43 @@ func newBoardDeleteCmd() *cobra.Command {
 
 func newBoardSprintCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "sprint", Short: "Manage sprints"}
+	list := &cobra.Command{
+		Use: "list", Short: "List all sprints for a board",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			boardID, _ := cmd.Flags().GetString("board")
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			sprints, err := client.ListSprints(boardID)
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, sprints)
+		},
+	}
+	list.Flags().String("board", "", "Board ID (required)")
+	internal.MustMarkRequired(list, "board")
+	cmd.AddCommand(list)
+	get := &cobra.Command{
+		Use: "get <sprint-id>", Short: "Get a sprint by ID",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			boardID, _ := cmd.Flags().GetString("board")
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			sprint, err := client.GetSprint(boardID, args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, sprint)
+		},
+	}
+	get.Flags().String("board", "", "Board ID (required)")
+	internal.MustMarkRequired(get, "board")
+	cmd.AddCommand(get)
 	add := &cobra.Command{
 		Use: "add", Short: "Add a sprint to a board",
 		RunE: func(cmd *cobra.Command, args []string) error {

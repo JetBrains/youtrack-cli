@@ -36,6 +36,7 @@ const (
 	pathBoards       = "/api/agiles"
 	pathBoard        = "/api/agiles/%s"
 	pathBoardSprints = "/api/agiles/%s/sprints"
+	pathBoardSprint  = "/api/agiles/%s/sprints/%s"
 
 	// Canvas
 	pathPlanningCanvases    = "/api/planningCanvases"
