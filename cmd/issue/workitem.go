@@ -32,5 +32,41 @@ func newIssueWorkitemCmd() *cobra.Command {
 	add.Flags().String("type", "", "Work item type ID")
 	internal.MustMarkRequired(add, "minutes")
 	cmd.AddCommand(add)
+	getCmd := &cobra.Command{
+		Use: "get <issueId> <workItemId>", Short: "Get a work item by ID",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			item, err := client.GetWorkItem(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, item)
+		},
+	}
+	cmd.AddCommand(getCmd)
+	updateCmd := &cobra.Command{
+		Use: "update <issueId> <workItemId>", Short: "Update a work item",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			minutes, _ := cmd.Flags().GetInt("minutes")
+			text, _ := cmd.Flags().GetString("text")
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			item, err := client.UpdateWorkItem(args[0], args[1], minutes, text)
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, item)
+		},
+	}
+	updateCmd.Flags().Int("minutes", 0, "New work duration in minutes")
+	updateCmd.Flags().String("text", "", "New work item description")
+	cmd.AddCommand(updateCmd)
 	return cmd
 }
