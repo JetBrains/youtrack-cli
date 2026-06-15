@@ -13,6 +13,7 @@ func newCanvasCmd() *cobra.Command {
 		Use:   "canvas",
 		Short: "Manage planning canvases",
 	}
+	cmd.AddCommand(newCanvasListCmd())
 	cmd.AddCommand(newCanvasAddCmd())
 	cmd.AddCommand(newCanvasGetCmd())
 	cmd.AddCommand(newCanvasDeleteCmd())
@@ -21,6 +22,24 @@ func newCanvasCmd() *cobra.Command {
 	cmd.AddCommand(newCanvasLinksCmd())
 	cmd.AddCommand(newCanvasLinkCmd())
 	return cmd
+}
+
+func newCanvasListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all planning canvases",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			canvases, err := client.ListCanvases()
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, canvases)
+		},
+	}
 }
 
 func newCanvasAddCmd() *cobra.Command {
@@ -123,7 +142,47 @@ func newCanvasNodeCmd() *cobra.Command {
 		Short: "Manage canvas nodes",
 	}
 	cmd.AddCommand(newCanvasNodeAddCmd())
+	cmd.AddCommand(newCanvasNodeListCmd())
+	cmd.AddCommand(newCanvasNodeGetCmd())
 	return cmd
+}
+
+func newCanvasNodeListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list <canvasId>",
+		Short: "List nodes on a canvas",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			nodes, err := client.ListCanvasCards(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, nodes)
+		},
+	}
+}
+
+func newCanvasNodeGetCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "get <canvasId> <cardId>",
+		Short: "Get a node from a canvas",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			node, err := client.GetCanvasCard(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, node)
+		},
+	}
 }
 
 func newCanvasNodeAddCmd() *cobra.Command {

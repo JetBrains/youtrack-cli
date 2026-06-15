@@ -10,6 +10,24 @@ type AddCanvasRequest struct {
 	Owner *User  `json:"owner,omitempty"`
 }
 
+func (c *Client) ListCanvases() ([]Canvas, error) {
+	var result []Canvas
+	err := c.Get(pathPlanningCanvases+"?fields=id,name,owner(id,login,fullName),pinned,$type&$top=-1", &result)
+	return result, err
+}
+
+func (c *Client) ListCanvasCards(canvasID string) ([]CanvasNode, error) {
+	var result []CanvasNode
+	err := c.Get(fmt.Sprintf(pathPlanningCanvasCards+"?fields=id,label,x,y,description,width,height,$type&$top=-1", url.PathEscape(canvasID)), &result)
+	return result, err
+}
+
+func (c *Client) GetCanvasCard(canvasID, cardID string) (*CanvasNode, error) {
+	var result CanvasNode
+	err := c.Get(fmt.Sprintf(pathPlanningCanvasCard+"?fields=id,label,x,y,description,width,height,$type", url.PathEscape(canvasID), url.PathEscape(cardID)), &result)
+	return &result, err
+}
+
 func (c *Client) AddCanvas(req AddCanvasRequest) (*Canvas, error) {
 	var result Canvas
 	err := c.Post(pathPlanningCanvases+"?fields=id,name,owner(id,login,fullName),pinned,$type", req, &result)
