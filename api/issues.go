@@ -206,6 +206,20 @@ func (c *Client) TagIssue(issueID, tagID string) error {
 	return c.Post(path, map[string]any{"id": tagID}, nil)
 }
 
+func (c *Client) ListIssueTags(issueID string) ([]Tag, error) {
+	var result []Tag
+	path := fmt.Sprintf(pathIssueTags+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve&$top=-1", url.PathEscape(issueID))
+	err := c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) GetIssueTag(issueID, tagID string) (*Tag, error) {
+	var result Tag
+	path := fmt.Sprintf(pathIssueTag+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve", url.PathEscape(issueID), url.PathEscape(tagID))
+	err := c.Get(path, &result)
+	return &result, err
+}
+
 func (c *Client) GetIssueAttachments(issueID string) ([]IssueAttachment, error) {
 	var result []IssueAttachment
 	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created&$top=-1", url.PathEscape(issueID))

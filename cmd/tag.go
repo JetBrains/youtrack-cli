@@ -16,6 +16,29 @@ func newTagCmd() *cobra.Command {
 	cmd.AddCommand(newTagListCmd())
 	cmd.AddCommand(newTagAddCmd())
 	cmd.AddCommand(newTagDeleteCmd())
+	cmd.AddCommand(newTagIssueCmd())
+	return cmd
+}
+
+func newTagIssueCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "issue", Short: "View issues for a tag"}
+	list := &cobra.Command{
+		Use:   "list <tagId>",
+		Short: "List issues tagged with a specific tag",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			issues, err := client.ListTagIssues(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, issues)
+		},
+	}
+	cmd.AddCommand(list)
 	return cmd
 }
 
