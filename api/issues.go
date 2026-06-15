@@ -9,9 +9,9 @@ import (
 	"time"
 )
 
-const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created"
+const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
 const issueDetailFields = issueFields + ",customFields(name,value(name,login,text,presentation))"
-const commentFields = "id,text,author(id,login,fullName),created"
+const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,visibility"
 
 // AddIssueRequest is the body for creating an issue.
 type AddIssueRequest struct {
