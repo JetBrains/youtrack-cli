@@ -5,9 +5,50 @@ import (
 	"net/url"
 )
 
+const roleFields = "id,name,description,permissions(id,name,key)"
+
+func (c *Client) GetRole(id string) (*Role, error) {
+	var result Role
+	path := fmt.Sprintf(pathRole+"?fields="+roleFields, url.PathEscape(id))
+	err := c.Get(path, &result)
+	return &result, err
+}
+
+func (c *Client) AddRolePermission(roleID, permID string) error {
+	role, err := c.GetRole(roleID)
+	if err != nil {
+		return err
+	}
+	perms := make([]map[string]any, 0, len(role.Permissions)+1)
+	for _, p := range role.Permissions {
+		perms = append(perms, map[string]any{"id": p.ID})
+	}
+	for _, p := range role.Permissions {
+		if p.ID == permID {
+			return nil // already present
+		}
+	}
+	perms = append(perms, map[string]any{"id": permID})
+	return c.Post(fmt.Sprintf(pathRole, url.PathEscape(roleID)), map[string]any{"permissions": perms}, nil)
+}
+
+func (c *Client) RemoveRolePermission(roleID, permID string) error {
+	role, err := c.GetRole(roleID)
+	if err != nil {
+		return err
+	}
+	perms := make([]map[string]any, 0, len(role.Permissions))
+	for _, p := range role.Permissions {
+		if p.ID != permID {
+			perms = append(perms, map[string]any{"id": p.ID})
+		}
+	}
+	return c.Post(fmt.Sprintf(pathRole, url.PathEscape(roleID)), map[string]any{"permissions": perms}, nil)
+}
+
 func (c *Client) ListRoles() ([]Role, error) {
 	var result []Role
-	err := c.Get(pathRoles+"?fields=id,name,description,permissions(id,name,key)&$top=-1", &result)
+	err := c.Get(pathRoles+"?fields="+roleFields+"&$top=-1", &result)
 	return result, err
 }
 
