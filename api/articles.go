@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 )
 
-const articleFields = "id,idReadable,summary,content,reporter(id,login,fullName),project(id,shortName),created"
+const articleFields = "id,idReadable,summary,content,reporter(id,login,fullName),project(id,shortName),created,updated,updatedBy(id,login,fullName),parentArticle(id,idReadable),tags(id,name),childArticles(id,idReadable,summary)"
 const articleAttachmentFields = "id,name,url,mimeType"
-const articleCommentFields = "id,text,author(id,login,fullName),created"
+const articleCommentFields = "id,text,author(id,login,fullName),created,updated"
 
 func (c *Client) ListArticles(query string) ([]Article, error) {
 	var result []Article
