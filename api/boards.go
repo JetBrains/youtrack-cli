@@ -31,6 +31,17 @@ func (c *Client) AddBoard(name, projectShortName string) (*Board, error) {
 	return &result, err
 }
 
+func (c *Client) UpdateBoard(id, name string) (*Board, error) {
+	var result Board
+	body := map[string]any{}
+	if name != "" {
+		body["name"] = name
+	}
+	path := fmt.Sprintf(pathBoard+"?fields=id,name,owner(id,login,fullName),status,currentSprint(id,name)", url.PathEscape(id))
+	err := c.Post(path, body, &result)
+	return &result, err
+}
+
 func (c *Client) DeleteBoard(id string) error {
 	return c.Delete(fmt.Sprintf(pathBoard, url.PathEscape(id)))
 }
