@@ -16,6 +16,7 @@ func newBoardCmd() *cobra.Command {
 		newBoardAddCmd(),
 		newBoardCreateCmd(),
 		newBoardDeleteCmd(),
+		newBoardUpdateCmd(),
 		newBoardSprintCmd(),
 	)
 	return cmd
@@ -110,6 +111,27 @@ func newBoardDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func newBoardUpdateCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use: "update <board-id>", Short: "Update a board",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			name, _ := cmd.Flags().GetString("name")
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			board, err := client.UpdateBoard(args[0], name)
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, board)
+		},
+	}
+	cmd.Flags().String("name", "", "New board name")
+	return cmd
 }
 
 func newBoardSprintCmd() *cobra.Command {
