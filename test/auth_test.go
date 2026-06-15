@@ -35,7 +35,18 @@ func TestAuth_GetTokenViaBasicAuth(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, services)
 
-	tok, err := api.CreateHubToken(baseURL, login, password, me.ID, "test-cli-token", []string{services[0].ID})
+	// Build scope: always include YouTrack + YouTrack Administration when available.
+	var scopeIDs []string
+	for _, svc := range services {
+		if svc.Name == "YouTrack" || svc.Name == "YouTrack Administration" {
+			scopeIDs = append(scopeIDs, svc.ID)
+		}
+	}
+	if len(scopeIDs) == 0 && len(services) > 0 {
+		scopeIDs = []string{services[0].ID}
+	}
+
+	tok, err := api.CreateHubToken(baseURL, login, password, me.ID, "test-cli-token", scopeIDs)
 	require.NoError(t, err)
 	assert.NotEmpty(t, tok.Token)
 	assert.NotEmpty(t, tok.ID)

@@ -426,6 +426,8 @@ func offerEnvFileImport(cmd *cobra.Command, cfg *config.Config, reader *bufio.Re
 
 // resolveScope maps the --scope flag to Hub service IDs.
 // Defaults to YouTrack + YouTrack Administration (or first available service).
+// When YouTrack Administration is available, it must be included — a token with
+// only the YouTrack service cannot perform administrative operations.
 func resolveScope(scope string, services []api.HubService) ([]string, error) {
 	if scope == "" {
 		var ids []string
@@ -459,6 +461,29 @@ func resolveScope(scope string, services []api.HubService) ([]string, error) {
 			return nil, fmt.Errorf("service %q not found; available: %s", name, strings.Join(names, ", "))
 		}
 	}
+
+	// When YouTrack Administration is available on this instance it must be
+	// included, otherwise admin API calls will fail with 403.
+	var adminID string
+	for _, svc := range services {
+		if svc.Name == "YouTrack Administration" {
+			adminID = svc.ID
+			break
+		}
+	}
+	if adminID != "" {
+		adminIncluded := false
+		for _, id := range ids {
+			if id == adminID {
+				adminIncluded = true
+				break
+			}
+		}
+		if !adminIncluded {
+			return nil, fmt.Errorf("scope must include 'YouTrack Administration' when it is available; add it to --scope or omit --scope to use the default (YouTrack + YouTrack Administration)")
+		}
+	}
+
 	return ids, nil
 }
 
