@@ -12,13 +12,13 @@ type AddCanvasRequest struct {
 
 func (c *Client) AddCanvas(req AddCanvasRequest) (*Canvas, error) {
 	var result Canvas
-	err := c.Post(pathPlanningCanvases+"?fields=id,name", req, &result)
+	err := c.Post(pathPlanningCanvases+"?fields=id,name,owner(id,login,fullName),pinned,$type", req, &result)
 	return &result, err
 }
 
 func (c *Client) GetCanvas(id string) (*Canvas, error) {
 	var result Canvas
-	err := c.Get(fmt.Sprintf(pathPlanningCanvas+"?fields=id,name", url.PathEscape(id)), &result)
+	err := c.Get(fmt.Sprintf(pathPlanningCanvas+"?fields=id,name,owner(id,login,fullName),pinned,$type", url.PathEscape(id)), &result)
 	return &result, err
 }
 
@@ -41,7 +41,7 @@ func (c *Client) AddCanvasNode(canvasID string, x, y int, label, description str
 		body["description"] = description
 	}
 	var result CanvasNode
-	err := c.Post(fmt.Sprintf(pathPlanningCanvasCards+"?fields=id,label,x,y", url.PathEscape(canvasID)), body, &result)
+	err := c.Post(fmt.Sprintf(pathPlanningCanvasCards+"?fields=id,label,x,y,description,width,height,$type", url.PathEscape(canvasID)), body, &result)
 	return &result, err
 }
 
