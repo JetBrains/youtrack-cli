@@ -25,3 +25,10 @@ func (c *Client) AddTag(req AddTagRequest) (*Tag, error) {
 func (c *Client) DeleteTag(id string) error {
 	return c.Delete(fmt.Sprintf(pathTag, url.PathEscape(id)))
 }
+
+func (c *Client) ListTagIssues(tagID string) ([]Issue, error) {
+	var result []Issue
+	path := fmt.Sprintf(pathTagIssues+"?fields=%s&$top=-1", url.PathEscape(tagID), issueFields)
+	err := c.Get(path, &result)
+	return result, err
+}

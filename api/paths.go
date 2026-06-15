@@ -77,6 +77,7 @@ const (
 	pathIssueLink             = "/api/issues/%s/links/%s"
 	pathIssueLinkTypeIssues   = "/api/issues/%s/links/%s/issues"
 	pathIssueTags             = "/api/issues/%s/tags"
+	pathIssueTag              = "/api/issues/%s/tags/%s"
 	pathIssueAttachments      = "/api/issues/%s/attachments"
 	pathIssueAttachment       = "/api/issues/%s/attachments/%s"
 	pathIssueWorkItems        = "/api/issues/%s/timeTracking/workItems"
@@ -129,8 +130,9 @@ const (
 	pathSavedQuery   = "/api/savedQueries/%s"
 
 	// Tags
-	pathTags = "/api/tags"
-	pathTag  = "/api/tags/%s"
+	pathTags      = "/api/tags"
+	pathTag       = "/api/tags/%s"
+	pathTagIssues = "/api/tags/%s/issues"
 
 	// Users
 	pathUsers                    = "/api/users"
