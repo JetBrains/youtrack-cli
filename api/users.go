@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const userFields = "id,login,fullName,email,guest,online,userType(id,name)"
+const userFields = "id,login,fullName,email,guest,online,banned,avatarUrl,ringId,userType(id,name),tags(id,name),savedQueries(id,name)"
 
 const (
 	entityDeleteSyncTimeout  = 5 * time.Second
