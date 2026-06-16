@@ -303,9 +303,9 @@ func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string
 			return err
 		}
 		var userID string
-		for _, u := range users {
-			if u.Login == fieldValue {
-				userID = u.ID
+		for i := range users {
+			if users[i].Login == fieldValue {
+				userID = users[i].ID
 				break
 			}
 		}

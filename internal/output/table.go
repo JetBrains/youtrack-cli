@@ -38,8 +38,8 @@ func PrintTable(out io.Writer, data any) error {
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.Login, v.FullName, v.Email)
 	case []api.User:
 		_, _ = fmt.Fprintln(w, "LOGIN\tNAME\tEMAIL")
-		for _, u := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", u.Login, u.FullName, u.Email)
+		for i := range v {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v[i].Login, v[i].FullName, v[i].Email)
 		}
 	case []api.Comment:
 		_, _ = fmt.Fprintln(w, "ID\tAUTHOR\tTEXT")
@@ -55,8 +55,8 @@ func PrintTable(out io.Writer, data any) error {
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.IDReadable, truncate(v.Summary, 72), projectKey(v.Project))
 	case []api.Article:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
-		for _, a := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.IDReadable, truncate(a.Summary, 72), projectKey(a.Project))
+		for i := range v {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v[i].IDReadable, truncate(v[i].Summary, 72), projectKey(v[i].Project))
 		}
 	case *api.Group:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
@@ -268,8 +268,8 @@ func PrintPlain(out io.Writer, data any) error {
 	case *api.User:
 		write(v.Login, v.FullName, v.Email)
 	case []api.User:
-		for _, u := range v {
-			write(u.Login, u.FullName, u.Email)
+		for i := range v {
+			write(v[i].Login, v[i].FullName, v[i].Email)
 		}
 	case []api.Comment:
 		for _, c := range v {
@@ -282,8 +282,8 @@ func PrintPlain(out io.Writer, data any) error {
 	case *api.Article:
 		write(v.IDReadable, v.Summary, projectKey(v.Project))
 	case []api.Article:
-		for _, a := range v {
-			write(a.IDReadable, a.Summary, projectKey(a.Project))
+		for i := range v {
+			write(v[i].IDReadable, v[i].Summary, projectKey(v[i].Project))
 		}
 	case *api.Group:
 		write(v.ID, v.Name)
