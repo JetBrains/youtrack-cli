@@ -74,6 +74,51 @@ func TestCmd_CanvasNodeAdd(t *testing.T) {
 	assert.NotEmpty(t, nodeID)
 }
 
+func TestCmd_CanvasList(t *testing.T) {
+	c := newTestClient(t)
+	canvasID := createTestCanvas(t, c)
+	_ = canvasID
+
+	out := runCmd(t, "canvas", "list", "--format", "json")
+	assert.Contains(t, out, "[")
+}
+
+func TestCmd_CanvasGet(t *testing.T) {
+	c := newTestClient(t)
+	canvasID := createTestCanvas(t, c)
+
+	out := runCmd(t, "canvas", "get", canvasID, "--format", "json")
+	assert.Contains(t, out, canvasID)
+}
+
+func TestCmd_CanvasNodeList(t *testing.T) {
+	c := newTestClient(t)
+	canvasID := createTestCanvas(t, c)
+	addTestCanvasNode(t, canvasID, "node-list-node", 10, 10)
+
+	out := runCmd(t, "canvas", "node", "list", canvasID, "--format", "json")
+	assert.Contains(t, out, "node-list-node")
+}
+
+func TestCmd_CanvasNodeGet(t *testing.T) {
+	c := newTestClient(t)
+	canvasID := createTestCanvas(t, c)
+	nodeID := addTestCanvasNode(t, canvasID, "node-get-node", 20, 20)
+
+	out := runCmd(t, "canvas", "node", "get", canvasID, nodeID, "--format", "json")
+	assert.Contains(t, out, nodeID)
+}
+
+func TestCmd_CanvasReload(t *testing.T) {
+	c := newTestClient(t)
+	canvasID := createTestCanvas(t, c)
+
+	if err := c.ReloadCanvas(canvasID); err != nil {
+		t.Skipf("canvas reload not supported on this instance: %v", err)
+	}
+	runCmd(t, "canvas", "reload", canvasID)
+}
+
 func TestCmd_CanvasLinkTypes(t *testing.T) {
 	c := newTestClient(t)
 	canvasID := createTestCanvas(t, c)
