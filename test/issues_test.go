@@ -2,6 +2,8 @@ package api_test
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -394,4 +396,356 @@ func TestCmd_UserDeleteSelfRejected(t *testing.T) {
 
 	out := runCmdExpectError(t, "user", "delete", me.Login, "--successor", me.Login, "--force")
 	_ = out // error is on stderr; runCmdExpectError asserts non-zero exit
+}
+
+func TestCmd_IssueCommentGet(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "comment get test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	comment, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "get me"})
+	require.NoError(t, err)
+	require.NotEmpty(t, comment.ID)
+
+	out := runCmd(t, "issue", "comment", "get", issue.IDReadable, comment.ID, "--format", "json")
+	assert.Contains(t, out, comment.ID)
+	assert.Contains(t, out, "get me")
+}
+
+func TestCmd_IssueCommentPin(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "comment pin test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	comment, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "pin me"})
+	require.NoError(t, err)
+	require.NotEmpty(t, comment.ID)
+
+	out := runCmd(t, "issue", "comment", "pin", issue.IDReadable, comment.ID)
+	assert.Contains(t, out, "pinned")
+}
+
+func TestCmd_IssueCommentVisibility(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "comment visibility test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	comment, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "visibility me"})
+	require.NoError(t, err)
+	require.NotEmpty(t, comment.ID)
+
+	// Call with no groups/users — sets an empty LimitedVisibility which is valid
+	out := runCmd(t, "issue", "comment", "visibility", issue.IDReadable, comment.ID)
+	assert.Contains(t, out, "updated visibility for comment "+comment.ID)
+}
+
+func TestCmd_IssueLinkRemove(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	src, err := c.AddIssue(api.AddIssueRequest{Summary: "link remove src", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(src.IDReadable) })
+
+	dst, err := c.AddIssue(api.AddIssueRequest{Summary: "link remove dst", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(dst.IDReadable) })
+
+	types, err := c.GetIssueLinkTypes()
+	require.NoError(t, err)
+	require.NotEmpty(t, types)
+
+	err = c.LinkIssues(src.IDReadable, dst.IDReadable, types[0].ID)
+	require.NoError(t, err)
+
+	links, err := c.GetLinkedIssues(src.IDReadable)
+	require.NoError(t, err)
+	require.NotEmpty(t, links, "expected a link after LinkIssues")
+
+	linkID := links[0].ID
+
+	runCmd(t, "issue", "link", "remove", src.IDReadable, linkID)
+
+	links, err = c.GetLinkedIssues(src.IDReadable)
+	require.NoError(t, err)
+	// After removal the link slot still exists but should have no issues in it
+	for _, l := range links {
+		if l.ID == linkID {
+			assert.Empty(t, l.Issues, "link %s should have no issues after removal", linkID)
+		}
+	}
+}
+
+func TestCmd_IssueLinkTypeList(t *testing.T) {
+	out := runCmd(t, "issue", "link", "type", "list", "--format", "json")
+	assert.Contains(t, out, "[")
+}
+
+func TestCmd_IssueWorkitemGet(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	runCmd(t, "project", "timetrack", "set", proj.ShortName, "--enabled")
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "workitem get test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	item, err := c.AddWorkItem(issue.IDReadable, 30, "get this item", "")
+	require.NoError(t, err)
+	require.NotEmpty(t, item.ID)
+
+	out := runCmd(t, "issue", "workitem", "get", issue.IDReadable, item.ID, "--format", "json")
+	assert.Contains(t, out, item.ID)
+}
+
+func TestCmd_IssueWorkitemUpdate(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	runCmd(t, "project", "timetrack", "set", proj.ShortName, "--enabled")
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "workitem update test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	item, err := c.AddWorkItem(issue.IDReadable, 30, "original text", "")
+	require.NoError(t, err)
+	require.NotEmpty(t, item.ID)
+
+	out := runCmd(t, "issue", "workitem", "update", issue.IDReadable, item.ID,
+		"--minutes", "90",
+		"--text", "updated text",
+		"--format", "json",
+	)
+	assert.Contains(t, out, "updated text")
+
+	got, err := c.GetWorkItem(issue.IDReadable, item.ID)
+	require.NoError(t, err)
+	require.NotNil(t, got.Duration)
+	assert.Equal(t, 90, got.Duration.Minutes)
+}
+
+func TestCmd_IssueAttachmentCRUD(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "attachment crud test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	// Write a temp file to attach
+	tmpFile := filepath.Join(t.TempDir(), "testattach.txt")
+	require.NoError(t, os.WriteFile(tmpFile, []byte("hello attachment"), 0644))
+
+	// Add attachment
+	addOut := runCmd(t, "issue", "attachment", "add", issue.IDReadable, "--file", tmpFile, "--format", "json")
+	var attach struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(addOut), &attach))
+	require.NotEmpty(t, attach.ID, "attachment ID should not be empty")
+
+	// List attachments
+	listOut := runCmd(t, "issue", "attachment", "list", issue.IDReadable, "--format", "json")
+	assert.Contains(t, listOut, attach.ID)
+
+	// Delete attachment
+	delOut := runCmd(t, "issue", "attachment", "delete", issue.IDReadable, attach.ID)
+	assert.Contains(t, delOut, "deleted attachment "+attach.ID)
+
+	// Verify gone
+	attachments, err := c.GetIssueAttachments(issue.IDReadable)
+	require.NoError(t, err)
+	for _, a := range attachments {
+		assert.NotEqual(t, attach.ID, a.ID, "attachment should be deleted")
+	}
+}
+
+func TestCmd_IssueTag(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "tag test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	// Get tags available for current user
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+	tags, err := c.ListUserTags(me.ID)
+	require.NoError(t, err)
+	if len(tags) == 0 {
+		t.Skip("no user tags available; skipping tag test")
+	}
+	tagID := tags[0].ID
+
+	// Add tag to issue
+	addOut := runCmd(t, "issue", "tag", "add", issue.IDReadable, tagID)
+	assert.Contains(t, addOut, "tagged issue "+issue.IDReadable)
+
+	// List tags on issue
+	listOut := runCmd(t, "issue", "tag", "list", issue.IDReadable, "--format", "json")
+	assert.Contains(t, listOut, tagID)
+}
+
+func TestCmd_IssueFieldGet(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "field get test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "field", "get", issue.IDReadable, "Priority", "--format", "json")
+	assert.Contains(t, out, "Priority")
+}
+
+func TestCmd_IssueFieldSet(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "field set test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "field", "set", issue.IDReadable, "Priority", "Critical")
+	assert.Contains(t, out, "updated field Priority")
+}
+
+func TestCmd_IssueVisibility(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "visibility test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	// Call with no groups/users — sets empty LimitedVisibility
+	out := runCmd(t, "issue", "visibility", issue.IDReadable)
+	assert.Contains(t, out, "updated visibility for "+issue.IDReadable)
+}
+
+func TestCmd_IssueReactionAddDelete(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "reaction test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	comment, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "react to me"})
+	require.NoError(t, err)
+	require.NotEmpty(t, comment.ID)
+
+	// Add reaction via CLI
+	addOut := runCmd(t, "issue", "reaction", "add", issue.IDReadable, comment.ID, "👍")
+	assert.Contains(t, addOut, "added reaction 👍")
+
+	// List reactions via API to get the ID
+	reactions, err := c.ListIssueCommentReactions(issue.IDReadable, comment.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, reactions, "expected at least one reaction after adding")
+	reactionID := reactions[0].ID
+	require.NotEmpty(t, reactionID)
+
+	// Delete reaction via CLI
+	delOut := runCmd(t, "issue", "reaction", "delete", issue.IDReadable, comment.ID, reactionID)
+	assert.Contains(t, delOut, "deleted reaction "+reactionID)
+
+	// Verify gone
+	reactions, err = c.ListIssueCommentReactions(issue.IDReadable, comment.ID)
+	require.NoError(t, err)
+	assert.Empty(t, reactions, "reaction should be gone after deletion")
+}
+
+func TestCmd_IssueActivityList(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "activity list test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	_, err = c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "activity comment"})
+	require.NoError(t, err)
+
+	out := runCmd(t, "issue", "activity", "list", issue.IDReadable, "--format", "json")
+	assert.Contains(t, out, "[")
+}
+
+func TestCmd_IssueCommand(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "command test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "command", issue.IDReadable, "State In Progress")
+	assert.Contains(t, out, "command applied to "+issue.IDReadable)
+
+	// Verify state changed via API
+	got, err := c.GetIssueDetail(issue.IDReadable)
+	require.NoError(t, err)
+	stateFound := false
+	for _, f := range got.CustomFields {
+		if f.Name == "State" {
+			if v, ok := f.Value.(map[string]any); ok {
+				if name, _ := v["name"].(string); strings.Contains(name, "Progress") {
+					stateFound = true
+				}
+			}
+		}
+	}
+	assert.True(t, stateFound, "State field should show In Progress after command")
 }

@@ -77,6 +77,7 @@ const (
 	pathIssueLinks            = "/api/issues/%s/links"
 	pathIssueLink             = "/api/issues/%s/links/%s"
 	pathIssueLinkTypeIssues   = "/api/issues/%s/links/%s/issues"
+	pathIssueLinkTypeIssue    = "/api/issues/%s/links/%s/issues/%s"
 	pathIssueTags             = "/api/issues/%s/tags"
 	pathIssueTag              = "/api/issues/%s/tags/%s"
 	pathIssueAttachments      = "/api/issues/%s/attachments"
