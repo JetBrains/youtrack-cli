@@ -50,6 +50,62 @@ func TestCmd_GroupDelete(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
+func TestCmd_GroupAdd(t *testing.T) {
+	c := newTestClient(t)
+	name := fmt.Sprintf("e2e-grp-add-%d", time.Now().UnixMilli()%100000)
+
+	out := runCmd(t, "group", "add", "--name", name, "--format", "json")
+	assert.Contains(t, out, name)
+
+	groups, err := c.ListGroups("")
+	require.NoError(t, err)
+	for _, g := range groups {
+		if g.Name == name {
+			g := g
+			successor := groupDeleteSuccessor(t, c, g.ID)
+			t.Cleanup(func() { _ = c.DeleteGroup(g.ID, successor.ID) })
+		}
+	}
+}
+
+func TestCmd_GroupMemberList(t *testing.T) {
+	c := newTestClient(t)
+	name := fmt.Sprintf("e2e-grp-mbr-%d", time.Now().UnixMilli()%100000)
+	group, err := c.AddGroup(name)
+	require.NoError(t, err)
+	successor := groupDeleteSuccessor(t, c, group.ID)
+	t.Cleanup(func() { _ = c.DeleteGroup(group.ID, successor.ID) })
+
+	// Some YouTrack versions expose members as a Hub-only endpoint; skip gracefully if unavailable.
+	members, err := c.ListGroupMembers(group.ID)
+	if err != nil {
+		t.Skipf("group member list not supported on this instance: %v", err)
+	}
+	_ = members
+
+	out := runCmd(t, "group", "member", "list", group.ID, "--format", "json")
+	assert.Contains(t, out, "[")
+}
+
+func TestCmd_GroupRoleList(t *testing.T) {
+	c := newTestClient(t)
+	name := fmt.Sprintf("e2e-grp-role-%d", time.Now().UnixMilli()%100000)
+	group, err := c.AddGroup(name)
+	require.NoError(t, err)
+	successor := groupDeleteSuccessor(t, c, group.ID)
+	t.Cleanup(func() { _ = c.DeleteGroup(group.ID, successor.ID) })
+
+	// Some YouTrack versions expose project roles as a Hub-only endpoint; skip gracefully if unavailable.
+	roles, err := c.ListGroupProjectRoles(group.ID)
+	if err != nil {
+		t.Skipf("group role list not supported on this instance: %v", err)
+	}
+	_ = roles
+
+	out := runCmd(t, "group", "role", "list", group.ID, "--format", "json")
+	assert.Contains(t, out, "[")
+}
+
 func groupDeleteSuccessor(t *testing.T, c interface {
 	ListGroups(query string) ([]api.Group, error)
 }, excludeID string) api.Group {
