@@ -380,12 +380,6 @@ type App struct {
 	Version string `json:"version,omitempty"`
 }
 
-type RemovedDocument struct {
-	ID         string `json:"id,omitempty"`
-	IDReadable string `json:"idReadable,omitempty"`
-	Summary    string `json:"summary,omitempty"`
-}
-
 type Canvas struct {
 	ID    string `json:"id,omitempty"`
 	Name  string `json:"name,omitempty"`

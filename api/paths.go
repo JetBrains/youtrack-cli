@@ -113,9 +113,7 @@ const (
 	pathAdminProjectHelpDesk       = "/api/admin/projects/%s/plugins/helpDeskSettings"
 	pathAdminProjectHelpDeskAgents = "/api/admin/projects/%s/plugins/helpDeskSettings/agents"
 
-	// Reports / Restored docs
-	pathRemovedDocuments = "/api/removedDocuments"
-	pathReport           = "/api/reports/%s"
+	// Gantt Charts
 	pathGanttCharts      = "/api/gantts"
 	pathGanttChart       = "/api/gantts/%s"
 	pathGanttResources   = "/api/gantts/%s/resources"

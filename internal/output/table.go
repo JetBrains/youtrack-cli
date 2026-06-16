@@ -177,11 +177,6 @@ func PrintTable(out io.Writer, data any) error {
 		for _, c := range v {
 			_, _ = fmt.Fprintf(w, "%s\t%s\n", c.ID, c.Name)
 		}
-	case []api.RemovedDocument:
-		_, _ = fmt.Fprintln(w, "ID\tSUMMARY")
-		for _, d := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\n", d.IDReadable, truncate(d.Summary, 72))
-		}
 	case []api.GanttChart:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
 		for _, g := range v {
