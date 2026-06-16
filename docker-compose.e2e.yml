@@ -15,3 +15,29 @@ services:
       - ./.e2e/conf:/opt/youtrack/conf
       - ./.e2e/logs:/opt/youtrack/logs
       - ./.e2e/backups:/opt/youtrack/backups
+
+  gitea:
+    image: gitea/gitea:1.22
+    container_name: youtrack-cli-e2e-gitea
+    environment:
+      - USER_UID=1000
+      - USER_GID=1000
+      - GITEA__database__DB_TYPE=sqlite3
+      - GITEA__server__HTTP_PORT=3000
+      - GITEA__security__INSTALL_LOCK=true
+      - GITEA__service__DISABLE_REGISTRATION=false
+    ports:
+      - "${GITEA_E2E_PORT:-3000}:3000"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:3000/api/v1/version"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+      start_period: 60s
+
+  mailhog:
+    image: mailhog/mailhog:v1.0.0
+    container_name: youtrack-cli-e2e-mailhog
+    ports:
+      - "${MAILHOG_SMTP_PORT:-1025}:1025"
+      - "${MAILHOG_UI_PORT:-8025}:8025"
