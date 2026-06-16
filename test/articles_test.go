@@ -2,10 +2,14 @@ package api_test
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/JetBrains/youtrack-cli/api"
 )
 
 func TestCmd_ArticleList(t *testing.T) {
@@ -110,4 +114,99 @@ func TestCmd_ArticleCommentCRUD(t *testing.T) {
 	comments, err = c.ListArticleComments(article.IDReadable)
 	require.NoError(t, err)
 	assert.Empty(t, comments)
+}
+
+func newTempArticle(t *testing.T, c *api.Client) *api.Article {
+	t.Helper()
+	proj := createTempProject(t, c)
+	p, err := c.GetProject(proj.ShortName)
+	require.NoError(t, err)
+	article, err := c.AddArticle(p.ID, "e2e-article-"+t.Name(), "", "")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteArticle(article.IDReadable) })
+	return article
+}
+
+// newTempArticleInProject creates an article in an already-fetched project.
+func newTempArticleInProject(t *testing.T, c *api.Client, projectID string) *api.Article {
+	t.Helper()
+	article, err := c.AddArticle(projectID, "e2e-article-"+t.Name(), "", "")
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteArticle(article.IDReadable) })
+	return article
+}
+
+func TestCmd_ArticleCommentGet(t *testing.T) {
+	c := newTestClient(t)
+	article := newTempArticle(t, c)
+
+	comment, err := c.AddArticleComment(article.IDReadable, "e2e test comment")
+	require.NoError(t, err)
+
+	// No "article comment get" command; list returns all comments including this one
+	out := runCmd(t, "article", "comment", "list", article.IDReadable, "--format", "json")
+	assert.Contains(t, out, comment.ID)
+}
+
+func TestCmd_ArticleSetParent(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	p, err := c.GetProject(proj.ShortName)
+	require.NoError(t, err)
+	parent := newTempArticleInProject(t, c, p.ID)
+	child := newTempArticleInProject(t, c, p.ID)
+
+	// set-parent passes <parentId> arg directly to SetParentArticle which expects internal ID
+	out := runCmd(t, "article", "set-parent", child.IDReadable, parent.ID)
+	assert.Contains(t, out, "set parent of "+child.IDReadable)
+}
+
+func TestCmd_ArticleChildList(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	p, err := c.GetProject(proj.ShortName)
+	require.NoError(t, err)
+	parent := newTempArticleInProject(t, c, p.ID)
+	child := newTempArticleInProject(t, c, p.ID)
+	require.NoError(t, c.SetParentArticle(child.IDReadable, parent.ID))
+
+	out := runCmd(t, "article", "child", "list", parent.IDReadable, "--format", "json")
+	assert.Contains(t, out, child.IDReadable)
+}
+
+func TestCmd_ArticleParentGet(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	p, err := c.GetProject(proj.ShortName)
+	require.NoError(t, err)
+	parent := newTempArticleInProject(t, c, p.ID)
+	child := newTempArticleInProject(t, c, p.ID)
+	require.NoError(t, c.SetParentArticle(child.IDReadable, parent.ID))
+
+	out := runCmd(t, "article", "parent", "get", child.IDReadable, "--format", "json")
+	assert.Contains(t, out, parent.IDReadable)
+}
+
+func TestCmd_ArticleAttachmentAdd(t *testing.T) {
+	c := newTestClient(t)
+	article := newTempArticle(t, c)
+
+	f, err := os.CreateTemp(t.TempDir(), "article-attach-*.txt")
+	require.NoError(t, err)
+	_, err = f.WriteString("article attachment content")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
+
+	runCmd(t, "article", "attachment", "add", article.IDReadable, "--file", f.Name())
+
+	out := runCmd(t, "article", "attachment", "list", article.IDReadable, "--format", "json")
+	assert.Contains(t, out, filepath.Base(f.Name()))
+}
+
+func TestCmd_ArticleVisibility(t *testing.T) {
+	c := newTestClient(t)
+	article := newTempArticle(t, c)
+
+	out := runCmd(t, "article", "visibility", article.IDReadable)
+	assert.Contains(t, out, "updated visibility for article "+article.IDReadable)
 }

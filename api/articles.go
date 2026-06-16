@@ -64,10 +64,15 @@ func (c *Client) ListArticleAttachments(articleID string) ([]ArticleAttachment, 
 }
 
 func (c *Client) AddArticleAttachment(articleID, filePath string) (*ArticleAttachment, error) {
-	var result ArticleAttachment
+	var results []ArticleAttachment
 	path := fmt.Sprintf(pathArticleAttachments+"?fields=%s", url.PathEscape(articleID), articleAttachmentFields)
-	err := c.Multipart(path, filePath, filepath.Base(filePath), "application/octet-stream", &result)
-	return &result, err
+	if err := c.Multipart(path, filePath, filepath.Base(filePath), "application/octet-stream", &results); err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return nil, fmt.Errorf("no attachment returned from API")
+	}
+	return &results[0], nil
 }
 
 func (c *Client) ListArticleComments(articleID string) ([]Comment, error) {
