@@ -100,25 +100,23 @@ func newGanttMemberCmd() *cobra.Command {
 	}
 	add := &cobra.Command{
 		Use:   "add <ganttId>",
-		Short: "Add a user as a member of a Gantt chart",
+		Short: "Add an issue as a member of a Gantt chart",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			userID, _ := cmd.Flags().GetString("user")
-			startDate, _ := cmd.Flags().GetInt64("start-date")
+			issueID, _ := cmd.Flags().GetString("issue")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			member, err := client.AddGanttResource(args[0], userID, startDate)
+			member, err := client.AddGanttResource(args[0], issueID)
 			if err != nil {
 				return err
 			}
 			return output.Print(cmd, member)
 		},
 	}
-	add.Flags().String("user", "", "User ID (required)")
-	add.Flags().Int64("start-date", 0, "Start date (Unix ms timestamp)")
-	internal.MustMarkRequired(add, "user")
+	add.Flags().String("issue", "", "Issue ID (required)")
+	internal.MustMarkRequired(add, "issue")
 	setStart := &cobra.Command{
 		Use:   "set-start <ganttId> <resourceId>",
 		Short: "Set the start date for a Gantt chart member",

@@ -49,10 +49,18 @@ func (c *Client) ListGroupMembers(groupID string) ([]User, error) {
 }
 
 func (c *Client) ListGroupProjectRoles(groupID string) ([]AssignedRole, error) {
-	var result []AssignedRole
-	path := fmt.Sprintf(pathGroupProjectRoles+"?fields=id,role(id,name),project(id,shortName,name)&$top=-1", url.PathEscape(groupID))
-	err := c.Get(path, &result)
-	return result, err
+	var all []AssignedRole
+	path := pathAssignedRoles + "?fields=id,role(id,name),holder(id,$type),scope($type,project(id,shortName,name))&$top=-1"
+	if err := c.Get(path, &all); err != nil {
+		return nil, err
+	}
+	result := []AssignedRole{}
+	for _, ar := range all {
+		if ar.Holder != nil && ar.Holder.ID == groupID {
+			result = append(result, ar)
+		}
+	}
+	return result, nil
 }
 
 func (c *Client) AddGroupProjectRole(groupID, roleID, projectID string) error {

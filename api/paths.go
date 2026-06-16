@@ -64,7 +64,7 @@ const (
 	// Groups
 	pathGroups            = "/api/groups"
 	pathGroup             = "/api/groups/%s"
-	pathGroupMembers      = "/api/groups/%s/members"
+	pathGroupMembers      = "/api/groups/%s/ownUsers"
 	pathGroupProjectRoles = "/api/groups/%s/projectroles"
 
 	// Issues
@@ -117,9 +117,8 @@ const (
 	// Gantt Charts
 	pathGanttCharts    = "/api/gantts"
 	pathGanttChart     = "/api/gantts/%s"
-	pathGanttResources = "/api/gantts/%s/resources"
-	pathGanttResource  = "/api/gantts/%s/resources/%s"
-	pathGanttSettings  = "/api/gantts/%s/settings"
+	pathGanttResources = "/api/gantts/%s/members"
+	pathGanttResource  = "/api/gantts/%s/members/%s"
 
 	// Roles / Permissions
 	pathRoles         = "/api/roles"
