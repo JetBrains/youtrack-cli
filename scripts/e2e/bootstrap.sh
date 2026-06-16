@@ -52,9 +52,21 @@ GITEA_URL="http://${GITEA_HOST}:${GITEA_PORT}"
 GITEA_ADMIN_USER="e2eadmin"
 GITEA_ADMIN_PASS="e2epassword"
 GITEA_ORG="youtrack-cli-e2e"
+GITEA_CONTAINER="youtrack-cli-e2e-gitea"
 
 echo "Setting up Gitea..."
-if ! curl -sf "${GITEA_URL}/api/v1/version" -o /dev/null; then
+
+# Wait up to 60s for Gitea to become reachable (it starts in parallel with bootstrap).
+GITEA_READY=0
+for _ in $(seq 1 30); do
+  if curl -sf "${GITEA_URL}/api/v1/version" -o /dev/null 2>/dev/null; then
+    GITEA_READY=1
+    break
+  fi
+  sleep 2
+done
+
+if [[ "${GITEA_READY}" -eq 0 ]]; then
   echo "Gitea is not reachable at ${GITEA_URL} — skipping Gitea setup" >&2
   # Write placeholder values so tests skip gracefully
   grep -v "^GITEA_BASE_URL=" "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}" || true
@@ -62,31 +74,32 @@ if ! curl -sf "${GITEA_URL}/api/v1/version" -o /dev/null; then
   grep -v "^GITEA_TOKEN=" "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}" || true
   echo "GITEA_TOKEN=" >> "${ENV_FILE}"
 else
-  # Create admin user (idempotent — 422 if already exists)
-  curl -sf -X POST "${GITEA_URL}/api/v1/users/search" -o /dev/null || true
-  curl -sf -X POST "${GITEA_URL}/api/v1/admin/users" \
-    -H "Content-Type: application/json" \
-    --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
-    -d "{\"login_name\":\"${GITEA_ADMIN_USER}\",\"username\":\"${GITEA_ADMIN_USER}\",\"email\":\"admin@example.com\",\"password\":\"${GITEA_ADMIN_PASS}\",\"must_change_password\":false}" \
-    -o /dev/null 2>/dev/null || true
+  # Create admin user via the Gitea CLI inside the container — bypasses HTTP auth
+  # so it works even on a brand-new instance with no users yet (idempotent).
+  docker exec "${GITEA_CONTAINER}" \
+    gitea admin user create \
+      --username "${GITEA_ADMIN_USER}" \
+      --password "${GITEA_ADMIN_PASS}" \
+      --email "admin@example.com" \
+      --admin \
+      --must-change-password=false 2>/dev/null || true
 
-  # Create org + repo
+  # Create org + repo via API (now that admin exists)
   curl -sf -X POST "${GITEA_URL}/api/v1/orgs" \
     --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
     -H "Content-Type: application/json" \
-    -d "{\"username\":\"${GITEA_ORG}\",\"visibility\":\"public\"}" -o /dev/null || true
+    -d "{\"username\":\"${GITEA_ORG}\",\"visibility\":\"public\"}" -o /dev/null 2>/dev/null || true
   curl -sf -X POST "${GITEA_URL}/api/v1/orgs/${GITEA_ORG}/repos" \
     --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
     -H "Content-Type: application/json" \
-    -d '{"name":"test-repo","auto_init":true}' -o /dev/null || true
+    -d '{"name":"test-repo","auto_init":true}' -o /dev/null 2>/dev/null || true
 
   # Export GITEA_BASE_URL (idempotent)
   grep -v "^GITEA_BASE_URL=" "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}" || true
   echo "GITEA_BASE_URL=${GITEA_URL}" >> "${ENV_FILE}"
 
-  # Generate token (idempotent — delete existing first, then create)
+  # Generate token (delete existing first for idempotency, then create)
   grep -v "^GITEA_TOKEN=" "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}" || true
-  # Delete existing token if present (idempotent — ignore 404)
   curl -sf -X DELETE "${GITEA_URL}/api/v1/users/${GITEA_ADMIN_USER}/tokens/e2e-token" \
     --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" -o /dev/null 2>/dev/null || true
 

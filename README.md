@@ -23,9 +23,16 @@ go install github.com/JetBrains/youtrack-cli@latest
 ## Quick Start
 
 ```bash
-# Authenticate (set credentials once)
-export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
-export YOUTRACK_TOKEN=perm:...
+# Authenticate once — saves credentials to ~/.youtrack-cli-config.json
+youtrack instance add
+# YouTrack base URL: https://your-instance.youtrack.cloud
+# Instance alias [your-instance]: mywork
+# Select authentication method:
+#   1) Basic auth (login + password)
+#   2) Web browser
+#   3) Paste token directly
+# ✓ Authenticated as Jane Doe (jane.doe)
+#   Saved as: "mywork" (~/.youtrack-cli-config.json)
 
 # Verify connection
 youtrack user current
@@ -39,6 +46,12 @@ youtrack issue add --project MYPROJ --summary "Bug title"
 # Apply a command
 youtrack issue command MYPROJ-42 "State In Progress"
 ```
+
+> **CI / scripting:** skip the interactive setup and export env vars instead:
+> ```bash
+> export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
+> export YOUTRACK_TOKEN=perm:...
+> ```
 
 ## Setup
 
@@ -57,7 +70,7 @@ make dist   # produces binaries in dist/ for linux-amd64, darwin-arm64, darwin-a
 
 ### Set credentials
 
-**Single instance** — export environment variables or write to `~/.youtrack-cli-env`:
+**Single instance** — export environment variables:
 
 ```bash
 export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
@@ -86,8 +99,6 @@ youtrack instance update-token work   # replace the saved token for an instance
 youtrack auth refresh-token           # replace token for the active instance
 youtrack auth logout              # remove active instance credentials
 ```
-
-If a `~/.youtrack-cli-env` file is present when running `auth get-token` for the first time, the CLI offers to import its credentials as a named instance.
 
 Three auth methods are available:
 - **Basic auth** — login + password via Hub API. Requires the Hub basic-auth endpoint to be enabled.

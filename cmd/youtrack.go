@@ -93,7 +93,6 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 
 // Execute is the entrypoint called from main.go.
 func Execute(fs embed.FS) error {
-	internal.LoadEnvFile()
 	root := NewRootCmd(fs)
 	if err := root.Execute(); err != nil {
 		format := output.Format(root)

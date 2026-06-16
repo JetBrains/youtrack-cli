@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -180,32 +179,46 @@ func TestAuth_GetTokenDirectFlowCLI(t *testing.T) {
 	assert.Equal(t, token, result.Token)
 }
 
-func TestAuth_GetTokenSchemeNormalization(t *testing.T) {
+func TestAuth_GetTokenURLNormalization(t *testing.T) {
 	requireE2EEnv(t)
 
 	token := os.Getenv("YOUTRACK_TOKEN")
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
-	// Strip the scheme to simulate a user typing the URL without https://.
-	// The normalization always prepends https://, so this test only makes sense
-	// against an HTTPS endpoint — skip for HTTP-only local servers.
-	if !strings.HasPrefix(baseURL, "https://") {
-		t.Skip("YOUTRACK_BASE_URL is not https:// — normalization test requires an HTTPS endpoint")
-	}
-	schemeless := strings.TrimPrefix(baseURL, "https://")
 
-	// The CLI should prepend https:// automatically and still succeed.
-	out := runCmdWithInput(t, "3\n"+token+"\n",
-		"--base-url", schemeless,
-		"--format", "json",
-		"auth", "get-token",
-		"--save=false",
-	)
-
-	var result struct {
-		Token string `json:"token"`
+	unmarshalToken := func(t *testing.T, out string) string {
+		t.Helper()
+		var result struct {
+			Token string `json:"token"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
+		return result.Token
 	}
-	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
-	assert.Equal(t, token, result.Token)
+
+	// Trailing-slash stripping works for both HTTP and HTTPS.
+	t.Run("trailing-slash", func(t *testing.T) {
+		out := runCmdWithInput(t, "3\n"+token+"\n",
+			"--base-url", strings.TrimRight(baseURL, "/")+"/",
+			"--format", "json",
+			"auth", "get-token",
+			"--save=false",
+		)
+		assert.Equal(t, token, unmarshalToken(t, out))
+	})
+
+	// Schemeless normalization prepends https:// — only testable against an HTTPS server.
+	t.Run("schemeless-https", func(t *testing.T) {
+		if !strings.HasPrefix(baseURL, "https://") {
+			t.Skip("schemeless normalization test requires an HTTPS endpoint")
+		}
+		schemeless := strings.TrimPrefix(baseURL, "https://")
+		out := runCmdWithInput(t, "3\n"+token+"\n",
+			"--base-url", schemeless,
+			"--format", "json",
+			"auth", "get-token",
+			"--save=false",
+		)
+		assert.Equal(t, token, unmarshalToken(t, out))
+	})
 }
 
 func TestAuth_GetTokenWebFlowCLI(t *testing.T) {
@@ -251,79 +264,13 @@ func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
 	assert.NotContains(t, out, `"token":`) // must not be JSON
 }
 
-func TestAuth_Logout_Force(t *testing.T) {
-	tmpHome := t.TempDir()
-	envFile := filepath.Join(tmpHome, ".youtrack-cli-env")
-	require.NoError(t, os.WriteFile(envFile,
-		[]byte("YOUTRACK_BASE_URL=https://test.example.com\nYOUTRACK_TOKEN=perm-test\n"), 0600))
-
-	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome},
-		"auth", "logout", "--force")
-
-	assert.Contains(t, out, "logged out from https://test.example.com")
-	data, err := os.ReadFile(envFile)
-	require.NoError(t, err)
-	assert.NotContains(t, string(data), "YOUTRACK_BASE_URL")
-	assert.NotContains(t, string(data), "YOUTRACK_TOKEN")
-}
-
-func TestAuth_Logout_Confirm(t *testing.T) {
-	tmpHome := t.TempDir()
-	envFile := filepath.Join(tmpHome, ".youtrack-cli-env")
-	require.NoError(t, os.WriteFile(envFile,
-		[]byte("YOUTRACK_BASE_URL=https://test.example.com\nYOUTRACK_TOKEN=perm-test\n"), 0600))
-
-	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome},
-		"auth", "logout")
-
-	assert.Contains(t, out, "logged out from https://test.example.com")
-	data, err := os.ReadFile(envFile)
-	require.NoError(t, err)
-	assert.NotContains(t, string(data), "YOUTRACK_BASE_URL")
-	assert.NotContains(t, string(data), "YOUTRACK_TOKEN")
-}
-
-func TestAuth_Logout_Cancel(t *testing.T) {
-	tmpHome := t.TempDir()
-	envFile := filepath.Join(tmpHome, ".youtrack-cli-env")
-	original := "YOUTRACK_BASE_URL=https://test.example.com\nYOUTRACK_TOKEN=perm-test\n"
-	require.NoError(t, os.WriteFile(envFile, []byte(original), 0600))
-
-	out := runCmdWithEnv(t, "n\n", []string{"HOME=" + tmpHome},
-		"auth", "logout")
-
-	assert.Contains(t, out, "Canceled.")
-	data, err := os.ReadFile(envFile)
-	require.NoError(t, err)
-	assert.Equal(t, original, string(data))
-}
-
 func TestAuth_Logout_NotConfigured(t *testing.T) {
 	tmpHome := t.TempDir()
-	// No env file — directory exists but file is absent.
 
 	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome},
 		"auth", "logout", "--force")
 
 	assert.Contains(t, out, "not logged in")
-}
-
-func TestAuth_Logout_JSONFormat(t *testing.T) {
-	tmpHome := t.TempDir()
-	envFile := filepath.Join(tmpHome, ".youtrack-cli-env")
-	require.NoError(t, os.WriteFile(envFile,
-		[]byte("YOUTRACK_BASE_URL=https://test.example.com\nYOUTRACK_TOKEN=perm-test\n"), 0600))
-
-	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome},
-		"--format", "json", "auth", "logout", "--force")
-
-	var result struct {
-		URL    string `json:"url"`
-		Status string `json:"status"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
-	assert.Equal(t, "logged out", result.Status)
-	assert.Equal(t, "https://test.example.com", result.URL)
 }
 
 func TestAuthRefreshToken_UpdatesConfig(t *testing.T) {
