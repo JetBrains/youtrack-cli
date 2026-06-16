@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"log"
 	"os"
 	"os/exec"
@@ -202,6 +203,11 @@ func runCmdInDir(t *testing.T, dir string, args ...string) (stdout, stderr strin
 	cmd.Stderr = &errBuf
 	err = cmd.Run()
 	return outBuf.String(), errBuf.String(), err
+}
+
+func jsonUnmarshal(t *testing.T, s string, v any) error {
+	t.Helper()
+	return json.Unmarshal([]byte(s), v)
 }
 
 func runCmdWithEnv(t *testing.T, stdinInput string, extraEnv []string, args ...string) string {
