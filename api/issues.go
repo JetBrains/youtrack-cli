@@ -209,7 +209,8 @@ func (c *Client) RemoveIssueLink(issueID, linkID string) error {
 	if err := c.Get(path, &link); err != nil {
 		return err
 	}
-	for _, target := range link.Issues {
+	for i := range link.Issues {
+		target := &link.Issues[i]
 		delPath := fmt.Sprintf(pathIssueLinkTypeIssue,
 			url.PathEscape(issueID), url.PathEscape(linkID), url.PathEscape(target.ID))
 		if err := c.Delete(delPath); err != nil {
