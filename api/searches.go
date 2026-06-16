@@ -36,7 +36,28 @@ func (c *Client) AddSavedSearch(req AddSavedSearchRequest) (*SavedSearch, error)
 }
 
 func (c *Client) ShareSavedSearch(id string) error {
+	// Fetch the All Users group so we can use its ID.
+	var groups []struct {
+		ID            string `json:"id"`
+		AllUsersGroup bool   `json:"allUsersGroup"`
+	}
+	if err := c.Get(pathGroups+"?fields=id,allUsersGroup&$top=-1", &groups); err != nil {
+		return fmt.Errorf("fetch groups: %w", err)
+	}
+	var allUsersID string
+	for _, g := range groups {
+		if g.AllUsersGroup {
+			allUsersID = g.ID
+			break
+		}
+	}
+	if allUsersID == "" {
+		return fmt.Errorf("all users group not found")
+	}
 	return c.Post(fmt.Sprintf(pathSavedQuery, url.PathEscape(id)), map[string]any{
-		"readSharingSettings": map[string]any{"$type": "AllUsersVisibility"},
+		"readSharingSettings": map[string]any{
+			"$type":           "WatchFolderSharingSettings",
+			"permittedGroups": []map[string]any{{"id": allUsersID}},
+		},
 	}, nil)
 }
