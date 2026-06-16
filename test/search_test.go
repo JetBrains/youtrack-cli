@@ -11,10 +11,7 @@ import (
 	"github.com/JetBrains/youtrack-cli/api"
 )
 
-func newTempSearch(t *testing.T, c interface {
-	AddSavedSearch(req api.AddSavedSearchRequest) (*api.SavedSearch, error)
-	DeleteSavedSearch(id string) error
-}, prefix string) *api.SavedSearch {
+func newTempSearch(t *testing.T, c *api.Client, prefix string) *api.SavedSearch {
 	t.Helper()
 	name := fmt.Sprintf("%s-%d", prefix, time.Now().UnixMilli()%100000)
 	search, err := c.AddSavedSearch(api.AddSavedSearchRequest{
@@ -65,7 +62,9 @@ func TestCmd_SearchShare(t *testing.T) {
 	// share returns no output on success; just verify it exits 0
 	runCmd(t, "search", "share", search.ID)
 
-	// verify the search is still accessible after sharing
-	out := runCmd(t, "search", "get", search.ID, "--format", "json")
-	assert.Contains(t, out, search.ID)
+	// verify sharing actually propagated: All Users group must appear in permittedGroups
+	updated, err := c.GetSavedSearch(search.ID)
+	require.NoError(t, err)
+	require.NotNil(t, updated.ReadSharingSettings, "readSharingSettings should be set after share")
+	assert.NotEmpty(t, updated.ReadSharingSettings.PermittedGroups, "All Users group should appear in permittedGroups after share")
 }
