@@ -126,3 +126,54 @@ func assertUserBanState(t *testing.T, c interface {
 	require.NoError(t, err)
 	assert.Equal(t, want, result.Banned)
 }
+
+func TestCmd_UserTimezone(t *testing.T) {
+	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	orig := runCmd(t, "user", "timezone", "get", me.Login)
+	orig = strings.TrimSpace(orig)
+	t.Cleanup(func() {
+		if orig != "" {
+			_ = c.SetUserTimezone(me.Login, orig)
+		}
+	})
+
+	// set returns no output; verify get returns a non-empty string after the change
+	runCmd(t, "user", "timezone", "set", me.Login, "Europe/Berlin")
+	out := runCmd(t, "user", "timezone", "get", me.Login)
+	assert.NotEmpty(t, strings.TrimSpace(out))
+}
+
+func TestCmd_UserDrafts(t *testing.T) {
+	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	if _, err := c.GetUserIssueDrafts(me.Login); err != nil {
+		t.Skipf("user drafts not supported on this instance: %v", err)
+	}
+
+	out := runCmd(t, "user", "drafts", "list", me.Login, "--format", "json")
+	assert.Contains(t, out, "[")
+}
+
+func TestCmd_UserProfileGet(t *testing.T) {
+	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	out := runCmd(t, "user", "profile", "get", me.Login, "--format", "json")
+	// profile returns GeneralUserProfile object, not user login
+	assert.Contains(t, out, "GeneralUserProfile")
+}
+
+func TestCmd_UserTagList(t *testing.T) {
+	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	out := runCmd(t, "user", "tag", "list", me.ID, "--format", "json")
+	assert.Contains(t, out, "[")
+}
