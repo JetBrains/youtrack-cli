@@ -10,7 +10,7 @@ type AddSavedSearchRequest struct {
 	Query string `json:"query"`
 }
 
-const savedSearchFields = "id,name,query,owner(id,login,fullName),readSharingSettings,updateSharingSettings"
+const savedSearchFields = "id,name,query,owner(id,login,fullName),readSharingSettings(permittedGroups(id,name)),updateSharingSettings"
 
 func (c *Client) ListSavedSearches() ([]SavedSearch, error) {
 	var result []SavedSearch
@@ -36,23 +36,9 @@ func (c *Client) AddSavedSearch(req AddSavedSearchRequest) (*SavedSearch, error)
 }
 
 func (c *Client) ShareSavedSearch(id string) error {
-	// Fetch the All Users group so we can use its ID.
-	var groups []struct {
-		ID            string `json:"id"`
-		AllUsersGroup bool   `json:"allUsersGroup"`
-	}
-	if err := c.Get(pathGroups+"?fields=id,allUsersGroup&$top=-1", &groups); err != nil {
-		return fmt.Errorf("fetch groups: %w", err)
-	}
-	var allUsersID string
-	for _, g := range groups {
-		if g.AllUsersGroup {
-			allUsersID = g.ID
-			break
-		}
-	}
-	if allUsersID == "" {
-		return fmt.Errorf("all users group not found")
+	allUsersID, err := c.allUsersGroupID()
+	if err != nil {
+		return err
 	}
 	return c.Post(fmt.Sprintf(pathSavedQuery, url.PathEscape(id)), map[string]any{
 		"readSharingSettings": map[string]any{
@@ -60,4 +46,20 @@ func (c *Client) ShareSavedSearch(id string) error {
 			"permittedGroups": []map[string]any{{"id": allUsersID}},
 		},
 	}, nil)
+}
+
+func (c *Client) allUsersGroupID() (string, error) {
+	var groups []struct {
+		ID            string `json:"id"`
+		AllUsersGroup bool   `json:"allUsersGroup"`
+	}
+	if err := c.Get(pathGroups+"?fields=id,allUsersGroup&$top=-1", &groups); err != nil {
+		return "", fmt.Errorf("fetch groups: %w", err)
+	}
+	for _, g := range groups {
+		if g.AllUsersGroup {
+			return g.ID, nil
+		}
+	}
+	return "", fmt.Errorf("all users group not found")
 }

@@ -362,10 +362,16 @@ type Tag struct {
 	Owner *User  `json:"owner,omitempty"`
 }
 
+type SharingSettings struct {
+	PermittedGroups []Group `json:"permittedGroups,omitempty"`
+	PermittedUsers  []User  `json:"permittedUsers,omitempty"`
+}
+
 type SavedSearch struct {
-	ID    string `json:"id,omitempty"`
-	Name  string `json:"name,omitempty"`
-	Query string `json:"query,omitempty"`
+	ID                  string           `json:"id,omitempty"`
+	Name                string           `json:"name,omitempty"`
+	Query               string           `json:"query,omitempty"`
+	ReadSharingSettings *SharingSettings `json:"readSharingSettings,omitempty"`
 }
 
 type Organization struct {
