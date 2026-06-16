@@ -407,7 +407,7 @@ type GanttChart struct {
 
 type GanttResource struct {
 	ID        string `json:"id,omitempty"`
-	User      *User  `json:"user,omitempty"`
+	Issue     *Issue `json:"issue,omitempty"`
 	StartDate int64  `json:"startDate,omitempty"`
 }
 

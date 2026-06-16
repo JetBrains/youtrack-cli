@@ -45,7 +45,7 @@ func (c *Client) DeleteCanvas(id string) error {
 }
 
 func (c *Client) ReloadCanvas(id string) error {
-	return c.Post(fmt.Sprintf(pathPlanningCanvas, url.PathEscape(id)), map[string]any{"reload": "true"}, nil)
+	return c.Post(fmt.Sprintf(pathPlanningCanvas, url.PathEscape(id)), map[string]any{"reload": true}, nil)
 }
 
 func (c *Client) AddCanvasNode(canvasID string, x, y int, label, description string) (*CanvasNode, error) {

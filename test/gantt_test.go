@@ -6,6 +6,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/JetBrains/youtrack-cli/api"
 )
 
 // TestCmd_GanttCRUD runs list and delete against the same project so that the
@@ -70,11 +72,12 @@ func TestCmd_GanttMemberAdd(t *testing.T) {
 		t.Skipf("gantt member add not supported on this instance: %v", err)
 	}
 
-	me, err := c.GetCurrentUser()
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "e2e-gantt-member-issue", Project: &api.Project{ID: proj.ID}})
 	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.ID) })
 
-	out := runCmd(t, "gantt", "member", "add", chart.ID, "--user", me.ID, "--format", "json")
-	assert.Contains(t, out, me.ID)
+	out := runCmd(t, "gantt", "member", "add", chart.ID, "--issue", issue.ID, "--format", "json")
+	assert.Contains(t, out, issue.ID)
 }
 
 func TestCmd_GanttSettingsUpdate(t *testing.T) {

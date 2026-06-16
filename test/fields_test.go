@@ -11,6 +11,19 @@ import (
 	"github.com/JetBrains/youtrack-cli/api"
 )
 
+func fieldExistsInList(c *api.Client, id string) (bool, error) {
+	fields, err := c.ListCustomFields()
+	if err != nil {
+		return false, err
+	}
+	for _, f := range fields {
+		if f.ID == id {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // ---------- BundlePathForFieldType unit tests (no API needed) ----------
 
 func TestBundlePathForFieldType_SimplTypes(t *testing.T) {
@@ -129,12 +142,11 @@ func TestCmd_FieldDelete(t *testing.T) {
 
 	runCmd(t, "field", "delete", field.ID)
 
-	// verify it is gone
-	fields, err := c.ListCustomFields()
-	require.NoError(t, err)
-	for _, f := range fields {
-		assert.NotEqual(t, field.ID, f.ID, "deleted field should not appear in list")
-	}
+	// YouTrack deletion may not be immediately reflected in listings; poll briefly.
+	require.Eventually(t, func() bool {
+		exists, err := fieldExistsInList(c, field.ID)
+		return err == nil && !exists
+	}, 5*time.Second, 300*time.Millisecond, "deleted field %s should not appear in list", field.ID)
 }
 
 func TestCmd_FieldPrivacy(t *testing.T) {

@@ -170,15 +170,15 @@ func (c *Client) SetUserLocale(id, locale string) error {
 	return c.Post(path, map[string]any{"locale": map[string]any{"id": locale}}, nil)
 }
 
-func (c *Client) GetUserIssueDrafts(id string) ([]IssueDraft, error) {
+func (c *Client) GetUserIssueDrafts(_ string) ([]IssueDraft, error) {
 	var result []IssueDraft
-	path := fmt.Sprintf(pathUserDrafts+"?fields=id,summary,created&$top=-1", url.PathEscape(id))
+	path := fmt.Sprintf(pathUserDrafts+"?fields=id,summary,created&$top=-1", "me")
 	err := c.Get(path, &result)
 	return result, err
 }
 
-func (c *Client) DeleteAllUserDrafts(id string) error {
-	path := fmt.Sprintf(pathUserDrafts, url.PathEscape(id))
+func (c *Client) DeleteAllUserDrafts(_ string) error {
+	path := fmt.Sprintf(pathUserDrafts, "me")
 	return c.Put(path, []any{}, nil)
 }
 
