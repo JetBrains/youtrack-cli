@@ -1,9 +1,12 @@
 package api_test
 
 import (
+	"strconv"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/JetBrains/youtrack-cli/api"
 )
@@ -92,4 +95,62 @@ func TestCmd_FieldBundleList_PascalCaseType(t *testing.T) {
 func TestCmd_FieldWorktimeGet(t *testing.T) {
 	out := runCmd(t, "field", "worktime", "get", "--format", "json")
 	assert.NotEmpty(t, out)
+}
+
+func TestCmd_FieldAdd(t *testing.T) {
+	c := newTestClient(t)
+
+	name := "TestField-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
+	out := runCmd(t, "field", "add", "--name", name, "--type", api.FieldTypeString, "--format", "json")
+	assert.Contains(t, out, name)
+
+	// cleanup: find and delete the field by name
+	t.Cleanup(func() {
+		fields, err := c.ListCustomFields()
+		if err != nil {
+			return
+		}
+		for _, f := range fields {
+			if f.Name == name {
+				_ = c.DeleteCustomField(f.ID)
+				break
+			}
+		}
+	})
+}
+
+func TestCmd_FieldDelete(t *testing.T) {
+	c := newTestClient(t)
+
+	name := "TestField-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
+	field, err := c.AddCustomField(name, api.FieldTypeString)
+	require.NoError(t, err)
+	require.NotEmpty(t, field.ID)
+
+	runCmd(t, "field", "delete", field.ID)
+
+	// verify it is gone
+	fields, err := c.ListCustomFields()
+	require.NoError(t, err)
+	for _, f := range fields {
+		assert.NotEqual(t, field.ID, f.ID, "deleted field should not appear in list")
+	}
+}
+
+func TestCmd_FieldPrivacy(t *testing.T) {
+	c := newTestClient(t)
+
+	name := "TestField-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
+	field, err := c.AddCustomField(name, api.FieldTypeString)
+	require.NoError(t, err)
+	require.NotEmpty(t, field.ID)
+	t.Cleanup(func() { _ = c.DeleteCustomField(field.ID) })
+
+	// setting --private should succeed with exit 0
+	runCmd(t, "field", "privacy", field.ID, "--private")
+}
+
+func TestCmd_FieldPrototypes(t *testing.T) {
+	out := runCmd(t, "field", "prototypes", "--format", "json")
+	assert.Contains(t, out, "[")
 }
