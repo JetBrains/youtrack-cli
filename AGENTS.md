@@ -25,8 +25,6 @@ export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
 export YOUTRACK_TOKEN=perm:...
 ```
 
-Or write to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automatically on each invocation.
-
 ## Project Structure
 
 | Path | Role |
@@ -41,7 +39,6 @@ Or write to `~/.youtrack-cli-env` (one `KEY=VALUE` per line) — loaded automati
 | `api/users.go` | User API methods |
 | `cmd/youtrack.go` | Cobra root command, exports `NewRootCmd()`, global flags, subcommand registration |
 | `internal/client.go` | `GetClient()` helper — reads flags and env vars |
-| `internal/env.go` | `LoadEnvFile()` — loads `~/.youtrack-cli-env` |
 | `cmd/issue/` | Issue subcommands (17 files) |
 | `cmd/project/` | Project subcommands (10 files) |
 | `cmd/user/` | User subcommands (12 files) |

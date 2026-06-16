@@ -228,56 +228,6 @@ func TestAuthGetToken_SavesToConfig(t *testing.T) {
 	assert.Equal(t, token, result.Instances["mywork"].Token)
 }
 
-func TestAuthGetToken_EnvFileImport_Yes(t *testing.T) {
-	requireE2EEnv(t)
-	token := os.Getenv("YOUTRACK_TOKEN")
-	baseURL := os.Getenv("YOUTRACK_BASE_URL")
-	tmpHome := t.TempDir()
-
-	envContent := "YOUTRACK_BASE_URL=" + baseURL + "\nYOUTRACK_TOKEN=" + token + "\n"
-	require.NoError(t, os.WriteFile(filepath.Join(tmpHome, ".youtrack-cli-env"), []byte(envContent), 0600))
-
-	// Stdin: auth method "3", token paste, then "y" to import existing env credentials.
-	runCmdWithEnv(t, "3\n"+token+"\ny\n",
-		[]string{"HOME=" + tmpHome},
-		"--base-url", baseURL, "auth", "get-token", "--alias", "newinstance",
-	)
-
-	data, err := os.ReadFile(filepath.Join(tmpHome, ".youtrack-cli-config.json"))
-	require.NoError(t, err)
-	var result struct {
-		Instances map[string]json.RawMessage `json:"instances"`
-	}
-	require.NoError(t, json.Unmarshal(data, &result))
-	assert.Len(t, result.Instances, 2)
-	assert.Contains(t, result.Instances, "newinstance")
-}
-
-func TestAuthGetToken_EnvFileImport_No(t *testing.T) {
-	requireE2EEnv(t)
-	token := os.Getenv("YOUTRACK_TOKEN")
-	baseURL := os.Getenv("YOUTRACK_BASE_URL")
-	tmpHome := t.TempDir()
-
-	envContent := "YOUTRACK_BASE_URL=" + baseURL + "\nYOUTRACK_TOKEN=" + token + "\n"
-	require.NoError(t, os.WriteFile(filepath.Join(tmpHome, ".youtrack-cli-env"), []byte(envContent), 0600))
-
-	// "n" — decline import; only the new instance should be saved.
-	runCmdWithEnv(t, "3\n"+token+"\nn\n",
-		[]string{"HOME=" + tmpHome},
-		"--base-url", baseURL, "auth", "get-token", "--alias", "onlynew",
-	)
-
-	data, err := os.ReadFile(filepath.Join(tmpHome, ".youtrack-cli-config.json"))
-	require.NoError(t, err)
-	var result struct {
-		Instances map[string]json.RawMessage `json:"instances"`
-	}
-	require.NoError(t, json.Unmarshal(data, &result))
-	assert.Len(t, result.Instances, 1)
-	assert.Contains(t, result.Instances, "onlynew")
-}
-
 func TestAuthLogout_ConfigInstance(t *testing.T) {
 	tmpHome := t.TempDir()
 	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)

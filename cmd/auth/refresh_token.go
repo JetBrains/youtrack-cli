@@ -97,9 +97,9 @@ Use --format json for machine-readable output.`,
 			}
 			path, _ := config.ConfigPath()
 			res := getTokenResult{
-				HubToken: hubToken,
-				EnvFile:  path,
-				Hint:     fmt.Sprintf("Token updated for %q.", alias),
+				HubToken:   hubToken,
+				ConfigFile: path,
+				Hint:       fmt.Sprintf("Token updated for %q.", alias),
 			}
 			if !flagChanged(cmd, "format") {
 				printTokenResult(cmd, res)

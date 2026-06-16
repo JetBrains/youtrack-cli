@@ -14,8 +14,8 @@ import (
 // GetClient builds an API client using a four-tier resolution chain:
 //  1. --base-url / --token flags (explicit per-command override, always wins)
 //  2. --server flag (selects a named profile from config by alias)
-//  3. YOUTRACK_BASE_URL / YOUTRACK_TOKEN env vars (explicit, process-scoped)
-//  4. Active instance from ~/.youtrack-cli-config.json (convenience fallback)
+//  3. YOUTRACK_BASE_URL / YOUTRACK_TOKEN env vars (shell/CI, process-scoped)
+//  4. Active instance from ~/.youtrack-cli-config.json (set via `instance use`)
 func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	flags := cmd.Root().PersistentFlags()
 

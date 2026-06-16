@@ -21,6 +21,11 @@ fi
 
 if token="$(current_token 2>/dev/null)" && token_is_valid "${token}"; then
   echo "reusing existing YouTrack E2E instance at ${BASE_URL}"
+  # Patch stale env files that predate YOUTRACK_LOGIN/PASSWORD being written.
+  if ! grep -q "^YOUTRACK_LOGIN=" "${ENV_FILE}" 2>/dev/null; then
+    echo "YOUTRACK_LOGIN=${ADMIN_LOGIN}" >> "${ENV_FILE}"
+    echo "YOUTRACK_PASSWORD=${ADMIN_PASSWORD}" >> "${ENV_FILE}"
+  fi
   exit 0
 fi
 
