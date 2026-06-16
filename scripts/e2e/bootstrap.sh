@@ -44,3 +44,68 @@ fi
 
 copy_logs
 echo "prepared YouTrack E2E instance at ${BASE_URL}"
+
+# --- Gitea setup ---
+GITEA_HOST="${GITEA_HOST:-localhost}"
+GITEA_PORT="${GITEA_E2E_PORT:-3000}"
+GITEA_URL="http://${GITEA_HOST}:${GITEA_PORT}"
+GITEA_ADMIN_USER="e2eadmin"
+GITEA_ADMIN_PASS="e2epassword"
+GITEA_ORG="youtrack-cli-e2e"
+
+echo "Setting up Gitea..."
+if ! curl -sf "${GITEA_URL}/api/v1/version" -o /dev/null; then
+  echo "Gitea is not reachable at ${GITEA_URL} — skipping Gitea setup" >&2
+  # Write placeholder values so tests skip gracefully
+  grep -v "^GITEA_BASE_URL=" "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}" || true
+  echo "GITEA_BASE_URL=" >> "${ENV_FILE}"
+  grep -v "^GITEA_TOKEN=" "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}" || true
+  echo "GITEA_TOKEN=" >> "${ENV_FILE}"
+else
+  # Create admin user (idempotent — 422 if already exists)
+  curl -sf -X POST "${GITEA_URL}/api/v1/users/search" -o /dev/null || true
+  curl -sf -X POST "${GITEA_URL}/api/v1/admin/users" \
+    -H "Content-Type: application/json" \
+    --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
+    -d "{\"login_name\":\"${GITEA_ADMIN_USER}\",\"username\":\"${GITEA_ADMIN_USER}\",\"email\":\"admin@example.com\",\"password\":\"${GITEA_ADMIN_PASS}\",\"must_change_password\":false}" \
+    -o /dev/null 2>/dev/null || true
+
+  # Create org + repo
+  curl -sf -X POST "${GITEA_URL}/api/v1/orgs" \
+    --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
+    -H "Content-Type: application/json" \
+    -d "{\"username\":\"${GITEA_ORG}\",\"visibility\":\"public\"}" -o /dev/null || true
+  curl -sf -X POST "${GITEA_URL}/api/v1/orgs/${GITEA_ORG}/repos" \
+    --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"test-repo","auto_init":true}' -o /dev/null || true
+
+  # Export GITEA_BASE_URL (idempotent)
+  grep -v "^GITEA_BASE_URL=" "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}" || true
+  echo "GITEA_BASE_URL=${GITEA_URL}" >> "${ENV_FILE}"
+
+  # Generate token (idempotent — delete existing first, then create)
+  grep -v "^GITEA_TOKEN=" "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}" || true
+  # Delete existing token if present (idempotent — ignore 404)
+  curl -sf -X DELETE "${GITEA_URL}/api/v1/users/${GITEA_ADMIN_USER}/tokens/e2e-token" \
+    --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" -o /dev/null 2>/dev/null || true
+
+  GITEA_TOKEN_RESPONSE="$(curl -sf -X POST "${GITEA_URL}/api/v1/users/${GITEA_ADMIN_USER}/tokens" \
+    --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"e2e-token"}')"
+  GITEA_TOKEN="$(printf '%s' "${GITEA_TOKEN_RESPONSE}" | jq -r '.sha1 // empty')"
+  if [[ -z "${GITEA_TOKEN}" ]]; then
+    echo "failed to create Gitea token; response: ${GITEA_TOKEN_RESPONSE}" >&2
+    exit 1
+  fi
+  echo "GITEA_TOKEN=${GITEA_TOKEN}" >> "${ENV_FILE}"
+fi
+
+# --- MailHog setup ---
+MAILHOG_HOST="${MAILHOG_HOST:-localhost}"
+MAILHOG_PORT="${MAILHOG_SMTP_PORT:-1025}"
+grep -v "^MAILHOG_HOST=\|^MAILHOG_PORT=" "${ENV_FILE}" > "${ENV_FILE}.tmp" && mv "${ENV_FILE}.tmp" "${ENV_FILE}" || true
+echo "MAILHOG_HOST=${MAILHOG_HOST}" >> "${ENV_FILE}"
+echo "MAILHOG_PORT=${MAILHOG_PORT}" >> "${ENV_FILE}"
+echo "Setup complete: Gitea at ${GITEA_URL}, MailHog SMTP at ${MAILHOG_HOST}:${MAILHOG_PORT}"
