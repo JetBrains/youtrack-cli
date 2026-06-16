@@ -197,8 +197,26 @@ func (c *Client) LinkIssues(issueID, targetID, linkTypeID string) error {
 	return c.Post(path, map[string]any{"id": target.ID}, nil)
 }
 
+// RemoveIssueLink removes all linked issues from the given link on issueID.
+// linkID is the direction-type ID returned by GetLinkedIssues (e.g. "167-0s").
+// The YouTrack REST API does not support DELETE on the link itself; each linked
+// issue must be removed individually via DELETE /issues/{id}/links/{linkId}/issues/{targetId}.
 func (c *Client) RemoveIssueLink(issueID, linkID string) error {
-	return c.Delete(fmt.Sprintf(pathIssueLink, url.PathEscape(issueID), url.PathEscape(linkID)))
+	// Fetch the link to discover which issues are attached to it.
+	var link IssueLink
+	path := fmt.Sprintf(pathIssueLink+"?fields=id,issues(id)&$top=-1",
+		url.PathEscape(issueID), url.PathEscape(linkID))
+	if err := c.Get(path, &link); err != nil {
+		return err
+	}
+	for _, target := range link.Issues {
+		delPath := fmt.Sprintf(pathIssueLinkTypeIssue,
+			url.PathEscape(issueID), url.PathEscape(linkID), url.PathEscape(target.ID))
+		if err := c.Delete(delPath); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (c *Client) TagIssue(issueID, tagID string) error {
@@ -388,6 +406,14 @@ func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]a
 	var result map[string]any
 	err := c.Post(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
 		map[string]any{"query": query, "issues": issues}, &result)
+	return result, err
+}
+
+func (c *Client) ListIssueCommentReactions(issueID, commentID string) ([]Reaction, error) {
+	var result []Reaction
+	path := fmt.Sprintf(pathIssueCommentReactions+"?fields=id,reaction,author(id,login,fullName)&$top=-1",
+		url.PathEscape(issueID), url.PathEscape(commentID))
+	err := c.Get(path, &result)
 	return result, err
 }
 
