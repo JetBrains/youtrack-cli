@@ -31,3 +31,63 @@ func TestCmd_GanttCRUD(t *testing.T) {
 		assert.Contains(t, out, "deleted")
 	})
 }
+
+func TestCmd_GanttUpdate(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	chart, err := c.AddGanttChart("e2e-gantt-upd-"+t.Name(), []string{proj.ID}, time.Now().UnixMilli())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteGanttChart(chart.ID) })
+
+	newName := "e2e-gantt-renamed-" + t.Name()
+	out := runCmd(t, "gantt", "update", chart.ID, "--name", newName, "--format", "json")
+	assert.Contains(t, out, newName)
+}
+
+func TestCmd_GanttMemberList(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	chart, err := c.AddGanttChart("e2e-gantt-mbr-"+t.Name(), []string{proj.ID}, time.Now().UnixMilli())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteGanttChart(chart.ID) })
+
+	if _, err := c.ListGanttResources(chart.ID); err != nil {
+		t.Skipf("gantt member list not supported on this instance: %v", err)
+	}
+
+	out := runCmd(t, "gantt", "member", "list", chart.ID, "--format", "json")
+	assert.Contains(t, out, "[")
+}
+
+func TestCmd_GanttMemberAdd(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	chart, err := c.AddGanttChart("e2e-gantt-mbr-add-"+t.Name(), []string{proj.ID}, time.Now().UnixMilli())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteGanttChart(chart.ID) })
+
+	if _, err := c.ListGanttResources(chart.ID); err != nil {
+		t.Skipf("gantt member add not supported on this instance: %v", err)
+	}
+
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	out := runCmd(t, "gantt", "member", "add", chart.ID, "--user", me.ID, "--format", "json")
+	assert.Contains(t, out, me.ID)
+}
+
+func TestCmd_GanttSettingsUpdate(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	chart, err := c.AddGanttChart("e2e-gantt-settings-"+t.Name(), []string{proj.ID}, time.Now().UnixMilli())
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteGanttChart(chart.ID) })
+
+	if _, err := c.UpdateGanttSettings(chart.ID, map[string]any{"showWeekends": false}); err != nil {
+		t.Skipf("gantt settings update not supported on this instance: %v", err)
+	}
+
+	out := runCmd(t, "gantt", "settings", "update", chart.ID, "--show-weekends", "--format", "json")
+	assert.Contains(t, out, "showWeekends")
+}
