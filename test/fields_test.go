@@ -163,6 +163,14 @@ func TestCmd_FieldPrivacy(t *testing.T) {
 }
 
 func TestCmd_FieldPrototypes(t *testing.T) {
-	out := runCmd(t, "field", "prototypes", "--format", "json")
+	requireE2EEnv(t)
+	// YouTrack may transiently return HTTP 500 while a recently-deleted
+	// field prototype is still referenced in its index; poll until clear.
+	var out string
+	require.Eventually(t, func() bool {
+		var err error
+		out, err = tryCmdNoFail(t, "field", "prototypes", "--format", "json")
+		return err == nil
+	}, 15*time.Second, 500*time.Millisecond, "field prototypes should return 200 once YouTrack index stabilizes")
 	assert.Contains(t, out, "[")
 }
