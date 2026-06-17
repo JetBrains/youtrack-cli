@@ -152,6 +152,18 @@ func runCmd(t *testing.T, args ...string) string {
 	return stdout.String()
 }
 
+// tryCmdNoFail runs the binary and returns (stdout, error) without failing the test.
+// Useful inside require.Eventually retry loops where a transient error is expected.
+func tryCmdNoFail(t *testing.T, args ...string) (string, error) {
+	t.Helper()
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	err := cmd.Run()
+	return stdout.String(), err
+}
+
 func runCmdExpectError(t *testing.T, args ...string) string {
 	t.Helper()
 	requireE2EEnv(t)
