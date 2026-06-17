@@ -171,6 +171,6 @@ func TestCmd_FieldPrototypes(t *testing.T) {
 		var err error
 		out, err = tryCmdNoFail(t, "field", "prototypes", "--format", "json")
 		return err == nil
-	}, 15*time.Second, 500*time.Millisecond, "field prototypes should return 200 once YouTrack index stabilises")
+	}, 15*time.Second, 500*time.Millisecond, "field prototypes should return 200 once YouTrack index stabilizes")
 	assert.Contains(t, out, "[")
 }
