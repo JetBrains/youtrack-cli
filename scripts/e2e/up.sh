@@ -16,8 +16,8 @@ fi
 
 if ! service_is_running; then
   configure_instance
-  compose up -d --wait --wait-timeout 600 youtrack
 fi
+compose up -d --wait --wait-timeout 600 youtrack gitea mailhog
 
 if token="$(current_token 2>/dev/null)" && token_is_valid "${token}"; then
   echo "reusing existing YouTrack E2E instance at ${BASE_URL}"

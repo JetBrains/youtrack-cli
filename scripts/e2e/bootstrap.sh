@@ -76,7 +76,7 @@ if [[ "${GITEA_READY}" -eq 0 ]]; then
 else
   # Create admin user via the Gitea CLI inside the container — bypasses HTTP auth
   # so it works even on a brand-new instance with no users yet (idempotent).
-  docker exec "${GITEA_CONTAINER}" \
+  docker exec --user git "${GITEA_CONTAINER}" \
     gitea admin user create \
       --username "${GITEA_ADMIN_USER}" \
       --password "${GITEA_ADMIN_PASS}" \
@@ -103,10 +103,10 @@ else
   curl -sf -X DELETE "${GITEA_URL}/api/v1/users/${GITEA_ADMIN_USER}/tokens/e2e-token" \
     --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" -o /dev/null 2>/dev/null || true
 
-  GITEA_TOKEN_RESPONSE="$(curl -sf -X POST "${GITEA_URL}/api/v1/users/${GITEA_ADMIN_USER}/tokens" \
+  GITEA_TOKEN_RESPONSE="$(curl -s -X POST "${GITEA_URL}/api/v1/users/${GITEA_ADMIN_USER}/tokens" \
     --user "${GITEA_ADMIN_USER}:${GITEA_ADMIN_PASS}" \
     -H "Content-Type: application/json" \
-    -d '{"name":"e2e-token"}')"
+    -d '{"name":"e2e-token","scopes":["write:repository","write:organization","write:admin","write:user","read:user"]}')"
   GITEA_TOKEN="$(printf '%s' "${GITEA_TOKEN_RESPONSE}" | jq -r '.sha1 // empty')"
   if [[ -z "${GITEA_TOKEN}" ]]; then
     echo "failed to create Gitea token; response: ${GITEA_TOKEN_RESPONSE}" >&2
