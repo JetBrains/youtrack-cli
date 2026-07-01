@@ -61,11 +61,12 @@ func checkForUpdate(currentVersion string) string {
 		return ""
 	}
 
+	latest := strings.TrimPrefix(release.TagName, "v")
+	current := strings.TrimPrefix(currentVersion, "v")
+
 	cfg.LastUpdateCheck = now
 	_ = cfg.Save()
 
-	latest := strings.TrimPrefix(release.TagName, "v")
-	current := strings.TrimPrefix(currentVersion, "v")
 	if latest == current {
 		return ""
 	}
