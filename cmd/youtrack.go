@@ -3,6 +3,7 @@ package cmd
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"os"
 
 	"github.com/spf13/cobra"
@@ -94,11 +95,15 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 // Execute is the entrypoint called from main.go.
 func Execute(fs embed.FS) error {
 	root := NewRootCmd(fs)
-	if err := root.Execute(); err != nil {
+	done := internal.CheckForUpdateAsync(internal.Version)
+	execErr := root.Execute()
+	quiet, _ := root.PersistentFlags().GetBool("quiet")
+	if execErr != nil {
 		format := output.Format(root)
-		quiet, _ := root.PersistentFlags().GetBool("quiet")
-		output.RenderError(root.ErrOrStderr(), root.OutOrStdout(), err, format == "json", quiet)
-		return err
+		output.RenderError(root.ErrOrStderr(), root.OutOrStdout(), execErr, format == "json", quiet)
 	}
-	return nil
+	if notice := <-done; notice != "" && !quiet {
+		_, _ = fmt.Fprintln(root.ErrOrStderr(), notice)
+	}
+	return execErr
 }

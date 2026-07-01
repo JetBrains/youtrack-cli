@@ -151,6 +151,8 @@ const (
 	pathUserProfileProperties    = "/api/users/%s/profiles/propertiesProfile/properties"
 	pathUserTags                 = "/api/users/%s/tags"
 	pathUserDrafts               = "/api/users/%s/drafts"
+	pathUserDraft                = "/api/users/%s/drafts/%s"
+	pathUserDraftField           = "/api/users/%s/drafts/%s/fields/%s"
 	pathUserArticleDrafts        = "/api/users/%s/articleDrafts"
 	pathUserPinnedProjects       = "/api/users/%s/pinnedProjects"
 

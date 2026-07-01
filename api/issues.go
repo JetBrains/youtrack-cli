@@ -12,6 +12,7 @@ import (
 const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
 const issueDetailFields = issueFields + ",customFields(name,value(name,login,text,presentation))"
 const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,visibility"
+const draftFields = "id,summary,description,created,fields(id,name,$type)"
 
 // AddIssueRequest is the body for creating an issue.
 type AddIssueRequest struct {
@@ -426,6 +427,85 @@ func (c *Client) AddReaction(issueID, commentID, reaction string) error {
 func (c *Client) DeleteReaction(issueID, commentID, reactionID string) error {
 	return c.Delete(fmt.Sprintf(pathIssueCommentReaction,
 		url.PathEscape(issueID), url.PathEscape(commentID), url.PathEscape(reactionID)))
+}
+
+func (c *Client) CreateDraft(projectID, summary, description string) (*IssueDraft, error) {
+	body := map[string]any{
+		"project": map[string]string{"id": projectID},
+	}
+	if summary != "" {
+		body["summary"] = summary
+	}
+	if description != "" {
+		body["description"] = description
+	}
+	var result IssueDraft
+	path := fmt.Sprintf(pathUserDrafts, "me") + "?fields=" + draftFields
+	err := c.Post(path, body, &result)
+	return &result, err
+}
+
+func (c *Client) GetDraft(draftID string) (*IssueDraft, error) {
+	var result IssueDraft
+	path := fmt.Sprintf(pathUserDraft+"?fields=%s", "me", url.PathEscape(draftID), draftFields)
+	err := c.Get(path, &result)
+	return &result, err
+}
+
+func (c *Client) UpdateDraft(draftID, summary, description string) (*IssueDraft, error) {
+	body := map[string]any{}
+	if summary != "" {
+		body["summary"] = summary
+	}
+	if description != "" {
+		body["description"] = description
+	}
+	var result IssueDraft
+	path := fmt.Sprintf(pathUserDraft+"?fields=%s", "me", url.PathEscape(draftID), draftFields)
+	err := c.Post(path, body, &result)
+	return &result, err
+}
+
+// UpdateDraftField sets a single custom field on a draft by field ID.
+// fieldType is the YouTrack $type of the field (e.g. "StateIssueCustomField").
+// valueName is the display name of the desired value (e.g. "Fixed").
+func (c *Client) UpdateDraftField(draftID, fieldID, fieldType, valueName string) error {
+	valueType := draftFieldValueType(fieldType)
+	body := map[string]any{
+		"$type": fieldType,
+	}
+	if valueType != "" {
+		body["value"] = map[string]string{"$type": valueType, "name": valueName}
+	} else {
+		body["value"] = map[string]string{"name": valueName}
+	}
+	path := fmt.Sprintf(pathUserDraftField, "me", url.PathEscape(draftID), url.PathEscape(fieldID))
+	return c.Post(path, body, nil)
+}
+
+// draftFieldValueType maps a field $type to its value $type.
+func draftFieldValueType(fieldType string) string {
+	switch fieldType {
+	case "StateIssueCustomField":
+		return "StateBundleElement"
+	case "SingleEnumIssueCustomField", "MultiEnumIssueCustomField":
+		return "EnumBundleElement"
+	case "SingleVersionIssueCustomField", "MultiVersionIssueCustomField":
+		return "VersionBundleElement"
+	case "SingleBuildIssueCustomField", "MultiBuildIssueCustomField":
+		return "BuildBundleElement"
+	case "SingleOwnedIssueCustomField", "MultiOwnedIssueCustomField":
+		return "OwnedBundleElement"
+	default:
+		return ""
+	}
+}
+
+func (c *Client) SubmitDraft(draftID string) (*Issue, error) {
+	var result Issue
+	path := pathIssues + "?draftId=" + url.QueryEscape(draftID) + "&fields=" + issueFields
+	err := c.Post(path, map[string]any{}, &result)
+	return &result, err
 }
 
 // ApplyCommand resolves each issue ID to its internal ID then POSTs to /api/commands.
