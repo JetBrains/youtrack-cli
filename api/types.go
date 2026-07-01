@@ -314,10 +314,25 @@ type ArticleDraft struct {
 	Summary string `json:"summary,omitempty"`
 }
 
+type IssueDraftFieldValue struct {
+	Type string `json:"$type,omitempty"`
+	ID   string `json:"id,omitempty"`
+	Name string `json:"name,omitempty"`
+}
+
+type IssueDraftField struct {
+	ID    string                `json:"id,omitempty"`
+	Name  string                `json:"name,omitempty"`
+	Type  string                `json:"$type,omitempty"`
+	Value *IssueDraftFieldValue `json:"value,omitempty"`
+}
+
 type IssueDraft struct {
-	ID      string `json:"id,omitempty"`
-	Summary string `json:"summary,omitempty"`
-	Created int64  `json:"created,omitempty"`
+	ID          string            `json:"id,omitempty"`
+	Summary     string            `json:"summary,omitempty"`
+	Description string            `json:"description,omitempty"`
+	Created     int64             `json:"created,omitempty"`
+	Fields      []IssueDraftField `json:"fields,omitempty"`
 }
 
 type SystemSettings struct {
