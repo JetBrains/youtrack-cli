@@ -15,6 +15,7 @@ import (
 type Config struct {
 	CurrentInstance string              `json:"currentInstance"`
 	Instances       map[string]Instance `json:"instances"`
+	LastUpdateCheck int64               `json:"lastUpdateCheck,omitempty"`
 }
 
 // Instance holds the credentials for a single YouTrack instance.
