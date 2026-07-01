@@ -12,7 +12,7 @@ import (
 const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
 const issueDetailFields = issueFields + ",customFields(name,value(name,login,text,presentation))"
 const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,visibility"
-const draftFields = "id,summary,description,created,fields(id,name,$type,value($type,id,name))"
+const draftFields = "id,summary,description,created,fields(id,name,$type)"
 
 // AddIssueRequest is the body for creating an issue.
 type AddIssueRequest struct {
