@@ -182,24 +182,6 @@ youtrack user delete john.doe --successor admin
 youtrack user timezone set john.doe "Europe/Berlin"
 ```
 
-### Template-guided issue creation
-
-The `issue draft` commands enable a template-guided workflow for issue creation:
-
-```bash
-# 1. Create draft — description and custom fields are prefilled from project template
-youtrack issue draft create --project MYPROJ --format json
-
-# 2. Fill in the draft (agent reads template description from step 1's response)
-youtrack issue draft update <draftId> \
-  --summary "Build fails on M1" \
-  --description "**Steps:** 1. Clone repo 2. Run make build\n**Expected:** success\n**Actual:** error" \
-  --custom-fields '{"Type":"Bug","Priority":"High"}'
-
-# 3. Submit as real issue
-youtrack issue draft submit <draftId>
-```
-
 ## Global Flags
 
 | Flag | Description |
