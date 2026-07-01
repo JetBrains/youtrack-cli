@@ -8,26 +8,26 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
-func newCanvasCmd() *cobra.Command {
+func newWhiteboardCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "canvas",
-		Short: "Manage planning canvases",
+		Use:   "whiteboard",
+		Short: "Manage whiteboards",
 	}
-	cmd.AddCommand(newCanvasListCmd())
-	cmd.AddCommand(newCanvasAddCmd())
-	cmd.AddCommand(newCanvasGetCmd())
-	cmd.AddCommand(newCanvasDeleteCmd())
-	cmd.AddCommand(newCanvasReloadCmd())
-	cmd.AddCommand(newCanvasNodeCmd())
-	cmd.AddCommand(newCanvasLinksCmd())
-	cmd.AddCommand(newCanvasLinkCmd())
+	cmd.AddCommand(newWhiteboardListCmd())
+	cmd.AddCommand(newWhiteboardAddCmd())
+	cmd.AddCommand(newWhiteboardGetCmd())
+	cmd.AddCommand(newWhiteboardDeleteCmd())
+	cmd.AddCommand(newWhiteboardReloadCmd())
+	cmd.AddCommand(newWhiteboardNodeCmd())
+	cmd.AddCommand(newWhiteboardLinksCmd())
+	cmd.AddCommand(newWhiteboardLinkCmd())
 	return cmd
 }
 
-func newCanvasListCmd() *cobra.Command {
+func newWhiteboardListCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "list",
-		Short: "List all planning canvases",
+		Short: "List all whiteboards",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -42,10 +42,10 @@ func newCanvasListCmd() *cobra.Command {
 	}
 }
 
-func newCanvasAddCmd() *cobra.Command {
+func newWhiteboardAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
-		Short: "Create a new canvas",
+		Short: "Create a new whiteboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			ownerLogin, _ := cmd.Flags().GetString("owner")
@@ -77,16 +77,16 @@ func newCanvasAddCmd() *cobra.Command {
 			return output.Print(cmd, canvas)
 		},
 	}
-	cmd.Flags().String("name", "", "Canvas name (required)")
+	cmd.Flags().String("name", "", "Whiteboard name (required)")
 	cmd.Flags().String("owner", "", "Owner login")
 	internal.MustMarkRequired(cmd, "name")
 	return cmd
 }
 
-func newCanvasGetCmd() *cobra.Command {
+func newWhiteboardGetCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "get <id>",
-		Short: "Get a canvas by ID",
+		Short: "Get a whiteboard by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -102,10 +102,10 @@ func newCanvasGetCmd() *cobra.Command {
 	}
 }
 
-func newCanvasDeleteCmd() *cobra.Command {
+func newWhiteboardDeleteCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "delete <id>",
-		Short: "Delete a canvas by ID",
+		Short: "Delete a whiteboard by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -115,16 +115,16 @@ func newCanvasDeleteCmd() *cobra.Command {
 			if err := client.DeleteCanvas(args[0]); err != nil {
 				return err
 			}
-			output.PrintSuccess(cmd, "deleted canvas "+args[0])
+			output.PrintSuccess(cmd, "deleted whiteboard "+args[0])
 			return nil
 		},
 	}
 }
 
-func newCanvasReloadCmd() *cobra.Command {
+func newWhiteboardReloadCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "reload <id>",
-		Short: "Reload a canvas by ID",
+		Short: "Reload a whiteboard by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -136,21 +136,21 @@ func newCanvasReloadCmd() *cobra.Command {
 	}
 }
 
-func newCanvasNodeCmd() *cobra.Command {
+func newWhiteboardNodeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "node",
-		Short: "Manage canvas nodes",
+		Short: "Manage whiteboard nodes",
 	}
-	cmd.AddCommand(newCanvasNodeAddCmd())
-	cmd.AddCommand(newCanvasNodeListCmd())
-	cmd.AddCommand(newCanvasNodeGetCmd())
+	cmd.AddCommand(newWhiteboardNodeAddCmd())
+	cmd.AddCommand(newWhiteboardNodeListCmd())
+	cmd.AddCommand(newWhiteboardNodeGetCmd())
 	return cmd
 }
 
-func newCanvasNodeListCmd() *cobra.Command {
+func newWhiteboardNodeListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "list <canvasId>",
-		Short: "List nodes on a canvas",
+		Use:   "list <whiteboardId>",
+		Short: "List nodes on a whiteboard",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -166,10 +166,10 @@ func newCanvasNodeListCmd() *cobra.Command {
 	}
 }
 
-func newCanvasNodeGetCmd() *cobra.Command {
+func newWhiteboardNodeGetCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <canvasId> <cardId>",
-		Short: "Get a node from a canvas",
+		Use:   "get <whiteboardId> <cardId>",
+		Short: "Get a node from a whiteboard",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -185,10 +185,10 @@ func newCanvasNodeGetCmd() *cobra.Command {
 	}
 }
 
-func newCanvasNodeAddCmd() *cobra.Command {
+func newWhiteboardNodeAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add <canvasId>",
-		Short: "Add a node to a canvas",
+		Use:   "add <whiteboardId>",
+		Short: "Add a node to a whiteboard",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			x, _ := cmd.Flags().GetInt("x")
@@ -215,10 +215,10 @@ func newCanvasNodeAddCmd() *cobra.Command {
 	return cmd
 }
 
-func newCanvasLinksCmd() *cobra.Command {
+func newWhiteboardLinksCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "links <canvasId>",
-		Short: "List links in a canvas",
+		Use:   "links <whiteboardId>",
+		Short: "List links in a whiteboard",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -234,10 +234,10 @@ func newCanvasLinksCmd() *cobra.Command {
 	}
 }
 
-func newCanvasLinkCmd() *cobra.Command {
+func newWhiteboardLinkCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "link <canvasId>",
-		Short: "Link two nodes in a canvas",
+		Use:   "link <whiteboardId>",
+		Short: "Link two nodes in a whiteboard",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			source, _ := cmd.Flags().GetString("source")

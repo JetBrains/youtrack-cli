@@ -1,5 +1,12 @@
 # Gotchas & Tips
 
+## CLI gotchas
+
+- **Opaque IDs for team commands** — `project team add-user` / `project team add-group` expect opaque IDs (`2-9`, `4-1`), not logins/names. Resolve with `youtrack user get <login> --json | jq .id`.
+- **`project add` requires `--leader`** — the YouTrack API rejects creation without it. Use `user me` to get the current login if none is specified.
+- **`issue command` logins** — the CLI auto-wraps logins with `.`, `-`, or `@` in braces. Write the login as-is.
+- **Output format** — table on TTY, JSON when piped. Use `--json` / `--plain` to override.
+
 ## Known defaults
 
 - **Issue Type defaults to "Bug"**: `add-issue` does not accept a `type` param — every new issue gets Type=Bug. Always follow with `set-custom-field --fieldName Type --fieldValue <type> --fieldType enum` when creating non-Bug issues. Valid values: `Bug`, `Feature`, `Task`, `Cosmetics`, `Exception`, `Usability Problem`, `Performance Problem`, `Epic`.
