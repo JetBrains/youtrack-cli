@@ -107,7 +107,7 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 |---|---|
 | `auth` | `get-token` (`login`), `refresh-token`, `logout`, `status` |
 | `instance` | `add`, `list`, `use`, `remove`, `update-token` |
-| `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `count`, `suggest`, `assist` |
+| `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `count`, `suggest`, `assist`, `activity`, `sprint`, `vcs` |
 | `issue comment` | `list`, `add`, `update`, `delete`, `pin`, `visibility` |
 | `issue link` | `list`, `add`, `remove` |
 | `issue link type` | `list`, `add` |
@@ -127,7 +127,7 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 | `user locale` | `set` |
 | `user timezone` | `get`, `set` |
 | `user profile` | `general`, `appearance`, `notifications`, `articles`, `issues-list`, `grazie`, `tips`, `property` |
-| `board` | `list`, `get` (`view`), `add` (`create`), `delete` |
+| `board` | `list`, `get` (`view`), `add` (`create`), `update`, `delete` |
 | `board sprint` | `list`, `get`, `add` |
 
 ## Examples
@@ -189,12 +189,12 @@ youtrack user timezone set john.doe "Europe/Berlin"
 |---|---|
 | `--json` / `-j` | Force JSON output |
 | `--plain` | Force tab-separated output, no headers |
-| `--format json\|table\|plain` | Explicit format override |
 | `--fields FIELDS` / `-f` | Field projection: `--fields id,summary,reporter` |
 | `--server ALIAS` / `-s` | Use a named instance for this invocation |
 | `--base-url URL` | Override `YOUTRACK_BASE_URL` |
 | `--token TOKEN` | Override `YOUTRACK_TOKEN` |
 | `--verbose` | Print HTTP requests/responses to stderr |
+| `--quiet` | Suppress tips and hints (useful for scripting) |
 
 **Output defaults:** table when stdout is a TTY; JSON when piped or redirected.
 
