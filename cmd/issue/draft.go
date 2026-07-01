@@ -109,16 +109,15 @@ func newIssueDraftUpdateCmd() *cobra.Command {
 			}
 
 			var draft *api.IssueDraft
-			var err2 error
 			if summary != "" || description != "" {
-				draft, err2 = client.UpdateDraft(draftID, summary, description)
-				if err2 != nil {
-					return err2
+				draft, err = client.UpdateDraft(draftID, summary, description)
+				if err != nil {
+					return err
 				}
 			} else {
-				draft, err2 = client.GetDraft(draftID)
-				if err2 != nil {
-					return err2
+				draft, err = client.GetDraft(draftID)
+				if err != nil {
+					return err
 				}
 			}
 
@@ -138,9 +137,9 @@ func newIssueDraftUpdateCmd() *cobra.Command {
 					}
 				}
 				// Re-fetch to return updated state.
-				draft, err2 = client.GetDraft(draftID)
-				if err2 != nil {
-					return err2
+				draft, err = client.GetDraft(draftID)
+				if err != nil {
+					return err
 				}
 			}
 
