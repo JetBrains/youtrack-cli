@@ -5,10 +5,6 @@
 - **Opaque IDs for team commands** — `project team add-user` / `project team add-group` expect opaque IDs (`2-9`, `4-1`), not logins/names. Resolve with `youtrack user get <login> --json | jq .id`.
 - **`project add` requires `--leader`** — the YouTrack API rejects creation without it. Use `user me` to get the current login if none is specified.
 - **`issue command` logins** — the CLI auto-wraps logins with `.`, `-`, or `@` in braces. Write the login as-is.
-- **`issue count` may return -1** — the count is computed async; retry manually if needed.
-- **`issue link add` HTTP 405** — known bug (F-01); use `issue command` as a workaround.
-- **`user pin-project` needs opaque userId** — not login (F-06).
-- **`user locale set` HTTP 500** — known bug (F-03).
 - **Output format** — table on TTY, JSON when piped. Use `--json` / `--plain` to override.
 
 ## Known defaults
