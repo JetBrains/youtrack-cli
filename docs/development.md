@@ -77,7 +77,6 @@ go test ./test/ -run TestGetIssue -v
 | `api/users.go` | User API methods |
 | `cmd/youtrack.go` | Cobra root command, global flags, subcommand registration |
 | `internal/client.go` | `GetClient()` helper — resolves flags, config, env vars |
-| `internal/env.go` | `LoadEnvFile()` — loads `~/.youtrack-cli-env` |
 | `cmd/issue/` | Issue subcommands |
 | `cmd/project/` | Project subcommands |
 | `cmd/user/` | User subcommands |

@@ -55,7 +55,7 @@ youtrack issue command MYPROJ-42 "State In Progress"
 
 ## Authentication
 
-**Single instance** — export env vars or write to `~/.youtrack-cli-env` (one `KEY=VALUE` per line):
+**Single instance** — export env vars:
 
 ```bash
 export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
