@@ -16,6 +16,17 @@ const (
 	updateCheckURL      = "https://api.github.com/repos/JetBrains/youtrack-cli/releases/latest"
 )
 
+// saveUpdateCheckTimestamp re-loads the config and saves the current timestamp
+// to avoid race conditions with concurrent config writes (e.g., from instance add).
+func saveUpdateCheckTimestamp(now int64) {
+	cfg, err := config.Load()
+	if err != nil {
+		return
+	}
+	cfg.LastUpdateCheck = now
+	_ = cfg.Save()
+}
+
 // CheckForUpdateAsync starts a background goroutine that checks for a newer
 // GitHub release. Returns a channel that receives at most one notice string
 // then closes. The caller should drain the channel after the command finishes.
@@ -48,8 +59,7 @@ func checkForUpdate(currentVersion string) string {
 	client := &http.Client{Timeout: updateCheckTimeout}
 	resp, err := client.Get(updateCheckURL)
 	if err != nil {
-		cfg.LastUpdateCheck = now
-		_ = cfg.Save()
+		saveUpdateCheckTimestamp(now)
 		return ""
 	}
 	defer func() {
@@ -66,8 +76,7 @@ func checkForUpdate(currentVersion string) string {
 	latest := strings.TrimPrefix(release.TagName, "v")
 	current := strings.TrimPrefix(currentVersion, "v")
 
-	cfg.LastUpdateCheck = now
-	_ = cfg.Save()
+	saveUpdateCheckTimestamp(now)
 
 	if latest == current {
 		return ""
