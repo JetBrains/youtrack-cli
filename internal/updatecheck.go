@@ -52,7 +52,9 @@ func checkForUpdate(currentVersion string) string {
 		_ = cfg.Save()
 		return ""
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	var release struct {
 		TagName string `json:"tag_name"`
