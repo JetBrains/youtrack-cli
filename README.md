@@ -124,6 +124,10 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 | `user profile` | `general`, `appearance`, `notifications`, `articles`, `issues-list`, `grazie`, `tips`, `property` |
 | `board` | `list`, `get` (`view`), `add` (`create`), `update`, `delete` |
 | `board sprint` | `list`, `get`, `add` |
+| `whiteboard` | `list`, `get`, `add` (`create`), `delete`, `reload` |
+| `whiteboard node` | `list`, `get`, `add` |
+| `whiteboard links` | list links |
+| `whiteboard link` | create a link between two nodes |
 
 ## Examples
 

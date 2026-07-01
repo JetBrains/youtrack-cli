@@ -99,4 +99,4 @@ func TestCmd_EnvVarPrecedenceOverConfig(t *testing.T) {
 	assert.Contains(t, out, `"login"`)
 }
 
-// ---------- Canvas ----------
+// ---------- Whiteboard ----------
