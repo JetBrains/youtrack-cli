@@ -6,10 +6,10 @@
 
 Any token you create via **Profile → Account Security → New Token** receives access to everything your YouTrack account can do — there is no way to issue a token restricted to, say, read-only access or a single project. This means:
 
-- A token used by `youtrack-cli` can create, update, and delete issues, projects, and users — anything your account permits.
+- A token used by `youtrack` can create, update, and delete issues, projects, and users — anything your account permits.
 - If a token is leaked or misused, the blast radius equals your full YouTrack account permissions.
 
-**Before using `youtrack-cli` in automated pipelines or sharing it with AI agents:**
+**Before using `youtrack` in automated pipelines or sharing it with AI agents:**
 - Understand which commands mutate data (see table below).
 - Use the `YOUTRACK_RO=1` guard when only reads are needed.
 - Store tokens in secrets managers (GitHub Actions secrets, Vault, etc.) — never in plain text files committed to version control.
