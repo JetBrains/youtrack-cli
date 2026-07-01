@@ -109,7 +109,7 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 | `issue attachment` | `list`, `add`, `delete` |
 | `issue field` | `get`, `set` |
 | `issue reaction` | `add`, `delete` |
-| `issue draft` | `create` |
+| `issue draft` | `create`, `update`, `submit` |
 | `issue` (actions) | `assign`, `unassign`, `watch`, `unwatch`, `vote`, `unvote`, `tag`, `visibility`, `workitem add` |
 | `project` | `list`, `get` (`view`), `add` (`create`), `delete`, `archive` |
 | `project team` | `add-user`, `add-group` |
@@ -157,8 +157,12 @@ youtrack issue link add MYPROJ-42 --target MYPROJ-10 --type <linkTypeId>
 youtrack issue attachment add MYPROJ-42 ./screenshot.png
 youtrack issue field set MYPROJ-42 Priority Critical
 
-# Drafts and work items
-youtrack issue draft create --project MYPROJ --summary "Draft idea"
+# Drafts
+youtrack issue draft create --project MYPROJ --format json
+youtrack issue draft update <draftId> --summary "New title"
+youtrack issue draft submit <draftId>
+
+# Work items
 youtrack issue workitem add MYPROJ-42 --minutes 90 --text "Investigation"
 
 # Projects
@@ -176,6 +180,24 @@ youtrack user add --login john.doe --fullName "John Doe" --email john.doe@exampl
 youtrack user ban john.doe
 youtrack user delete john.doe --successor admin
 youtrack user timezone set john.doe "Europe/Berlin"
+```
+
+### Template-guided issue creation
+
+The `issue draft` commands enable a template-guided workflow for issue creation:
+
+```bash
+# 1. Create draft — description and custom fields are prefilled from project template
+youtrack issue draft create --project MYPROJ --format json
+
+# 2. Fill in the draft (agent reads template description from step 1's response)
+youtrack issue draft update <draftId> \
+  --summary "Build fails on M1" \
+  --description "**Steps:** 1. Clone repo 2. Run make build\n**Expected:** success\n**Actual:** error" \
+  --custom-fields '{"Type":"Bug","Priority":"High"}'
+
+# 3. Submit as real issue
+youtrack issue draft submit <draftId>
 ```
 
 ## Global Flags
