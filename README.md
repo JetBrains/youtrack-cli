@@ -55,12 +55,7 @@ youtrack issue command MYPROJ-42 "State In Progress"
 
 ## Authentication
 
-**Single instance** — export env vars:
-
-```bash
-export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
-export YOUTRACK_TOKEN=perm:...
-```
+For a single instance, env vars are enough — see the CI/scripting note in Quick Start above.
 
 **Multiple instances** — use `instance add` to register each under a named alias:
 
