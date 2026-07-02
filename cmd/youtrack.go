@@ -52,42 +52,34 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 	_ = f.MarkHidden("format")
 
 	rootCmd.AddGroup(
-		&cobra.Group{ID: "youtrack", Title: "YouTrack Commands:"},
-		&cobra.Group{ID: "access", Title: "Access Commands:"},
+		&cobra.Group{ID: "core", Title: "Core:"},
+		&cobra.Group{ID: "admin", Title: "Administration:"},
+		&cobra.Group{ID: "integrations", Title: "Integrations:"},
+		&cobra.Group{ID: "planning", Title: "Planning:"},
+		&cobra.Group{ID: "access", Title: "Access:"},
 		&cobra.Group{ID: "util", Title: "Utilities:"},
 	)
 
-	add := func(cmd *cobra.Command, groupID string) {
-		cmd.GroupID = groupID
-		rootCmd.AddCommand(cmd)
-	}
-
-	add(auth.NewCmd(), "access")
-	add(instance.NewCmd(), "access")
-
-	add(issue.NewCmd(), "youtrack")
-	add(project.NewCmd(), "youtrack")
-	add(user.NewCmd(), "youtrack")
-	add(newTagCmd(), "youtrack")
-	add(newSearchCmd(), "youtrack")
-	add(newWhiteboardCmd(), "youtrack")
-	add(newGanttCmd(), "youtrack")
-	add(newArticleCmd(), "youtrack")
-	add(newBoardCmd(), "youtrack")
-	add(newDashboardCmd(), "youtrack")
-
-	add(newSettingsCmd(), "youtrack")
-	add(newVCSCmd(), "youtrack")
-	add(newMailboxCmd(), "youtrack")
-	add(newOrgCmd(), "youtrack")
-	add(newAppCmd(), "youtrack")
-	add(newGroupCmd(), "youtrack")
-	add(newRoleCmd(), "youtrack")
-	add(newWorkflowCmd(), "youtrack")
-	add(newFieldCmd(), "youtrack")
-
-	add(newRawCmd(), "util")
-	add(skill.NewCmd(fs), "util")
+	internal.AddToGroup(rootCmd, "core",
+		issue.NewCmd(), project.NewCmd(), newArticleCmd(),
+		newBoardCmd(), newTagCmd(), newSearchCmd(),
+	)
+	internal.AddToGroup(rootCmd, "admin",
+		user.NewCmd(), newGroupCmd(), newRoleCmd(), newOrgCmd(),
+		newFieldCmd(), newWorkflowCmd(), newSettingsCmd(),
+	)
+	internal.AddToGroup(rootCmd, "integrations",
+		newVCSCmd(), newMailboxCmd(), newAppCmd(),
+	)
+	internal.AddToGroup(rootCmd, "planning",
+		newDashboardCmd(), newGanttCmd(), newWhiteboardCmd(),
+	)
+	internal.AddToGroup(rootCmd, "access",
+		auth.NewCmd(), instance.NewCmd(),
+	)
+	internal.AddToGroup(rootCmd, "util",
+		newRawCmd(), skill.NewCmd(fs),
+	)
 
 	return rootCmd
 }

@@ -87,7 +87,7 @@ go test ./test/ -run TestGetIssue -v
 
 1. Create a new file in the relevant `cmd/` subdirectory (e.g. `cmd/issue/foo.go`).
 2. Implement `newIssueFooCmd() *cobra.Command`.
-3. Register it: call `cmd.AddCommand(newIssueFooCmd())` in the parent's `NewCmd()`.
+3. Register it in the parent's `NewCmd()`: grouped parents (root, `issue`, `project`, `user`) use `internal.AddToGroup(cmd, "<groupID>", newIssueFooCmd())` so the command lands in a help group; flat parents call `cmd.AddCommand(newIssueFooCmd())`.
 4. Use `internal.GetClient(cmd)` to obtain the API client.
 5. Return errors from `RunE` — the root command prints them to stderr.
 6. Use `output.Print(cmd, data)` for all output (respects `--format`).
@@ -96,7 +96,8 @@ go test ./test/ -run TestGetIssue -v
 ## Coding Conventions
 
 - `gofmt` formatting.
-- Command names: lowercase verbs (`get`, `list`, `add`, `update`, `delete`).
+- Command names: lowercase verbs; canonical set is `view`, `list`, `create`, `update`, `delete` (`get`/`add` live on as aliases — don't use them for new commands).
+- `add` is reserved for associating existing entities or registering config (`issue tag add`, `project team add-user`, `instance add`); anything that makes a new record uses `create`.
 - Go identifiers: camelCase for unexported, PascalCase for exported.
 - Error strings: lowercase, no trailing period.
 - All output goes through `output.Print(cmd, data)` — never `fmt.Println` in a command handler.

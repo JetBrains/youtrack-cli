@@ -11,29 +11,13 @@ func newBoardCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "board", Short: "Manage agile boards and sprints"}
 	cmd.AddCommand(
 		newBoardListCmd(),
-		newBoardGetCmd(),
 		newBoardViewCmd(),
-		newBoardAddCmd(),
 		newBoardCreateCmd(),
 		newBoardDeleteCmd(),
 		newBoardUpdateCmd(),
 		newBoardSprintCmd(),
 	)
 	return cmd
-}
-
-func newBoardViewCmd() *cobra.Command {
-	c := newBoardGetCmd()
-	c.Use = "view <id>"
-	c.Short = "View a board by ID"
-	return c
-}
-
-func newBoardCreateCmd() *cobra.Command {
-	c := newBoardAddCmd()
-	c.Use = "create"
-	c.Short = "Create a new board"
-	return c
 }
 
 func newBoardListCmd() *cobra.Command {
@@ -53,9 +37,9 @@ func newBoardListCmd() *cobra.Command {
 	}
 }
 
-func newBoardGetCmd() *cobra.Command {
+func newBoardViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "get <id>", Short: "Get a board by ID (alias: view)",
+		Use: "view <id>", Aliases: []string{"get"}, Short: "View a board by ID",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -71,9 +55,9 @@ func newBoardGetCmd() *cobra.Command {
 	}
 }
 
-func newBoardAddCmd() *cobra.Command {
+func newBoardCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "add", Short: "Create a new board (alias: create)",
+		Use: "create", Aliases: []string{"add"}, Short: "Create a new board",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			project, _ := cmd.Flags().GetString("project")
@@ -154,8 +138,8 @@ func newBoardSprintCmd() *cobra.Command {
 	list.Flags().String("board", "", "Board ID (required)")
 	internal.MustMarkRequired(list, "board")
 	cmd.AddCommand(list)
-	get := &cobra.Command{
-		Use: "get <sprint-id>", Short: "Get a sprint by ID",
+	view := &cobra.Command{
+		Use: "view <sprint-id>", Aliases: []string{"get"}, Short: "View a sprint by ID",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			boardID, _ := cmd.Flags().GetString("board")
@@ -170,11 +154,11 @@ func newBoardSprintCmd() *cobra.Command {
 			return output.Print(cmd, sprint)
 		},
 	}
-	get.Flags().String("board", "", "Board ID (required)")
-	internal.MustMarkRequired(get, "board")
-	cmd.AddCommand(get)
-	add := &cobra.Command{
-		Use: "add", Short: "Add a sprint to a board",
+	view.Flags().String("board", "", "Board ID (required)")
+	internal.MustMarkRequired(view, "board")
+	cmd.AddCommand(view)
+	create := &cobra.Command{
+		Use: "create", Aliases: []string{"add"}, Short: "Create a sprint on a board",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			boardID, _ := cmd.Flags().GetString("board")
 			name, _ := cmd.Flags().GetString("name")
@@ -192,12 +176,12 @@ func newBoardSprintCmd() *cobra.Command {
 			return output.Print(cmd, sprint)
 		},
 	}
-	add.Flags().String("board", "", "Board ID (required)")
-	add.Flags().String("name", "", "Sprint name (required)")
-	add.Flags().Int64("start", 0, "Start date (epoch ms)")
-	add.Flags().Int64("end", 0, "End date (epoch ms)")
-	add.Flags().String("goal", "", "Sprint goal")
-	internal.MustMarkRequired(add, "board", "name")
-	cmd.AddCommand(add)
+	create.Flags().String("board", "", "Board ID (required)")
+	create.Flags().String("name", "", "Sprint name (required)")
+	create.Flags().Int64("start", 0, "Start date (epoch ms)")
+	create.Flags().Int64("end", 0, "End date (epoch ms)")
+	create.Flags().String("goal", "", "Sprint goal")
+	internal.MustMarkRequired(create, "board", "name")
+	cmd.AddCommand(create)
 	return cmd
 }

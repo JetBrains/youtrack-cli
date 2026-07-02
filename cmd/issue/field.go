@@ -9,16 +9,17 @@ import (
 
 func newIssueFieldCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "field", Short: "Manage custom field values on an issue"}
-	cmd.AddCommand(newIssueFieldGetCmd())
+	cmd.AddCommand(newIssueFieldViewCmd())
 	cmd.AddCommand(newIssueFieldSetCmd())
 	return cmd
 }
 
-func newIssueFieldGetCmd() *cobra.Command {
+func newIssueFieldViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <issueId> <fieldName>",
-		Short: "Get a custom field value on an issue",
-		Args:  cobra.ExactArgs(2),
+		Use:     "view <issueId> <fieldName>",
+		Aliases: []string{"get"},
+		Short:   "View a custom field value on an issue",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {

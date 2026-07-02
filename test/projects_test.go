@@ -18,22 +18,22 @@ func TestCmd_ProjectList(t *testing.T) {
 	assert.Contains(t, out, proj.ShortName)
 }
 
-func TestCmd_ProjectGet(t *testing.T) {
+func TestCmd_ProjectView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
-	out := runCmd(t, "project", "get", proj.ShortName, "--format", "json")
+	out := runCmd(t, "project", "view", proj.ShortName, "--format", "json")
 	assert.Contains(t, out, proj.ShortName)
 }
 
-func TestCmd_ProjectAdd(t *testing.T) {
+func TestCmd_ProjectCreate(t *testing.T) {
 	c := newTestClient(t)
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
 
 	shortName := uniqueProjectShortName("CMDP")
 
-	out := runCmd(t, "project", "add",
+	out := runCmd(t, "project", "create",
 		"--shortName", shortName,
 		"--name", "Cmd Test Project",
 		"--leader", me.Login,

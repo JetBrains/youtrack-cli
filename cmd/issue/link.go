@@ -96,8 +96,8 @@ func newIssueLinkTypeCmd() *cobra.Command {
 			return output.Print(cmd, types)
 		},
 	}
-	add := &cobra.Command{
-		Use: "add", Short: "Create an issue link type",
+	create := &cobra.Command{
+		Use: "create", Aliases: []string{"add"}, Short: "Create an issue link type",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			s2t, _ := cmd.Flags().GetString("source-to-target")
@@ -115,12 +115,12 @@ func newIssueLinkTypeCmd() *cobra.Command {
 			return output.Print(cmd, lt)
 		},
 	}
-	add.Flags().String("name", "", "Link type name (required)")
-	add.Flags().String("source-to-target", "", "Source-to-target label (required)")
-	add.Flags().String("target-to-source", "", "Target-to-source label (required)")
-	add.Flags().Bool("directed", true, "Create a directed link type")
-	add.Flags().Bool("aggregation", false, "Create an aggregation link type")
-	internal.MustMarkRequired(add, "name", "source-to-target", "target-to-source")
-	cmd.AddCommand(list, add)
+	create.Flags().String("name", "", "Link type name (required)")
+	create.Flags().String("source-to-target", "", "Source-to-target label (required)")
+	create.Flags().String("target-to-source", "", "Target-to-source label (required)")
+	create.Flags().Bool("directed", true, "Create a directed link type")
+	create.Flags().Bool("aggregation", false, "Create an aggregation link type")
+	internal.MustMarkRequired(create, "name", "source-to-target", "target-to-source")
+	cmd.AddCommand(list, create)
 	return cmd
 }

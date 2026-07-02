@@ -23,7 +23,7 @@ func TestCmd_GroupList(t *testing.T) {
 	assert.Contains(t, out, group.Name)
 }
 
-func TestCmd_GroupGet(t *testing.T) {
+func TestCmd_GroupView(t *testing.T) {
 	c := newTestClient(t)
 	groupName := fmt.Sprintf("testgroup-get-%d", time.Now().UnixMilli()%100000)
 	group, err := c.AddGroup(groupName)
@@ -31,7 +31,7 @@ func TestCmd_GroupGet(t *testing.T) {
 	successor := groupDeleteSuccessor(t, c, group.ID)
 	t.Cleanup(func() { _ = c.DeleteGroup(group.ID, successor.ID) })
 
-	out := runCmd(t, "group", "get", group.Name, "--format", "json")
+	out := runCmd(t, "group", "view", group.Name, "--format", "json")
 	assert.Contains(t, out, group.Name)
 }
 
@@ -50,11 +50,11 @@ func TestCmd_GroupDelete(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
-func TestCmd_GroupAdd(t *testing.T) {
+func TestCmd_GroupCreate(t *testing.T) {
 	c := newTestClient(t)
 	name := fmt.Sprintf("e2e-grp-add-%d", time.Now().UnixMilli()%100000)
 
-	out := runCmd(t, "group", "add", "--name", name, "--format", "json")
+	out := runCmd(t, "group", "create", "--name", name, "--format", "json")
 	assert.Contains(t, out, name)
 
 	groups, err := c.ListGroups("")

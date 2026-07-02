@@ -10,7 +10,7 @@ import (
 func newSettingsCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "settings", Short: "Manage instance settings"}
 	cmd.AddCommand(
-		newSettingsGetCmd(),
+		newSettingsViewCmd(),
 		newSettingsSystemCmd(),
 		newSettingsFeatureCmd(),
 		newSettingsEmailCmd(),
@@ -25,8 +25,8 @@ func newSettingsCmd() *cobra.Command {
 
 func newSettingsSystemCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "system", Short: "Manage system settings"}
-	get := &cobra.Command{
-		Use: "get", Short: "Get system settings",
+	view := &cobra.Command{
+		Use: "view", Aliases: []string{"get"}, Short: "View system settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -57,13 +57,13 @@ func newSettingsSystemCmd() *cobra.Command {
 	}
 	update.Flags().String("base-url", "", "Instance base URL")
 	update.Flags().Int64("max-upload-size", 0, "Max upload file size in bytes")
-	cmd.AddCommand(get, update)
+	cmd.AddCommand(view, update)
 	return cmd
 }
 
-func newSettingsGetCmd() *cobra.Command {
+func newSettingsViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "get", Short: "Get global settings",
+		Use: "view", Aliases: []string{"get"}, Short: "View global settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {

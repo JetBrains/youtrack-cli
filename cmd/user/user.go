@@ -1,27 +1,34 @@
 package user
 
-import "github.com/spf13/cobra"
+import (
+	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/internal"
+)
 
 func NewCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "user",
 		Short: "Manage users",
 	}
-	cmd.AddCommand(newUserListCmd())
-	cmd.AddCommand(newUserGetCmd())
-	cmd.AddCommand(newUserViewCmd())
-	cmd.AddCommand(newUserCurrentCmd())
-	cmd.AddCommand(newUserMeCmd())
-	cmd.AddCommand(newUserAddCmd())
-	cmd.AddCommand(newUserCreateCmd())
-	cmd.AddCommand(newUserDeleteCmd())
-	cmd.AddCommand(newUserBanCmd())
-	cmd.AddCommand(newUserUnbanCmd())
-	cmd.AddCommand(newUserTimezoneCmd())
-	cmd.AddCommand(newUserLocaleCmd())
-	cmd.AddCommand(newUserDraftsCmd())
-	cmd.AddCommand(newUserProfileCmd())
-	cmd.AddCommand(newUserPinProjectCmd())
-	cmd.AddCommand(newUserTagCmd())
+
+	cmd.AddGroup(
+		&cobra.Group{ID: "work", Title: "Work with users:"},
+		&cobra.Group{ID: "state", Title: "Account state:"},
+		&cobra.Group{ID: "profile", Title: "Profile & preferences:"},
+	)
+
+	internal.AddToGroup(cmd, "work",
+		newUserListCmd(), newUserViewCmd(), newUserCurrentCmd(),
+		newUserCreateCmd(), newUserDeleteCmd(),
+	)
+	internal.AddToGroup(cmd, "state",
+		newUserBanCmd(), newUserUnbanCmd(),
+	)
+	internal.AddToGroup(cmd, "profile",
+		newUserProfileCmd(), newUserTimezoneCmd(), newUserLocaleCmd(),
+		newUserTagCmd(), newUserDraftsCmd(), newUserPinProjectCmd(),
+	)
+
 	return cmd
 }

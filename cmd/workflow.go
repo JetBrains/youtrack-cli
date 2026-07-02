@@ -11,7 +11,7 @@ import (
 
 func newWorkflowCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "workflow", Short: "Manage workflows"}
-	cmd.AddCommand(newWorkflowListCmd(), newWorkflowAddCmd(), newWorkflowDeleteCmd(), newWorkflowRestoreCmd(), newWorkflowRuleCmd())
+	cmd.AddCommand(newWorkflowListCmd(), newWorkflowCreateCmd(), newWorkflowDeleteCmd(), newWorkflowRestoreCmd(), newWorkflowRuleCmd())
 	return cmd
 }
 
@@ -32,9 +32,9 @@ func newWorkflowListCmd() *cobra.Command {
 	}
 }
 
-func newWorkflowAddCmd() *cobra.Command {
+func newWorkflowCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "add", Short: "Create a new workflow",
+		Use: "create", Aliases: []string{"add"}, Short: "Create a new workflow",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			title, _ := cmd.Flags().GetString("title")
@@ -88,8 +88,8 @@ func newWorkflowRestoreCmd() *cobra.Command {
 
 func newWorkflowRuleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "rule", Short: "Manage workflow rules"}
-	add := &cobra.Command{
-		Use: "add <workflowId>", Short: "Add a rule to a workflow",
+	create := &cobra.Command{
+		Use: "create <workflowId>", Aliases: []string{"add"}, Short: "Create a rule in a workflow",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ruleType, _ := cmd.Flags().GetString("type")
@@ -101,13 +101,13 @@ func newWorkflowRuleCmd() *cobra.Command {
 			if err := client.AddWorkflowRule(args[0], ruleType, name); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "added rule "+name)
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), "created rule "+name)
 			return err
 		},
 	}
-	add.Flags().String("type", "", "Rule type (required)")
-	add.Flags().String("name", "", "Rule name (required)")
-	internal.MustMarkRequired(add, "type", "name")
-	cmd.AddCommand(add)
+	create.Flags().String("type", "", "Rule type (required)")
+	create.Flags().String("name", "", "Rule name (required)")
+	internal.MustMarkRequired(create, "type", "name")
+	cmd.AddCommand(create)
 	return cmd
 }

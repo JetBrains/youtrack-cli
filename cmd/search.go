@@ -14,8 +14,8 @@ func newSearchCmd() *cobra.Command {
 		Short: "Manage saved searches",
 	}
 	cmd.AddCommand(newSearchListCmd())
-	cmd.AddCommand(newSearchGetCmd())
-	cmd.AddCommand(newSearchAddCmd())
+	cmd.AddCommand(newSearchViewCmd())
+	cmd.AddCommand(newSearchCreateCmd())
 	cmd.AddCommand(newSearchDeleteCmd())
 	cmd.AddCommand(newSearchShareCmd())
 	return cmd
@@ -39,11 +39,12 @@ func newSearchListCmd() *cobra.Command {
 	}
 }
 
-func newSearchGetCmd() *cobra.Command {
+func newSearchViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get a saved search by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:     "view <id>",
+		Aliases: []string{"get"},
+		Short:   "View a saved search by ID",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -77,10 +78,11 @@ func newSearchDeleteCmd() *cobra.Command {
 	}
 }
 
-func newSearchAddCmd() *cobra.Command {
+func newSearchCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Create a new saved search",
+		Use:     "create",
+		Aliases: []string{"add"},
+		Short:   "Create a new saved search",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			query, _ := cmd.Flags().GetString("query")

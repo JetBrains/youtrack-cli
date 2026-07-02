@@ -417,7 +417,7 @@ func TestAuthRefreshToken_HumanReadableOutput(t *testing.T) {
 	assert.NotContains(t, out, token) // full token must not appear
 }
 
-func TestInstanceUpdateToken_ByAlias(t *testing.T) {
+func TestInstanceRefreshToken_ByAlias(t *testing.T) {
 	requireE2EEnv(t)
 	token := os.Getenv("YOUTRACK_TOKEN")
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
@@ -433,7 +433,7 @@ func TestInstanceUpdateToken_ByAlias(t *testing.T) {
 
 	runCmdWithEnv(t, "3\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
-		"instance", "update-token", "myinst",
+		"instance", "refresh-token", "myinst",
 	)
 
 	data, err := os.ReadFile(cfgPath)
@@ -450,11 +450,11 @@ func TestInstanceUpdateToken_ByAlias(t *testing.T) {
 	assert.Equal(t, token, result.Instances["myinst"].Token)
 }
 
-func TestInstanceUpdateToken_MissingArg(t *testing.T) {
+func TestInstanceRefreshToken_MissingArg(t *testing.T) {
 	tmpHome := t.TempDir()
 	configFixture(t, tmpHome, twoInstanceConfig)
 
-	cmd := exec.Command(binaryPath, "instance", "update-token")
+	cmd := exec.Command(binaryPath, "instance", "refresh-token")
 	cmd.Env = append(os.Environ(), "HOME="+tmpHome)
 	out, err := cmd.CombinedOutput()
 

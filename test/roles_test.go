@@ -22,14 +22,14 @@ func TestCmd_RolePermissions(t *testing.T) {
 	assert.NotEmpty(t, out)
 }
 
-func TestCmd_RoleAddDelete(t *testing.T) {
+func TestCmd_RoleCreateDelete(t *testing.T) {
 	c := newTestClient(t)
 	perms, err := c.GetPermissions()
 	require.NoError(t, err)
 	require.NotEmpty(t, perms)
 
 	name := fmt.Sprintf("cmd-role-%d", time.Now().UnixMilli()%100000)
-	out := runCmd(t, "role", "add", "--name", name, "--permissions", perms[0].ID, "--format", "json")
+	out := runCmd(t, "role", "create", "--name", name, "--permissions", perms[0].ID, "--format", "json")
 	assert.Contains(t, out, name)
 
 	var role struct {
@@ -60,12 +60,12 @@ func TestCmd_RoleAssignmentsList(t *testing.T) {
 	assert.True(t, foundSystemAdmin, "expected a System Admin assignment in %s", out)
 }
 
-func TestCmd_RoleGet(t *testing.T) {
+func TestCmd_RoleView(t *testing.T) {
 	roles, err := newTestClient(t).ListRoles()
 	require.NoError(t, err)
 	require.NotEmpty(t, roles, "need at least one role on the instance")
 
-	out := runCmd(t, "role", "get", roles[0].ID, "--format", "json")
+	out := runCmd(t, "role", "view", roles[0].ID, "--format", "json")
 	assert.Contains(t, out, roles[0].ID)
 }
 

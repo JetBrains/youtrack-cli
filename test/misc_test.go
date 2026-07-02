@@ -31,12 +31,12 @@ func TestCmd_TagList(t *testing.T) {
 
 // ---------- Saved Searches ----------
 
-// TestCmd_SearchAdd verifies that the saved search is created and the response echoes the name.
+// TestCmd_SearchCreate verifies that the saved search is created and the response echoes the name.
 // No cleanup is registered because the YouTrack API has no delete endpoint for saved searches.
-func TestCmd_SearchAdd(t *testing.T) {
+func TestCmd_SearchCreate(t *testing.T) {
 	name := fmt.Sprintf("test-%d", time.Now().UnixMilli()%100000)
 
-	out := runCmd(t, "search", "add", "--name", name, "--query", "project: GOTEST", "--format", "json")
+	out := runCmd(t, "search", "create", "--name", name, "--query", "project: GOTEST", "--format", "json")
 	assert.Contains(t, out, name)
 }
 
@@ -49,11 +49,11 @@ func TestCmd_OrgList(t *testing.T) {
 	require.NoError(t, err, "org list should return a JSON array")
 }
 
-func TestCmd_OrgAddDelete(t *testing.T) {
+func TestCmd_OrgCreateDelete(t *testing.T) {
 	c := newTestClient(t)
 	name := fmt.Sprintf("cmd-org-%d", time.Now().UnixMilli()%100000)
 
-	out := runCmd(t, "org", "add", "--name", name, "--format", "json")
+	out := runCmd(t, "org", "create", "--name", name, "--format", "json")
 	assert.Contains(t, out, name)
 
 	var org struct {
@@ -95,7 +95,7 @@ func TestCmd_EnvVarPrecedenceOverConfig(t *testing.T) {
 	// The process env already has real YOUTRACK_BASE_URL + YOUTRACK_TOKEN.
 	// With new precedence (env > config), the command should use them and succeed.
 	// On macOS/Linux the last HOME= entry wins; the fake config dir overrides the real one.
-	out := runCmdWithEnv(t, "", []string{"HOME=" + home}, "user", "me", "--format", "json")
+	out := runCmdWithEnv(t, "", []string{"HOME=" + home}, "user", "current", "--format", "json")
 	assert.Contains(t, out, `"login"`)
 }
 

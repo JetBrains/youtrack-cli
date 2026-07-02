@@ -10,3 +10,11 @@ func MustMarkRequired(cmd *cobra.Command, names ...string) {
 		}
 	}
 }
+
+// AddToGroup registers cmds on parent under the help group with the given ID.
+func AddToGroup(parent *cobra.Command, groupID string, cmds ...*cobra.Command) {
+	for _, c := range cmds {
+		c.GroupID = groupID
+		parent.AddCommand(c)
+	}
+}

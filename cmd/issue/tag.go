@@ -41,10 +41,11 @@ func newIssueTagCmd() *cobra.Command {
 			return output.Print(cmd, tags)
 		},
 	}
-	get := &cobra.Command{
-		Use:   "get <issueId> <tagId>",
-		Short: "Get a specific tag on an issue",
-		Args:  cobra.ExactArgs(2),
+	view := &cobra.Command{
+		Use:     "view <issueId> <tagId>",
+		Aliases: []string{"get"},
+		Short:   "View a specific tag on an issue",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -57,6 +58,6 @@ func newIssueTagCmd() *cobra.Command {
 			return output.Print(cmd, tag)
 		},
 	}
-	cmd.AddCommand(add, list, get)
+	cmd.AddCommand(add, list, view)
 	return cmd
 }

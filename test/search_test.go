@@ -31,11 +31,11 @@ func TestCmd_SearchList(t *testing.T) {
 	assert.Contains(t, out, search.Name)
 }
 
-func TestCmd_SearchGet(t *testing.T) {
+func TestCmd_SearchView(t *testing.T) {
 	c := newTestClient(t)
 	search := newTempSearch(t, c, "e2e-get")
 
-	out := runCmd(t, "search", "get", search.ID, "--format", "json")
+	out := runCmd(t, "search", "view", search.ID, "--format", "json")
 	assert.Contains(t, out, search.ID)
 }
 

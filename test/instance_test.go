@@ -83,14 +83,14 @@ func TestInstance_Use_UnknownAlias(t *testing.T) {
 	assert.Contains(t, string(out), "not found")
 }
 
-func TestInstance_Remove_NonActive(t *testing.T) {
+func TestInstance_Delete_NonActive(t *testing.T) {
 	tmpHome := t.TempDir()
 	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)
 
-	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome}, "instance", "remove", "personal")
+	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome}, "instance", "delete", "personal")
 
 	assert.Contains(t, out, `"personal"`)
-	assert.Contains(t, out, "removed")
+	assert.Contains(t, out, "deleted")
 
 	data, err := os.ReadFile(cfgPath)
 	require.NoError(t, err)
@@ -103,14 +103,14 @@ func TestInstance_Remove_NonActive(t *testing.T) {
 	assert.Equal(t, "work", result.CurrentInstance)
 }
 
-func TestInstance_Remove_Active(t *testing.T) {
+func TestInstance_Delete_Active(t *testing.T) {
 	tmpHome := t.TempDir()
 	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)
 
-	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome}, "instance", "remove", "work")
+	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome}, "instance", "delete", "work")
 
 	assert.Contains(t, out, `"work"`)
-	assert.Contains(t, out, "removed")
+	assert.Contains(t, out, "deleted")
 	assert.Contains(t, out, "youtrack instance use")
 
 	data, err := os.ReadFile(cfgPath)
@@ -124,13 +124,13 @@ func TestInstance_Remove_Active(t *testing.T) {
 	assert.NotContains(t, result.Instances, "work")
 }
 
-func TestInstance_Remove_Force(t *testing.T) {
+func TestInstance_Delete_Force(t *testing.T) {
 	tmpHome := t.TempDir()
 	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)
 
-	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome}, "instance", "remove", "--force", "personal")
+	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome}, "instance", "delete", "--force", "personal")
 
-	assert.Contains(t, out, "removed")
+	assert.Contains(t, out, "deleted")
 
 	data, err := os.ReadFile(cfgPath)
 	require.NoError(t, err)
@@ -141,6 +141,8 @@ func TestInstance_Remove_Force(t *testing.T) {
 	assert.NotContains(t, result.Instances, "personal")
 }
 
+// TestInstance_Remove_Cancel invokes the "remove" spelling on purpose — it doubles
+// as coverage for the alias of "instance delete".
 func TestInstance_Remove_Cancel(t *testing.T) {
 	tmpHome := t.TempDir()
 	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)

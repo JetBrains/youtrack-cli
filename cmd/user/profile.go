@@ -12,7 +12,7 @@ import (
 
 func newUserProfileCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "profile", Short: "Manage user profile settings"}
-	cmd.AddCommand(newUserProfileGetCmd())
+	cmd.AddCommand(newUserProfileViewCmd())
 	cmd.AddCommand(newUserProfilePropertyCmd())
 	cmd.AddCommand(newUserProfileAppearanceCmd())
 	cmd.AddCommand(newUserProfileNotificationsCmd())
@@ -25,11 +25,12 @@ func newUserProfileCmd() *cobra.Command {
 	return cmd
 }
 
-func newUserProfileGetCmd() *cobra.Command {
+func newUserProfileViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <userId>",
-		Short: "Get general profile for a user",
-		Args:  cobra.ExactArgs(1),
+		Use:     "view <userId>",
+		Aliases: []string{"get"},
+		Short:   "View general profile for a user",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -46,10 +47,11 @@ func newUserProfileGetCmd() *cobra.Command {
 
 func newUserProfileTimeTrackingCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "timetracking", Short: "Manage user time tracking profile"}
-	get := &cobra.Command{
-		Use:   "get <userId>",
-		Short: "Get time tracking profile for a user",
-		Args:  cobra.ExactArgs(1),
+	view := &cobra.Command{
+		Use:     "view <userId>",
+		Aliases: []string{"get"},
+		Short:   "View time tracking profile for a user",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -62,7 +64,7 @@ func newUserProfileTimeTrackingCmd() *cobra.Command {
 			return output.Print(cmd, profile)
 		},
 	}
-	cmd.AddCommand(get)
+	cmd.AddCommand(view)
 	return cmd
 }
 

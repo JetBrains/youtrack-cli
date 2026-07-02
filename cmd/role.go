@@ -14,8 +14,8 @@ func newRoleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "role", Short: "Manage roles and permissions"}
 	cmd.AddCommand(
 		newRoleListCmd(),
-		newRoleGetCmd(),
-		newRoleAddCmd(),
+		newRoleViewCmd(),
+		newRoleCreateCmd(),
 		newRoleDeleteCmd(),
 		newRoleUpdateCmd(),
 		newRoleGrantCmd(),
@@ -27,9 +27,9 @@ func newRoleCmd() *cobra.Command {
 	return cmd
 }
 
-func newRoleGetCmd() *cobra.Command {
+func newRoleViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "get <id>", Short: "Get a role by ID",
+		Use: "view <id>", Aliases: []string{"get"}, Short: "View a role by ID",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -113,9 +113,9 @@ func newRoleListCmd() *cobra.Command {
 	}
 }
 
-func newRoleAddCmd() *cobra.Command {
+func newRoleCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "add", Short: "Create a new role",
+		Use: "create", Aliases: []string{"add"}, Short: "Create a new role",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			description, _ := cmd.Flags().GetString("description")

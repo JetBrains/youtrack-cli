@@ -105,16 +105,16 @@ func TestCmd_FieldBundleList_PascalCaseType(t *testing.T) {
 	assert.NotEmpty(t, out)
 }
 
-func TestCmd_FieldWorktimeGet(t *testing.T) {
-	out := runCmd(t, "field", "worktime", "get", "--format", "json")
+func TestCmd_FieldWorktimeView(t *testing.T) {
+	out := runCmd(t, "field", "worktime", "view", "--format", "json")
 	assert.NotEmpty(t, out)
 }
 
-func TestCmd_FieldAdd(t *testing.T) {
+func TestCmd_FieldCreate(t *testing.T) {
 	c := newTestClient(t)
 
 	name := "TestField-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
-	out := runCmd(t, "field", "add", "--name", name, "--type", api.FieldTypeString, "--format", "json")
+	out := runCmd(t, "field", "create", "--name", name, "--type", api.FieldTypeString, "--format", "json")
 	assert.Contains(t, out, name)
 
 	// cleanup: find and delete the field by name

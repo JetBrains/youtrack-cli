@@ -16,8 +16,8 @@ func newIssueCommentCmd() *cobra.Command {
 		Short: "Manage issue comments",
 	}
 	cmd.AddCommand(newCommentListCmd())
-	cmd.AddCommand(newCommentGetCmd())
-	cmd.AddCommand(newCommentAddCmd())
+	cmd.AddCommand(newCommentViewCmd())
+	cmd.AddCommand(newCommentCreateCmd())
 	cmd.AddCommand(newCommentDeleteCmd())
 	cmd.AddCommand(newCommentUpdateCmd())
 	cmd.AddCommand(newCommentVisibilityCmd())
@@ -44,11 +44,12 @@ func newCommentListCmd() *cobra.Command {
 	}
 }
 
-func newCommentAddCmd() *cobra.Command {
+func newCommentCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add <issueId>",
-		Short: "Add a comment to an issue",
-		Args:  cobra.ExactArgs(1),
+		Use:     "create <issueId>",
+		Aliases: []string{"add"},
+		Short:   "Create a comment on an issue",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			text, _ := cmd.Flags().GetString("text")
 			asUser, _ := cmd.Flags().GetString("asUser")
@@ -156,11 +157,12 @@ func newCommentVisibilityCmd() *cobra.Command {
 	return cmd
 }
 
-func newCommentGetCmd() *cobra.Command {
+func newCommentViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <issueId> <commentId>",
-		Short: "Get a comment by ID",
-		Args:  cobra.ExactArgs(2),
+		Use:     "view <issueId> <commentId>",
+		Aliases: []string{"get"},
+		Short:   "View a comment by ID",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {

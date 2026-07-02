@@ -18,23 +18,23 @@ func TestCmd_BoardList(t *testing.T) {
 	assert.Contains(t, out, board.Name)
 }
 
-func TestCmd_BoardGet(t *testing.T) {
+func TestCmd_BoardView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 	board, err := c.AddBoard("Test Board "+t.Name(), proj.ShortName)
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteBoard(board.ID) })
 
-	out := runCmd(t, "board", "get", board.ID, "--format", "json")
+	out := runCmd(t, "board", "view", board.ID, "--format", "json")
 	assert.Contains(t, out, board.ID)
 }
 
-func TestCmd_BoardAdd(t *testing.T) {
+func TestCmd_BoardCreate(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 	name := "e2e-board-add-" + t.Name()
 
-	out := runCmd(t, "board", "add", "--name", name, "--project", proj.ShortName, "--format", "json")
+	out := runCmd(t, "board", "create", "--name", name, "--project", proj.ShortName, "--format", "json")
 	assert.Contains(t, out, name)
 
 	boards, err := c.ListBoards()
@@ -69,7 +69,7 @@ func TestCmd_BoardUpdate(t *testing.T) {
 	assert.Contains(t, out, newName)
 }
 
-func TestCmd_BoardSprintGet(t *testing.T) {
+func TestCmd_BoardSprintView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 	board, err := c.AddBoard("e2e-sprint-get-"+t.Name(), proj.ShortName)
@@ -79,11 +79,11 @@ func TestCmd_BoardSprintGet(t *testing.T) {
 	sprint, err := c.AddSprint(board.ID, "Sprint 1", 0, 0, "")
 	require.NoError(t, err)
 
-	out := runCmd(t, "board", "sprint", "get", sprint.ID, "--board", board.ID, "--format", "json")
+	out := runCmd(t, "board", "sprint", "view", sprint.ID, "--board", board.ID, "--format", "json")
 	assert.Contains(t, out, sprint.ID)
 }
 
-func TestCmd_BoardSprintAdd(t *testing.T) {
+func TestCmd_BoardSprintCreate(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 	board, err := c.AddBoard("e2e-sprint-add-"+t.Name(), proj.ShortName)
@@ -91,7 +91,7 @@ func TestCmd_BoardSprintAdd(t *testing.T) {
 	t.Cleanup(func() { _ = c.DeleteBoard(board.ID) })
 
 	sprintName := "e2e-sprint-" + t.Name()
-	out := runCmd(t, "board", "sprint", "add",
+	out := runCmd(t, "board", "sprint", "create",
 		"--board", board.ID,
 		"--name", sprintName,
 		"--format", "json",

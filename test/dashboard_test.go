@@ -7,11 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCmd_DashboardAdd(t *testing.T) {
+func TestCmd_DashboardCreate(t *testing.T) {
 	c := newTestClient(t)
 	name := "e2e-dash-add-" + t.Name()
 
-	out := runCmd(t, "dashboard", "add", "--name", name, "--format", "json")
+	out := runCmd(t, "dashboard", "create", "--name", name, "--format", "json")
 	assert.Contains(t, out, name)
 
 	dashboards, err := c.ListDashboards()

@@ -9,22 +9,8 @@ import (
 
 func newGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "group", Short: "Manage user groups"}
-	cmd.AddCommand(newGroupListCmd(), newGroupGetCmd(), newGroupViewCmd(), newGroupAddCmd(), newGroupCreateCmd(), newGroupDeleteCmd(), newGroupMemberCmd(), newGroupRoleCmd())
+	cmd.AddCommand(newGroupListCmd(), newGroupViewCmd(), newGroupCreateCmd(), newGroupDeleteCmd(), newGroupMemberCmd(), newGroupRoleCmd())
 	return cmd
-}
-
-func newGroupViewCmd() *cobra.Command {
-	c := newGroupGetCmd()
-	c.Use = "view <name>"
-	c.Short = "View a group by name"
-	return c
-}
-
-func newGroupCreateCmd() *cobra.Command {
-	c := newGroupAddCmd()
-	c.Use = "create"
-	c.Short = "Create a new group"
-	return c
 }
 
 func newGroupListCmd() *cobra.Command {
@@ -47,9 +33,9 @@ func newGroupListCmd() *cobra.Command {
 	return cmd
 }
 
-func newGroupGetCmd() *cobra.Command {
+func newGroupViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "get <name>", Short: "Get a group by name (alias: view)",
+		Use: "view <name>", Aliases: []string{"get"}, Short: "View a group by name",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -65,9 +51,9 @@ func newGroupGetCmd() *cobra.Command {
 	}
 }
 
-func newGroupAddCmd() *cobra.Command {
+func newGroupCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "add", Short: "Create a new group (alias: create)",
+		Use: "create", Aliases: []string{"add"}, Short: "Create a new group",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			client, err := internal.GetClient(cmd)

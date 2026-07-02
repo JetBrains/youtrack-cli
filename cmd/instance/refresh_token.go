@@ -8,9 +8,10 @@ import (
 	"github.com/JetBrains/youtrack-cli/cmd/auth"
 )
 
-func newUpdateTokenCmd() *cobra.Command {
+func newRefreshTokenCmd() *cobra.Command {
 	cmd := auth.NewRefreshTokenCmd()
-	cmd.Use = "update-token <alias>"
+	cmd.Use = "refresh-token <alias>"
+	cmd.Aliases = []string{"update-token"}
 	cmd.Short = "Replace the saved token for an instance"
 	cmd.Args = func(cmd *cobra.Command, args []string) error {
 		if len(args) == 0 {

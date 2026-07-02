@@ -11,10 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestCmd_SettingsSystemGet verifies that "settings system get" returns a JSON object
+// TestCmd_SettingsSystemView verifies that "settings system get" returns a JSON object
 // that includes the instance base URL and the max upload file size.
-func TestCmd_SettingsSystemGet(t *testing.T) {
-	out := runCmd(t, "settings", "system", "get", "--format", "json")
+func TestCmd_SettingsSystemView(t *testing.T) {
+	out := runCmd(t, "settings", "system", "view", "--format", "json")
 	assert.Contains(t, out, `"baseUrl"`)
 	assert.Contains(t, out, `"maxUploadFileSize"`)
 }
@@ -57,13 +57,13 @@ func TestCmd_SettingsAIJetBrains(t *testing.T) {
 	runCmd(t, "settings", "ai", "jetbrains", "--enabled", "true")
 }
 
-// TestCmd_SettingsSystemGetBaseURL checks that the system settings JSON contains the
+// TestCmd_SettingsSystemViewBaseURL checks that the system settings JSON contains the
 // configured base URL of the test instance.
-func TestCmd_SettingsSystemGetBaseURL(t *testing.T) {
+func TestCmd_SettingsSystemViewBaseURL(t *testing.T) {
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 	require.NotEmpty(t, baseURL, "YOUTRACK_BASE_URL must be set")
 
-	out := runCmd(t, "settings", "system", "get", "--format", "json")
+	out := runCmd(t, "settings", "system", "view", "--format", "json")
 	assert.True(t,
 		strings.Contains(out, baseURL),
 		"expected baseUrl %q in system settings output:\n%s", baseURL, out,
