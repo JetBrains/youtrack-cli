@@ -13,8 +13,8 @@ func newArticleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "article", Short: "Manage knowledge base articles"}
 	cmd.AddCommand(
 		newArticleListCmd(),
-		newArticleGetCmd(),
-		newArticleAddCmd(),
+		newArticleViewCmd(),
+		newArticleCreateCmd(),
 		newArticleUpdateCmd(),
 		newArticleDeleteCmd(),
 		newArticleCommentCmd(),
@@ -51,9 +51,9 @@ func newArticleListCmd() *cobra.Command {
 	return cmd
 }
 
-func newArticleGetCmd() *cobra.Command {
+func newArticleViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use: "get <id>", Short: "Get an article by ID",
+		Use: "view <id>", Aliases: []string{"get"}, Short: "View an article by ID",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -69,9 +69,9 @@ func newArticleGetCmd() *cobra.Command {
 	}
 }
 
-func newArticleAddCmd() *cobra.Command {
+func newArticleCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "add", Short: "Create a new article",
+		Use: "create", Aliases: []string{"add"}, Short: "Create a new article",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectKey, _ := cmd.Flags().GetString("project")
 			summary, _ := cmd.Flags().GetString("summary")
@@ -177,7 +177,7 @@ func newArticleCommentCmd() *cobra.Command {
 		},
 	}
 	add := &cobra.Command{
-		Use: "add <articleId>", Short: "Add a comment to an article",
+		Use: "create <articleId>", Aliases: []string{"add"}, Short: "Create a comment on an article",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			text, _ := cmd.Flags().GetString("text")
@@ -417,7 +417,7 @@ func newArticleChildCmd() *cobra.Command {
 func newArticleParentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "parent", Short: "Manage article parent"}
 	get := &cobra.Command{
-		Use: "get <articleId>", Short: "Get the parent article",
+		Use: "view <articleId>", Aliases: []string{"get"}, Short: "View the parent article",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)

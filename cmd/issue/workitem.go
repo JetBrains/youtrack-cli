@@ -9,8 +9,8 @@ import (
 
 func newIssueWorkitemCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "workitem", Short: "Log work on an issue"}
-	add := &cobra.Command{
-		Use: "add <issueId>", Short: "Add a work item to an issue",
+	create := &cobra.Command{
+		Use: "create <issueId>", Aliases: []string{"add"}, Short: "Create a work item on an issue",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			minutes, _ := cmd.Flags().GetInt("minutes")
@@ -27,13 +27,13 @@ func newIssueWorkitemCmd() *cobra.Command {
 			return output.Print(cmd, item)
 		},
 	}
-	add.Flags().Int("minutes", 0, "Work duration in minutes, e.g. 90 for 1h30m (required)")
-	add.Flags().String("text", "", "Work item description")
-	add.Flags().String("type", "", "Work item type ID")
-	internal.MustMarkRequired(add, "minutes")
-	cmd.AddCommand(add)
-	getCmd := &cobra.Command{
-		Use: "get <issueId> <workItemId>", Short: "Get a work item by ID",
+	create.Flags().Int("minutes", 0, "Work duration in minutes, e.g. 90 for 1h30m (required)")
+	create.Flags().String("text", "", "Work item description")
+	create.Flags().String("type", "", "Work item type ID")
+	internal.MustMarkRequired(create, "minutes")
+	cmd.AddCommand(create)
+	viewCmd := &cobra.Command{
+		Use: "view <issueId> <workItemId>", Aliases: []string{"get"}, Short: "View a work item by ID",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -47,7 +47,7 @@ func newIssueWorkitemCmd() *cobra.Command {
 			return output.Print(cmd, item)
 		},
 	}
-	cmd.AddCommand(getCmd)
+	cmd.AddCommand(viewCmd)
 	updateCmd := &cobra.Command{
 		Use: "update <issueId> <workItemId>", Short: "Update a work item",
 		Args: cobra.ExactArgs(2),

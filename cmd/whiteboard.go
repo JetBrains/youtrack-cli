@@ -14,8 +14,8 @@ func newWhiteboardCmd() *cobra.Command {
 		Short: "Manage whiteboards",
 	}
 	cmd.AddCommand(newWhiteboardListCmd())
-	cmd.AddCommand(newWhiteboardAddCmd())
-	cmd.AddCommand(newWhiteboardGetCmd())
+	cmd.AddCommand(newWhiteboardCreateCmd())
+	cmd.AddCommand(newWhiteboardViewCmd())
 	cmd.AddCommand(newWhiteboardDeleteCmd())
 	cmd.AddCommand(newWhiteboardReloadCmd())
 	cmd.AddCommand(newWhiteboardNodeCmd())
@@ -42,10 +42,11 @@ func newWhiteboardListCmd() *cobra.Command {
 	}
 }
 
-func newWhiteboardAddCmd() *cobra.Command {
+func newWhiteboardCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Create a new whiteboard",
+		Use:     "create",
+		Aliases: []string{"add"},
+		Short:   "Create a new whiteboard",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			ownerLogin, _ := cmd.Flags().GetString("owner")
@@ -83,11 +84,12 @@ func newWhiteboardAddCmd() *cobra.Command {
 	return cmd
 }
 
-func newWhiteboardGetCmd() *cobra.Command {
+func newWhiteboardViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <id>",
-		Short: "Get a whiteboard by ID",
-		Args:  cobra.ExactArgs(1),
+		Use:     "view <id>",
+		Aliases: []string{"get"},
+		Short:   "View a whiteboard by ID",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -141,9 +143,9 @@ func newWhiteboardNodeCmd() *cobra.Command {
 		Use:   "node",
 		Short: "Manage whiteboard nodes",
 	}
-	cmd.AddCommand(newWhiteboardNodeAddCmd())
+	cmd.AddCommand(newWhiteboardNodeCreateCmd())
 	cmd.AddCommand(newWhiteboardNodeListCmd())
-	cmd.AddCommand(newWhiteboardNodeGetCmd())
+	cmd.AddCommand(newWhiteboardNodeViewCmd())
 	return cmd
 }
 
@@ -166,11 +168,12 @@ func newWhiteboardNodeListCmd() *cobra.Command {
 	}
 }
 
-func newWhiteboardNodeGetCmd() *cobra.Command {
+func newWhiteboardNodeViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <whiteboardId> <cardId>",
-		Short: "Get a node from a whiteboard",
-		Args:  cobra.ExactArgs(2),
+		Use:     "view <whiteboardId> <cardId>",
+		Aliases: []string{"get"},
+		Short:   "View a node from a whiteboard",
+		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -185,11 +188,12 @@ func newWhiteboardNodeGetCmd() *cobra.Command {
 	}
 }
 
-func newWhiteboardNodeAddCmd() *cobra.Command {
+func newWhiteboardNodeCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add <whiteboardId>",
-		Short: "Add a node to a whiteboard",
-		Args:  cobra.ExactArgs(1),
+		Use:     "create <whiteboardId>",
+		Aliases: []string{"add"},
+		Short:   "Create a node on a whiteboard",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			x, _ := cmd.Flags().GetInt("x")
 			y, _ := cmd.Flags().GetInt("y")

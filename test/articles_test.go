@@ -18,7 +18,7 @@ func TestCmd_ArticleList(t *testing.T) {
 	assert.True(t, len(out) > 0)
 }
 
-func TestCmd_ArticleGet(t *testing.T) {
+func TestCmd_ArticleView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
@@ -29,7 +29,7 @@ func TestCmd_ArticleGet(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteArticle(article.IDReadable) })
 
-	out := runCmd(t, "article", "get", article.IDReadable, "--format", "json")
+	out := runCmd(t, "article", "view", article.IDReadable, "--format", "json")
 	assert.Contains(t, out, article.IDReadable)
 }
 
@@ -37,7 +37,7 @@ func TestCmd_ArticleCRUD(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
-	out := runCmd(t, "article", "add",
+	out := runCmd(t, "article", "create",
 		"--project", proj.ShortName,
 		"--summary", "Cmd Article Add",
 		"--content", "Initial content",
@@ -82,7 +82,7 @@ func TestCmd_ArticleCommentCRUD(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteArticle(article.IDReadable) })
 
-	out := runCmd(t, "article", "comment", "add", article.IDReadable,
+	out := runCmd(t, "article", "comment", "create", article.IDReadable,
 		"--text", "article comment from cli",
 		"--format", "json",
 	)
@@ -183,7 +183,7 @@ func TestCmd_ArticleParentGet(t *testing.T) {
 	child := newTempArticleInProject(t, c, p.ID)
 	require.NoError(t, c.SetParentArticle(child.IDReadable, parent.ID))
 
-	out := runCmd(t, "article", "parent", "get", child.IDReadable, "--format", "json")
+	out := runCmd(t, "article", "parent", "view", child.IDReadable, "--format", "json")
 	assert.Contains(t, out, parent.IDReadable)
 }
 

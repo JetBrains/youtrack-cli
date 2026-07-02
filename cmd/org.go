@@ -14,7 +14,7 @@ func newOrgCmd() *cobra.Command {
 		Short: "Manage organizations",
 	}
 	cmd.AddCommand(newOrgListCmd())
-	cmd.AddCommand(newOrgAddCmd())
+	cmd.AddCommand(newOrgCreateCmd())
 	cmd.AddCommand(newOrgDeleteCmd())
 	return cmd
 }
@@ -37,10 +37,11 @@ func newOrgListCmd() *cobra.Command {
 	}
 }
 
-func newOrgAddCmd() *cobra.Command {
+func newOrgCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Create a new organization",
+		Use:     "create",
+		Aliases: []string{"add"},
+		Short:   "Create a new organization",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 

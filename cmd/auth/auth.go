@@ -7,7 +7,6 @@ func NewCmd() *cobra.Command {
 		Use:   "auth",
 		Short: "Authentication utilities",
 	}
-	cmd.AddCommand(NewGetTokenCmd())
 	cmd.AddCommand(newLoginCmd())
 	cmd.AddCommand(NewRefreshTokenCmd())
 	cmd.AddCommand(newLogoutCmd())
@@ -18,6 +17,7 @@ func NewCmd() *cobra.Command {
 func newLoginCmd() *cobra.Command {
 	c := NewGetTokenCmd()
 	c.Use = "login"
-	c.Short = "Authenticate with a YouTrack instance (alias: get-token)"
+	c.Aliases = []string{"get-token"}
+	c.Short = "Authenticate with a YouTrack instance"
 	return c
 }

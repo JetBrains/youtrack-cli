@@ -45,7 +45,7 @@ func TestCmd_UserCRUD(t *testing.T) {
 	t.Cleanup(func() { _ = c.DeleteUser(login, successor.Login) })
 
 	out := runCmd(t,
-		"user", "add",
+		"user", "create",
 		"--login", login,
 		"--fullName", "Cmd Test User",
 		"--email", login+"@example.com",
@@ -54,7 +54,7 @@ func TestCmd_UserCRUD(t *testing.T) {
 	)
 	assert.Contains(t, out, login)
 
-	out = runCmd(t, "user", "get", login, "--format", "json")
+	out = runCmd(t, "user", "view", login, "--format", "json")
 	assert.Contains(t, out, login)
 
 	out = runCmd(t, "user", "list", "--query", login, "--format", "json")
@@ -132,7 +132,7 @@ func TestCmd_UserTimezone(t *testing.T) {
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
 
-	orig := runCmd(t, "user", "timezone", "get", me.Login)
+	orig := runCmd(t, "user", "timezone", "view", me.Login)
 	orig = strings.TrimSpace(orig)
 	t.Cleanup(func() {
 		if orig != "" {
@@ -142,7 +142,7 @@ func TestCmd_UserTimezone(t *testing.T) {
 
 	// set returns no output; verify get returns a non-empty string after the change
 	runCmd(t, "user", "timezone", "set", me.Login, "Europe/Berlin")
-	out := runCmd(t, "user", "timezone", "get", me.Login)
+	out := runCmd(t, "user", "timezone", "view", me.Login)
 	assert.NotEmpty(t, strings.TrimSpace(out))
 }
 
@@ -159,12 +159,12 @@ func TestCmd_UserDrafts(t *testing.T) {
 	assert.Contains(t, out, "[")
 }
 
-func TestCmd_UserProfileGet(t *testing.T) {
+func TestCmd_UserProfileView(t *testing.T) {
 	c := newTestClient(t)
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
 
-	out := runCmd(t, "user", "profile", "get", me.Login, "--format", "json")
+	out := runCmd(t, "user", "profile", "view", me.Login, "--format", "json")
 	// profile returns GeneralUserProfile object, not user login
 	assert.Contains(t, out, "GeneralUserProfile")
 }

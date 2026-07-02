@@ -11,8 +11,9 @@ func newIssueListCmd() *cobra.Command {
 	var limit int
 
 	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Search issues by query",
+		Use:     "list",
+		Short:   "Search issues by query",
+		Example: "  youtrack issue list --query \"assignee: me #Unresolved\"\n  youtrack issue list --query \"project: FOO\" --limit 20 -f idReadable,summary,state",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query, _ := cmd.Flags().GetString("query")
 			client, err := internal.GetClient(cmd)

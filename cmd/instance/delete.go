@@ -9,11 +9,12 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/config"
 )
 
-func newRemoveCmd() *cobra.Command {
+func newDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "remove <alias>",
-		Short: "Remove a configured instance",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete <alias>",
+		Aliases: []string{"remove"},
+		Short:   "Delete a configured instance",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			alias := args[0]
 			cfg, err := config.Load()
@@ -24,7 +25,7 @@ func newRemoveCmd() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("instance %q not found — run: youtrack instance list", alias)
 			}
-			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Remove instance %q (%s)?", alias, inst.URL))
+			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Delete instance %q (%s)?", alias, inst.URL))
 			if err != nil {
 				return err
 			}
@@ -44,9 +45,9 @@ func newRemoveCmd() *cobra.Command {
 			}
 			if wasActive {
 				_, _ = fmt.Fprintf(cmd.OutOrStdout(),
-					"Instance %q removed.\nRun: youtrack instance use <alias> to set a new active instance.\n", alias)
+					"Instance %q deleted.\nRun: youtrack instance use <alias> to set a new active instance.\n", alias)
 			} else {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Instance %q removed.\n", alias)
+				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Instance %q deleted.\n", alias)
 			}
 			return nil
 		},

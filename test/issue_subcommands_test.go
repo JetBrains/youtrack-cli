@@ -188,7 +188,7 @@ func TestCmd_IssueSuggest(t *testing.T) {
 	assert.Contains(t, out, "commands")
 }
 
-func TestCmd_IssueAddDescriptionFile(t *testing.T) {
+func TestCmd_IssueCreateDescriptionFile(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
@@ -196,7 +196,7 @@ func TestCmd_IssueAddDescriptionFile(t *testing.T) {
 	f := filepath.Join(t.TempDir(), "desc.md")
 	require.NoError(t, os.WriteFile(f, []byte(content), 0o600))
 
-	out := runCmd(t, "issue", "add",
+	out := runCmd(t, "issue", "create",
 		"--project", proj.ShortName,
 		"--summary", "desc-file test",
 		"--description-file", f,
@@ -218,7 +218,7 @@ func TestCmd_IssueAddDescriptionFile(t *testing.T) {
 	assert.Equal(t, content, result.Description)
 }
 
-func TestCmd_IssueAddParent(t *testing.T) {
+func TestCmd_IssueCreateParent(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
@@ -229,7 +229,7 @@ func TestCmd_IssueAddParent(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(parent.IDReadable) })
 
-	out := runCmd(t, "issue", "add",
+	out := runCmd(t, "issue", "create",
 		"--project", proj.ShortName,
 		"--summary", "child issue",
 		"--parent", parent.IDReadable,
@@ -268,7 +268,7 @@ func TestCmd_IssueAddParent(t *testing.T) {
 	assert.True(t, parentFound, "expected child %s to be linked to parent %s", childID, parent.IDReadable)
 }
 
-func TestCmd_IssueGetComments(t *testing.T) {
+func TestCmd_IssueViewComments(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
@@ -282,12 +282,12 @@ func TestCmd_IssueGetComments(t *testing.T) {
 	_, err = c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "hello from test"})
 	require.NoError(t, err)
 
-	out := runCmd(t, "issue", "get", issue.IDReadable, "--comments", "5", "--format", "json")
+	out := runCmd(t, "issue", "view", issue.IDReadable, "--comments", "5", "--format", "json")
 	// Output includes the issue JSON followed by the comments JSON array.
 	assert.True(t, strings.Contains(out, "hello from test"), "expected comment text in output")
 }
 
-func TestCmd_IssueGetPlain(t *testing.T) {
+func TestCmd_IssueViewPlain(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
@@ -299,7 +299,7 @@ func TestCmd_IssueGetPlain(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
-	out := runCmd(t, "issue", "get", issue.IDReadable, "--plain")
+	out := runCmd(t, "issue", "view", issue.IDReadable, "--plain")
 	assert.Contains(t, out, issue.IDReadable)
 	assert.Contains(t, out, "plain view test issue")
 	assert.Contains(t, out, "full description text here")

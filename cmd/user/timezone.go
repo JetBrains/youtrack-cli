@@ -10,8 +10,8 @@ import (
 
 func newUserTimezoneCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "timezone", Short: "Manage user timezone"}
-	get := &cobra.Command{
-		Use: "get <userId>", Short: "Get user timezone",
+	view := &cobra.Command{
+		Use: "view <userId>", Aliases: []string{"get"}, Short: "View user timezone",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -37,6 +37,6 @@ func newUserTimezoneCmd() *cobra.Command {
 			return client.SetUserTimezone(args[0], args[1])
 		},
 	}
-	cmd.AddCommand(get, set)
+	cmd.AddCommand(view, set)
 	return cmd
 }

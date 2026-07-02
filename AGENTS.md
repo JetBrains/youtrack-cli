@@ -47,7 +47,7 @@ export YOUTRACK_TOKEN=perm:...
 
 ## Command Registration
 
-Add a new file in `cmd/` (e.g., `cmd/issue_foo.go`). Create a constructor `newIssueFooCmd() *cobra.Command` and register it by calling `cmd.AddCommand(newIssueFooCmd())` in the parent command's constructor (e.g., `NewCmd()` in `cmd/issue/issue.go`).
+Add a new file in `cmd/` (e.g., `cmd/issue_foo.go`). Create a constructor `newIssueFooCmd() *cobra.Command` and register it in the parent command's constructor (e.g., `NewCmd()` in `cmd/issue/issue.go`). Parents with grouped `--help` menus (root, `issue`, `project`, `user`) register via `internal.AddToGroup(cmd, "<groupID>", ...)` so the command lands in a help group; flat parents call `cmd.AddCommand(...)` directly.
 
 - Use `internal.GetClient(cmd)` to obtain the API client.
 - Return errors from `RunE` — the root command prints them to stderr.
@@ -61,7 +61,8 @@ Add a new file in `cmd/` (e.g., `cmd/issue_foo.go`). Create a constructor `newIs
 ## Coding Conventions
 
 - `gofmt` formatting — run automatically by most editors with gopls.
-- Command names: lowercase verbs (`get`, `list`, `add`, `update`, `delete`).
+- Command names: lowercase verbs; canonical set is `view`, `list`, `create`, `update`, `delete` (`get`/`add` live on as aliases — don't use them for new commands).
+- `add` is reserved for associating existing entities or registering config (`issue tag add`, `project team add-user`, `instance add`); anything that makes a new record uses `create`.
 - Go identifiers: camelCase for unexported, PascalCase for exported.
 - Error strings: lowercase, no trailing period (Go convention).
 - All output goes through `output.Print(cmd, data)` — never `fmt.Println` directly in a command handler.

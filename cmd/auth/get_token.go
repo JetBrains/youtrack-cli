@@ -22,12 +22,13 @@ type getTokenResult struct {
 	Hint       string `json:"_hint,omitempty"`
 }
 
-// NewGetTokenCmd constructs the "get-token" command. Exported so cmd/instance
-// can register it as "instance add" without duplicating the implementation.
+// NewGetTokenCmd constructs the interactive authentication command. Registered
+// as "auth login" (alias "get-token") and reused by cmd/instance as "instance add";
+// both override Use and Short.
 func NewGetTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-token",
-		Short: "Authenticate interactively and save a permanent token (alias: login)",
+		Short: "Authenticate interactively and save a permanent token",
 		Long: `Prompts for the YouTrack URL (if not already configured) and lets you choose
 an authentication method:
 

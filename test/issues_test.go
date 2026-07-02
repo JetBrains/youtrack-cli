@@ -130,11 +130,11 @@ func TestCmd_IssueList(t *testing.T) {
 	assert.Contains(t, out, "cmd list test")
 }
 
-func TestCmd_IssueAdd(t *testing.T) {
+func TestCmd_IssueCreate(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
-	out := runCmd(t, "issue", "add",
+	out := runCmd(t, "issue", "create",
 		"--project", proj.ShortName,
 		"--summary", "cmd add test",
 		"--format", "json",
@@ -150,7 +150,7 @@ func TestCmd_IssueAdd(t *testing.T) {
 	}
 }
 
-func TestCmd_IssueGet(t *testing.T) {
+func TestCmd_IssueView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
@@ -161,7 +161,7 @@ func TestCmd_IssueGet(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
-	out := runCmd(t, "issue", "get", issue.IDReadable, "--format", "json")
+	out := runCmd(t, "issue", "view", issue.IDReadable, "--format", "json")
 	assert.Contains(t, out, issue.IDReadable)
 	assert.Contains(t, out, "cmd get test")
 }
@@ -217,7 +217,7 @@ func TestCmd_IssueCommentCRUD(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
-	out := runCmd(t, "issue", "comment", "add", issue.IDReadable,
+	out := runCmd(t, "issue", "comment", "create", issue.IDReadable,
 		"--text", "hello from cli",
 		"--format", "json",
 	)
@@ -253,7 +253,7 @@ func TestCmd_IssueCommentCRUD(t *testing.T) {
 	assert.Empty(t, comments)
 }
 
-func TestCmd_IssueWorkitemAdd(t *testing.T) {
+func TestCmd_IssueWorkitemCreate(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
@@ -267,7 +267,7 @@ func TestCmd_IssueWorkitemAdd(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
-	out = runCmd(t, "issue", "workitem", "add", issue.IDReadable,
+	out = runCmd(t, "issue", "workitem", "create", issue.IDReadable,
 		"--minutes", "90",
 		"--text", "design work",
 		"--format", "json",
@@ -398,7 +398,7 @@ func TestCmd_UserDeleteSelfRejected(t *testing.T) {
 	_ = out // error is on stderr; runCmdExpectError asserts non-zero exit
 }
 
-func TestCmd_IssueCommentGet(t *testing.T) {
+func TestCmd_IssueCommentView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
@@ -413,7 +413,7 @@ func TestCmd_IssueCommentGet(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, comment.ID)
 
-	out := runCmd(t, "issue", "comment", "get", issue.IDReadable, comment.ID, "--format", "json")
+	out := runCmd(t, "issue", "comment", "view", issue.IDReadable, comment.ID, "--format", "json")
 	assert.Contains(t, out, comment.ID)
 	assert.Contains(t, out, "get me")
 }
@@ -499,7 +499,7 @@ func TestCmd_IssueLinkTypeList(t *testing.T) {
 	assert.Contains(t, out, "[")
 }
 
-func TestCmd_IssueWorkitemGet(t *testing.T) {
+func TestCmd_IssueWorkitemView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
@@ -516,7 +516,7 @@ func TestCmd_IssueWorkitemGet(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, item.ID)
 
-	out := runCmd(t, "issue", "workitem", "get", issue.IDReadable, item.ID, "--format", "json")
+	out := runCmd(t, "issue", "workitem", "view", issue.IDReadable, item.ID, "--format", "json")
 	assert.Contains(t, out, item.ID)
 }
 
@@ -620,7 +620,7 @@ func TestCmd_IssueTag(t *testing.T) {
 	assert.Contains(t, listOut, tagID)
 }
 
-func TestCmd_IssueFieldGet(t *testing.T) {
+func TestCmd_IssueFieldView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
@@ -631,7 +631,7 @@ func TestCmd_IssueFieldGet(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
-	out := runCmd(t, "issue", "field", "get", issue.IDReadable, "Priority", "--format", "json")
+	out := runCmd(t, "issue", "field", "view", issue.IDReadable, "Priority", "--format", "json")
 	assert.Contains(t, out, "Priority")
 }
 

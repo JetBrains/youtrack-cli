@@ -14,7 +14,7 @@ func newTagCmd() *cobra.Command {
 		Short: "Manage tags",
 	}
 	cmd.AddCommand(newTagListCmd())
-	cmd.AddCommand(newTagAddCmd())
+	cmd.AddCommand(newTagCreateCmd())
 	cmd.AddCommand(newTagDeleteCmd())
 	cmd.AddCommand(newTagIssueCmd())
 	return cmd
@@ -60,10 +60,11 @@ func newTagListCmd() *cobra.Command {
 	}
 }
 
-func newTagAddCmd() *cobra.Command {
+func newTagCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "add",
-		Short: "Create a new tag",
+		Use:     "create",
+		Aliases: []string{"add"},
+		Short:   "Create a new tag",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			client, err := internal.GetClient(cmd)

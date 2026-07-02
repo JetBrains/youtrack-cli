@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestCmd_SettingsGet(t *testing.T) {
-	out := runCmd(t, "settings", "get", "--format", "json")
+func TestCmd_SettingsView(t *testing.T) {
+	out := runCmd(t, "settings", "view", "--format", "json")
 	assert.NotEmpty(t, out)
 }
 

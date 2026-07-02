@@ -11,7 +11,7 @@ func NewCmd() *cobra.Command {
 	cmd.AddCommand(newAddCmd())
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newUseCmd())
-	cmd.AddCommand(newRemoveCmd())
-	cmd.AddCommand(newUpdateTokenCmd())
+	cmd.AddCommand(newDeleteCmd())
+	cmd.AddCommand(newRefreshTokenCmd())
 	return cmd
 }

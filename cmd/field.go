@@ -14,7 +14,7 @@ func newFieldCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "field", Short: "Manage custom fields"}
 	cmd.AddCommand(
 		newFieldListCmd(),
-		newFieldAddCmd(),
+		newFieldCreateCmd(),
 		newFieldDeleteCmd(),
 		newFieldBundleCmd(),
 		newFieldWorkItemCmd(),
@@ -42,9 +42,9 @@ func newFieldListCmd() *cobra.Command {
 	}
 }
 
-func newFieldAddCmd() *cobra.Command {
+func newFieldCreateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use: "add", Short: "Create a custom field",
+		Use: "create", Aliases: []string{"add"}, Short: "Create a custom field",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			name, _ := cmd.Flags().GetString("name")
 			fieldType, _ := cmd.Flags().GetString("type")
@@ -178,8 +178,8 @@ func newFieldPrivacyCmd() *cobra.Command {
 
 func newFieldWorkTimeCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "worktime", Short: "Manage work time settings"}
-	get := &cobra.Command{
-		Use: "get", Short: "Get work time settings",
+	view := &cobra.Command{
+		Use: "view", Aliases: []string{"get"}, Short: "View work time settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -205,7 +205,7 @@ func newFieldWorkTimeCmd() *cobra.Command {
 	}
 	set.Flags().String("minutes-a-day", "", "Minutes-a-day presentation string (required)")
 	internal.MustMarkRequired(set, "minutes-a-day")
-	cmd.AddCommand(get, set)
+	cmd.AddCommand(view, set)
 	return cmd
 }
 

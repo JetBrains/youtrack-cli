@@ -19,7 +19,7 @@ func createTestWhiteboard(t *testing.T, c *api.Client) string {
 	require.NoError(t, err)
 	name := fmt.Sprintf("test-whiteboard-%d", time.Now().UnixMilli()%100000)
 
-	out := runCmd(t, "whiteboard", "add", "--name", name, "--owner", me.Login, "--format", "json")
+	out := runCmd(t, "whiteboard", "create", "--name", name, "--owner", me.Login, "--format", "json")
 	var wb struct {
 		ID string `json:"id"`
 	}
@@ -32,7 +32,7 @@ func createTestWhiteboard(t *testing.T, c *api.Client) string {
 // addTestWhiteboardNode adds a card node and returns its ID.
 func addTestWhiteboardNode(t *testing.T, whiteboardID, label string, x, y int) string {
 	t.Helper()
-	out := runCmd(t, "whiteboard", "node", "add", whiteboardID,
+	out := runCmd(t, "whiteboard", "node", "create", whiteboardID,
 		"--x", fmt.Sprintf("%d", x),
 		"--y", fmt.Sprintf("%d", y),
 		"--label", label,
@@ -61,13 +61,13 @@ func TestCmd_WhiteboardDeletePrintsSuccess(t *testing.T) {
 	assert.Contains(t, out, wb.ID)
 }
 
-func TestCmd_WhiteboardAdd(t *testing.T) {
+func TestCmd_WhiteboardCreate(t *testing.T) {
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 	assert.NotEmpty(t, wbID)
 }
 
-func TestCmd_WhiteboardNodeAdd(t *testing.T) {
+func TestCmd_WhiteboardNodeCreate(t *testing.T) {
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 	nodeID := addTestWhiteboardNode(t, wbID, "Test Node", 50, 50)
@@ -83,11 +83,11 @@ func TestCmd_WhiteboardList(t *testing.T) {
 	assert.Contains(t, out, "[")
 }
 
-func TestCmd_WhiteboardGet(t *testing.T) {
+func TestCmd_WhiteboardView(t *testing.T) {
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 
-	out := runCmd(t, "whiteboard", "get", wbID, "--format", "json")
+	out := runCmd(t, "whiteboard", "view", wbID, "--format", "json")
 	assert.Contains(t, out, wbID)
 }
 
@@ -100,12 +100,12 @@ func TestCmd_WhiteboardNodeList(t *testing.T) {
 	assert.Contains(t, out, "node-list-node")
 }
 
-func TestCmd_WhiteboardNodeGet(t *testing.T) {
+func TestCmd_WhiteboardNodeView(t *testing.T) {
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 	nodeID := addTestWhiteboardNode(t, wbID, "node-get-node", 20, 20)
 
-	out := runCmd(t, "whiteboard", "node", "get", wbID, nodeID, "--format", "json")
+	out := runCmd(t, "whiteboard", "node", "view", wbID, nodeID, "--format", "json")
 	assert.Contains(t, out, nodeID)
 }
 
