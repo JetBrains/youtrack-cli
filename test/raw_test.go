@@ -9,6 +9,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestCmd_RawFieldsProjection(t *testing.T) {
+	requireE2EEnv(t)
+
+	out := runCmd(t,
+		"--base-url", os.Getenv("YOUTRACK_BASE_URL"),
+		"--token", os.Getenv("YOUTRACK_TOKEN"),
+		"raw", "/api/users/me", "--fields", "login,fullName",
+	)
+
+	// with $fields= the server ignores the projection and returns only {$type,id}
+	var result struct {
+		Login string `json:"login"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &result))
+	assert.NotEmpty(t, result.Login)
+}
+
 func TestCmd_RawUnexpectedResponse(t *testing.T) {
 	requireE2EEnv(t)
 
