@@ -27,7 +27,7 @@ func newRawCmd() *cobra.Command {
 				if strings.Contains(path, "?") {
 					sep = "&"
 				}
-				path += sep + "$fields=" + fields
+				path += sep + "fields=" + fields
 			}
 
 			var body map[string]any
@@ -54,6 +54,6 @@ func newRawCmd() *cobra.Command {
 	}
 	cmd.Flags().String("method", "GET", "HTTP method (GET, POST, PUT, DELETE)")
 	cmd.Flags().String("body", "", "JSON request body")
-	cmd.Flags().String("fields", "", "Field projection string (added as $fields=...)")
+	cmd.Flags().String("fields", "", "Field projection string (added as fields=...)")
 	return cmd
 }
