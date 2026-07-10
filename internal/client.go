@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -43,6 +44,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 		}
 		if token == "" {
 			token = inst.Token
+			warnIfTokenExpired(cmd, serverAlias, inst)
 		}
 	}
 
@@ -67,6 +69,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 				}
 				if token == "" {
 					token = inst.Token
+					warnIfTokenExpired(cmd, alias, *inst)
 				}
 			case alias != "": // currentInstance is set but the alias is missing from the map (stale pointer).
 				return nil, fmt.Errorf(
@@ -101,6 +104,18 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	c.Verbose = verbose
 	c.Fields = expandFields(fields)
 	return c, nil
+}
+
+// warnIfTokenExpired prints a stderr hint when a stored OAuth session token has
+// passed its recorded expiry — the request that follows will 401, so tell the
+// user how to renew before the API error confuses them.
+func warnIfTokenExpired(cmd *cobra.Command, alias string, inst config.Instance) {
+	if inst.TokenExpiresAt == 0 || time.Now().Unix() < inst.TokenExpiresAt {
+		return
+	}
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
+		"warning: token for %q expired at %s — run: youtrack instance login %s\n",
+		alias, time.Unix(inst.TokenExpiresAt, 0).Format("2006-01-02 15:04"), alias)
 }
 
 // expandFields auto-expands bare nested entity names to include useful sub-fields.

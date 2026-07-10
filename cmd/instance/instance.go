@@ -14,6 +14,7 @@ func NewCmd() *cobra.Command {
 	}
 	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newAddCmd())
+	cmd.AddCommand(newLoginCmd())
 	cmd.AddCommand(newListCmd())
 	cmd.AddCommand(newUseCmd())
 	cmd.AddCommand(newDeleteCmd())
