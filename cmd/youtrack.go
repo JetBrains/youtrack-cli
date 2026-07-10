@@ -92,7 +92,7 @@ func Execute(fs embed.FS) error {
 	quiet, _ := root.PersistentFlags().GetBool("quiet")
 	if execErr != nil {
 		format := output.Format(root)
-		output.RenderError(root.ErrOrStderr(), root.OutOrStdout(), execErr, format == "json", quiet)
+		output.RenderError(root.ErrOrStderr(), execErr, format == "json", quiet)
 	}
 	if notice := <-done; notice != "" && !quiet {
 		_, _ = fmt.Fprintln(root.ErrOrStderr(), notice)

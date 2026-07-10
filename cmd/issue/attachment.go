@@ -1,8 +1,6 @@
 package issue
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -71,8 +69,8 @@ func newIssueAttachmentDeleteCmd() *cobra.Command {
 			if err := client.DeleteIssueAttachment(args[0], args[1]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted attachment "+args[1])
-			return err
+			output.PrintSuccess(cmd, "deleted attachment "+args[1])
+			return nil
 		},
 	}
 }
