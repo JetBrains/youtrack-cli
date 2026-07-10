@@ -56,6 +56,37 @@ type GoField struct {
 	JSONName string
 }
 
+// hubBackedStructs lists Go structs that decode from YouTrack endpoints backed
+// by JetBrains Hub: /api/roles, /api/assignedRoles, and /api/admin/organizations
+// proxy Hub entities (roles, role assignments, and organizations are owned by
+// the bundled Hub, not YouTrack proper). Some YouTrack builds omit these
+// schemas from /api/openapi.json entirely (the 2026.1 Docker image used in CI
+// ships 218 schemas without them) while newer cloud builds document them
+// (youtrack.jetbrains.com ships 232 schemas including all three). When the
+// schema is missing from the fetched spec we skip with the reason below; when
+// the schema is present, these structs are validated like any other.
+var hubBackedStructs = map[string]string{
+	"Role":         "Hub REST entity proxied via /api/roles — not in this build's YouTrack OpenAPI spec",
+	"AssignedRole": "Hub REST entity proxied via /api/assignedRoles — not in this build's YouTrack OpenAPI spec",
+	"Organization": "Hub REST entity proxied via /api/admin/organizations — not in this build's YouTrack OpenAPI spec",
+}
+
+// allowedMissingFields permits specific fields to be absent from a schema
+// without failing, keyed by schema name then json field name. Each entry
+// documents why the omission is acceptable rather than drift.
+var allowedMissingFields = map[string]map[string]string{
+	"User": {
+		// The helpdesk standard/agent/reporter user type. Actively exercised:
+		// every user fetch requests userType(id,name) (userFields in
+		// api/users.go), `user create` always sends it (cmd/user/create.go),
+		// and helpdesk agent auto-add branches on UserType.ID == "AGENT"
+		// (api/projects.go). Live instances serve it, but some builds'
+		// OpenAPI spec omits it from the User schema (present in newer cloud
+		// specs) — a spec omission, not drift.
+		"userType": "served by live instances and used by the CLI, but omitted from some builds' User schema",
+	},
+}
+
 // typeMapping maps our Go struct names to YouTrack OpenAPI schema names.
 // Only entries verified field-for-field against a live YouTrack instance are
 // listed; everything else is intentionally skipped (see the package doc above).
@@ -110,14 +141,22 @@ func TestAPIDrift(t *testing.T) {
 		t.Run(gs.Name, func(t *testing.T) {
 			schema, ok := spec.Components.Schemas[schemaName]
 			if !ok {
+				if reason, hubBacked := hubBackedStructs[gs.Name]; hubBacked {
+					t.Skipf("schema %q not in this instance's OpenAPI spec: %s", schemaName, reason)
+				}
 				t.Fatalf("schema %q not found in OpenAPI spec", schemaName)
 			}
 
 			props := allSchemaProperties(spec, schema, map[string]bool{})
 			for _, field := range gs.Fields {
-				if !schemaHasProperty(props, field.JSONName) {
-					t.Errorf("field %s (json: %s) not found in schema %s", field.Name, field.JSONName, schemaName)
+				if schemaHasProperty(props, field.JSONName) {
+					continue
 				}
+				if reason, allowed := allowedMissingFields[schemaName][field.JSONName]; allowed {
+					t.Logf("allowing missing field %s.%s: %s", schemaName, field.Name, reason)
+					continue
+				}
+				t.Errorf("field %s (json: %s) not found in schema %s", field.Name, field.JSONName, schemaName)
 			}
 		})
 	}
