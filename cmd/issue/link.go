@@ -9,6 +9,7 @@ import (
 
 func newIssueLinkCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "link", Short: "Manage issue links"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(
 		newIssueLinkListCmd(),
 		newIssueLinkAddCmd(),
@@ -82,6 +83,7 @@ column of 'issue link list' (e.g. 100-1). To find it:
 
 func newIssueLinkTypeCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "type", Short: "Manage issue link types"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list", Short: "List issue link types",
 		RunE: func(cmd *cobra.Command, args []string) error {

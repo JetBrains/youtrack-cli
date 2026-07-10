@@ -12,6 +12,7 @@ import (
 
 func newRoleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "role", Short: "Manage roles and permissions"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(
 		newRoleListCmd(),
 		newRoleViewCmd(),
@@ -47,6 +48,7 @@ func newRoleViewCmd() *cobra.Command {
 
 func newRolePermissionCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "permission", Short: "Manage permissions on a role"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list <roleId>", Short: "List permissions for a role",
 		Args: cobra.ExactArgs(1),

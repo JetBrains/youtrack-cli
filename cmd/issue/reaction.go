@@ -10,6 +10,7 @@ import (
 
 func newIssueReactionCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "reaction", Short: "Manage reactions on issue comments"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newIssueReactionAddCmd())
 	cmd.AddCommand(newIssueReactionDeleteCmd())
 	return cmd

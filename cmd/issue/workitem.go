@@ -9,6 +9,7 @@ import (
 
 func newIssueWorkitemCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "workitem", Short: "Log work on an issue"}
+	internal.RequireSubcommand(cmd)
 	create := &cobra.Command{
 		Use: "create <issueId>", Aliases: []string{"add"}, Short: "Create a work item on an issue",
 		Args: cobra.ExactArgs(1),

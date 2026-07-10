@@ -9,6 +9,7 @@ import (
 
 func newProjectTimetrackCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "timetrack", Short: "Manage project time tracking settings"}
+	internal.RequireSubcommand(cmd)
 	set := &cobra.Command{
 		Use: "set <shortName>", Short: "Enable or disable time tracking for a project",
 		Args: cobra.ExactArgs(1),

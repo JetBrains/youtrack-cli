@@ -11,6 +11,7 @@ import (
 
 func newIssueAttachmentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "attachment", Short: "Manage issue attachments"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(
 		newIssueAttachmentListCmd(),
 		newIssueAttachmentAddCmd(),

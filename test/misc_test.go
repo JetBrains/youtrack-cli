@@ -99,4 +99,18 @@ func TestCmd_EnvVarPrecedenceOverConfig(t *testing.T) {
 	assert.Contains(t, out, `"login"`)
 }
 
+// ---------- Container commands ----------
+
+// TestCmd_ContainerCommandRequiresSubcommand verifies that parent commands which only
+// group subcommands (no RunE of their own) exit non-zero instead of printing help and
+// exiting 0, both when invoked bare and with an unrecognized subcommand name.
+func TestCmd_ContainerCommandRequiresSubcommand(t *testing.T) {
+	runCmdExpectError(t, "issue", "bogus")
+	runCmdExpectError(t, "issue")
+	runCmdExpectError(t, "project", "bogus")
+	runCmdExpectError(t, "project")
+	runCmdExpectError(t, "user", "bogus")
+	runCmdExpectError(t, "user")
+}
+
 // ---------- Whiteboard ----------

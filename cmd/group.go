@@ -9,6 +9,7 @@ import (
 
 func newGroupCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "group", Short: "Manage user groups"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newGroupListCmd(), newGroupViewCmd(), newGroupCreateCmd(), newGroupDeleteCmd(), newGroupMemberCmd(), newGroupRoleCmd())
 	return cmd
 }
@@ -96,6 +97,7 @@ func newGroupDeleteCmd() *cobra.Command {
 
 func newGroupMemberCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "member", Short: "Manage group members"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list <group-id>", Short: "List members of a group",
 		Args: cobra.ExactArgs(1),
@@ -117,6 +119,7 @@ func newGroupMemberCmd() *cobra.Command {
 
 func newGroupRoleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "role", Short: "Manage group project roles"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list <group-id>", Short: "List project roles assigned to a group",
 		Args: cobra.ExactArgs(1),
