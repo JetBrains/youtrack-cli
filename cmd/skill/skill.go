@@ -64,8 +64,7 @@ func newSkillListCmd(fs embed.FS) *cobra.Command {
 			for i, m := range metas {
 				infos[i] = SkillInfo{Name: m.Name, Version: m.Version, Default: m.Name == defaultSkill}
 			}
-			format, _ := cmd.Root().PersistentFlags().GetString("format")
-			if format == "table" {
+			if output.Format(cmd) == "table" {
 				return printSkillTable(cmd.OutOrStdout(), infos)
 			}
 			return output.Print(cmd, infos)

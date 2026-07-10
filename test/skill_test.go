@@ -1,6 +1,7 @@
 package api_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -15,6 +16,17 @@ func TestSkill_List(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "youtrack-cli")
 	assert.Contains(t, stdout, "2.0.0")
+
+	// --json must emit machine-readable output, not the human table.
+	stdout, _, err = runCmdInDir(t, dir, "skill", "list", "--json")
+	require.NoError(t, err)
+	var infos []struct {
+		Name    string `json:"name"`
+		Version string `json:"version"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(stdout), &infos), "output was: %s", stdout)
+	require.NotEmpty(t, infos)
+	assert.Equal(t, "youtrack-cli", infos[0].Name)
 }
 
 func TestSkill_InstallUpdateRemove(t *testing.T) {
