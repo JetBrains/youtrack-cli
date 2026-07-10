@@ -96,6 +96,9 @@ Use --format json for machine-readable output.`,
 				return fmt.Errorf("saving config: %w", err)
 			}
 			path, _ := config.ConfigPath()
+			if !cfg.TokenInKeyring(alias) {
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: OS keyring unavailable — token stored in plain text at %s\n", path)
+			}
 			res := getTokenResult{
 				HubToken:   hubToken,
 				ConfigFile: path,

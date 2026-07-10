@@ -19,9 +19,15 @@ type Config struct {
 }
 
 // Instance holds the credentials for a single YouTrack instance.
+// Token is empty in the file when the token lives in the OS keyring;
+// Load fills it back in memory.
 type Instance struct {
 	URL   string `json:"url"`
-	Token string `json:"token"`
+	Token string `json:"token,omitempty"`
+
+	// tokenInKeyring marks the token as stored in the OS keyring so Save
+	// omits it from the config file (unexported fields are not marshaled).
+	tokenInKeyring bool
 }
 
 // ConfigPath returns the absolute path to ~/.youtrack-cli-config.json.
@@ -54,17 +60,40 @@ func Load() (*Config, error) {
 	if c.Instances == nil {
 		c.Instances = map[string]Instance{}
 	}
+	for alias, inst := range c.Instances {
+		if inst.Token != "" {
+			continue
+		}
+		if tok, err := keyringGet(alias); err == nil && tok != "" {
+			inst.Token = tok
+			inst.tokenInKeyring = true
+			c.Instances[alias] = inst
+		}
+	}
 	return &c, nil
 }
 
 // Save atomically writes the config to ~/.youtrack-cli-config.json at 0600.
 // Uses write-to-temp + rename to avoid partial writes on crash.
+// Tokens are stored in the OS keyring when available and omitted from the
+// file; on any keyring failure (headless CI, locked keychain) the token is
+// written to the file exactly as before. File tokens from older versions are
+// migrated to the keyring transparently on the first successful write.
 func (c *Config) Save() error {
 	path, err := ConfigPath()
 	if err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(c, "", "  ")
+	for alias, inst := range c.Instances {
+		if inst.Token == "" || inst.tokenInKeyring {
+			continue
+		}
+		if keyringSet(alias, inst.Token) == nil {
+			inst.tokenInKeyring = true
+			c.Instances[alias] = inst
+		}
+	}
+	data, err := json.MarshalIndent(c.fileView(), "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
@@ -78,6 +107,24 @@ func (c *Config) Save() error {
 		return fmt.Errorf("saving config: %w", err)
 	}
 	return nil
+}
+
+// fileView returns a copy of the config with keyring-stored tokens omitted.
+func (c *Config) fileView() Config {
+	out := *c
+	out.Instances = make(map[string]Instance, len(c.Instances))
+	for alias, inst := range c.Instances {
+		if inst.tokenInKeyring {
+			inst.Token = ""
+		}
+		out.Instances[alias] = inst
+	}
+	return out
+}
+
+// TokenInKeyring reports whether the token for alias is stored in the OS keyring.
+func (c *Config) TokenInKeyring(alias string) bool {
+	return c.Instances[alias].tokenInKeyring
 }
 
 // ActiveInstance returns a pointer to the active instance and its alias.
@@ -116,11 +163,13 @@ func (c *Config) AddInstance(alias, rawURL, token string) string {
 	return final
 }
 
-// RemoveInstance removes the instance by alias. Returns an error if the alias is not found.
+// RemoveInstance removes the instance by alias and best-effort deletes its
+// keyring entry. Returns an error if the alias is not found.
 func (c *Config) RemoveInstance(alias string) error {
 	if _, ok := c.Instances[alias]; !ok {
 		return fmt.Errorf("instance %q not found — run: youtrack instance list", alias)
 	}
+	_ = keyringDelete(alias)
 	delete(c.Instances, alias)
 	return nil
 }
