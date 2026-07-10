@@ -27,7 +27,7 @@ type Instance struct {
 	tokenInKeyring bool
 	// AuthMethod records how the token was obtained ("oauth" for browser SSO; empty for permanent tokens).
 	AuthMethod string `json:"authMethod,omitempty"`
-	// TokenExpiresAt is the unix timestamp after which the token is expired; zero means it never expires.
+	// TokenExpiresAt is the unix timestamp after which the token expires; zero means never (permanent token).
 	TokenExpiresAt int64 `json:"tokenExpiresAt,omitempty"`
 }
 
@@ -149,8 +149,7 @@ func (c *Config) AddInstance(alias, rawURL, token string) string {
 	return c.upsertInstance(alias, rawURL, Instance{URL: rawURL, Token: token})
 }
 
-// AddInstanceOAuth upserts an instance holding a short-lived OAuth access token.
-// expiresAt is the unix timestamp after which the token stops working.
+// AddInstanceOAuth upserts an instance holding a short-lived OAuth access token that expires at the given unix timestamp.
 func (c *Config) AddInstanceOAuth(alias, rawURL, token string, expiresAt int64) string {
 	return c.upsertInstance(alias, rawURL, Instance{
 		URL:            rawURL,

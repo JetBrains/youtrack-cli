@@ -34,9 +34,7 @@ func TestGeneratePKCEVerifier(t *testing.T) {
 	}
 }
 
-// TestOAuthDiscovery verifies the unauthenticated discovery chain against the
-// live harness instance: ring config → Hub URL + YouTrack service ID → OAuth
-// endpoints.
+// TestOAuthDiscovery verifies the unauthenticated discovery chain against the live harness: ring config → Hub URL + YouTrack service ID → OAuth endpoints.
 func TestOAuthDiscovery(t *testing.T) {
 	requireE2EEnv(t)
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
@@ -56,11 +54,7 @@ func TestOAuthDiscovery(t *testing.T) {
 	assert.NotEmpty(t, eps.TokenEndpoint)
 }
 
-// TestInstanceLogin_FallsBackWithoutOAuthClient exercises the graceful
-// degradation path: the harness Hub has no "localhost-auth" public client, so
-// `instance login` must detect that in pre-flight and fall back to the
-// paste-token flow (which we feed via stdin). The full browser flow itself
-// cannot run headlessly.
+// TestInstanceLogin_FallsBackWithoutOAuthClient checks that with no "localhost-auth" client, `instance login` pre-flight falls back to the paste-token flow (fed via stdin); the full browser flow can't run headlessly.
 func TestInstanceLogin_FallsBackWithoutOAuthClient(t *testing.T) {
 	requireE2EEnv(t)
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")

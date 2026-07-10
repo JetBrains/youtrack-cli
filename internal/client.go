@@ -106,9 +106,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	return c, nil
 }
 
-// warnIfTokenExpired prints a stderr hint when a stored OAuth session token has
-// passed its recorded expiry — the request that follows will 401, so tell the
-// user how to renew before the API error confuses them.
+// warnIfTokenExpired prints a stderr renewal hint when a stored token is past its expiry, before the follow-up request 401s.
 func warnIfTokenExpired(cmd *cobra.Command, alias string, inst config.Instance) {
 	if inst.TokenExpiresAt == 0 || time.Now().Unix() < inst.TokenExpiresAt {
 		return

@@ -19,9 +19,7 @@ var noRedirectClient = &http.Client{
 	},
 }
 
-// RingConfig is the ring(...) fragment of YouTrack's /api/config response.
-// It identifies the Hub authorization server and the YouTrack service ID
-// registered there. Reachable unauthenticated on all YouTrack versions.
+// RingConfig is the ring(...) fragment of /api/config: the Hub authorization server and YouTrack service ID, reachable unauthenticated on all versions.
 type RingConfig struct {
 	URL            string `json:"url"`
 	ServiceID      string `json:"serviceId"`
@@ -52,18 +50,14 @@ func GetRingConfig(baseURL string) (*RingConfig, error) {
 	return &wrapper.Ring, nil
 }
 
-// OAuthEndpoints holds the Hub OAuth 2.0 endpoints discovered via
-// /.well-known/openid-configuration (with a conventional-path fallback for
-// older Hub versions that do not serve the discovery document).
+// OAuthEndpoints holds the Hub OAuth 2.0 endpoints from /.well-known/openid-configuration, with a conventional-path fallback for older Hubs.
 type OAuthEndpoints struct {
 	AuthorizationEndpoint string   `json:"authorization_endpoint"`
 	TokenEndpoint         string   `json:"token_endpoint"`
 	CodeChallengeMethods  []string `json:"code_challenge_methods_supported"`
 }
 
-// DiscoverOAuthEndpoints resolves the authorization and token endpoints for a Hub.
-// When the discovery document advertises code_challenge_methods_supported it must
-// include S256 — the CLI only implements PKCE with S256.
+// DiscoverOAuthEndpoints resolves a Hub's authorization and token endpoints; if it advertises code_challenge_methods_supported, S256 must be among them.
 func DiscoverOAuthEndpoints(hubURL string) (*OAuthEndpoints, error) {
 	hubURL = strings.TrimRight(hubURL, "/")
 	fallback := &OAuthEndpoints{
@@ -100,10 +94,7 @@ func DiscoverOAuthEndpoints(hubURL string) (*OAuthEndpoints, error) {
 	return &eps, nil
 }
 
-// PreflightOAuthClient checks — without opening a browser — whether Hub accepts
-// the client_id and redirect_uri baked into authorizeURL. Hub answers the
-// authorization request with a 303: to its login page when the client is valid,
-// or to /auth/oauth/error when the client is unknown or the redirect is rejected.
+// PreflightOAuthClient checks, without opening a browser, whether Hub accepts the client_id and redirect_uri in authorizeURL (303 to /auth/oauth/error means rejected).
 func PreflightOAuthClient(authorizeURL string) error {
 	resp, err := noRedirectClient.Get(authorizeURL)
 	if err != nil {
@@ -129,9 +120,7 @@ type OAuthToken struct {
 	Scope       string `json:"scope"`
 }
 
-// ExchangeOAuthCode redeems an authorization code for an access token.
-// The client is public: no Authorization header and no secret — client_id goes
-// in the form body, proof of possession comes from the PKCE code_verifier.
+// ExchangeOAuthCode redeems an authorization code as a public client — client_id in the form body, no secret, PKCE code_verifier for proof of possession.
 func ExchangeOAuthCode(tokenEndpoint, clientID, code, redirectURI, codeVerifier string) (*OAuthToken, error) {
 	form := url.Values{}
 	form.Set("grant_type", "authorization_code")
@@ -174,8 +163,7 @@ func ExchangeOAuthCode(tokenEndpoint, clientID, code, redirectURI, codeVerifier 
 	return &tok, nil
 }
 
-// GeneratePKCEVerifier returns a 32-byte random code verifier encoded as
-// unpadded base64url (43 characters), per RFC 7636 §4.1.
+// GeneratePKCEVerifier returns a 32-byte random code verifier as unpadded base64url (43 chars), per RFC 7636 §4.1.
 func GeneratePKCEVerifier() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {

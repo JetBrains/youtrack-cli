@@ -20,9 +20,7 @@ import (
 
 const defaultOAuthClientID = "localhost-auth"
 
-// ssoOptions collect the tunables of the browser SSO flow. The interactive
-// get-token menu invokes the flow with plain defaults; the standalone
-// "instance login" command fills them from flags.
+// ssoOptions are the tunables of the browser SSO flow: plain defaults from the get-token menu, flag-filled by "instance login".
 type ssoOptions struct {
 	clientID    string
 	extraScopes []string
@@ -45,9 +43,7 @@ type ssoLoginResult struct {
 	Hint       string `json:"_hint,omitempty"`
 }
 
-// NewSSOLoginCmd constructs the browser single sign-on command. Registered as
-// "instance login" (see cmd/instance); the flow is also reachable as option 4
-// in the interactive get-token menu.
+// NewSSOLoginCmd constructs the browser single sign-on command (registered as "instance login"; also option 4 in the get-token menu).
 func NewSSOLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login [url-or-alias]",
@@ -119,8 +115,7 @@ paste-token flow.`,
 	return cmd
 }
 
-// resolveSSOBaseURL resolves the target instance URL: positional arg (URL or
-// configured alias) → --base-url flag → interactive prompt.
+// resolveSSOBaseURL resolves the target instance URL: positional arg (URL or configured alias) → --base-url flag → interactive prompt.
 func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) (string, error) {
 	raw := ""
 	if len(args) > 0 {
@@ -164,8 +159,7 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 	return raw, nil
 }
 
-// runSSOFlow executes the full browser OAuth 2.0 + PKCE flow against the Hub
-// serving baseURL and saves the resulting short-lived access token.
+// runSSOFlow runs the full browser OAuth 2.0 + PKCE flow against the Hub serving baseURL and saves the short-lived access token.
 func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts ssoOptions) error {
 	stderr := cmd.ErrOrStderr()
 	interactive := term.IsTerminal(int(os.Stdin.Fd()))
@@ -199,10 +193,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 		return err
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
-	// Bare loopback origin — Hub's registered loopback redirect URIs are
-	// path-less and its matcher allows any localhost/127.0.0.1 port. Use the
-	// literal 127.0.0.1 we actually bind on (per RFC 8252 §8.3) so the browser
-	// callback can't miss us by resolving "localhost" to IPv6 [::1].
+	// Bare path-less loopback URI on the literal 127.0.0.1 we bound (RFC 8252 §8.3), so the browser can't miss us by resolving "localhost" to IPv6 [::1].
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d", port)
 
 	scopes := append([]string{ytServiceID}, opts.extraScopes...)
@@ -216,8 +207,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	q.Set("code_challenge_method", "S256")
 	authorizeURL := endpoints.AuthorizationEndpoint + "?" + q.Encode()
 
-	// Pre-flight before opening a browser: verify the Hub knows this client and
-	// accepts the loopback redirect. Fall back to the paste-token flow otherwise.
+	// Pre-flight: verify the Hub knows this client and accepts the loopback redirect; fall back to paste-token otherwise.
 	if err := api.PreflightOAuthClient(authorizeURL); err != nil {
 		_ = listener.Close()
 		_, _ = fmt.Fprintf(stderr, "This Hub has no public CLI OAuth client (%q): %v\nFalling back to the paste-token flow.\n\n", opts.clientID, err)
@@ -288,9 +278,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 			time.Unix(expiresAt, 0).Format("15:04"))
 	}
 
-	// "table" is output.Format's default human mode; --json/--plain and a
-	// non-TTY stdout all resolve to a structured format that must go through
-	// output.Print so scripts and pipes receive the token machine-readable.
+	// "table" is the human mode; --json/--plain and non-TTY stdout resolve to a structured format that must go through output.Print for scripts.
 	if output.Format(cmd) == "table" {
 		w := cmd.OutOrStdout()
 		_, _ = fmt.Fprintf(w, "Signed in as %s (%s)\n", result.Name, result.Login)
@@ -304,10 +292,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	return output.Print(cmd, result)
 }
 
-// discoverHub resolves the Hub base URL and the YouTrack service ID (the OAuth
-// scope) for an instance. Primary source: /api/config ring(...) — unauthenticated
-// and present on all versions. Fallback: the MCP oauth-protected-resource
-// document (newer instances only).
+// discoverHub resolves the Hub base URL and YouTrack service ID (OAuth scope): /api/config ring(...) primary, MCP oauth-protected-resource fallback.
 func discoverHub(baseURL string) (hubURL, ytServiceID string) {
 	if ring, err := api.GetRingConfig(baseURL); err == nil {
 		hubURL = strings.TrimRight(ring.URL, "/")

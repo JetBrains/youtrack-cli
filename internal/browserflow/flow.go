@@ -64,10 +64,7 @@ func GenerateState() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
-// Run hosts opts.Listener, opens opts.OpenURL, waits for the callback on the
-// bare root path, validates state in constant time, and closes the listener on
-// return. The callback is served at "/" only (no path) because Hub's registered
-// loopback redirect URIs are path-less.
+// Run hosts opts.Listener, opens opts.OpenURL, waits for the callback at "/" only (path-less, matching Hub's loopback redirect URIs), validates state in constant time, and closes the listener on return.
 func Run(ctx context.Context, opts Options) (*Result, error) {
 	if opts.Listener == nil {
 		return nil, errors.New("browserflow: listener is required")
@@ -101,8 +98,7 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		w.Header().Set("X-Frame-Options", "DENY")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'")
 
-		// Validate state in the handler so a forged or stray request can't claim
-		// the result slot; real errors echo state (RFC 6749).
+		// Validate state in the handler so a forged or stray request can't claim the result slot; real errors echo state (RFC 6749).
 		if subtle.ConstantTimeCompare([]byte(raw.state), []byte(opts.State)) != 1 {
 			w.WriteHeader(http.StatusBadRequest)
 			_ = callbackTmpl.Execute(w, callbackData{Error: "invalid or expired request"})
