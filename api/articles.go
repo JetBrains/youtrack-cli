@@ -10,9 +10,9 @@ const articleFields = "id,idReadable,summary,content,reporter(id,login,fullName)
 const articleAttachmentFields = "id,name,url,mimeType"
 const articleCommentFields = "id,text,author(id,login,fullName),created,updated"
 
-func (c *Client) ListArticles(query string) ([]Article, error) {
+func (c *Client) ListArticles(query string, limit int) ([]Article, error) {
 	var result []Article
-	path := pathArticles + fmt.Sprintf("?fields=%s&query=%s&$top=-1", articleFields, url.QueryEscape(query))
+	path := pathArticles + fmt.Sprintf("?fields=%s&query=%s&$top=%d", articleFields, url.QueryEscape(query), limit)
 	err := c.Get(path, &result)
 	return result, err
 }

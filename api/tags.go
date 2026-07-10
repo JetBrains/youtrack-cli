@@ -26,9 +26,9 @@ func (c *Client) DeleteTag(id string) error {
 	return c.Delete(fmt.Sprintf(pathTag, url.PathEscape(id)))
 }
 
-func (c *Client) ListTagIssues(tagID string) ([]Issue, error) {
+func (c *Client) ListTagIssues(tagID string, limit int) ([]Issue, error) {
 	var result []Issue
-	path := fmt.Sprintf(pathTagIssues+"?fields=%s&$top=-1", url.PathEscape(tagID), issueFields)
+	path := fmt.Sprintf(pathTagIssues+"?fields=%s&$top=%d", url.PathEscape(tagID), issueFields, limit)
 	err := c.Get(path, &result)
 	return result, err
 }

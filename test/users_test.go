@@ -83,7 +83,7 @@ func TestCmd_UserCRUD(t *testing.T) {
 	out = runCmd(t, "user", "delete", login, "--successor", successor.Login, "--force")
 	assert.Contains(t, out, "deleted user "+login)
 
-	users, err := c.ListUsers(login)
+	users, err := c.ListUsers(login, 100)
 	require.NoError(t, err)
 	for _, user := range users {
 		assert.NotEqual(t, login, user.Login)

@@ -22,6 +22,7 @@ func newTagCmd() *cobra.Command {
 
 func newTagIssueCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "issue", Short: "View issues for a tag"}
+	var limit int
 	list := &cobra.Command{
 		Use:   "list <tagId>",
 		Short: "List issues tagged with a specific tag",
@@ -31,13 +32,14 @@ func newTagIssueCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			issues, err := client.ListTagIssues(args[0])
+			issues, err := client.ListTagIssues(args[0], limit)
 			if err != nil {
 				return err
 			}
 			return output.Print(cmd, issues)
 		},
 	}
+	list.Flags().IntVar(&limit, "limit", 100, "Maximum number of issues to return")
 	cmd.AddCommand(list)
 	return cmd
 }
