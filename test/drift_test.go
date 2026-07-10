@@ -1,15 +1,4 @@
-// Drift detection catches when YouTrack's REST API contract changes underneath us.
-//
-// TestAPIDrift parses the Go structs in api/*.go, collects their declared json
-// field names, fetches the live server's OpenAPI 3.0 spec, and asserts every
-// field we declare exists in the corresponding schema (directly or via allOf
-// composition). It intentionally validates only a curated allowlist of types
-// (typeMapping) — many of our Go structs are simplified request bodies, or
-// read from YouTrack's discriminator-based polymorphic schemas where the base
-// definition in the spec doesn't carry every field a concrete subtype returns.
-// Only types verified to map cleanly onto a single schema are included.
-//
-// Run with: go test ./test/ -run TestAPIDrift -v
+// TestAPIDrift asserts every json field our api/*.go structs declare exists in the live YouTrack OpenAPI spec; it validates only the curated typeMapping allowlist because many structs are simplified request bodies or polymorphic subtypes the base schema doesn't fully cover.
 package api_test
 
 import (
@@ -35,8 +24,7 @@ type OpenAPISpec struct {
 	} `json:"components"`
 }
 
-// OpenAPISchema represents a schema definition, including allOf composition
-// used throughout YouTrack's spec for discriminator-based inheritance.
+// OpenAPISchema is a schema definition, including the allOf composition YouTrack uses for discriminator-based inheritance.
 type OpenAPISchema struct {
 	Type       string                   `json:"type"`
 	Properties map[string]OpenAPISchema `json:"properties"`
@@ -56,40 +44,22 @@ type GoField struct {
 	JSONName string
 }
 
-// hubBackedStructs lists Go structs that decode from YouTrack endpoints backed
-// by JetBrains Hub: /api/roles, /api/assignedRoles, and /api/admin/organizations
-// proxy Hub entities (roles, role assignments, and organizations are owned by
-// the bundled Hub, not YouTrack proper). Some YouTrack builds omit these
-// schemas from /api/openapi.json entirely (the 2026.1 Docker image used in CI
-// ships 218 schemas without them) while newer cloud builds document them
-// (youtrack.jetbrains.com ships 232 schemas including all three). When the
-// schema is missing from the fetched spec we skip with the reason below; when
-// the schema is present, these structs are validated like any other.
+// hubBackedStructs are Hub-proxied entities (roles, role assignments, organizations) whose schemas some YouTrack builds omit from openapi.json; skip with the reason below when absent, validate like any other when present.
 var hubBackedStructs = map[string]string{
 	"Role":         "Hub REST entity proxied via /api/roles — not in this build's YouTrack OpenAPI spec",
 	"AssignedRole": "Hub REST entity proxied via /api/assignedRoles — not in this build's YouTrack OpenAPI spec",
 	"Organization": "Hub REST entity proxied via /api/admin/organizations — not in this build's YouTrack OpenAPI spec",
 }
 
-// allowedMissingFields permits specific fields to be absent from a schema
-// without failing, keyed by schema name then json field name. Each entry
-// documents why the omission is acceptable rather than drift.
+// allowedMissingFields permits fields to be absent from a schema (keyed by schema then json field); each value documents why the omission isn't drift.
 var allowedMissingFields = map[string]map[string]string{
 	"User": {
-		// The helpdesk standard/agent/reporter user type. Actively exercised:
-		// every user fetch requests userType(id,name) (userFields in
-		// api/users.go), `user create` always sends it (cmd/user/create.go),
-		// and helpdesk agent auto-add branches on UserType.ID == "AGENT"
-		// (api/projects.go). Live instances serve it, but some builds'
-		// OpenAPI spec omits it from the User schema (present in newer cloud
-		// specs) — a spec omission, not drift.
+		// Helpdesk user type: requested by userFields, sent by user create, read for AGENT auto-add — served live but absent from some builds' User schema.
 		"userType": "served by live instances and used by the CLI, but omitted from some builds' User schema",
 	},
 }
 
-// typeMapping maps our Go struct names to YouTrack OpenAPI schema names.
-// Only entries verified field-for-field against a live YouTrack instance are
-// listed; everything else is intentionally skipped (see the package doc above).
+// typeMapping maps Go struct names to OpenAPI schema names; only entries verified field-for-field against a live instance are listed, everything else is intentionally skipped (see package doc).
 var typeMapping = map[string]string{
 	"Article":            "Article",
 	"ArticleAttachment":  "ArticleAttachment",
@@ -183,8 +153,7 @@ func fetchOpenAPISpec(baseURL string) (*OpenAPISpec, error) {
 	return &spec, nil
 }
 
-// parseGoStructs parses every *.go file (excluding tests) in dir and collects
-// exported struct fields that carry a json tag.
+// parseGoStructs collects exported, json-tagged struct fields from every non-test *.go file in dir.
 func parseGoStructs(dir string) ([]GoStruct, error) {
 	files, err := filepath.Glob(filepath.Join(dir, "*.go"))
 	if err != nil {
@@ -244,9 +213,7 @@ func parseGoStructs(dir string) ([]GoStruct, error) {
 	return structs, nil
 }
 
-// allSchemaProperties flattens a schema's own properties together with those
-// contributed by its allOf composition (including $ref'd base schemas),
-// which is how YouTrack's OpenAPI spec models inheritance.
+// allSchemaProperties flattens a schema's own properties with those from its allOf composition (including $ref'd base schemas), how YouTrack models inheritance.
 func allSchemaProperties(spec *OpenAPISpec, schema OpenAPISchema, seen map[string]bool) map[string]OpenAPISchema {
 	props := make(map[string]OpenAPISchema, len(schema.Properties))
 	for k, v := range schema.Properties {
