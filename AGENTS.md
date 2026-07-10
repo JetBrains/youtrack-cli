@@ -69,9 +69,20 @@ Add a new file in `cmd/` (e.g., `cmd/issue_foo.go`). Create a constructor `newIs
 
 ## Testing
 
-This repo intentionally uses end-to-end tests only: no mocks, no fake transport, no separate unit-test layer.
-The subject under test is the compiled `youtrack` binary against a real YouTrack instance.
-We do not maintain a separate API-client conformance suite in parallel with CLI coverage.
+CLI behavior is covered exclusively by end-to-end tests: no mocks, no fake transport, and no
+`api.Client` conformance suite running in parallel with CLI coverage. The subject under test is the
+compiled `youtrack` binary against a real YouTrack instance.
+
+Two narrow, deliberately scoped exceptions live outside the E2E flow. Neither uses mocks or fake
+transport, and neither is a second product surface asserting client behavior:
+
+- **Pure-function unit tests** (`api/*_test.go`, `internal/*_test.go`) — table tests for pure, branchy
+  string helpers (`overrideFieldsParam`, `WrapUserValues`, `expandFields`, `splitFieldsInternal`) that
+  E2E cannot exercise exhaustively. They touch no client, no transport, and no network, and live in the
+  package under test. CI runs them via `go test ./api/ ./internal/`.
+- **API drift detection** (`test/drift_test.go`, `TestAPIDrift`) — gated on `requireE2EEnv` and run
+  inside the E2E job, it diffs our Go structs against the live server's OpenAPI spec to catch contract
+  changes. It asserts no client behavior; it is a static schema-vs-struct guard, not a conformance suite.
 
 Run the full suite with `make test`. It boots or reuses the local Dockerized YouTrack harness, bootstraps credentials,
 and runs the entire `./test` package against that live instance. Each test is self-contained: it creates all needed
@@ -79,7 +90,7 @@ entities and registers `t.Cleanup()` teardown. Helper functions in `test/helpers
 `createTempProject(t, c)`, `runCmd(t, args...)`.
 
 Tests may use `api.Client` for fixture setup, teardown, or external-state verification, but not as a second product
-surface with its own parallel contract suite. Keep the suite centered on observable CLI behavior.
+surface with its own parallel contract suite. Keep CLI coverage centered on observable CLI behavior.
 
 ## ID Conventions
 
