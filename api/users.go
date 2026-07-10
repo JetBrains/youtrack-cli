@@ -16,8 +16,7 @@ const (
 	hubSyncPollInterval      = 200 * time.Millisecond
 )
 
-// userLookupLimit bounds the fallback search GetUser runs when a direct lookup
-// fails; it's generous since we're scanning for an exact login match.
+// userLookupLimit bounds GetUser's fallback login search; generous since it scans for an exact match.
 const userLookupLimit = 500
 
 // AddUserRequest is the body for creating a user.

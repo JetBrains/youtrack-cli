@@ -17,12 +17,10 @@ const envReadOnly = "YOUTRACK_RO"
 
 const defaultTimeout = 30 * time.Second
 
-// maxErrorBodySize caps how much of an error response body we read into memory,
-// so a misbehaving server can't balloon memory with an oversized payload.
+// maxErrorBodySize caps error-body reads so a misbehaving server can't balloon client memory.
 const maxErrorBodySize = 1 << 20 // 1 MiB
 
-// UserAgent is sent as the User-Agent header on every request. Callers that know
-// the build version (e.g. internal.GetClient) should set this before making requests.
+// UserAgent is sent on every request; internal.GetClient sets it to the build version.
 var UserAgent = "youtrack-cli"
 
 // Client sends authenticated requests to a YouTrack instance.
