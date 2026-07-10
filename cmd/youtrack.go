@@ -94,9 +94,7 @@ func Execute(fs embed.FS) error {
 	if execErr != nil {
 		output.RenderError(root.ErrOrStderr(), execErr, jsonMode, quiet)
 	}
-	// A plain-text update notice must not trail the JSON error envelope that
-	// RenderError just wrote to stderr, or consumers parsing that stream as
-	// JSON choke. Suppress the notice whenever a JSON error was emitted.
+	// Suppress the plain-text update notice when a JSON error envelope was written to stderr, so that stream stays parseable.
 	jsonErrEmitted := jsonMode && execErr != nil
 	if notice := <-done; notice != "" && !quiet && !jsonErrEmitted {
 		_, _ = fmt.Fprintln(root.ErrOrStderr(), notice)

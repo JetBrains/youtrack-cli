@@ -164,8 +164,7 @@ func tryCmdNoFail(t *testing.T, args ...string) (string, error) {
 	return stdout.String(), err
 }
 
-// runCmdExpectError runs the binary, asserts a non-zero exit, and returns stderr —
-// errors (including the JSON error envelope) are always rendered on stderr.
+// runCmdExpectError runs the binary, asserts a non-zero exit, and returns stderr (where errors render).
 func runCmdExpectError(t *testing.T, args ...string) string {
 	t.Helper()
 	requireE2EEnv(t)

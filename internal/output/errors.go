@@ -22,13 +22,7 @@ type jsonErrorBody struct {
 	Suggestion string `json:"suggestion,omitempty"`
 }
 
-// RenderError prints err to w (stderr) — errors never land on stdout,
-// which is reserved for machine-readable data.
-//
-// JSON mode (jsonMode=true): writes a structured {"error":{...}} envelope.
-//
-// Human mode: writes "✗ Error: <msg>".
-// Appends "  Tip: <hint>" unless quiet=true. The error line itself is never suppressed.
+// RenderError writes err to w (stderr) — a {"error":{...}} envelope in JSON mode, "✗ Error: <msg>" otherwise; appends a Tip unless quiet.
 func RenderError(w io.Writer, err error, jsonMode, quiet bool) {
 	tip := tipFor(err)
 	if jsonMode {

@@ -12,16 +12,13 @@ var (
 	warnIcon    = color.New(color.FgYellow).Sprint("!")
 )
 
-// successResult is the stable JSON object emitted for success confirmations
-// in JSON mode, so stdout carries only valid JSON.
+// successResult is the JSON success object emitted in JSON mode so stdout stays valid JSON.
 type successResult struct {
 	Status  string `json:"status"`
 	Message string `json:"message"`
 }
 
-// PrintSuccess confirms a completed write operation on cmd's stdout.
-// JSON mode: emits {"status":"ok","message":"..."}. Other modes: "✓ msg\n".
-// Not suppressed by --quiet — success confirmations are always shown.
+// PrintSuccess confirms a write on cmd's stdout — {"status":"ok","message":"..."} in JSON mode, "✓ msg" otherwise; never suppressed by --quiet.
 func PrintSuccess(cmd *cobra.Command, msg string) {
 	if Format(cmd) == "json" {
 		_ = printJSON(cmd.OutOrStdout(), successResult{Status: "ok", Message: msg})

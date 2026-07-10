@@ -130,8 +130,7 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Log status and size only — the body of a token-creation response
-	// contains the freshly minted permanent token in cleartext.
+	// Log status and size only — the token-creation body carries the permanent token in cleartext.
 	if hubVerboseOut != nil {
 		_, _ = fmt.Fprintf(hubVerboseOut, "< %d (%d bytes)\n", resp.StatusCode, len(data))
 	}
