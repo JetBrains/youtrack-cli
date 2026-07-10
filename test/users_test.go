@@ -155,8 +155,28 @@ func TestCmd_UserDrafts(t *testing.T) {
 		t.Skipf("user drafts not supported on this instance: %v", err)
 	}
 
+	proj := createTempProject(t, c)
+	draft, err := c.CreateDraft(proj.ID, "user drafts fixture", "")
+	require.NoError(t, err)
+
+	// Listing by login must resolve to the same drafts as "me".
 	out := runCmd(t, "user", "drafts", "list", me.Login, "--format", "json")
-	assert.Contains(t, out, "[")
+	assert.Contains(t, out, draft.ID)
+	out = runCmd(t, "user", "drafts", "list", "me", "--format", "json")
+	assert.Contains(t, out, draft.ID)
+
+	// An unknown login must error out, not silently target the current user.
+	runCmdExpectError(t, "user", "drafts", "list", "no-such-user-e2e")
+	runCmdExpectError(t, "user", "drafts", "delete", "no-such-user-e2e")
+	drafts, err := c.GetUserIssueDrafts("me")
+	require.NoError(t, err)
+	assert.NotEmpty(t, drafts, "delete for an unknown user must not wipe the current user's drafts")
+
+	// Deleting by login wipes that user's drafts.
+	runCmd(t, "user", "drafts", "delete", me.Login)
+	drafts, err = c.GetUserIssueDrafts("me")
+	require.NoError(t, err)
+	assert.Empty(t, drafts)
 }
 
 func TestCmd_UserProfileView(t *testing.T) {
