@@ -279,12 +279,20 @@ func TestCmd_IssueViewComments(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
-	_, err = c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "hello from test"})
-	require.NoError(t, err)
+	for _, text := range []string{"first comment", "second comment", "third comment"} {
+		_, err = c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: text})
+		require.NoError(t, err)
+	}
 
-	out := runCmd(t, "issue", "view", issue.IDReadable, "--comments", "5", "--format", "json")
 	// Output includes the issue JSON followed by the comments JSON array.
-	assert.True(t, strings.Contains(out, "hello from test"), "expected comment text in output")
+	out := runCmd(t, "issue", "view", issue.IDReadable, "--comments", "5", "--format", "json")
+	assert.True(t, strings.Contains(out, "first comment"), "expected comment text in output")
+
+	// --comments N must return the N most recent comments, not the N oldest.
+	out = runCmd(t, "issue", "view", issue.IDReadable, "--comments", "2", "--format", "json")
+	assert.NotContains(t, out, "first comment")
+	assert.Contains(t, out, "second comment")
+	assert.Contains(t, out, "third comment")
 }
 
 func TestCmd_IssueViewPlain(t *testing.T) {
