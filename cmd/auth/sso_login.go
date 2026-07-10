@@ -200,8 +200,10 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	}
 	port := listener.Addr().(*net.TCPAddr).Port
 	// Bare loopback origin — Hub's registered loopback redirect URIs are
-	// path-less and its matcher allows any localhost/127.0.0.1 port.
-	redirectURI := fmt.Sprintf("http://localhost:%d", port)
+	// path-less and its matcher allows any localhost/127.0.0.1 port. Use the
+	// literal 127.0.0.1 we actually bind on (per RFC 8252 §8.3) so the browser
+	// callback can't miss us by resolving "localhost" to IPv6 [::1].
+	redirectURI := fmt.Sprintf("http://127.0.0.1:%d", port)
 
 	scopes := append([]string{ytServiceID}, opts.extraScopes...)
 	q := url.Values{}
@@ -286,7 +288,10 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 			time.Unix(expiresAt, 0).Format("15:04"))
 	}
 
-	if !flagChanged(cmd, "format") {
+	// "table" is output.Format's default human mode; --json/--plain and a
+	// non-TTY stdout all resolve to a structured format that must go through
+	// output.Print so scripts and pipes receive the token machine-readable.
+	if output.Format(cmd) == "table" {
 		w := cmd.OutOrStdout()
 		_, _ = fmt.Fprintf(w, "Signed in as %s (%s)\n", result.Name, result.Login)
 		_, _ = fmt.Fprintf(w, "  Token:  %s\n", maskToken(result.Token))

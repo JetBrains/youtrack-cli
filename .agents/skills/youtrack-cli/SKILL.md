@@ -30,7 +30,7 @@ youtrack issue command MYPROJ-1 "State Fixed"                 # update state
 | Area | Commands |
 |---|---|
 | Auth | `auth get-token` (`login`), `auth status`, `auth logout`, `auth refresh-token` |
-| Instances | `instance list`, `instance use`, `instance remove`, `instance update-token` |
+| Instances | `instance login` (browser OAuth), `instance list`, `instance use`, `instance remove`, `instance update-token` |
 | Issues | `issue list`, `get` (`view`), `add` (`create`), `update`, `delete`, `command`, `count` |
 | Issue social | `issue assign/unassign`, `watch/unwatch`, `vote/unvote`, `tag`, `visibility` |
 | Comments | `issue comment list`, `add`, `update`, `delete`, `pin`, `visibility` |
@@ -54,6 +54,7 @@ youtrack issue command MYPROJ-1 "State Fixed"                 # update state
 
 ## Quick Workflows
 
+- **Browser sign-in**: `youtrack instance login <url>` → OAuth 2.0 + PKCE against JetBrains Hub, saves a ~1-hour session token (re-run to renew, or pass an existing alias); falls back to paste-token when the Hub has no public loopback client. Needs an interactive terminal.
 - **Verify auth**: `youtrack auth status` → check `status` field per instance
 - **Create issue**: `youtrack issue add --project P --summary S` → `issue command <id> "assignee me"`
 - **Bulk update**: `youtrack issue list --query Q --json | jq '.[].id'` → loop `issue command`
