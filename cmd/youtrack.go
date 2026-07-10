@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +18,8 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
+
+const updateNoticeWait = 500 * time.Millisecond
 
 // NewRootCmd constructs the root command. Called by Execute() and by tests.
 func NewRootCmd(fs embed.FS) *cobra.Command {
@@ -94,8 +97,15 @@ func Execute(fs embed.FS) error {
 		format := output.Format(root)
 		output.RenderError(root.ErrOrStderr(), root.OutOrStdout(), execErr, format == "json", quiet)
 	}
-	if notice := <-done; notice != "" && !quiet {
-		_, _ = fmt.Fprintln(root.ErrOrStderr(), notice)
+	if quiet {
+		return execErr
+	}
+	select {
+	case notice := <-done:
+		if notice != "" {
+			_, _ = fmt.Fprintln(root.ErrOrStderr(), notice)
+		}
+	case <-time.After(updateNoticeWait):
 	}
 	return execErr
 }
