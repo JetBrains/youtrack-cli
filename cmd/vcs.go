@@ -9,6 +9,7 @@ import (
 
 func newVCSCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "vcs", Short: "Manage VCS integrations"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newVCSListCmd(), newVCSDeleteCmd(), newVCSConfigsCmd(), newVCSProcessorCmd())
 	return cmd
 }
@@ -68,6 +69,7 @@ func newVCSConfigsCmd() *cobra.Command {
 
 func newVCSProcessorCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "processor", Short: "Manage VCS processors"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list", Short: "List VCS processors",
 		RunE: func(cmd *cobra.Command, args []string) error {

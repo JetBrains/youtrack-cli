@@ -9,6 +9,7 @@ import (
 
 func newBoardCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "board", Short: "Manage agile boards and sprints"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(
 		newBoardListCmd(),
 		newBoardViewCmd(),
@@ -120,6 +121,7 @@ func newBoardUpdateCmd() *cobra.Command {
 
 func newBoardSprintCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "sprint", Short: "Manage sprints"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list", Short: "List all sprints for a board",
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -12,6 +12,7 @@ func newAppCmd() *cobra.Command {
 		Use:   "app",
 		Short: "Manage apps",
 	}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newAppListCmd())
 	cmd.AddCommand(newAppDeleteCmd())
 	cmd.AddCommand(newAppDeactivateCmd())
@@ -69,6 +70,7 @@ func newAppDeactivateCmd() *cobra.Command {
 
 func newAppPluginCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "plugin", Short: "Manage plugins"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list", Short: "List plugins",
 		RunE: func(cmd *cobra.Command, args []string) error {

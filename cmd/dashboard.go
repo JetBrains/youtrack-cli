@@ -11,6 +11,7 @@ import (
 
 func newDashboardCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "dashboard", Short: "Manage dashboards"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(
 		newDashboardListCmd(),
 		newDashboardCreateCmd(),

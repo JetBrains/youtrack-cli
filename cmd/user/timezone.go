@@ -10,6 +10,7 @@ import (
 
 func newUserTimezoneCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "timezone", Short: "Manage user timezone"}
+	internal.RequireSubcommand(cmd)
 	view := &cobra.Command{
 		Use: "view <userId>", Aliases: []string{"get"}, Short: "View user timezone",
 		Args: cobra.ExactArgs(1),

@@ -9,6 +9,7 @@ import (
 
 func newProjectTeamCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "team", Short: "Manage project team members"}
+	internal.RequireSubcommand(cmd)
 	addUser := &cobra.Command{
 		Use: "add-user <shortName> <userId>", Short: "Add a user to the project team",
 		Args: cobra.ExactArgs(2),

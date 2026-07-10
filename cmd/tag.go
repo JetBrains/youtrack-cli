@@ -13,6 +13,7 @@ func newTagCmd() *cobra.Command {
 		Use:   "tag",
 		Short: "Manage tags",
 	}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newTagListCmd())
 	cmd.AddCommand(newTagCreateCmd())
 	cmd.AddCommand(newTagDeleteCmd())
@@ -22,6 +23,7 @@ func newTagCmd() *cobra.Command {
 
 func newTagIssueCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "issue", Short: "View issues for a tag"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use:   "list <tagId>",
 		Short: "List issues tagged with a specific tag",

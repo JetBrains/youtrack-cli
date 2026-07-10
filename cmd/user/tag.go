@@ -9,6 +9,7 @@ import (
 
 func newUserTagCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "tag", Short: "View tags associated with a user"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use:   "list <userId>",
 		Short: "List tags owned by a user",
