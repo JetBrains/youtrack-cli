@@ -452,10 +452,7 @@ func flagChanged(cmd *cobra.Command, name string) bool {
 	return f != nil && f.Changed
 }
 
-// jsonOutput reports whether the resolved output format is JSON. It honors the
-// full resolution chain (--json, --plain, --format, non-TTY auto-detection), so
-// auth commands emit structured output for pipes and the --json flag, not just
-// the deprecated --format flag.
+// jsonOutput reports whether the resolved output format is JSON (honors --json, --plain, --format, and non-TTY auto-detection).
 func jsonOutput(cmd *cobra.Command) bool {
 	return output.Format(cmd) == "json"
 }

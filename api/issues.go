@@ -574,9 +574,7 @@ func (c *Client) UnvoteIssue(id string) error {
 	return c.Post(path, map[string]any{"hasVote": false}, nil)
 }
 
-// ListRecentComments returns the last `top` comments of an issue in
-// chronological order. YouTrack serves comments oldest-first, so $top=N would
-// return the N oldest; fetch all and keep the tail instead.
+// ListRecentComments returns the last `top` comments; YouTrack serves them oldest-first, so fetch all and keep the tail.
 func (c *Client) ListRecentComments(issueID string, top int) ([]Comment, error) {
 	var result []Comment
 	path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=-1", url.PathEscape(issueID), commentFields)
