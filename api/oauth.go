@@ -10,10 +10,17 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
+)
+
+const (
+	oauthHTTPTimeout         = 30 * time.Second
+	maxOAuthResponseBodySize = 1 << 20 // 1 MiB
 )
 
 // noRedirectClient never follows redirects — used to inspect Hub's Location headers.
 var noRedirectClient = &http.Client{
+	Timeout: oauthHTTPTimeout,
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
 		return http.ErrUseLastResponse
 	},
@@ -34,7 +41,7 @@ func GetRingConfig(baseURL string) (*RingConfig, error) {
 		return nil, fmt.Errorf("fetching ring config: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxOAuthResponseBodySize))
 	if err != nil {
 		return nil, fmt.Errorf("reading ring config response: %w", err)
 	}
@@ -52,6 +59,7 @@ func GetRingConfig(baseURL string) (*RingConfig, error) {
 
 // OAuthEndpoints holds the Hub OAuth 2.0 endpoints from /.well-known/openid-configuration, with a conventional-path fallback for older Hubs.
 type OAuthEndpoints struct {
+	Issuer                string   `json:"issuer"`
 	AuthorizationEndpoint string   `json:"authorization_endpoint"`
 	TokenEndpoint         string   `json:"token_endpoint"`
 	CodeChallengeMethods  []string `json:"code_challenge_methods_supported"`
@@ -69,7 +77,7 @@ func DiscoverOAuthEndpoints(hubURL string) (*OAuthEndpoints, error) {
 		return fallback, nil
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxOAuthResponseBodySize))
 	if err != nil || resp.StatusCode >= 300 {
 		return fallback, nil
 	}
@@ -77,6 +85,18 @@ func DiscoverOAuthEndpoints(hubURL string) (*OAuthEndpoints, error) {
 	if err := json.Unmarshal(data, &eps); err != nil ||
 		eps.AuthorizationEndpoint == "" || eps.TokenEndpoint == "" {
 		return fallback, nil
+	}
+	for name, endpoint := range map[string]string{
+		"issuer":                 eps.Issuer,
+		"authorization_endpoint": eps.AuthorizationEndpoint,
+		"token_endpoint":         eps.TokenEndpoint,
+	} {
+		if endpoint == "" && name == "issuer" {
+			continue
+		}
+		if err := validateOAuthEndpoint(hubURL, endpoint, name); err != nil {
+			return nil, err
+		}
 	}
 	if len(eps.CodeChallengeMethods) > 0 {
 		s256 := false
@@ -92,6 +112,23 @@ func DiscoverOAuthEndpoints(hubURL string) (*OAuthEndpoints, error) {
 		}
 	}
 	return &eps, nil
+}
+
+// validateOAuthEndpoint prevents discovery metadata from sending the authorization code or verifier to another origin.
+func validateOAuthEndpoint(hubURL, endpoint, name string) error {
+	hub, err := url.Parse(hubURL)
+	if err != nil || hub.Scheme == "" || hub.Host == "" {
+		return fmt.Errorf("invalid hub url %q", hubURL)
+	}
+	discovered, err := url.Parse(endpoint)
+	if err != nil || discovered.Scheme == "" || discovered.Host == "" {
+		return fmt.Errorf("invalid oauth %s %q", name, endpoint)
+	}
+	if !strings.EqualFold(hub.Scheme, discovered.Scheme) || !strings.EqualFold(hub.Host, discovered.Host) {
+		return fmt.Errorf("oauth %s origin %s://%s does not match hub origin %s://%s",
+			name, discovered.Scheme, discovered.Host, hub.Scheme, hub.Host)
+	}
+	return nil
 }
 
 // PreflightOAuthClient checks, without opening a browser, whether Hub accepts the client_id and redirect_uri in authorizeURL (303 to /auth/oauth/error means rejected).
@@ -134,7 +171,7 @@ func ExchangeOAuthCode(tokenEndpoint, clientID, code, redirectURI, codeVerifier 
 		return nil, fmt.Errorf("token request: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxOAuthResponseBodySize))
 	if err != nil {
 		return nil, fmt.Errorf("reading token response: %w", err)
 	}

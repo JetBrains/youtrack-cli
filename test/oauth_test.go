@@ -63,7 +63,7 @@ func TestInstanceLogin_FallsBackWithoutOAuthClient(t *testing.T) {
 
 	out := runCmdWithEnv(t, token+"\n",
 		[]string{"HOME=" + tmpHome},
-		"instance", "login", baseURL,
+		"--plain", "instance", "login", baseURL,
 		"--alias", "ssotest",
 		"--no-browser",
 		"--timeout", "10s",

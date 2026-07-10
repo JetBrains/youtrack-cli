@@ -239,6 +239,9 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	if err != nil {
 		return fmt.Errorf("exchanging authorization code: %w", err)
 	}
+	if tok.ExpiresIn <= 60 {
+		return fmt.Errorf("token response contained invalid expires_in %d", tok.ExpiresIn)
+	}
 
 	_, _ = fmt.Fprintln(stderr, "Verifying token...")
 	user, err := api.NewClient(baseURL, tok.AccessToken).GetCurrentUser()
