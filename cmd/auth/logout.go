@@ -75,6 +75,7 @@ Use --format json for machine-readable output.`,
 			if err := cfg.Save(); err != nil {
 				return err
 			}
+			config.PurgeKeyringToken(targetAlias)
 			res := LogoutResult{URL: inst.URL, Status: "logged out"}
 			if !flagChanged(cmd, "format") {
 				output.PrintSuccess(cmd, "logged out from "+inst.URL)

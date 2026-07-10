@@ -163,15 +163,23 @@ func (c *Config) AddInstance(alias, rawURL, token string) string {
 	return final
 }
 
-// RemoveInstance removes the instance by alias and best-effort deletes its
-// keyring entry. Returns an error if the alias is not found.
+// RemoveInstance removes the instance by alias from the in-memory config.
+// Returns an error if the alias is not found. It does NOT touch the keyring:
+// callers must Save() first and then PurgeKeyringToken(alias), so a failed
+// Save never strands the only stored credential.
 func (c *Config) RemoveInstance(alias string) error {
 	if _, ok := c.Instances[alias]; !ok {
 		return fmt.Errorf("instance %q not found — run: youtrack instance list", alias)
 	}
-	_ = keyringDelete(alias)
 	delete(c.Instances, alias)
 	return nil
+}
+
+// PurgeKeyringToken best-effort deletes the keyring entry for alias. Call it
+// only after a successful Save() so a persist failure cannot leave the config
+// referencing an instance whose token has already been erased.
+func PurgeKeyringToken(alias string) {
+	_ = keyringDelete(alias)
 }
 
 // Aliases returns all configured instance aliases in sorted order.
