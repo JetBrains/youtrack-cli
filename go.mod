@@ -1,6 +1,6 @@
 module github.com/JetBrains/youtrack-cli
 
-go 1.26
+go 1.26.5
 
 require (
 	github.com/fatih/color v1.19.0
