@@ -20,9 +20,7 @@ const (
 	updateCheckURL      = "https://api.github.com/repos/JetBrains/youtrack-cli/releases/latest"
 )
 
-// isUpdateCheckDisabled reports whether the update check should be skipped
-// entirely, with no network call: opted out via env var, running in CI, or
-// stderr isn't a TTY (e.g. piped output, non-interactive scripts).
+// isUpdateCheckDisabled reports whether to skip the check entirely: env opt-out, CI, or non-TTY stderr.
 func isUpdateCheckDisabled() bool {
 	if os.Getenv("YOUTRACK_NO_UPDATE") != "" || os.Getenv("DO_NOT_TRACK") != "" || os.Getenv("CI") != "" {
 		return true
@@ -86,8 +84,7 @@ func checkForUpdate(currentVersion string) string {
 	var release struct {
 		TagName string `json:"tag_name"`
 	}
-	// Persist the throttle timestamp regardless of decode success so a
-	// malformed or unexpected feed doesn't force a check on every invocation.
+	// Persist the timestamp even on decode failure so a malformed feed doesn't re-check every run.
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil || release.TagName == "" {
 		saveUpdateCheckTimestamp(now)
 		return ""
