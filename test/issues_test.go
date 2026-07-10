@@ -101,18 +101,6 @@ func TestCmd_IssueFieldsProjection(t *testing.T) {
 	})
 }
 
-func TestIssue_WrapUserValues(t *testing.T) {
-	cases := []struct{ in, out string }{
-		{"assignee alice", "assignee alice"},
-		{"assignee alice.qa", "assignee {alice.qa}"},
-		{"reporter bob-dev State Fixed", "reporter {bob-dev} State Fixed"},
-		{"assignee {alice.qa}", "assignee {alice.qa}"},
-	}
-	for _, c := range cases {
-		assert.Equal(t, c.out, api.WrapUserValues(c.in), "input: %q", c.in)
-	}
-}
-
 // Cmd-layer tests
 
 func TestCmd_IssueList(t *testing.T) {

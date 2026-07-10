@@ -37,6 +37,9 @@ jobs:
           version: v2.11.4
           args: --timeout=5m --config=.golangci.yml
 
+      - name: Run pure-function unit tests
+        run: go test ./api/ ./internal/ -count=1
+
       - name: Build
         run: make build
 
