@@ -9,13 +9,10 @@ import (
 	gokeyring "github.com/zalando/go-keyring"
 )
 
-// keyringService is the service name under which instance tokens are stored
-// in the OS keyring (macOS Keychain, Windows Credential Manager, Secret
-// Service on Linux). The keyring user is the instance alias.
+// keyringService is the OS keyring service name for instance tokens; the keyring user is the instance alias.
 const keyringService = "youtrack-cli"
 
-// keyringTimeout guards against keyring backends that hang instead of
-// failing (e.g. a locked keychain waiting for user input).
+// keyringTimeout guards against keyring backends that hang instead of failing (e.g. a locked keychain awaiting input).
 const keyringTimeout = 3 * time.Second
 
 var (
@@ -23,9 +20,7 @@ var (
 	errKeyringDisabled = errors.New("keyring disabled via YOUTRACK_DISABLE_KEYRING")
 )
 
-// keyringDisabled reports whether keyring usage is turned off via the
-// YOUTRACK_DISABLE_KEYRING environment variable. Used by the E2E suite for
-// deterministic file-only storage and by users who prefer plain-file tokens.
+// keyringDisabled reports whether YOUTRACK_DISABLE_KEYRING opts out of the keyring (used by the E2E suite and plain-file users).
 func keyringDisabled() bool {
 	return os.Getenv("YOUTRACK_DISABLE_KEYRING") != ""
 }

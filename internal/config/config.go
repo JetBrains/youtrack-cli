@@ -18,15 +18,12 @@ type Config struct {
 	LastUpdateCheck int64               `json:"lastUpdateCheck,omitempty"`
 }
 
-// Instance holds the credentials for a single YouTrack instance.
-// Token is empty in the file when the token lives in the OS keyring;
-// Load fills it back in memory.
+// Instance holds the credentials for a single YouTrack instance; Token is empty in the file when it lives in the OS keyring.
 type Instance struct {
 	URL   string `json:"url"`
 	Token string `json:"token,omitempty"`
 
-	// tokenInKeyring marks the token as stored in the OS keyring so Save
-	// omits it from the config file (unexported fields are not marshaled).
+	// tokenInKeyring marks the token as keyring-stored so Save omits it from the file.
 	tokenInKeyring bool
 }
 
@@ -75,10 +72,7 @@ func Load() (*Config, error) {
 
 // Save atomically writes the config to ~/.youtrack-cli-config.json at 0600.
 // Uses write-to-temp + rename to avoid partial writes on crash.
-// Tokens are stored in the OS keyring when available and omitted from the
-// file; on any keyring failure (headless CI, locked keychain) the token is
-// written to the file exactly as before. File tokens from older versions are
-// migrated to the keyring transparently on the first successful write.
+// Tokens go to the OS keyring when available (migrating older file tokens), else stay in the file on any keyring failure.
 func (c *Config) Save() error {
 	path, err := ConfigPath()
 	if err != nil {
@@ -163,10 +157,7 @@ func (c *Config) AddInstance(alias, rawURL, token string) string {
 	return final
 }
 
-// RemoveInstance removes the instance by alias from the in-memory config.
-// Returns an error if the alias is not found. It does NOT touch the keyring:
-// callers must Save() first and then PurgeKeyringToken(alias), so a failed
-// Save never strands the only stored credential.
+// RemoveInstance drops the alias from the in-memory config (error if not found); it does not touch the keyring, so callers must Save() then PurgeKeyringToken(alias).
 func (c *Config) RemoveInstance(alias string) error {
 	if _, ok := c.Instances[alias]; !ok {
 		return fmt.Errorf("instance %q not found — run: youtrack instance list", alias)
@@ -175,9 +166,7 @@ func (c *Config) RemoveInstance(alias string) error {
 	return nil
 }
 
-// PurgeKeyringToken best-effort deletes the keyring entry for alias. Call it
-// only after a successful Save() so a persist failure cannot leave the config
-// referencing an instance whose token has already been erased.
+// PurgeKeyringToken best-effort deletes the keyring entry for alias; call only after a successful Save().
 func PurgeKeyringToken(alias string) {
 	_ = keyringDelete(alias)
 }

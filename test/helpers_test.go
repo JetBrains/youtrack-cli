@@ -27,9 +27,7 @@ var (
 )
 
 func TestMain(m *testing.M) {
-	// Force file-only token storage in every spawned binary (inherited via
-	// os.Environ()). Keeps the suite deterministic across platforms and keeps
-	// test tokens out of the developer's real OS keychain.
+	// Force file-only token storage in spawned binaries — deterministic across platforms and keeps test tokens out of the real keychain.
 	if err := os.Setenv("YOUTRACK_DISABLE_KEYRING", "1"); err != nil {
 		log.Fatalf("failed to set YOUTRACK_DISABLE_KEYRING: %v", err)
 	}
