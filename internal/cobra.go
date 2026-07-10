@@ -23,13 +23,9 @@ func AddToGroup(parent *cobra.Command, groupID string, cmds ...*cobra.Command) {
 	}
 }
 
-// RequireSubcommand marks cmd as a pure container command: it does nothing on its
-// own and must be invoked with one of its subcommands. Running it bare, or with an
-// unrecognized subcommand name, exits non-zero instead of printing help and exiting 0.
-//
-// Setting Args alone is not enough — cobra treats a command with no Run/RunE as
-// non-runnable and skips Args validation entirely, so both must be set together.
+// RequireSubcommand makes cmd a pure container: running it bare or with an unknown subcommand exits non-zero instead of printing help.
 func RequireSubcommand(cmd *cobra.Command) {
+	// Args alone is ignored — cobra skips Args validation on commands with no RunE — so set both.
 	cmd.Args = cobra.NoArgs
 	cmd.RunE = func(c *cobra.Command, _ []string) error {
 		return fmt.Errorf("requires a subcommand; run '%s --help'", c.CommandPath())
