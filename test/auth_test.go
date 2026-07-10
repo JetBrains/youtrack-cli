@@ -57,8 +57,8 @@ func TestAuth_GetTokenViaBasicAuth(t *testing.T) {
 func TestAuth_Status(t *testing.T) {
 	requireE2EEnv(t)
 
-	// Use --format json to get machine-readable output for assertions.
-	out := runCmd(t, "--format", "json", "auth", "status")
+	// Use --json to get machine-readable output for assertions.
+	out := runCmd(t, "--json", "auth", "status")
 
 	var result struct {
 		URL      string `json:"url"`
@@ -96,8 +96,8 @@ func TestAuth_Status_InvalidToken(t *testing.T) {
 		t.Skip("YOUTRACK_BASE_URL not set — skipping invalid token test")
 	}
 
-	// No --format flag: default human-readable output.
-	cmd := exec.Command(binaryPath, "--base-url", baseURL, "--token", "perm:invalid-token-for-test", "auth", "status")
+	// --plain forces human-readable output (piped stdout would auto-select JSON).
+	cmd := exec.Command(binaryPath, "--plain", "--base-url", baseURL, "--token", "perm:invalid-token-for-test", "auth", "status")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -109,11 +109,11 @@ func TestAuth_Status_InvalidToken(t *testing.T) {
 	assert.Contains(t, out, baseURL)
 }
 
-func TestAuth_Status_TableFormat(t *testing.T) {
+func TestAuth_Status_PipedOutputIsJSON(t *testing.T) {
 	requireE2EEnv(t)
 
-	// auth status --format table falls back to JSON (table rendering not implemented for this command).
-	out := runCmd(t, "--format", "table", "auth", "status")
+	// No format flags: stdout is a pipe (non-TTY), so the output auto-selects JSON.
+	out := runCmd(t, "auth", "status")
 
 	var result struct {
 		Status string `json:"status"`
@@ -250,9 +250,10 @@ func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
 	token := os.Getenv("YOUTRACK_TOKEN")
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 
-	// No --format flag: default human-readable output.
+	// --plain forces human-readable output (piped stdout would auto-select JSON).
 	// Uses option 3 (direct paste) so no new token is created on the server.
 	out := runCmdWithInput(t, "3\n"+token+"\n",
+		"--plain",
 		"--base-url", baseURL,
 		"auth", "get-token",
 		"--save=false",
@@ -268,7 +269,7 @@ func TestAuth_Logout_NotConfigured(t *testing.T) {
 	tmpHome := t.TempDir()
 
 	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome},
-		"auth", "logout", "--force")
+		"--plain", "auth", "logout", "--force")
 
 	assert.Contains(t, out, "not logged in")
 }
@@ -409,7 +410,7 @@ func TestAuthRefreshToken_HumanReadableOutput(t *testing.T) {
 
 	out := runCmdWithEnv(t, "3\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
-		"auth", "refresh-token", "myinst",
+		"--plain", "auth", "refresh-token", "myinst",
 	)
 
 	assert.Contains(t, out, "Token ready:")

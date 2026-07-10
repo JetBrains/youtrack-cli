@@ -32,7 +32,7 @@ config entry is updated in-place (alias and URL are preserved).
 
 If <alias> is omitted, the active instance is used.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
@@ -104,7 +104,7 @@ Use --format json for machine-readable output.`,
 				ConfigFile: path,
 				Hint:       fmt.Sprintf("Token updated for %q.", alias),
 			}
-			if !flagChanged(cmd, "format") {
+			if !jsonOutput(cmd) {
 				printTokenResult(cmd, res)
 				return nil
 			}

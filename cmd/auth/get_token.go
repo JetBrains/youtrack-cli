@@ -39,7 +39,7 @@ an authentication method:
 If basic auth is unavailable (e.g. cloud or SSO-only instances), the CLI
 falls back to option 3 automatically.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reader := bufio.NewReader(os.Stdin)
 
@@ -186,7 +186,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 			return err
 		}
 	}
-	if !flagChanged(cmd, "format") {
+	if !jsonOutput(cmd) {
 		printTokenResult(cmd, res)
 		return nil
 	}
@@ -256,7 +256,7 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 			return err
 		}
 	}
-	if !flagChanged(cmd, "format") {
+	if !jsonOutput(cmd) {
 		printTokenResult(cmd, res)
 		return nil
 	}
@@ -337,7 +337,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 			return err
 		}
 	}
-	if !flagChanged(cmd, "format") {
+	if !jsonOutput(cmd) {
 		printTokenResult(cmd, res)
 		return nil
 	}
@@ -450,6 +450,14 @@ func hyperlink(url string) string {
 func flagChanged(cmd *cobra.Command, name string) bool {
 	f := cmd.Flag(name)
 	return f != nil && f.Changed
+}
+
+// jsonOutput reports whether the resolved output format is JSON. It honors the
+// full resolution chain (--json, --plain, --format, non-TTY auto-detection), so
+// auth commands emit structured output for pipes and the --json flag, not just
+// the deprecated --format flag.
+func jsonOutput(cmd *cobra.Command) bool {
+	return output.Format(cmd) == "json"
 }
 
 // openBrowser opens the given URL in the system's default browser.

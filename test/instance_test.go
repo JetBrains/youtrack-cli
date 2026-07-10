@@ -235,7 +235,8 @@ func TestAuthLogout_ConfigInstance(t *testing.T) {
 	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)
 
 	// Log out the active instance ("work") by default.
-	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome}, "auth", "logout")
+	// --plain forces human-readable output (piped stdout would auto-select JSON).
+	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome}, "--plain", "auth", "logout")
 
 	assert.Contains(t, out, "logged out from https://work.example.com")
 
@@ -256,7 +257,7 @@ func TestAuthLogout_ConfigInstance_WithFlag(t *testing.T) {
 
 	// Log out "personal" (non-active) via --instance flag.
 	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome},
-		"auth", "logout", "--instance", "personal")
+		"--plain", "auth", "logout", "--instance", "personal")
 
 	assert.Contains(t, out, "logged out from https://personal.example.com")
 
@@ -286,7 +287,8 @@ func TestAuthStatus_MultiInstance(t *testing.T) {
 }`
 	configFixture(t, tmpHome, cfg)
 
-	cmd := exec.Command(binaryPath, "auth", "status")
+	// --plain forces human-readable output (piped stdout would auto-select JSON).
+	cmd := exec.Command(binaryPath, "--plain", "auth", "status")
 	cmd.Env = []string{"HOME=" + tmpHome, "YOUTRACK_DISABLE_KEYRING=1"}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

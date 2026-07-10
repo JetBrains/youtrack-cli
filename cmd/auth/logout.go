@@ -25,7 +25,7 @@ func newLogoutCmd() *cobra.Command {
 The token remains valid on the YouTrack server until deleted manually
 from your profile (Users → your account → Authentication tab).
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			targetAlias, _ := cmd.Flags().GetString("instance")
 
@@ -36,7 +36,7 @@ Use --format json for machine-readable output.`,
 
 			if len(cfg.Instances) == 0 {
 				res := LogoutResult{Status: "not configured"}
-				if !flagChanged(cmd, "format") {
+				if !jsonOutput(cmd) {
 					output.PrintSuccess(cmd, "not logged in — nothing to remove")
 					return nil
 				}
@@ -59,7 +59,7 @@ Use --format json for machine-readable output.`,
 			}
 			if !confirmed {
 				res := LogoutResult{URL: inst.URL, Status: "canceled"}
-				if !flagChanged(cmd, "format") {
+				if !jsonOutput(cmd) {
 					_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
 					return nil
 				}
@@ -77,7 +77,7 @@ Use --format json for machine-readable output.`,
 			}
 			config.PurgeKeyringToken(targetAlias)
 			res := LogoutResult{URL: inst.URL, Status: "logged out"}
-			if !flagChanged(cmd, "format") {
+			if !jsonOutput(cmd) {
 				output.PrintSuccess(cmd, "logged out from "+inst.URL)
 				return nil
 			}
