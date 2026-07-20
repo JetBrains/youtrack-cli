@@ -15,6 +15,7 @@ func newIssueCommentCmd() *cobra.Command {
 		Use:   "comment",
 		Short: "Manage issue comments",
 	}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newCommentListCmd())
 	cmd.AddCommand(newCommentViewCmd())
 	cmd.AddCommand(newCommentCreateCmd())

@@ -12,6 +12,7 @@ import (
 
 func newUserProfileCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "profile", Short: "Manage user profile settings"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newUserProfileViewCmd())
 	cmd.AddCommand(newUserProfilePropertyCmd())
 	cmd.AddCommand(newUserProfileAppearanceCmd())
@@ -47,6 +48,7 @@ func newUserProfileViewCmd() *cobra.Command {
 
 func newUserProfileTimeTrackingCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "timetracking", Short: "Manage user time tracking profile"}
+	internal.RequireSubcommand(cmd)
 	view := &cobra.Command{
 		Use:     "view <userId>",
 		Aliases: []string{"get"},

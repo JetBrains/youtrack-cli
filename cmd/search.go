@@ -13,6 +13,7 @@ func newSearchCmd() *cobra.Command {
 		Use:   "search",
 		Short: "Manage saved searches",
 	}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newSearchListCmd())
 	cmd.AddCommand(newSearchViewCmd())
 	cmd.AddCommand(newSearchCreateCmd())

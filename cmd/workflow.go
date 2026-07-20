@@ -11,6 +11,7 @@ import (
 
 func newWorkflowCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "workflow", Short: "Manage workflows"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newWorkflowListCmd(), newWorkflowCreateCmd(), newWorkflowDeleteCmd(), newWorkflowRestoreCmd(), newWorkflowRuleCmd())
 	return cmd
 }
@@ -88,6 +89,7 @@ func newWorkflowRestoreCmd() *cobra.Command {
 
 func newWorkflowRuleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "rule", Short: "Manage workflow rules"}
+	internal.RequireSubcommand(cmd)
 	create := &cobra.Command{
 		Use: "create <workflowId>", Aliases: []string{"add"}, Short: "Create a rule in a workflow",
 		Args: cobra.ExactArgs(1),

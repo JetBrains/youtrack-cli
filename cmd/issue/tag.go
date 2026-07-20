@@ -9,6 +9,7 @@ import (
 
 func newIssueTagCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "tag", Short: "Manage tags on an issue"}
+	internal.RequireSubcommand(cmd)
 	add := &cobra.Command{
 		Use:   "add <issueId> <tagId>",
 		Short: "Add a tag to an issue",

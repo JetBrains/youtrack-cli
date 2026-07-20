@@ -9,6 +9,7 @@ import (
 
 func newIssueActivityCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "activity", Short: "View issue activity"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use:   "list <issueId>",
 		Short: "List activity items for an issue",
@@ -31,6 +32,7 @@ func newIssueActivityCmd() *cobra.Command {
 
 func newIssueSprintCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "sprint", Short: "View sprints an issue belongs to"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use:   "list <issueId>",
 		Short: "List sprints that contain this issue",
@@ -53,6 +55,7 @@ func newIssueSprintCmd() *cobra.Command {
 
 func newIssueVCSCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "vcs", Short: "View VCS changes linked to an issue"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use:   "list <issueId>",
 		Short: "List VCS changes linked to an issue",

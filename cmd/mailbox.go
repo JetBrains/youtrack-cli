@@ -10,6 +10,7 @@ import (
 
 func newMailboxCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "mailbox", Short: "Manage mailbox integrations"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newMailboxListCmd(), newMailboxAddCmd(), newMailboxDeleteCmd(), newMailboxRuleCmd())
 	return cmd
 }
@@ -82,6 +83,7 @@ func newMailboxDeleteCmd() *cobra.Command {
 
 func newMailboxRuleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "rule", Short: "Manage mailbox rules"}
+	internal.RequireSubcommand(cmd)
 	add := &cobra.Command{
 		Use: "add", Short: "Add a mailbox rule",
 		RunE: func(cmd *cobra.Command, args []string) error {

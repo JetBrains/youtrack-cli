@@ -9,6 +9,7 @@ import (
 
 func newGanttCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "gantt", Short: "Manage Gantt charts"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(
 		newGanttListCmd(),
 		newGanttUpdateCmd(),
@@ -82,6 +83,7 @@ func newGanttDeleteCmd() *cobra.Command {
 
 func newGanttMemberCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "member", Short: "Manage Gantt chart members"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use:   "list <ganttId>",
 		Short: "List members of a Gantt chart",
@@ -142,6 +144,7 @@ func newGanttMemberCmd() *cobra.Command {
 
 func newGanttSettingsCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "settings", Short: "Manage Gantt chart settings"}
+	internal.RequireSubcommand(cmd)
 	update := &cobra.Command{
 		Use:   "update <ganttId>",
 		Short: "Update settings of a Gantt chart",
