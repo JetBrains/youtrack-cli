@@ -184,7 +184,7 @@ func TestCmd_IssueSuggest(t *testing.T) {
 
 	// Ask for suggestions for a partial "State " query — YouTrack always returns
 	// a commands array (possibly empty) and the echoed query.
-	out := runCmd(t, "issue", "suggest", issue.IDReadable, "State ", "--format", "json")
+	out := runCmd(t, "issue", "command", "suggest", issue.IDReadable, "State ", "--format", "json")
 	assert.Contains(t, out, "commands")
 }
 

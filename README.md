@@ -106,6 +106,7 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 | `instance` | `add`, `login`, `list`, `use`, `remove`, `update-token` |
 | `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `count`, `suggest`, `assist`, `activity`, `sprint`, `vcs` |
 | `issue comment` | `list`, `add`, `update`, `delete`, `pin`, `visibility` |
+| `issue command` | `suggest` |
 | `issue link` | `list`, `add`, `remove` |
 | `issue link type` | `list`, `add` |
 | `issue attachment` | `list`, `add`, `delete` |
@@ -146,7 +147,7 @@ youtrack issue count --query "State: Open"
 # Issues — workflow and actions
 youtrack issue command MYPROJ-42 "State In Progress"
 youtrack issue command MYPROJ-42 "assignee alice.doe"
-youtrack issue suggest MYPROJ-42 "State "
+youtrack issue command suggest MYPROJ-42 "State "
 youtrack issue assign MYPROJ-42 john.doe
 youtrack issue watch MYPROJ-42
 youtrack issue vote MYPROJ-42

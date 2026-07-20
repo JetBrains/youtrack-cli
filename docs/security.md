@@ -58,7 +58,7 @@ This is particularly useful for:
 
 | Command | Mutates data? |
 |---|---|
-| `issue get` / `issue list` / `issue count` / `issue suggest` | No |
+| `issue get` / `issue list` / `issue count` / `issue command suggest` | No |
 | `issue add` / `issue update` / `issue delete` | **Yes** |
 | `issue command` / `issue assign` / `issue unassign` | **Yes** |
 | `issue watch` / `issue unwatch` / `issue vote` / `issue unvote` | **Yes** |

@@ -9,12 +9,12 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
-func newIssueSuggestCmd() *cobra.Command {
+func newIssueCommandSuggestCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "suggest <issueId[,issueId...]> <query>",
-		Short: "Get command suggestions for issues",
-		Example: `  youtrack issue suggest FOO-42 "State "
-  youtrack issue suggest FOO-1,FOO-2 "assignee "`,
+		Short: "Preview command suggestions without applying them",
+		Example: `  youtrack issue command suggest FOO-42 "State "
+  youtrack issue command suggest FOO-1,FOO-2 "assignee "`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			issueIDs := strings.Split(args[0], ",")
