@@ -22,6 +22,9 @@ import (
 var callbackHTML string
 var callbackTmpl = template.Must(template.New("callback").Parse(callbackHTML))
 
+//go:embed logo/youtrack.svg
+var logoSVG string
+
 // openBrowser is overridable in tests to avoid spawning real browser tabs.
 var openBrowser = openSystemBrowser
 
@@ -101,11 +104,11 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 		// Validate state in the handler so a forged or stray request can't claim the result slot; real errors echo state (RFC 6749).
 		if subtle.ConstantTimeCompare([]byte(raw.state), []byte(opts.State)) != 1 {
 			w.WriteHeader(http.StatusBadRequest)
-			_ = callbackTmpl.Execute(w, callbackData{Error: "invalid or expired request"})
+			_ = callbackTmpl.Execute(w, callbackData{Error: "invalid or expired request", Logo: template.HTML(logoSVG)})
 			return
 		}
 
-		data := callbackData{}
+		data := callbackData{Logo: template.HTML(logoSVG)}
 		if raw.errMsg != "" {
 			data.Error = raw.errMsg
 			w.WriteHeader(http.StatusBadRequest)
@@ -158,6 +161,7 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 
 type callbackData struct {
 	Error string
+	Logo  template.HTML
 }
 
 // openSystemBrowser opens the given URL in the system's default browser.
