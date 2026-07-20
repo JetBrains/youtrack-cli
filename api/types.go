@@ -350,6 +350,14 @@ type GlobalSettings struct {
 	SystemSettings    *SystemSettings `json:"systemSettings,omitempty"`
 }
 
+// InstanceVersion is the version/build info reported by a YouTrack instance's
+// /api/config endpoint. Version is a release string like "2026.3"; Build is
+// the numeric build within that release, e.g. "4599".
+type InstanceVersion struct {
+	Version string `json:"version,omitempty"`
+	Build   string `json:"build,omitempty"`
+}
+
 type Tag struct {
 	ID    string `json:"id,omitempty"`
 	Name  string `json:"name,omitempty"`

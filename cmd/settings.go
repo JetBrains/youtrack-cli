@@ -15,7 +15,6 @@ func newSettingsCmd() *cobra.Command {
 	cmd.AddCommand(
 		newSettingsViewCmd(),
 		newSettingsFeatureCmd(),
-		newSettingsFrontendCmd(),
 	)
 	return cmd
 }
@@ -67,21 +66,4 @@ func newSettingsFeatureCmd() *cobra.Command {
 	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
 	internal.MustMarkRequired(cmd, "name")
 	return cmd
-}
-
-func newSettingsFrontendCmd() *cobra.Command {
-	return &cobra.Command{
-		Use: "frontend", Short: "Get frontend configuration",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := internal.GetClient(cmd)
-			if err != nil {
-				return err
-			}
-			cfg, err := client.GetFrontendConfig()
-			if err != nil {
-				return err
-			}
-			return output.Print(cmd, cfg)
-		},
-	}
 }

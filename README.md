@@ -103,8 +103,8 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 | Group | Subcommands |
 |---|---|
 | `auth` | `get-token` (`login`), `refresh-token`, `logout`, `status` |
-| `instance` | `add`, `login`, `list`, `use`, `remove`, `update-token` |
-| `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `count`, `suggest`, `assist`, `activity`, `sprint`, `vcs` |
+| `instance` | `add`, `login`, `list`, `use`, `remove`, `update-token`, `version` |
+| `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `count`, `activity`, `sprint`, `vcs` |
 | `issue comment` | `list`, `add`, `update`, `delete`, `pin`, `visibility` |
 | `issue command` | `suggest` |
 | `issue link` | `list`, `add`, `remove` |

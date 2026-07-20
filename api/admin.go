@@ -16,10 +16,10 @@ func (c *Client) EnableFeatureFlag(feature string, enabled bool) error {
 	return c.Post(path, map[string]any{"id": feature, "enabled": enabled}, nil)
 }
 
-func (c *Client) GetFrontendConfig() (map[string]any, error) {
-	var result map[string]any
-	err := c.Get(pathConfig+"?fields=ring(url),mobile(serviceId),version,year,buildNumber", &result)
-	return result, err
+func (c *Client) GetInstanceVersion() (*InstanceVersion, error) {
+	var result InstanceVersion
+	err := c.Get(pathConfig+"?fields=version,build", &result)
+	return &result, err
 }
 
 func (c *Client) ListPlugins() ([]Plugin, error) {
