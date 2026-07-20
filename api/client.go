@@ -20,7 +20,7 @@ type Client struct {
 	Token      string
 	HTTPClient *http.Client
 	Verbose    bool
-	Fields     string // when non-empty, overrides the fields= query param on GET requests
+	Fields     string // when non-empty, extends the fields= query param on GET requests
 }
 
 func NewClient(baseURL, token string) *Client {
@@ -102,7 +102,7 @@ func unexpectedResponseError(resp *http.Response, err error) error {
 
 func (c *Client) Get(path string, result any) error {
 	if c.Fields != "" {
-		path = overrideFieldsParam(path, c.Fields)
+		path = mergeFieldsParam(path, c.Fields)
 	}
 	resp, err := c.doRequest("GET", path, nil, "")
 	if err != nil {
@@ -112,8 +112,8 @@ func (c *Client) Get(path string, result any) error {
 	return handleResponse(resp, result)
 }
 
-// overrideFieldsParam replaces or appends the fields= query parameter in a URL path.
-func overrideFieldsParam(path, fields string) string {
+// mergeFieldsParam adds to a URL's fields= param rather than replacing it, so a user projection can't drop fields a call needs internally.
+func mergeFieldsParam(path, fields string) string {
 	idx := strings.Index(path, "fields=")
 	if idx < 0 {
 		sep := "?"
@@ -122,11 +122,13 @@ func overrideFieldsParam(path, fields string) string {
 		}
 		return path + sep + "fields=" + fields
 	}
-	end := strings.IndexByte(path[idx:], '&')
+	valStart := idx + len("fields=")
+	end := strings.IndexByte(path[valStart:], '&')
 	if end < 0 {
-		return path[:idx] + "fields=" + fields
+		return path + "," + fields
 	}
-	return path[:idx] + "fields=" + fields + path[idx+end:]
+	insertAt := valStart + end
+	return path[:insertAt] + "," + fields + path[insertAt:]
 }
 
 func (c *Client) Post(path string, body, result any) error {
