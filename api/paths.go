@@ -10,16 +10,6 @@ const (
 	pathAdminPluginUsages                = "/api/admin/pluginUsages"
 	pathAdminPluginUsage                 = "/api/admin/pluginUsages/%s"
 
-	// VCS / Integrations
-	pathAdminVCSServers     = "/api/admin/integrations/vcsHostingServers"
-	pathAdminVCSServer      = "/api/admin/integrations/vcsHostingServers/%s"
-	pathAdminVCSServerProcs = "/api/admin/integrations/vcsHostingServers/%s/changesProcessors"
-	pathAdminVCSProcessors  = "/api/admin/integrations/vcsHostingProcessors"
-	pathAdminVCSProcessor   = "/api/admin/integrations/vcsHostingProcessors/%s"
-	pathAdminMailboxes      = "/api/admin/integrations/mailbox/mailboxes"
-	pathAdminMailbox        = "/api/admin/integrations/mailbox/mailboxes/%s"
-	pathAdminMailboxRules   = "/api/admin/integrations/mailbox/rules"
-
 	// Apps
 	pathAdminApps = "/api/admin/apps"
 	pathAdminApp  = "/api/admin/apps/%s"

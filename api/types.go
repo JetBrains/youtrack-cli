@@ -350,27 +350,6 @@ type GlobalSettings struct {
 	SystemSettings    *SystemSettings `json:"systemSettings,omitempty"`
 }
 
-type VCSServer struct {
-	ID   string `json:"id,omitempty"`
-	Type string `json:"type,omitempty"`
-	URL  string `json:"url,omitempty"`
-}
-
-type VCSProcessor struct {
-	ID      string   `json:"id,omitempty"`
-	Path    string   `json:"path,omitempty"`
-	Enabled bool     `json:"enabled,omitempty"`
-	Project *Project `json:"project,omitempty"`
-}
-
-type MailboxServer struct {
-	ID       string `json:"id,omitempty"`
-	Login    string `json:"login,omitempty"`
-	Host     string `json:"host,omitempty"`
-	Port     int    `json:"port,omitempty"`
-	Protocol string `json:"protocol,omitempty"`
-}
-
 type Tag struct {
 	ID    string `json:"id,omitempty"`
 	Name  string `json:"name,omitempty"`
