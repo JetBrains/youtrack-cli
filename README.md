@@ -122,8 +122,8 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 | `project template` | `list`, `convert` |
 | `project timetrack` | `set` |
 | `project workflow` | `add` |
-| `user` | `list`, `get` (`view`), `current` (`me`), `add` (`create`), `delete`, `ban`, `unban`, `pin-project` |
-| `user drafts` | `list`, `delete`, `articles` |
+| `user` | `list`, `get` (`view`), `current` (`me`), `add` (`create`), `delete`, `ban`, `unban` |
+| `user drafts` | `issues`, `delete`, `articles` |
 | `user locale` | `set` |
 | `user timezone` | `get`, `set` |
 | `user profile` | `general`, `appearance`, `notifications`, `articles`, `issues-list`, `grazie`, `tips`, `property` |

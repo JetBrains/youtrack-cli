@@ -142,7 +142,6 @@ const (
 	pathUserDraft                = "/api/users/%s/drafts/%s"
 	pathUserDraftField           = "/api/users/%s/drafts/%s/fields/%s"
 	pathUserArticleDrafts        = "/api/users/%s/articleDrafts"
-	pathUserPinnedProjects       = "/api/users/%s/pinnedProjects"
 
 	// Workflows
 	pathAdminWorkflows              = "/api/admin/workflows"

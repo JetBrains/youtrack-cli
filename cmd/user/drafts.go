@@ -22,7 +22,7 @@ func newUserDraftsCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "drafts", Short: "Manage your issue and article drafts"}
 	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
-		Use: "list [userId]", Short: "List your issue drafts (defaults to 'me'; drafts are private to their owner)",
+		Use: "issues [userId]", Short: "List your issue drafts (defaults to 'me'; drafts are private to their owner)",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)

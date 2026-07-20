@@ -28,7 +28,7 @@ func NewCmd() *cobra.Command {
 	)
 	internal.AddToGroup(cmd, "profile",
 		newUserProfileCmd(), newUserTimezoneCmd(), newUserLocaleCmd(),
-		newUserTagCmd(), newUserDraftsCmd(), newUserPinProjectCmd(),
+		newUserTagCmd(), newUserDraftsCmd(),
 	)
 
 	return cmd

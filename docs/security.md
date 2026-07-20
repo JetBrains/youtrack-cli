@@ -102,11 +102,10 @@ This is particularly useful for:
 | `board sprint add` | **Yes** |
 | `user list` / `user get` / `user current` | No |
 | `user add` / `user delete` / `user ban` / `user unban` | **Yes** |
-| `user pin-project` | **Yes** |
 | `user locale set` / `user timezone set` | **Yes** |
 | `user timezone get` | No |
 | `user profile *` | No (reads only) |
-| `user drafts list` | No |
+| `user drafts issues` | No |
 | `user drafts delete` | **Yes** |
 | `auth status` | No |
 | `auth get-token` / `auth refresh-token` / `auth logout` | **Yes** (local config only) |

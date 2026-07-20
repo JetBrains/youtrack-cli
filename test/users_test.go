@@ -98,16 +98,6 @@ func TestCmd_UserLocaleSet(t *testing.T) {
 	runCmd(t, "user", "locale", "set", me.Login, "en_US")
 }
 
-func TestCmd_UserPinProject(t *testing.T) {
-	c := newTestClient(t)
-	proj := createTempProject(t, c)
-	me, err := c.GetCurrentUser()
-	require.NoError(t, err)
-
-	// Pass login (not opaque ID) — should succeed after the fix
-	runCmd(t, "user", "pin-project", me.Login, proj.ID)
-}
-
 func TestCmd_UserDeleteRequiresSuccessor(t *testing.T) {
 	// F-09 regression: --successor must be required; CLI must reject before any HTTP call
 	out := runCmdExpectError(t, "user", "delete", "nonexistent-user")
@@ -156,11 +146,11 @@ func TestCmd_UserDrafts(t *testing.T) {
 	require.NoError(t, err)
 
 	// Listing by login, "me", or no argument at all must resolve to the same drafts.
-	out := runCmd(t, "user", "drafts", "list", me.Login, "--format", "json")
+	out := runCmd(t, "user", "drafts", "issues", me.Login, "--format", "json")
 	assert.Contains(t, out, draft.ID)
-	out = runCmd(t, "user", "drafts", "list", "me", "--format", "json")
+	out = runCmd(t, "user", "drafts", "issues", "me", "--format", "json")
 	assert.Contains(t, out, draft.ID)
-	out = runCmd(t, "user", "drafts", "list", "--format", "json")
+	out = runCmd(t, "user", "drafts", "issues", "--format", "json")
 	assert.Contains(t, out, draft.ID)
 
 	// Article drafts are private too: no argument defaults to the current user (a JSON array),
