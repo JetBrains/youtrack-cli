@@ -2,13 +2,11 @@ package api
 
 const (
 	// Admin / Global Settings
-	pathAdminGlobalSettings              = "/api/admin/globalSettings"
-	pathAdminGlobalSettingsNotifications = "/api/admin/globalSettings/notificationSettings"
-	pathAdminFeatureFlag                 = "/api/admin/featureFlags/%s"
-	pathGrazieConfig                     = "/api/grazie/config"
-	pathConfig                           = "/api/config"
-	pathAdminPluginUsages                = "/api/admin/pluginUsages"
-	pathAdminPluginUsage                 = "/api/admin/pluginUsages/%s"
+	pathAdminGlobalSettings = "/api/admin/globalSettings"
+	pathAdminFeatureFlag    = "/api/admin/featureFlags/%s"
+	pathConfig              = "/api/config"
+	pathAdminPluginUsages   = "/api/admin/pluginUsages"
+	pathAdminPluginUsage    = "/api/admin/pluginUsages/%s"
 
 	// Apps
 	pathAdminApps = "/api/admin/apps"
