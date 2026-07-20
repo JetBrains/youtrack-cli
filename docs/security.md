@@ -77,6 +77,18 @@ This is particularly useful for:
 | `issue reaction add` / `issue reaction delete` | **Yes** |
 | `issue draft create` | **Yes** |
 | `issue workitem add` | **Yes** |
+| `article list` / `article get` | No |
+| `article add` / `article update` / `article delete` | **Yes** |
+| `article tag` / `article visibility` / `article set-parent` | **Yes** |
+| `article comment list` / `article comment get` | No |
+| `article comment add` / `article comment update` / `article comment delete` | **Yes** |
+| `article comment pin` / `article comment visibility` | **Yes** |
+| `article comment reaction list` | No |
+| `article comment reaction add` / `article comment reaction delete` | **Yes** |
+| `article attachment list` | No |
+| `article attachment add` | **Yes** |
+| `article child list` / `article parent get` | No |
+| `article child add` | **Yes** |
 | `project list` / `project get` | No |
 | `project add` / `project delete` / `project archive` | **Yes** |
 | `project team add-user` / `project team add-group` | **Yes** |

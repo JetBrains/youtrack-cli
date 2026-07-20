@@ -114,6 +114,8 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 | `issue reaction` | `add`, `delete` |
 | `issue draft` | `create`, `update`, `submit` |
 | `issue` (actions) | `assign`, `unassign`, `watch`, `unwatch`, `vote`, `unvote`, `tag`, `visibility`, `workitem add` |
+| `article comment` | `list`, `add` (`create`), `update`, `delete`, `view`, `pin`, `visibility` |
+| `article comment reaction` | `list`, `add`, `delete` |
 | `project` | `list`, `get` (`view`), `add` (`create`), `delete`, `archive` |
 | `project team` | `add-user`, `add-group` |
 | `project field` | `list`, `add` |
@@ -171,6 +173,13 @@ youtrack issue draft submit <draftId>
 
 # Work items
 youtrack issue workitem add MYPROJ-42 --minutes 90 --text "Investigation"
+
+# Articles (knowledge base)
+youtrack article list --query "project: MYPROJ"
+youtrack article add --project MYPROJ --summary "Onboarding guide" --content "Step 1..."
+youtrack article comment add MYPROJ-A-1 --text "Looks good."
+youtrack article comment pin MYPROJ-A-1 <commentId>
+youtrack article tag MYPROJ-A-1 <tagId>
 
 # Projects
 youtrack project list

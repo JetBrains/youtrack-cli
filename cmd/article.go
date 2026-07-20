@@ -230,8 +230,63 @@ func newArticleCommentCmd() *cobra.Command {
 	}
 	update.Flags().String("text", "", "New comment text (required)")
 	internal.MustMarkRequired(update, "text")
+	view := &cobra.Command{
+		Use: "view <articleId> <commentId>", Aliases: []string{"get"}, Short: "View a comment by ID",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			comment, err := client.GetArticleComment(args[0], args[1])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, comment)
+		},
+	}
+	pin := &cobra.Command{
+		Use: "pin <articleId> <commentId>", Short: "Pin or unpin a comment",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			unpin, _ := cmd.Flags().GetBool("unpin")
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.PinArticleComment(args[0], args[1], !unpin); err != nil {
+				return err
+			}
+			action := "pinned"
+			if unpin {
+				action = "unpinned"
+			}
+			output.PrintSuccess(cmd, action+" comment "+args[1])
+			return nil
+		},
+	}
+	pin.Flags().Bool("unpin", false, "Unpin the comment instead")
+	visibility := &cobra.Command{
+		Use: "visibility <articleId> <commentId>", Short: "Set visibility on a comment",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			groups, _ := cmd.Flags().GetStringSlice("groups")
+			users, _ := cmd.Flags().GetStringSlice("users")
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.UpdateArticleCommentVisibility(args[0], args[1], groups, users); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "updated visibility for comment "+args[1])
+			return nil
+		},
+	}
+	visibility.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")
+	visibility.Flags().StringSlice("users", nil, "Permitted user IDs (comma-separated)")
 	reaction := newArticleCommentReactionCmd()
-	cmd.AddCommand(list, add, del, update, reaction)
+	cmd.AddCommand(list, add, del, update, view, pin, visibility, reaction)
 	return cmd
 }
 
@@ -271,7 +326,26 @@ func newArticleCommentReactionCmd() *cobra.Command {
 	}
 	add.Flags().String("reaction", "", "Reaction emoji or name (required)")
 	internal.MustMarkRequired(add, "reaction")
-	cmd.AddCommand(list, add)
+	del := &cobra.Command{
+		Use: "delete <articleId> <commentId> <reactionId>", Short: "Remove a reaction from an article comment",
+		Args: cobra.ExactArgs(3),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete reaction %s?", args[2])); abort {
+				return err
+			}
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.DeleteArticleCommentReaction(args[0], args[1], args[2]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "removed reaction from comment "+args[1])
+			return nil
+		},
+	}
+	del.Flags().Bool("force", false, "Skip the confirmation prompt")
+	cmd.AddCommand(list, add, del)
 	return cmd
 }
 

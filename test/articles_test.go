@@ -136,16 +136,62 @@ func newTempArticleInProject(t *testing.T, c *api.Client, projectID string) *api
 	return article
 }
 
-func TestCmd_ArticleCommentGet(t *testing.T) {
+func TestCmd_ArticleCommentView(t *testing.T) {
 	c := newTestClient(t)
 	article := newTempArticle(t, c)
 
 	comment, err := c.AddArticleComment(article.IDReadable, "e2e test comment")
 	require.NoError(t, err)
 
-	// No "article comment get" command; list returns all comments including this one
-	out := runCmd(t, "article", "comment", "list", article.IDReadable, "--format", "json")
+	out := runCmd(t, "article", "comment", "view", article.IDReadable, comment.ID, "--format", "json")
 	assert.Contains(t, out, comment.ID)
+	assert.Contains(t, out, "e2e test comment")
+}
+
+func TestCmd_ArticleCommentPin(t *testing.T) {
+	c := newTestClient(t)
+	article := newTempArticle(t, c)
+
+	comment, err := c.AddArticleComment(article.IDReadable, "pin me")
+	require.NoError(t, err)
+
+	out := runCmd(t, "article", "comment", "pin", article.IDReadable, comment.ID)
+	assert.Contains(t, out, "pinned")
+}
+
+func TestCmd_ArticleCommentVisibility(t *testing.T) {
+	c := newTestClient(t)
+	article := newTempArticle(t, c)
+
+	comment, err := c.AddArticleComment(article.IDReadable, "visibility me")
+	require.NoError(t, err)
+
+	out := runCmd(t, "article", "comment", "visibility", article.IDReadable, comment.ID)
+	assert.Contains(t, out, "updated visibility for comment "+comment.ID)
+}
+
+func TestCmd_ArticleCommentReactionDelete(t *testing.T) {
+	c := newTestClient(t)
+	article := newTempArticle(t, c)
+
+	comment, err := c.AddArticleComment(article.IDReadable, "reaction test")
+	require.NoError(t, err)
+
+	addOut := runCmd(t, "article", "comment", "reaction", "add", article.IDReadable, comment.ID, "--reaction", "👍")
+	assert.Contains(t, addOut, "added reaction")
+
+	reactions, err := c.ListArticleCommentReactions(article.IDReadable, comment.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, reactions, "expected at least one reaction after adding")
+	reactionID := reactions[0].ID
+	require.NotEmpty(t, reactionID)
+
+	delOut := runCmd(t, "article", "comment", "reaction", "delete", article.IDReadable, comment.ID, reactionID, "--force")
+	assert.Contains(t, delOut, "removed reaction from comment "+comment.ID)
+
+	reactions, err = c.ListArticleCommentReactions(article.IDReadable, comment.ID)
+	require.NoError(t, err)
+	assert.Empty(t, reactions, "reaction should be gone after deletion")
 }
 
 func TestCmd_ArticleSetParent(t *testing.T) {
