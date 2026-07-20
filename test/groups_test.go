@@ -42,7 +42,7 @@ func TestCmd_GroupDelete(t *testing.T) {
 	require.NoError(t, err)
 	successor := groupDeleteSuccessor(t, c, group.ID)
 
-	out := runCmd(t, "group", "delete", group.ID, "--successor", successor.ID)
+	out := runCmd(t, "group", "delete", group.ID, "--successor", successor.ID, "--force")
 	assert.Contains(t, out, "deleted group "+group.ID)
 
 	_, err = c.GetGroup(group.ID)

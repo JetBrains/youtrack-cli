@@ -48,7 +48,7 @@ func TestCmd_SearchDelete(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	out := runCmd(t, "search", "delete", search.ID)
+	out := runCmd(t, "search", "delete", search.ID, "--force")
 	assert.Contains(t, out, "deleted saved search "+search.ID)
 
 	_, err = c.GetSavedSearch(search.ID)

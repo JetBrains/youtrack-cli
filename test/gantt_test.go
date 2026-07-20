@@ -29,7 +29,7 @@ func TestCmd_GanttCRUD(t *testing.T) {
 		chart, err := c.AddGanttChart("Delete Gantt "+t.Name(), []string{proj.ID}, time.Now().UnixMilli())
 		require.NoError(t, err)
 
-		out := runCmd(t, "gantt", "delete", chart.ID)
+		out := runCmd(t, "gantt", "delete", chart.ID, "--force")
 		assert.Contains(t, out, "deleted")
 	})
 }

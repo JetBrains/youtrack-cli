@@ -72,7 +72,7 @@ func TestCmd_UserCRUD(t *testing.T) {
 		login, newUser.ID,
 	)
 
-	out = runCmd(t, "user", "ban", login)
+	out = runCmd(t, "user", "ban", login, "--force")
 	assert.Contains(t, out, "banned user "+login)
 	assertUserBanState(t, c, login, true)
 

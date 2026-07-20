@@ -53,7 +53,7 @@ func TestCmd_BoardDelete(t *testing.T) {
 	board, err := c.AddBoard("e2e-board-del-"+t.Name(), proj.ShortName)
 	require.NoError(t, err)
 
-	out := runCmd(t, "board", "delete", board.ID)
+	out := runCmd(t, "board", "delete", board.ID, "--force")
 	assert.Contains(t, out, "deleted board "+board.ID)
 }
 

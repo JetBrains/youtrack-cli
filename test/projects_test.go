@@ -46,7 +46,7 @@ func TestCmd_ProjectArchive(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
-	out := runCmd(t, "project", "archive", proj.ShortName)
+	out := runCmd(t, "project", "archive", proj.ShortName, "--force")
 	assert.Contains(t, out, "archived project "+proj.ShortName)
 
 	var result struct {

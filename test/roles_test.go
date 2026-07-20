@@ -39,7 +39,7 @@ func TestCmd_RoleCreateDelete(t *testing.T) {
 	require.NotEmpty(t, role.ID)
 	t.Cleanup(func() { _ = c.DeleteRole(role.ID) })
 
-	out = runCmd(t, "role", "delete", role.ID)
+	out = runCmd(t, "role", "delete", role.ID, "--force")
 	assert.Contains(t, out, "deleted role "+role.ID)
 }
 
@@ -97,7 +97,7 @@ func TestCmd_RolePermissionAddRemove(t *testing.T) {
 	out := runCmd(t, "role", "permission", "list", role.ID, "--format", "json")
 	assert.Contains(t, out, permID)
 
-	runCmd(t, "role", "permission", "remove", role.ID, permID)
+	runCmd(t, "role", "permission", "remove", role.ID, permID, "--force")
 
 	out2 := runCmd(t, "role", "permission", "list", role.ID, "--format", "json")
 	assert.NotContains(t, out2, permID)
@@ -138,7 +138,7 @@ func TestCmd_RoleGrantAssignmentsRevoke(t *testing.T) {
 	}
 	require.NotEmpty(t, assignmentID, "granted role not found in assignments: %s", out)
 
-	out = runCmd(t, "role", "revoke", assignmentID)
+	out = runCmd(t, "role", "revoke", assignmentID, "--force")
 	assert.Contains(t, out, "revoked role assignment "+assignmentID)
 
 	out = runCmd(t, "role", "assignments", "--user", user.ID, "--format", "json")

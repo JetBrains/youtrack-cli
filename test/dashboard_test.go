@@ -29,7 +29,7 @@ func TestCmd_DashboardDelete(t *testing.T) {
 	dash, err := c.AddDashboard("e2e-dash-del-" + t.Name())
 	require.NoError(t, err)
 
-	out := runCmd(t, "dashboard", "delete", dash.ID)
+	out := runCmd(t, "dashboard", "delete", dash.ID, "--force")
 	assert.Contains(t, out, "deleted dashboard "+dash.ID)
 
 	dashboards, err := c.ListDashboards()
