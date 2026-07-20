@@ -501,6 +501,11 @@ func draftFieldValueType(fieldType string) string {
 	}
 }
 
+func (c *Client) DeleteDraft(draftID string) error {
+	path := fmt.Sprintf(pathUserDraft, "me", url.PathEscape(draftID))
+	return c.Delete(path)
+}
+
 func (c *Client) SubmitDraft(draftID string) (*Issue, error) {
 	var result Issue
 	path := pathIssues + "?draftId=" + url.QueryEscape(draftID) + "&fields=" + issueFields

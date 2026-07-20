@@ -112,7 +112,7 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 | `issue attachment` | `list`, `add`, `delete` |
 | `issue field` | `get`, `set` |
 | `issue reaction` | `add`, `delete` |
-| `issue draft` | `create`, `update`, `submit` |
+| `issue draft` | `create`, `update`, `submit`, `delete` |
 | `issue` (actions) | `assign`, `unassign`, `watch`, `unwatch`, `vote`, `unvote`, `tag`, `visibility`, `workitem add` |
 | `article comment` | `list`, `add` (`create`), `update`, `delete`, `view`, `pin`, `visibility` |
 | `article comment reaction` | `list`, `add`, `delete` |

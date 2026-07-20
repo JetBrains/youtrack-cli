@@ -74,6 +74,25 @@ func TestCmd_IssueDraftCreateAndSubmit(t *testing.T) {
 	assert.Equal(t, "added via E2E", fetched.Description)
 }
 
+func TestCmd_IssueDraftDelete(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	out := runCmd(t, "issue", "draft", "create",
+		"--project", proj.ShortName,
+		"--summary", "draft delete e2e test",
+		"--format", "json",
+	)
+	var draft api.IssueDraft
+	require.NoError(t, json.Unmarshal([]byte(out), &draft), "create output: %s", out)
+	require.NotEmpty(t, draft.ID, "draft ID must be set")
+
+	runCmd(t, "issue", "draft", "delete", draft.ID, "--force")
+
+	_, err := c.GetDraft(draft.ID)
+	assert.Error(t, err, "draft should no longer exist after delete")
+}
+
 func TestCmd_IssueDraftCreate_RequiresProject(t *testing.T) {
 	// --project is required; cobra validates before any API call.
 	out, err := runCmdFail(t, "issue", "draft", "create", "--summary", "no project")

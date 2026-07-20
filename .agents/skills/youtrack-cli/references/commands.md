@@ -93,6 +93,7 @@ youtrack issue field set <issueId> <fieldName> <value>
 youtrack issue reaction add <issueId> <commentId> <reaction>
 youtrack issue reaction delete <issueId> <commentId> <reactionId>
 youtrack issue draft create [--project P] [--summary S]
+youtrack issue draft delete <draftId>
 youtrack issue workitem add <issueId> --duration <ISO8601>   # e.g. PT1H30M
 ```
 
