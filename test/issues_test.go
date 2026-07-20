@@ -150,6 +150,27 @@ func TestCmd_IssueCreate(t *testing.T) {
 	}
 }
 
+func TestCmd_IssueCreateWithFieldsProjection(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	out := runCmd(t, "issue", "create",
+		"--project", proj.ShortName,
+		"--summary", "cmd add fields projection test",
+		"--fields", "id,idReadable,summary,project(shortName)",
+		"--format", "json",
+	)
+	assert.Contains(t, out, "cmd add fields projection test")
+
+	issues, err := c.ListIssues("project: "+proj.ShortName, 5)
+	require.NoError(t, err)
+	for _, iss := range issues {
+		if strings.Contains(iss.Summary, "cmd add fields projection test") {
+			t.Cleanup(func() { _ = c.DeleteIssue(iss.IDReadable) })
+		}
+	}
+}
+
 func TestCmd_IssueView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
