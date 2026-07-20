@@ -1,6 +1,8 @@
 package project
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -8,11 +10,14 @@ import (
 )
 
 func newProjectArchiveCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "archive <shortName>",
 		Short: "Archive a project",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Archive project %s?", args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -24,4 +29,6 @@ func newProjectArchiveCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }

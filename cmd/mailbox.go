@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
@@ -64,10 +66,13 @@ func newMailboxAddCmd() *cobra.Command {
 }
 
 func newMailboxDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use: "delete <id>", Short: "Delete a mailbox server",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete mailbox server %s?", args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -79,6 +84,8 @@ func newMailboxDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }
 
 func newMailboxRuleCmd() *cobra.Command {

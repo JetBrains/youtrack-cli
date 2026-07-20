@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -67,10 +68,13 @@ func newFieldCreateCmd() *cobra.Command {
 }
 
 func newFieldDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use: "delete <id>", Short: "Delete a custom field",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete custom field %s? This removes it from every project that uses it.", args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -82,6 +86,8 @@ func newFieldDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }
 
 func newFieldBundleCmd() *cobra.Command {
@@ -167,6 +173,14 @@ func newFieldPrivacyCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			private, _ := cmd.Flags().GetBool("private")
+			verb := "private"
+			if !private {
+				verb = "public"
+			}
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Make custom field %s %s?", args[0], verb)); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -175,6 +189,7 @@ func newFieldPrivacyCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().Bool("private", true, "Set field as private (default true)")
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
 	return cmd
 }
 

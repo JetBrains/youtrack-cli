@@ -26,3 +26,18 @@ func Confirm(cmd *cobra.Command, msg string) (bool, error) {
 	answer = strings.ToLower(strings.TrimSpace(answer))
 	return answer == "y" || answer == "yes", nil
 }
+
+// ConfirmOrAbort wraps Confirm for the common "confirm before destructive action" pattern.
+// abort is true if the caller should return immediately (either err is non-nil, or the
+// user declined and "Canceled." has already been printed).
+func ConfirmOrAbort(cmd *cobra.Command, msg string) (abort bool, err error) {
+	confirmed, err := Confirm(cmd, msg)
+	if err != nil {
+		return true, err
+	}
+	if !confirmed {
+		_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
+		return true, nil
+	}
+	return false, nil
+}

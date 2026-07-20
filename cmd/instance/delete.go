@@ -25,13 +25,8 @@ func newDeleteCmd() *cobra.Command {
 			if !ok {
 				return fmt.Errorf("instance %q not found — run: youtrack instance list", alias)
 			}
-			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Delete instance %q (%s)?", alias, inst.URL))
-			if err != nil {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete instance %q (%s)?", alias, inst.URL)); abort {
 				return err
-			}
-			if !confirmed {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
-				return nil
 			}
 			wasActive := cfg.CurrentInstance == alias
 			if err := cfg.RemoveInstance(alias); err != nil {

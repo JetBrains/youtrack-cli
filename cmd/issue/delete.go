@@ -15,13 +15,8 @@ func newIssueDeleteCmd() *cobra.Command {
 		Short: "Delete an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Delete issue %s?", args[0]))
-			if err != nil {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete issue %s?", args[0])); abort {
 				return err
-			}
-			if !confirmed {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
-				return nil
 			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {

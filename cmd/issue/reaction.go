@@ -35,11 +35,15 @@ func newIssueReactionAddCmd() *cobra.Command {
 }
 
 func newIssueReactionDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "delete <issueId> <commentId> <reactionId>",
 		Short: "Delete a reaction from an issue comment",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Delete reaction %s?", args[2])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -51,4 +55,6 @@ func newIssueReactionDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }

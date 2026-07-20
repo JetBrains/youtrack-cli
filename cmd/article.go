@@ -139,13 +139,8 @@ func newArticleDeleteCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete an article",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Delete article %s?", args[0]))
-			if err != nil {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete article %s?", args[0])); abort {
 				return err
-			}
-			if !confirmed {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
-				return nil
 			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -202,13 +197,8 @@ func newArticleCommentCmd() *cobra.Command {
 		Use: "delete <articleId> <commentId>", Short: "Delete a comment from an article",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Delete comment %s?", args[1]))
-			if err != nil {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete comment %s?", args[1])); abort {
 				return err
-			}
-			if !confirmed {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
-				return nil
 			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {

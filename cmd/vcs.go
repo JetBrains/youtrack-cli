@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -32,10 +34,13 @@ func newVCSListCmd() *cobra.Command {
 }
 
 func newVCSDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use: "delete <id>", Short: "Delete a VCS server",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete VCS server %s?", args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -47,6 +52,8 @@ func newVCSDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }
 
 func newVCSConfigsCmd() *cobra.Command {
@@ -88,6 +95,9 @@ func newVCSProcessorCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a VCS processor",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete VCS processor %s?", args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -99,6 +109,7 @@ func newVCSProcessorCmd() *cobra.Command {
 			return nil
 		},
 	}
+	del.Flags().Bool("force", false, "Skip the confirmation prompt")
 	cmd.AddCommand(list, del)
 	return cmd
 }
