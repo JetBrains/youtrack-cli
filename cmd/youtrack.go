@@ -5,6 +5,7 @@ import (
 	"embed"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/spf13/cobra"
 
@@ -17,6 +18,8 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
+
+const updateNoticeWait = 500 * time.Millisecond
 
 // NewRootCmd constructs the root command. Called by Execute() and by tests.
 func NewRootCmd(fs embed.FS) *cobra.Command {
@@ -90,12 +93,23 @@ func Execute(fs embed.FS) error {
 	done := internal.CheckForUpdateAsync(internal.Version)
 	execErr := root.Execute()
 	quiet, _ := root.PersistentFlags().GetBool("quiet")
+	jsonMode := output.Format(root) == "json"
 	if execErr != nil {
-		format := output.Format(root)
-		output.RenderError(root.ErrOrStderr(), root.OutOrStdout(), execErr, format == "json", quiet)
+		output.RenderError(root.ErrOrStderr(), execErr, jsonMode, quiet)
 	}
-	if notice := <-done; notice != "" && !quiet {
-		_, _ = fmt.Fprintln(root.ErrOrStderr(), notice)
+	// Suppress the plain-text update notice when a JSON error envelope was written to stderr, so that stream stays parseable.
+	jsonErrEmitted := jsonMode && execErr != nil
+	if quiet || jsonErrEmitted {
+		return execErr
+	}
+	// The throttle timestamp is persisted synchronously in CheckForUpdateAsync, so bounding the wait here
+	// only risks skipping this run's notice, never a repeated API call. On throttled runs done is already closed.
+	select {
+	case notice := <-done:
+		if notice != "" {
+			_, _ = fmt.Fprintln(root.ErrOrStderr(), notice)
+		}
+	case <-time.After(updateNoticeWait):
 	}
 	return execErr
 }

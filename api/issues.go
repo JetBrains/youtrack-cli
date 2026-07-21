@@ -574,11 +574,17 @@ func (c *Client) UnvoteIssue(id string) error {
 	return c.Post(path, map[string]any{"hasVote": false}, nil)
 }
 
+// ListRecentComments returns the last `top` comments; YouTrack serves them oldest-first, so fetch all and keep the tail.
 func (c *Client) ListRecentComments(issueID string, top int) ([]Comment, error) {
 	var result []Comment
-	path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=%d", url.PathEscape(issueID), commentFields, top)
-	err := c.Get(path, &result)
-	return result, err
+	path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=-1", url.PathEscape(issueID), commentFields)
+	if err := c.Get(path, &result); err != nil {
+		return nil, err
+	}
+	if top >= 0 && len(result) > top {
+		result = result[len(result)-top:]
+	}
+	return result, nil
 }
 
 func (c *Client) GetComment(issueID, commentID string) (*Comment, error) {

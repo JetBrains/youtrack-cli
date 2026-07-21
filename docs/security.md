@@ -15,6 +15,28 @@ Any token you create via **Profile → Account Security → New Token** receives
 - Store tokens in secrets managers (GitHub Actions secrets, Vault, etc.) — never in plain text files committed to version control.
 - Rotate tokens regularly and revoke them when a pipeline or integration is decommissioned.
 
+## Token Storage
+
+Tokens saved via `auth get-token`, `instance add`, or `auth refresh-token` are stored in the OS keyring when one is available:
+
+- **macOS** — Keychain
+- **Windows** — Credential Manager
+- **Linux** — Secret Service (GNOME Keyring, KWallet, etc. via D-Bus)
+
+Each token is stored under the service name `youtrack-cli` with the instance alias as the account. The config file (`~/.youtrack-cli-config.json`) then contains only the instance URL — no secret.
+
+When no keyring is available (headless Linux, CI containers, locked keychain), the CLI automatically falls back to storing the token in `~/.youtrack-cli-config.json` (mode 0600), exactly as before, and prints a one-line warning to stderr. Existing file-stored tokens are migrated to the keyring transparently the next time the config is written; the token is then removed from the file.
+
+`instance delete` / `auth logout` remove the keyring entry along with the config entry.
+
+To opt out of keyring storage entirely (e.g. for deterministic CI setups), set:
+
+```bash
+export YOUTRACK_DISABLE_KEYRING=1
+```
+
+Environment variables (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored credentials entirely and are unaffected.
+
 ## Read-Only Mode
 
 Set `YOUTRACK_RO=1` to prevent any write operations at the client level:

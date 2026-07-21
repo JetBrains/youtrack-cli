@@ -9,6 +9,7 @@ import (
 
 func newSettingsCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "settings", Short: "Manage instance settings"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(
 		newSettingsViewCmd(),
 		newSettingsSystemCmd(),
@@ -25,6 +26,7 @@ func newSettingsCmd() *cobra.Command {
 
 func newSettingsSystemCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "system", Short: "Manage system settings"}
+	internal.RequireSubcommand(cmd)
 	view := &cobra.Command{
 		Use: "view", Aliases: []string{"get"}, Short: "View system settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -99,6 +101,7 @@ func newSettingsFeatureCmd() *cobra.Command {
 
 func newSettingsEmailCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "email", Short: "Manage email settings"}
+	internal.RequireSubcommand(cmd)
 	set := &cobra.Command{
 		Use: "set", Short: "Configure email server",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -132,6 +135,7 @@ func newSettingsEmailCmd() *cobra.Command {
 
 func newSettingsBannerCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "banner", Short: "Manage global banner"}
+	internal.RequireSubcommand(cmd)
 	set := &cobra.Command{
 		Use: "set", Short: "Show a global banner message",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -196,6 +200,7 @@ func newSettingsLicenseCmd() *cobra.Command {
 
 func newSettingsAICmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "ai", Short: "Manage AI/Grazie settings"}
+	internal.RequireSubcommand(cmd)
 	jb := &cobra.Command{
 		Use: "jetbrains", Short: "Enable/disable JetBrains AI",
 		RunE: func(cmd *cobra.Command, args []string) error {

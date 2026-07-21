@@ -1,15 +1,15 @@
 package issue
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newIssueReactionCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "reaction", Short: "Manage reactions on issue comments"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newIssueReactionAddCmd())
 	cmd.AddCommand(newIssueReactionDeleteCmd())
 	return cmd
@@ -28,8 +28,8 @@ func newIssueReactionAddCmd() *cobra.Command {
 			if err := client.AddReaction(args[0], args[1], args[2]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "added reaction "+args[2])
-			return err
+			output.PrintSuccess(cmd, "added reaction "+args[2])
+			return nil
 		},
 	}
 }
@@ -47,8 +47,8 @@ func newIssueReactionDeleteCmd() *cobra.Command {
 			if err := client.DeleteReaction(args[0], args[1], args[2]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted reaction "+args[2])
-			return err
+			output.PrintSuccess(cmd, "deleted reaction "+args[2])
+			return nil
 		},
 	}
 }

@@ -99,4 +99,16 @@ func TestCmd_EnvVarPrecedenceOverConfig(t *testing.T) {
 	assert.Contains(t, out, `"login"`)
 }
 
+// ---------- Container commands ----------
+
+// TestCmd_ContainerCommandRequiresSubcommand asserts container commands exit non-zero when run bare or with an unknown subcommand.
+func TestCmd_ContainerCommandRequiresSubcommand(t *testing.T) {
+	runCmdExpectError(t, "issue", "bogus")
+	runCmdExpectError(t, "issue")
+	runCmdExpectError(t, "project", "bogus")
+	runCmdExpectError(t, "project")
+	runCmdExpectError(t, "user", "bogus")
+	runCmdExpectError(t, "user")
+}
+
 // ---------- Whiteboard ----------

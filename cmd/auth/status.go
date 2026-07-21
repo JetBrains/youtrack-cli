@@ -44,7 +44,7 @@ Check the "status" field for the authentication result:
   "invalid token: ..."  — token rejected by the server
   "not configured: ..." — YOUTRACK_BASE_URL or YOUTRACK_TOKEN is not set
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg, err := config.Load()
 			if err != nil {
@@ -69,7 +69,7 @@ Use --format json for machine-readable output.`,
 					URL:    baseURL,
 					Status: fmt.Sprintf("not configured: %s", err.Error()),
 				}
-				if !flagChanged(cmd, "format") {
+				if !jsonOutput(cmd) {
 					printAuthStatus(cmd, s)
 					return nil
 				}
@@ -81,7 +81,7 @@ Use --format json for machine-readable output.`,
 					URL:    client.BaseURL,
 					Status: fmt.Sprintf("invalid token: %s", err.Error()),
 				}
-				if !flagChanged(cmd, "format") {
+				if !jsonOutput(cmd) {
 					printAuthStatus(cmd, s)
 					return nil
 				}
@@ -93,7 +93,7 @@ Use --format json for machine-readable output.`,
 				FullName: user.FullName,
 				Status:   "authenticated",
 			}
-			if !flagChanged(cmd, "format") {
+			if !jsonOutput(cmd) {
 				printAuthStatus(cmd, s)
 				return nil
 			}
@@ -141,7 +141,7 @@ func runMultiInstanceStatus(cmd *cobra.Command, cfg *config.Config) error {
 		}
 		statuses = append(statuses, s)
 	}
-	if !flagChanged(cmd, "format") {
+	if !jsonOutput(cmd) {
 		printMultiInstanceStatus(cmd, statuses)
 		return nil
 	}

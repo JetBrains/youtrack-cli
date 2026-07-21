@@ -22,14 +22,8 @@ type jsonErrorBody struct {
 	Suggestion string `json:"suggestion,omitempty"`
 }
 
-// RenderError prints err to the appropriate stream based on output mode.
-//
-// JSON mode (jsonMode=true): writes {"error":{...}} to jsonOut (stdout).
-// Agents receive structured errors on stdout alongside normal JSON output.
-//
-// Human mode: writes "✗ Error: <msg>" to w (stderr).
-// Appends "  Tip: <hint>" unless quiet=true. The error line itself is never suppressed.
-func RenderError(w, jsonOut io.Writer, err error, jsonMode, quiet bool) {
+// RenderError writes err to w (stderr) — a {"error":{...}} envelope in JSON mode, "✗ Error: <msg>" otherwise; appends a Tip unless quiet.
+func RenderError(w io.Writer, err error, jsonMode, quiet bool) {
 	tip := tipFor(err)
 	if jsonMode {
 		env := jsonErrorEnvelope{Error: jsonErrorBody{
@@ -37,7 +31,7 @@ func RenderError(w, jsonOut io.Writer, err error, jsonMode, quiet bool) {
 			Message:    err.Error(),
 			Suggestion: tip,
 		}}
-		enc := json.NewEncoder(jsonOut)
+		enc := json.NewEncoder(w)
 		enc.SetIndent("", "  ")
 		_ = enc.Encode(env)
 		return

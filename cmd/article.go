@@ -11,6 +11,7 @@ import (
 
 func newArticleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "article", Short: "Manage knowledge base articles"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(
 		newArticleListCmd(),
 		newArticleViewCmd(),
@@ -29,6 +30,7 @@ func newArticleCmd() *cobra.Command {
 }
 
 func newArticleListCmd() *cobra.Command {
+	var limit int
 	cmd := &cobra.Command{
 		Use: "list", Short: "List articles",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -37,7 +39,7 @@ func newArticleListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			articles, err := client.ListArticles(query)
+			articles, err := client.ListArticles(query, limit)
 			if err != nil {
 				return err
 			}
@@ -48,6 +50,7 @@ func newArticleListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("query", "", "Filter query")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of articles to return")
 	return cmd
 }
 
@@ -161,6 +164,7 @@ func newArticleDeleteCmd() *cobra.Command {
 
 func newArticleCommentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "comment", Short: "Manage article comments"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list <articleId>", Short: "List comments on an article",
 		Args: cobra.ExactArgs(1),
@@ -243,6 +247,7 @@ func newArticleCommentCmd() *cobra.Command {
 
 func newArticleCommentReactionCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "reaction", Short: "Manage reactions on article comments"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list <articleId> <commentId>", Short: "List reactions on an article comment",
 		Args: cobra.ExactArgs(2),
@@ -341,6 +346,7 @@ func newArticleSetParentCmd() *cobra.Command {
 
 func newArticleAttachmentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "attachment", Short: "Manage article attachments"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list <articleId>", Short: "List attachments on an article",
 		Args: cobra.ExactArgs(1),
@@ -380,6 +386,7 @@ func newArticleAttachmentCmd() *cobra.Command {
 
 func newArticleChildCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "child", Short: "Manage child articles"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list <articleId>", Short: "List child articles of an article",
 		Args: cobra.ExactArgs(1),
@@ -416,6 +423,7 @@ func newArticleChildCmd() *cobra.Command {
 
 func newArticleParentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "parent", Short: "Manage article parent"}
+	internal.RequireSubcommand(cmd)
 	get := &cobra.Command{
 		Use: "view <articleId>", Aliases: []string{"get"}, Short: "View the parent article",
 		Args: cobra.ExactArgs(1),

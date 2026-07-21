@@ -39,7 +39,7 @@ an authentication method:
 If basic auth is unavailable (e.g. cloud or SSO-only instances), the CLI
 falls back to option 3 automatically.
 
-Use --format json for machine-readable output.`,
+Use --json for machine-readable output.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reader := bufio.NewReader(os.Stdin)
 
@@ -186,7 +186,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 			return err
 		}
 	}
-	if !flagChanged(cmd, "format") {
+	if !jsonOutput(cmd) {
 		printTokenResult(cmd, res)
 		return nil
 	}
@@ -256,7 +256,7 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 			return err
 		}
 	}
-	if !flagChanged(cmd, "format") {
+	if !jsonOutput(cmd) {
 		printTokenResult(cmd, res)
 		return nil
 	}
@@ -337,7 +337,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 			return err
 		}
 	}
-	if !flagChanged(cmd, "format") {
+	if !jsonOutput(cmd) {
 		printTokenResult(cmd, res)
 		return nil
 	}
@@ -363,6 +363,9 @@ func saveCredentials(cmd *cobra.Command, _ *bufio.Reader, baseURL, token string,
 	}
 
 	path, _ := config.ConfigPath()
+	if !cfg.TokenInKeyring(finalAlias) {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: OS keyring unavailable — token stored in plain text at %s\n", path)
+	}
 	res.ConfigFile = path
 	if cfg.CurrentInstance == finalAlias {
 		res.Hint = fmt.Sprintf("Token saved as %q (active). The CLI will load it automatically.", finalAlias)
@@ -447,6 +450,11 @@ func hyperlink(url string) string {
 func flagChanged(cmd *cobra.Command, name string) bool {
 	f := cmd.Flag(name)
 	return f != nil && f.Changed
+}
+
+// jsonOutput reports whether the resolved output format is JSON (honors --json, --plain, --format, and non-TTY auto-detection).
+func jsonOutput(cmd *cobra.Command) bool {
+	return output.Format(cmd) == "json"
 }
 
 // openBrowser opens the given URL in the system's default browser.

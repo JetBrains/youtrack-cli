@@ -9,6 +9,7 @@ import (
 
 func newProjectWorkflowCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "workflow", Short: "Manage project workflows"}
+	internal.RequireSubcommand(cmd)
 	add := &cobra.Command{
 		Use: "add <shortName>", Short: "Attach a workflow to a project",
 		Args: cobra.ExactArgs(1),

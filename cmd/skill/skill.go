@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/tiulpin/instill"
 
+	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
@@ -26,8 +27,8 @@ func NewCmd(fs embed.FS) *cobra.Command {
 Skills teach AI coding agents (Claude Code, Cursor, and others) how
 to drive the youtrack CLI effectively. Skills can be installed
 globally for the current user or locally into a project.`,
-		Args: cobra.NoArgs,
 	}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newSkillListCmd(fs))
 	cmd.AddCommand(newSkillInstallCmd(fs))
 	cmd.AddCommand(newSkillUpdateCmd(fs))
@@ -63,8 +64,7 @@ func newSkillListCmd(fs embed.FS) *cobra.Command {
 			for i, m := range metas {
 				infos[i] = SkillInfo{Name: m.Name, Version: m.Version, Default: m.Name == defaultSkill}
 			}
-			format, _ := cmd.Root().PersistentFlags().GetString("format")
-			if format == "table" {
+			if output.Format(cmd) == "table" {
 				return printSkillTable(cmd.OutOrStdout(), infos)
 			}
 			return output.Print(cmd, infos)

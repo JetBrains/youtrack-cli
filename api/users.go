@@ -16,6 +16,9 @@ const (
 	hubSyncPollInterval      = 200 * time.Millisecond
 )
 
+// userLookupLimit bounds GetUser's fallback login search; generous since it scans for an exact match.
+const userLookupLimit = 500
+
 // AddUserRequest is the body for creating a user.
 type AddUserRequest struct {
 	Login    string    `json:"login"`
@@ -25,9 +28,9 @@ type AddUserRequest struct {
 	UserType *UserType `json:"userType,omitempty"`
 }
 
-func (c *Client) ListUsers(query string) ([]User, error) {
+func (c *Client) ListUsers(query string, limit int) ([]User, error) {
 	var result []User
-	path := pathUsers + fmt.Sprintf("?searchQuery=%s&fields=%s&$top=-1", url.QueryEscape(query), userFields)
+	path := pathUsers + fmt.Sprintf("?searchQuery=%s&fields=%s&$top=%d", url.QueryEscape(query), userFields, limit)
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -40,7 +43,7 @@ func (c *Client) GetUser(login string) (*User, error) {
 		return &result, nil
 	}
 
-	users, err := c.ListUsers(login)
+	users, err := c.ListUsers(login, userLookupLimit)
 	if err != nil {
 		return nil, err
 	}
@@ -170,21 +173,49 @@ func (c *Client) SetUserLocale(id, locale string) error {
 	return c.Post(path, map[string]any{"locale": map[string]any{"id": locale}}, nil)
 }
 
-func (c *Client) GetUserIssueDrafts(_ string) ([]IssueDraft, error) {
+// resolveDraftsSelf enforces that drafts are only accessed for the current user.
+// YouTrack scopes both issue and article drafts to the token holder and exposes them solely
+// under `me` — there is no /api/users/{id}/drafts route (it 404s "No subresource for path
+// drafts"). Any other identifier is rejected rather than silently retargeting the caller's
+// own drafts.
+func (c *Client) resolveDraftsSelf(identifier string) error {
+	if identifier == "" || identifier == "me" {
+		return nil
+	}
+	me, err := c.GetCurrentUser()
+	if err != nil {
+		return err
+	}
+	if identifier == me.Login || identifier == me.ID {
+		return nil
+	}
+	return fmt.Errorf("drafts are private to the authenticated user; only 'me' (or your own login) is supported, not '%s'", identifier)
+}
+
+func (c *Client) GetUserIssueDrafts(identifier string) ([]IssueDraft, error) {
+	if err := c.resolveDraftsSelf(identifier); err != nil {
+		return nil, err
+	}
 	var result []IssueDraft
 	path := fmt.Sprintf(pathUserDrafts+"?fields=id,summary,created&$top=-1", "me")
 	err := c.Get(path, &result)
 	return result, err
 }
 
-func (c *Client) DeleteAllUserDrafts(_ string) error {
+func (c *Client) DeleteAllUserDrafts(identifier string) error {
+	if err := c.resolveDraftsSelf(identifier); err != nil {
+		return err
+	}
 	path := fmt.Sprintf(pathUserDrafts, "me")
 	return c.Put(path, []any{}, nil)
 }
 
-func (c *Client) GetUserArticleDrafts(id string) ([]ArticleDraft, error) {
+func (c *Client) GetUserArticleDrafts(identifier string) ([]ArticleDraft, error) {
+	if err := c.resolveDraftsSelf(identifier); err != nil {
+		return nil, err
+	}
 	var result []ArticleDraft
-	path := fmt.Sprintf(pathUserArticleDrafts+"?fields=id,summary&$top=-1", url.PathEscape(id))
+	path := fmt.Sprintf(pathUserArticleDrafts+"?fields=id,summary&$top=-1", "me")
 	err := c.Get(path, &result)
 	return result, err
 }

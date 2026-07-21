@@ -9,6 +9,7 @@ import (
 
 func newProjectTemplateCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "template", Short: "Manage project templates"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list", Short: "List project templates",
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -83,7 +83,7 @@ func TestCmd_UserCRUD(t *testing.T) {
 	out = runCmd(t, "user", "delete", login, "--successor", successor.Login, "--force")
 	assert.Contains(t, out, "deleted user "+login)
 
-	users, err := c.ListUsers(login)
+	users, err := c.ListUsers(login, 100)
 	require.NoError(t, err)
 	for _, user := range users {
 		assert.NotEqual(t, login, user.Login)
@@ -151,12 +151,38 @@ func TestCmd_UserDrafts(t *testing.T) {
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
 
-	if _, err := c.GetUserIssueDrafts(me.Login); err != nil {
-		t.Skipf("user drafts not supported on this instance: %v", err)
-	}
+	proj := createTempProject(t, c)
+	draft, err := c.CreateDraft(proj.ID, "user drafts fixture", "")
+	require.NoError(t, err)
 
+	// Listing by login, "me", or no argument at all must resolve to the same drafts.
 	out := runCmd(t, "user", "drafts", "list", me.Login, "--format", "json")
+	assert.Contains(t, out, draft.ID)
+	out = runCmd(t, "user", "drafts", "list", "me", "--format", "json")
+	assert.Contains(t, out, draft.ID)
+	out = runCmd(t, "user", "drafts", "list", "--format", "json")
+	assert.Contains(t, out, draft.ID)
+
+	// Article drafts are private too: no argument defaults to the current user (a JSON array),
+	// and another user's drafts are inaccessible.
+	out = runCmd(t, "user", "drafts", "articles", "--format", "json")
 	assert.Contains(t, out, "[")
+	runCmdExpectError(t, "user", "drafts", "articles", "no-such-user-e2e")
+
+	// An unknown login must error out, not silently target the current user.
+	runCmdExpectError(t, "user", "drafts", "list", "no-such-user-e2e")
+	runCmdExpectError(t, "user", "drafts", "delete", "no-such-user-e2e")
+	drafts, err := c.GetUserIssueDrafts("me")
+	require.NoError(t, err)
+	assert.NotEmpty(t, drafts, "delete for an unknown user must not wipe the current user's drafts")
+
+	// Delete by login, then assert the fixture is gone (not that the list is empty, since the account may have other drafts).
+	runCmd(t, "user", "drafts", "delete", me.Login)
+	drafts, err = c.GetUserIssueDrafts("me")
+	require.NoError(t, err)
+	for _, d := range drafts {
+		assert.NotEqual(t, draft.ID, d.ID, "delete by login must remove the fixture draft")
+	}
 }
 
 func TestCmd_UserProfileView(t *testing.T) {

@@ -8,6 +8,7 @@ import (
 )
 
 func newUserListCmd() *cobra.Command {
+	var limit int
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List users",
@@ -17,7 +18,7 @@ func newUserListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			users, err := client.ListUsers(query)
+			users, err := client.ListUsers(query, limit)
 			if err != nil {
 				return err
 			}
@@ -28,5 +29,6 @@ func newUserListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("query", "", "Filter users by query")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of users to return")
 	return cmd
 }
