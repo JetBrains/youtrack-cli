@@ -285,10 +285,15 @@ func printTokenResult(cmd *cobra.Command, res getTokenResult) {
 	}
 }
 
-// maskToken replaces the secret segment of a token with ****.
-// For perm-<a>.<b>.<secret> tokens, the last dot-separated segment is masked.
-// Other token formats show only the first 4 characters followed by ****.
+// maskToken shows a short prefix + **** — a JWT gets an 8-char prefix (masking only the last segment would dump its whole header and payload), perm tokens keep everything up to the secret segment.
 func maskToken(token string) string {
+	if strings.HasPrefix(token, "eyJ") && strings.Count(token, ".") == 2 {
+		prefix := token
+		if len(prefix) > 8 {
+			prefix = prefix[:8]
+		}
+		return prefix + "…****"
+	}
 	if i := strings.LastIndex(token, "."); i >= 0 {
 		return token[:i+1] + "****"
 	}

@@ -210,7 +210,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	// Pre-flight: verify the Hub knows this client and accepts the loopback redirect; fall back to paste-token otherwise.
 	if err := api.PreflightOAuthClient(authorizeURL); err != nil {
 		_ = listener.Close()
-		_, _ = fmt.Fprintf(stderr, "This Hub has no public CLI OAuth client (%q): %v\nFalling back to the paste-token flow.\n\n", opts.clientID, err)
+		_, _ = fmt.Fprintf(stderr, "This Hub has no public CLI OAuth client (%q); falling back to the paste-token flow.\n\n", opts.clientID)
 		return runDirectTokenFlow(cmd, reader, baseURL)
 	}
 
