@@ -11,32 +11,53 @@ Full documentation — installation, authentication, configuration, and a comman
 
 ## Install
 
+<!-- Repo went internal-only after this section shipped as public-repo instructions in tag v0.3.0.
+When public again, swap the `gh release download` commands below for these:
+
+macOS & Linux:
+curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash
+
+Windows: download youtrack_<version>_windows_x86_64.zip from
+https://github.com/JetBrains/youtrack-cli/releases/latest, extract, add to PATH.
+
+Debian/Ubuntu:
+curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.deb
+sudo dpkg -i youtrack_linux_amd64.deb
+
+RHEL/Fedora:
+sudo rpm -i https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.rpm
+
+go install github.com/JetBrains/youtrack-cli@latest
+-->
+> **The repository is currently internal.** The `curl`/direct-download URLs below 404 until it's public. Use [GitHub CLI](https://cli.github.com/), authenticated against this org (`gh auth login`), instead.
+
 **macOS & Linux (install script):**
 ```bash
-curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash
+gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash
 ```
 
-**Windows:** download `youtrack_<version>_windows_x86_64.zip` from [Releases](https://github.com/JetBrains/youtrack-cli/releases/latest), extract it, and add the folder to your `PATH`.
+**Windows:** `gh release download --repo JetBrains/youtrack-cli --pattern '*windows_x86_64.zip'`, extract the archive, and add the folder to your `PATH`.
 
 <details>
 <summary>More installation methods (deb, rpm, go install)</summary>
 
 **Debian/Ubuntu:**
 ```bash
-curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.deb
+gh release download --repo JetBrains/youtrack-cli --pattern '*linux_amd64.deb'
 sudo dpkg -i youtrack_linux_amd64.deb
 ```
 
 **RHEL/Fedora:**
 ```bash
-sudo rpm -i https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.rpm
+gh release download --repo JetBrains/youtrack-cli --pattern '*linux_amd64.rpm'
+sudo rpm -i youtrack_linux_amd64.rpm
 ```
 
 Replace `amd64` with `arm64` on ARM machines.
 
-**Build from source** (requires [Go 1.26.5+](https://go.dev/dl/)):
+**Build from source** (requires [Go 1.26.5+](https://go.dev/dl/) and `git`/`gh` configured for private-module access):
 ```bash
-go install github.com/JetBrains/youtrack-cli@latest
+GOPRIVATE=github.com/JetBrains/youtrack-cli go install github.com/JetBrains/youtrack-cli@latest
 ```
 
 See the [getting started guide](docs/topics/youtrack-cli-get-started.md) for the full walkthrough.
