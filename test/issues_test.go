@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -740,7 +741,14 @@ func TestCmd_IssueCommand(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
-	out := runCmd(t, "issue", "command", issue.IDReadable, "State In Progress")
+	// On a freshly created project the default State bundle may not be attached
+	// yet, so the command parser transiently rejects "In Progress"; poll until it applies.
+	var out string
+	require.Eventually(t, func() bool {
+		var err error
+		out, err = tryCmdNoFail(t, "issue", "command", issue.IDReadable, "State In Progress")
+		return err == nil
+	}, 15*time.Second, 500*time.Millisecond, "State command should apply once the project's State bundle is provisioned")
 	assert.Contains(t, out, "command applied to "+issue.IDReadable)
 
 	// Verify state changed via API
