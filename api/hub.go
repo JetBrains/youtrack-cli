@@ -47,6 +47,7 @@ type HubToken struct {
 type OAuthProtectedResource struct {
 	Resource             string   `json:"resource"`
 	AuthorizationServers []string `json:"authorization_servers"`
+	ScopesSupported      []string `json:"scopes_supported"`
 }
 
 // GetOAuthProtectedResource fetches OAuth protected resource metadata from the YouTrack

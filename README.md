@@ -61,6 +61,8 @@ For a single instance, env vars are enough — see the CI/scripting note in Quic
 
 ```bash
 youtrack instance add
+youtrack instance login https://your-instance.youtrack.cloud   # browser OAuth sign-in (~1h token)
+youtrack instance login mywork        # renew an existing alias's token via the browser
 youtrack instance use personal        # switch active context
 youtrack instance list                # show all instances
 youtrack instance remove work         # remove an instance
@@ -69,7 +71,7 @@ youtrack auth refresh-token           # replace token for the active instance
 youtrack auth logout                  # remove active instance credentials
 ```
 
-Auth methods: **Basic** (login + password), **Web browser** (opens token page), or **Paste token** (fallback for cloud/SSO).
+Auth methods: **Browser SSO** (`instance login` — OAuth 2.0 + PKCE against JetBrains Hub, no paste needed, ~1-hour session token), **Basic** (login + password), **Web browser** (opens token page), or **Paste token** (fallback for cloud/SSO).
 
 Credentials are saved to `~/.youtrack-cli-config.json`. Env vars are a single-instance fallback.
 
@@ -101,7 +103,7 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 | Group | Subcommands |
 |---|---|
 | `auth` | `get-token` (`login`), `refresh-token`, `logout`, `status` |
-| `instance` | `add`, `list`, `use`, `remove`, `update-token` |
+| `instance` | `add`, `login`, `list`, `use`, `remove`, `update-token` |
 | `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `count`, `suggest`, `assist`, `activity`, `sprint`, `vcs` |
 | `issue comment` | `list`, `add`, `update`, `delete`, `pin`, `visibility` |
 | `issue link` | `list`, `add`, `remove` |

@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>YouTrack CLI</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --brand: #E627F8;
+            --brand-dim: #A21DC0;
+            --brand-text: #9C1AB0;
+            /* ring-ui light theme tokens — src/global/variables.css */
+            --ring-text-color: #27282E;
+            --ring-secondary-color: #6C707E;
+            --ring-main-success-color: #1F8039;
+            --ring-success-container-light-color: #F2FCF3;
+            --ring-success-border-color: #89C398;
+            --ring-main-error-color: #CC3645;
+            --ring-error-container-light-color: #FFF2F3;
+            --ring-error-border-color: #F2B6BB;
+        }
+
+        html { -webkit-font-smoothing: antialiased; }
+
+        body {
+            font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #FFFFFF;
+            color: #16171C;
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ponytail: two blurred blobs stand in for a full hero illustration */
+        body::before, body::after {
+            content: "";
+            position: absolute;
+            width: 60vmax;
+            height: 60vmax;
+            border-radius: 50%;
+            filter: blur(60px);
+            opacity: 0.18;
+            z-index: 0;
+        }
+        body::before {
+            background: radial-gradient(circle, var(--brand), transparent 70%);
+            top: -22vmax;
+            left: -18vmax;
+        }
+        body::after {
+            background: radial-gradient(circle, var(--brand-dim), transparent 70%);
+            bottom: -26vmax;
+            right: -18vmax;
+        }
+
+        .wrap {
+            position: relative;
+            z-index: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 24px;
+            width: 100%;
+        }
+
+        .logo {
+            display: flex;
+            margin-bottom: 24px;
+        }
+        .logo svg { width: 148px; height: auto; display: block; }
+        .logo svg path:first-of-type { fill: #16171C; }
+
+        .card {
+            background: #FFFFFF;
+            border: 1px solid rgba(16, 17, 20, 0.06);
+            border-radius: 20px;
+            box-shadow:
+                0 1px 2px rgba(16, 17, 20, 0.04),
+                0 20px 48px rgba(16, 17, 20, 0.08);
+            text-align: center;
+            padding: 44px 40px;
+            max-width: 440px;
+            width: 100%;
+        }
+
+        .icon {
+            width: 52px;
+            height: 52px;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 22px;
+            font-size: 22px;
+            opacity: 0;
+            animation: rise 0.5s cubic-bezier(0.2, 0, 0, 1) 0.1s forwards;
+        }
+        .icon-ok {
+            background: var(--ring-success-container-light-color);
+            box-shadow: 0 0 0 1px var(--ring-success-border-color) inset;
+            color: var(--ring-main-success-color);
+        }
+        .icon-err {
+            background: var(--ring-error-container-light-color);
+            box-shadow: 0 0 0 1px var(--ring-error-border-color) inset;
+            color: var(--ring-main-error-color);
+        }
+
+        h1 {
+            font-size: 20px;
+            font-weight: 600;
+            color: var(--ring-text-color);
+            margin-bottom: 8px;
+            text-wrap: balance;
+            opacity: 0;
+            animation: rise 0.5s cubic-bezier(0.2, 0, 0, 1) 0.15s forwards;
+        }
+        p {
+            font-size: 14px;
+            line-height: 1.55;
+            color: var(--ring-secondary-color);
+            text-wrap: pretty;
+            opacity: 0;
+            animation: rise 0.5s cubic-bezier(0.2, 0, 0, 1) 0.2s forwards;
+        }
+
+        .error-detail {
+            margin-top: 16px;
+            padding: 10px 14px;
+            background: var(--ring-error-container-light-color);
+            box-shadow: 0 0 0 1px var(--ring-error-border-color) inset;
+            border-radius: 10px;
+            font-size: 13px;
+            color: var(--ring-main-error-color);
+            word-break: break-word;
+            opacity: 0;
+            animation: rise 0.5s cubic-bezier(0.2, 0, 0, 1) 0.25s forwards;
+        }
+
+        .close-btn {
+            margin-top: 24px;
+            min-height: 40px;
+            padding: 0 20px;
+            border: none;
+            border-radius: 10px;
+            background: #F2F3F5;
+            color: #16171C;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition-property: transform, background, color;
+            transition-duration: 0.15s;
+            opacity: 0;
+            animation: rise 0.5s cubic-bezier(0.2, 0, 0, 1) 0.3s forwards;
+        }
+        .close-btn:hover { background: rgba(230, 39, 248, 0.1); color: var(--brand-text); }
+        .close-btn:active { transform: scale(0.96); }
+
+        .countdown { font-variant-numeric: tabular-nums; }
+
+        @keyframes rise {
+            from { transform: translateY(6px); opacity: 0; }
+            to   { transform: translateY(0);   opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="wrap">
+        <div class="logo">{{.Logo}}</div>
+        <div class="card">
+{{if .Error}}
+            <div class="icon icon-err">&#10007;</div>
+            <h1>Authentication failed</h1>
+            <p>Please return to the terminal.</p>
+            <div class="error-detail">{{.Error}}</div>
+            <button class="close-btn" onclick="window.close()">Close window</button>
+{{else}}
+            <div class="icon icon-ok">&#10003;</div>
+            <h1>Authentication successful</h1>
+            <p>You can close this window and return to the terminal.<br>Closing in <span class="countdown" id="n">3</span>s&hellip;</p>
+            <button class="close-btn" onclick="window.close()">Close now</button>
+            <script>
+                var n = document.getElementById('n');
+                var t = setInterval(function () {
+                    n.textContent = String(Number(n.textContent) - 1);
+                    if (Number(n.textContent) <= 0) { clearInterval(t); window.close(); }
+                }, 1000);
+            </script>
+{{end}}
+        </div>
+    </div>
+</body>
+</html>

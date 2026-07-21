@@ -25,6 +25,10 @@ type Instance struct {
 
 	// tokenInKeyring marks the token as keyring-stored so Save omits it from the file.
 	tokenInKeyring bool
+	// AuthMethod records how the token was obtained ("oauth" for browser SSO; empty for permanent tokens).
+	AuthMethod string `json:"authMethod,omitempty"`
+	// TokenExpiresAt is the unix timestamp after which the token expires; zero means never (permanent token).
+	TokenExpiresAt int64 `json:"tokenExpiresAt,omitempty"`
 }
 
 // ConfigPath returns the absolute path to ~/.youtrack-cli-config.json.
@@ -142,6 +146,20 @@ func (c *Config) ActiveInstance() (*Instance, string) {
 // On alias collision with a different URL, a numeric suffix is appended (work → work-2).
 // Returns the final alias used.
 func (c *Config) AddInstance(alias, rawURL, token string) string {
+	return c.upsertInstance(alias, rawURL, Instance{URL: rawURL, Token: token})
+}
+
+// AddInstanceOAuth upserts an instance holding a short-lived OAuth access token that expires at the given unix timestamp.
+func (c *Config) AddInstanceOAuth(alias, rawURL, token string, expiresAt int64) string {
+	return c.upsertInstance(alias, rawURL, Instance{
+		URL:            rawURL,
+		Token:          token,
+		AuthMethod:     "oauth",
+		TokenExpiresAt: expiresAt,
+	})
+}
+
+func (c *Config) upsertInstance(alias, rawURL string, inst Instance) string {
 	if alias == "" {
 		alias = DeriveAlias(rawURL)
 	}
@@ -153,7 +171,7 @@ func (c *Config) AddInstance(alias, rawURL, token string) string {
 		}
 		final = fmt.Sprintf("%s-%d", alias, i)
 	}
-	c.Instances[final] = Instance{URL: rawURL, Token: token}
+	c.Instances[final] = inst
 	return final
 }
 

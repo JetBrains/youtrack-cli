@@ -35,6 +35,7 @@ an authentication method:
   1) Basic auth   — login + password via Hub API
   2) Web browser  — open the token page in a browser, then paste the token
   3) Paste token  — enter a token directly without opening a browser
+  4) Browser SSO  — OAuth 2.0 + PKCE sign-in (~1-hour session token)
 
 If basic auth is unavailable (e.g. cloud or SSO-only instances), the CLI
 falls back to option 3 automatically.
@@ -91,7 +92,7 @@ Use --json for machine-readable output.`,
 
 			// Auth-type selection.
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
-				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\nSelect [1-3]: ")
+				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\n  4) Browser single sign-on (1-hour session token)\nSelect [1-4]: ")
 			choiceRaw, err := reader.ReadString('\n')
 			if err != nil {
 				return fmt.Errorf("reading auth type: %w", err)
@@ -103,8 +104,10 @@ Use --json for machine-readable output.`,
 				return runWebFlow(cmd, reader, baseURL)
 			case "3":
 				return runDirectTokenFlow(cmd, reader, baseURL)
+			case "4":
+				return runSSOFlow(cmd, reader, baseURL, defaultSSOOptions())
 			default:
-				return fmt.Errorf("invalid choice %q: enter 1, 2, or 3", strings.TrimSpace(choiceRaw))
+				return fmt.Errorf("invalid choice %q: enter 1, 2, 3, or 4", strings.TrimSpace(choiceRaw))
 			}
 		},
 	}
@@ -282,10 +285,15 @@ func printTokenResult(cmd *cobra.Command, res getTokenResult) {
 	}
 }
 
-// maskToken replaces the secret segment of a token with ****.
-// For perm-<a>.<b>.<secret> tokens, the last dot-separated segment is masked.
-// Other token formats show only the first 4 characters followed by ****.
+// maskToken shows a short prefix + **** — a JWT gets an 8-char prefix (masking only the last segment would dump its whole header and payload), perm tokens keep everything up to the secret segment.
 func maskToken(token string) string {
+	if strings.HasPrefix(token, "eyJ") && strings.Count(token, ".") == 2 {
+		prefix := token
+		if len(prefix) > 8 {
+			prefix = prefix[:8]
+		}
+		return prefix + "…****"
+	}
 	if i := strings.LastIndex(token, "."); i >= 0 {
 		return token[:i+1] + "****"
 	}
