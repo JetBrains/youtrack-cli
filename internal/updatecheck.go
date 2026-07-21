@@ -39,11 +39,18 @@ func saveUpdateCheckTimestamp(now int64) {
 	_ = cfg.Save()
 }
 
-// CheckForUpdateAsync starts a background goroutine that checks for a newer
-// GitHub release. Returns a channel that receives at most one notice string
-// then closes. The caller should drain the channel after the command finishes.
+// CheckForUpdateAsync decides synchronously whether a check is due and, if so, persists
+// the throttle timestamp up front so it survives an immediate exit (e.g. --quiet, or a
+// wait shorter than the network round trip). The network fetch runs in the background.
+// Returns a channel that receives at most one notice string then closes.
 func CheckForUpdateAsync(currentVersion string) <-chan string {
 	ch := make(chan string, 1)
+	if !updateCheckDue(currentVersion) {
+		close(ch)
+		return ch
+	}
+	// Record the attempt now, before the network call, so any exit timing leaves the throttle persisted.
+	saveUpdateCheckTimestamp(time.Now().Unix())
 	go func() {
 		defer close(ch)
 		if notice := checkForUpdate(currentVersion); notice != "" {
@@ -53,28 +60,26 @@ func CheckForUpdateAsync(currentVersion string) <-chan string {
 	return ch
 }
 
-func checkForUpdate(currentVersion string) string {
+// updateCheckDue reports whether a network update check should run now: a real build,
+// not opted out, and past the throttle interval since the last recorded check.
+func updateCheckDue(currentVersion string) bool {
 	if currentVersion == "dev" || currentVersion == "unknown" {
-		return ""
+		return false
 	}
 	if isUpdateCheckDisabled() {
-		return ""
+		return false
 	}
-
 	cfg, err := config.Load()
 	if err != nil {
-		return ""
+		return false
 	}
+	return time.Now().Unix()-cfg.LastUpdateCheck >= int64(updateCheckInterval.Seconds())
+}
 
-	now := time.Now().Unix()
-	if now-cfg.LastUpdateCheck < int64(updateCheckInterval.Seconds()) {
-		return ""
-	}
-
+func checkForUpdate(currentVersion string) string {
 	client := &http.Client{Timeout: updateCheckTimeout}
 	resp, err := client.Get(updateCheckURL)
 	if err != nil {
-		saveUpdateCheckTimestamp(now)
 		return ""
 	}
 	defer func() {
@@ -84,12 +89,9 @@ func checkForUpdate(currentVersion string) string {
 	var release struct {
 		TagName string `json:"tag_name"`
 	}
-	// Persist the timestamp even on decode failure so a malformed feed doesn't re-check every run.
 	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil || release.TagName == "" {
-		saveUpdateCheckTimestamp(now)
 		return ""
 	}
-	saveUpdateCheckTimestamp(now)
 
 	latest := strings.TrimPrefix(release.TagName, "v")
 	current := strings.TrimPrefix(currentVersion, "v")
