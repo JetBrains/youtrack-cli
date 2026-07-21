@@ -101,6 +101,14 @@ func TestCmd_ProjectFieldList(t *testing.T) {
 	assert.Contains(t, out, "[")
 }
 
+func TestCmd_ProjectFieldListWithFieldsProjection(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	out := runCmd(t, "project", "field", "list", proj.ShortName, "--fields", "id,field(id,name)", "--format", "json")
+	assert.NotContains(t, out, "not found")
+}
+
 func TestCmd_ProjectFieldAdd(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)

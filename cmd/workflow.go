@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -11,6 +9,7 @@ import (
 
 func newWorkflowCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "workflow", Short: "Manage workflows"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newWorkflowListCmd(), newWorkflowCreateCmd(), newWorkflowDeleteCmd(), newWorkflowRestoreCmd(), newWorkflowRuleCmd())
 	return cmd
 }
@@ -67,8 +66,8 @@ func newWorkflowDeleteCmd() *cobra.Command {
 			if err := client.DeleteWorkflow(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted workflow "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted workflow "+args[0])
+			return nil
 		},
 	}
 }
@@ -88,6 +87,7 @@ func newWorkflowRestoreCmd() *cobra.Command {
 
 func newWorkflowRuleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "rule", Short: "Manage workflow rules"}
+	internal.RequireSubcommand(cmd)
 	create := &cobra.Command{
 		Use: "create <workflowId>", Aliases: []string{"add"}, Short: "Create a rule in a workflow",
 		Args: cobra.ExactArgs(1),
@@ -101,8 +101,8 @@ func newWorkflowRuleCmd() *cobra.Command {
 			if err := client.AddWorkflowRule(args[0], ruleType, name); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "created rule "+name)
-			return err
+			output.PrintSuccess(cmd, "created rule "+name)
+			return nil
 		},
 	}
 	create.Flags().String("type", "", "Rule type (required)")

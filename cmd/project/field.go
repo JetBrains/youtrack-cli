@@ -9,6 +9,7 @@ import (
 
 func newProjectFieldCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "field", Short: "Manage project custom fields"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list <shortName>", Short: "List custom fields in a project",
 		Args: cobra.ExactArgs(1),

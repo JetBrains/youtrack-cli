@@ -17,6 +17,7 @@ func newIssueDraftCmd() *cobra.Command {
 		Use:   "draft",
 		Short: "Manage issue drafts (template-prefilled issue stubs)",
 	}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newIssueDraftCreateCmd())
 	cmd.AddCommand(newIssueDraftUpdateCmd())
 	cmd.AddCommand(newIssueDraftSubmitCmd())

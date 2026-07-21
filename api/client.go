@@ -10,9 +10,18 @@ import (
 	"net/textproto"
 	"os"
 	"strings"
+	"time"
 )
 
 const envReadOnly = "YOUTRACK_RO"
+
+const defaultTimeout = 30 * time.Second
+
+// maxErrorBodySize caps error-body reads so a misbehaving server can't balloon client memory.
+const maxErrorBodySize = 1 << 20 // 1 MiB
+
+// UserAgent is sent on every request; internal.GetClient sets it to the build version.
+var UserAgent = "youtrack-cli"
 
 // Client sends authenticated requests to a YouTrack instance.
 type Client struct {
@@ -20,14 +29,14 @@ type Client struct {
 	Token      string
 	HTTPClient *http.Client
 	Verbose    bool
-	Fields     string // when non-empty, overrides the fields= query param on GET requests
+	Fields     string // when non-empty, extends the fields= query param on GET requests
 }
 
 func NewClient(baseURL, token string) *Client {
 	return &Client{
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		Token:      token,
-		HTTPClient: &http.Client{},
+		HTTPClient: &http.Client{Timeout: defaultTimeout},
 	}
 }
 
@@ -38,6 +47,7 @@ func (c *Client) doRequest(method, path string, body io.Reader, contentType stri
 	}
 	req.Header.Set("Authorization", "Bearer "+c.Token)
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", UserAgent)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -58,11 +68,11 @@ func (c *Client) doRequest(method, path string, body io.Reader, contentType stri
 // and optionally unmarshals JSON into result.
 func handleResponse(resp *http.Response, result any) error {
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
 	if resp.StatusCode >= 300 {
+		data, err := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
+		if err != nil {
+			return err
+		}
 		var apiErr struct {
 			ErrorDescription string `json:"error_description"`
 			ErrorDevMessage  string `json:"error_developer_message"`
@@ -83,6 +93,10 @@ func handleResponse(resp *http.Response, result any) error {
 		}
 		return &APIError{StatusCode: resp.StatusCode, Message: string(data)}
 	}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
 	if result == nil || len(data) == 0 {
 		return nil
 	}
@@ -102,7 +116,7 @@ func unexpectedResponseError(resp *http.Response, err error) error {
 
 func (c *Client) Get(path string, result any) error {
 	if c.Fields != "" {
-		path = overrideFieldsParam(path, c.Fields)
+		path = mergeFieldsParam(path, c.Fields)
 	}
 	resp, err := c.doRequest("GET", path, nil, "")
 	if err != nil {
@@ -112,8 +126,8 @@ func (c *Client) Get(path string, result any) error {
 	return handleResponse(resp, result)
 }
 
-// overrideFieldsParam replaces or appends the fields= query parameter in a URL path.
-func overrideFieldsParam(path, fields string) string {
+// mergeFieldsParam adds to a URL's fields= param rather than replacing it, so a user projection can't drop fields a call needs internally.
+func mergeFieldsParam(path, fields string) string {
 	idx := strings.Index(path, "fields=")
 	if idx < 0 {
 		sep := "?"
@@ -122,11 +136,13 @@ func overrideFieldsParam(path, fields string) string {
 		}
 		return path + sep + "fields=" + fields
 	}
-	end := strings.IndexByte(path[idx:], '&')
+	valStart := idx + len("fields=")
+	end := strings.IndexByte(path[valStart:], '&')
 	if end < 0 {
-		return path[:idx] + "fields=" + fields
+		return path + "," + fields
 	}
-	return path[:idx] + "fields=" + fields + path[idx+end:]
+	insertAt := valStart + end
+	return path[:insertAt] + "," + fields + path[insertAt:]
 }
 
 func (c *Client) Post(path string, body, result any) error {

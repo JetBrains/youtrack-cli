@@ -9,6 +9,7 @@ import (
 
 func newUserDraftsCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "drafts", Short: "Manage user issue drafts"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list <userId>", Short: "List issue drafts for a user (use 'me' for current user)",
 		Args: cobra.ExactArgs(1),

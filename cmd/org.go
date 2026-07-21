@@ -13,6 +13,7 @@ func newOrgCmd() *cobra.Command {
 		Use:   "org",
 		Short: "Manage organizations",
 	}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newOrgListCmd())
 	cmd.AddCommand(newOrgCreateCmd())
 	cmd.AddCommand(newOrgDeleteCmd())

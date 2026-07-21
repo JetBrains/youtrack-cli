@@ -13,6 +13,7 @@ func newWhiteboardCmd() *cobra.Command {
 		Use:   "whiteboard",
 		Short: "Manage whiteboards",
 	}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newWhiteboardListCmd())
 	cmd.AddCommand(newWhiteboardCreateCmd())
 	cmd.AddCommand(newWhiteboardViewCmd())
@@ -143,6 +144,7 @@ func newWhiteboardNodeCmd() *cobra.Command {
 		Use:   "node",
 		Short: "Manage whiteboard nodes",
 	}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newWhiteboardNodeCreateCmd())
 	cmd.AddCommand(newWhiteboardNodeListCmd())
 	cmd.AddCommand(newWhiteboardNodeViewCmd())

@@ -27,6 +27,11 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	// Force file-only token storage in spawned binaries — deterministic across platforms and keeps test tokens out of the real keychain.
+	if err := os.Setenv("YOUTRACK_DISABLE_KEYRING", "1"); err != nil {
+		log.Fatalf("failed to set YOUTRACK_DISABLE_KEYRING: %v", err)
+	}
+
 	tmpDir, err := os.MkdirTemp("", "youtrack-cli-test-*")
 	if err != nil {
 		log.Fatalf("failed to create temp dir: %v", err)
@@ -164,6 +169,7 @@ func tryCmdNoFail(t *testing.T, args ...string) (string, error) {
 	return stdout.String(), err
 }
 
+// runCmdExpectError runs the binary, asserts a non-zero exit, and returns stderr (where errors render).
 func runCmdExpectError(t *testing.T, args ...string) string {
 	t.Helper()
 	requireE2EEnv(t)
@@ -175,7 +181,7 @@ func runCmdExpectError(t *testing.T, args ...string) string {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	require.Error(t, err, "binary stdout: %s\nbinary stderr: %s", stdout.String(), stderr.String())
-	return stdout.String()
+	return stderr.String()
 }
 
 // runCmdWithInput executes the compiled CLI binary with the given args and provides

@@ -12,6 +12,7 @@ import (
 
 func newFieldCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "field", Short: "Manage custom fields"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(
 		newFieldListCmd(),
 		newFieldCreateCmd(),
@@ -85,6 +86,7 @@ func newFieldDeleteCmd() *cobra.Command {
 
 func newFieldBundleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "bundle", Short: "Manage field bundles"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list", Short: "List bundles of a given type",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -178,6 +180,7 @@ func newFieldPrivacyCmd() *cobra.Command {
 
 func newFieldWorkTimeCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "worktime", Short: "Manage work time settings"}
+	internal.RequireSubcommand(cmd)
 	view := &cobra.Command{
 		Use: "view", Aliases: []string{"get"}, Short: "View work time settings",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -228,6 +231,7 @@ func newFieldPrototypesCmd() *cobra.Command {
 
 func newFieldWorkItemCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "workitem", Short: "Manage work item types"}
+	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
 		Use: "list", Short: "List work item types",
 		RunE: func(cmd *cobra.Command, args []string) error {

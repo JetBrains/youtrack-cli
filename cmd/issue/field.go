@@ -9,6 +9,7 @@ import (
 
 func newIssueFieldCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "field", Short: "Manage custom field values on an issue"}
+	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newIssueFieldViewCmd())
 	cmd.AddCommand(newIssueFieldSetCmd())
 	return cmd

@@ -16,6 +16,9 @@ const (
 	hubSyncPollInterval      = 200 * time.Millisecond
 )
 
+// userLookupLimit bounds GetUser's fallback login search; generous since it scans for an exact match.
+const userLookupLimit = 500
+
 // AddUserRequest is the body for creating a user.
 type AddUserRequest struct {
 	Login    string    `json:"login"`
@@ -25,9 +28,9 @@ type AddUserRequest struct {
 	UserType *UserType `json:"userType,omitempty"`
 }
 
-func (c *Client) ListUsers(query string) ([]User, error) {
+func (c *Client) ListUsers(query string, limit int) ([]User, error) {
 	var result []User
-	path := pathUsers + fmt.Sprintf("?searchQuery=%s&fields=%s&$top=-1", url.QueryEscape(query), userFields)
+	path := pathUsers + fmt.Sprintf("?searchQuery=%s&fields=%s&$top=%d", url.QueryEscape(query), userFields, limit)
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -40,7 +43,7 @@ func (c *Client) GetUser(login string) (*User, error) {
 		return &result, nil
 	}
 
-	users, err := c.ListUsers(login)
+	users, err := c.ListUsers(login, userLookupLimit)
 	if err != nil {
 		return nil, err
 	}

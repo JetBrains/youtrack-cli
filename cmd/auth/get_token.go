@@ -363,6 +363,9 @@ func saveCredentials(cmd *cobra.Command, _ *bufio.Reader, baseURL, token string,
 	}
 
 	path, _ := config.ConfigPath()
+	if !cfg.TokenInKeyring(finalAlias) {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "warning: OS keyring unavailable — token stored in plain text at %s\n", path)
+	}
 	res.ConfigFile = path
 	if cfg.CurrentInstance == finalAlias {
 		res.Hint = fmt.Sprintf("Token saved as %q (active). The CLI will load it automatically.", finalAlias)

@@ -11,6 +11,7 @@ func NewCmd() *cobra.Command {
 		Use:   "project",
 		Short: "Manage projects",
 	}
+	internal.RequireSubcommand(cmd)
 
 	cmd.AddGroup(
 		&cobra.Group{ID: "work", Title: "Work with projects:"},

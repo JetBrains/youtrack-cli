@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-var hubHTTPClient = &http.Client{}
+var hubHTTPClient = &http.Client{Timeout: defaultTimeout}
 
 // hubVerboseOut, when non-nil, receives verbose Hub HTTP log lines (same role as Client.Verbose).
 var hubVerboseOut io.Writer
@@ -58,7 +58,7 @@ func GetOAuthProtectedResource(baseURL string) (*OAuthProtectedResource, error) 
 		return nil, fmt.Errorf("fetching oauth-protected-resource: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
 	if err != nil {
 		return nil, fmt.Errorf("reading oauth-protected-resource response: %w", err)
 	}
@@ -126,12 +126,13 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 		return nil, err
 	}
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
 	if err != nil {
 		return nil, err
 	}
+	// Log status and size only — the token-creation body carries the permanent token in cleartext.
 	if hubVerboseOut != nil {
-		_, _ = fmt.Fprintf(hubVerboseOut, "< %d %s\n", resp.StatusCode, string(data))
+		_, _ = fmt.Fprintf(hubVerboseOut, "< %d (%d bytes)\n", resp.StatusCode, len(data))
 	}
 	// Detect HTML responses — the Hub API endpoint is unreachable and returned a web page.
 	// This typically means basic auth is not available for this instance (e.g. cloud/SSO-only).

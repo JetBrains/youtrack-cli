@@ -185,7 +185,7 @@ func TestGetClient_ActiveConfigInstance(t *testing.T) {
 	configFixture(t, tmpHome, cfg)
 
 	cmd := exec.Command(binaryPath, "--format", "json", "auth", "status")
-	cmd.Env = []string{"HOME=" + tmpHome}
+	cmd.Env = []string{"HOME=" + tmpHome, "YOUTRACK_DISABLE_KEYRING=1"}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
@@ -287,7 +287,7 @@ func TestAuthStatus_MultiInstance(t *testing.T) {
 	configFixture(t, tmpHome, cfg)
 
 	cmd := exec.Command(binaryPath, "auth", "status")
-	cmd.Env = []string{"HOME=" + tmpHome}
+	cmd.Env = []string{"HOME=" + tmpHome, "YOUTRACK_DISABLE_KEYRING=1"}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

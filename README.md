@@ -215,6 +215,14 @@ Nested entity names auto-expand: `reporter` → `reporter(id,login,fullName)`.
 
 A skill file for AI coding agents is included at `.agents/skills/youtrack-cli/SKILL.md`. Claude Code picks it up automatically from the repo root.
 
+To install it into another project with the [GitHub CLI](https://cli.github.com/manual/gh_skill_install):
+
+```bash
+gh skill install JetBrains/youtrack-cli youtrack-cli --allow-hidden-dirs --agent claude-code
+```
+
+`--allow-hidden-dirs` is required because the skill lives under `.agents/` (gh skips dot-prefixed directories by default). Add `--scope user` to install once for all projects instead of just the current repo.
+
 ## Further Reading
 
 - [Security & Token Permissions](docs/security.md) — token disclaimer, `YOUTRACK_RO`, mutability reference
