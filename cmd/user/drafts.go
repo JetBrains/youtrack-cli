@@ -11,7 +11,7 @@ func newUserDraftsCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "drafts", Short: "Manage user issue drafts"}
 	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
-		Use: "list <userId>", Short: "List issue drafts for a user (use 'me' for current user)",
+		Use: "list <userId>", Short: "List your issue drafts ('me' or your own login; drafts are private to their owner)",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -26,7 +26,7 @@ func newUserDraftsCmd() *cobra.Command {
 		},
 	}
 	del := &cobra.Command{
-		Use: "delete <userId>", Short: "Delete all issue drafts for a user",
+		Use: "delete <userId>", Short: "Delete all your issue drafts ('me' or your own login; drafts are private to their owner)",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)

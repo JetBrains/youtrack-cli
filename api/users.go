@@ -173,23 +173,39 @@ func (c *Client) SetUserLocale(id, locale string) error {
 	return c.Post(path, map[string]any{"locale": map[string]any{"id": locale}}, nil)
 }
 
-func (c *Client) GetUserIssueDrafts(identifier string) ([]IssueDraft, error) {
-	user, err := c.GetUser(identifier)
+// resolveDraftsSelf enforces that issue drafts are only accessed for the current user.
+// YouTrack scopes drafts to the token holder and exposes them solely under `me` — there is
+// no /api/users/{id}/drafts route (it 404s "No subresource for path drafts"). Any other
+// identifier is rejected rather than silently retargeting the caller's own drafts.
+func (c *Client) resolveDraftsSelf(identifier string) error {
+	if identifier == "" || identifier == "me" {
+		return nil
+	}
+	me, err := c.GetCurrentUser()
 	if err != nil {
+		return err
+	}
+	if identifier == me.Login || identifier == me.ID {
+		return nil
+	}
+	return fmt.Errorf("issue drafts are private to the authenticated user; only 'me' (or your own login) is supported, not '%s'", identifier)
+}
+
+func (c *Client) GetUserIssueDrafts(identifier string) ([]IssueDraft, error) {
+	if err := c.resolveDraftsSelf(identifier); err != nil {
 		return nil, err
 	}
 	var result []IssueDraft
-	path := fmt.Sprintf(pathUserDrafts+"?fields=id,summary,created&$top=-1", url.PathEscape(user.ID))
-	err = c.Get(path, &result)
+	path := fmt.Sprintf(pathUserDrafts+"?fields=id,summary,created&$top=-1", "me")
+	err := c.Get(path, &result)
 	return result, err
 }
 
 func (c *Client) DeleteAllUserDrafts(identifier string) error {
-	user, err := c.GetUser(identifier)
-	if err != nil {
+	if err := c.resolveDraftsSelf(identifier); err != nil {
 		return err
 	}
-	path := fmt.Sprintf(pathUserDrafts, url.PathEscape(user.ID))
+	path := fmt.Sprintf(pathUserDrafts, "me")
 	return c.Put(path, []any{}, nil)
 }
 

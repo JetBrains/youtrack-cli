@@ -151,10 +151,6 @@ func TestCmd_UserDrafts(t *testing.T) {
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
 
-	if _, err := c.GetUserIssueDrafts(me.Login); err != nil {
-		t.Skipf("user drafts not supported on this instance: %v", err)
-	}
-
 	proj := createTempProject(t, c)
 	draft, err := c.CreateDraft(proj.ID, "user drafts fixture", "")
 	require.NoError(t, err)
