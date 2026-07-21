@@ -6,35 +6,98 @@ on:
       - 'v*'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: release
   cancel-in-progress: false
 
+env:
+  # JetBrains GPG code-signing key selected on the CodeSign service (public fingerprint).
+  FINGERPRINT: B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
+  CODESIGN_SHA256_AMD64: c4eb4766dca0a947a4db1fb7147dcda9d8c1a03ef219832eba81f51da76c1ccf
+  CODESIGN_SHA256_ARM64: 3cee36d57e44f618f62b19d03b97d1e9627ebf3be1aa0451c4b24b9f894fab65
+
 jobs:
-  goreleaser:
+  verify:
     runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      YOUTRACK_E2E_RESET: "1"
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Require tag commit on master
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/master
+
+      - name: Setup Go
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        with:
+          go-version-file: go.mod
+
+      - name: Check formatting and lint
+        run: make fmt-check && make lint
+
+      - name: Run pure-function tests
+        run: go test ./api/ ./internal/ -count=1
+
+      - name: Scan for known Go vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
+
+      - name: Build
+        run: make build
+
+      - name: Run full E2E suite
+        run: make test
+
+  goreleaser:
+    needs: verify
+    # Self-hosted runner with network access to the JetBrains CodeSign service.
+    # codesign-client signs the cross-compiled macOS and Windows binaries remotely,
+    # so the whole release is built and signed in this one Linux job.
+    runs-on: sre-eqx-kata
+    environment: release
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
           fetch-depth: 0
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
 
-      - name: Delete existing release if present
-        run: gh release delete "${{ github.ref_name }}" --yes 2>/dev/null || true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install CodeSign client
+        run: |
+          set -eu
+          case "$(uname -m)" in
+            x86_64) A=amd64; HASH="$CODESIGN_SHA256_AMD64" ;;
+            aarch64|arm64) A=arm64; HASH="$CODESIGN_SHA256_ARM64" ;;
+            *) echo "unsupported arch $(uname -m)"; exit 1 ;;
+          esac
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL "https://codesign-distribution.labs.jb.gg/codesign-client-linux-$A" -o "$HOME/.local/bin/codesign-client"
+          echo "$HASH  $HOME/.local/bin/codesign-client" | sha256sum --check --strict
+          chmod +x "$HOME/.local/bin/codesign-client"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Run GoReleaser
-        uses: goreleaser/goreleaser-action@v6
+        uses: goreleaser/goreleaser-action@e435ccd777264be153ace6237001ef4d979d3a7a # v6
         with:
-          distribution: goreleaser
-          args: release --clean
+          distribution: goreleaser-pro
+          version: v2.17.0
+          # External package-manager publishing is credential-gated; enable a
+          # channel by removing it here and adding its secret.
+          args: release --clean --skip=homebrew,scoop,aur,winget,chocolatey,npm
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
+          SERVICE_ACCOUNT_NAME: ${{ secrets.SERVICE_ACCOUNT_NAME }}
+          SERVICE_ACCOUNT_TOKEN: ${{ secrets.SERVICE_ACCOUNT_TOKEN }}
+          SIGN: "true"

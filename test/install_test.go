@@ -3,6 +3,7 @@ package api_test
 import (
 	"archive/tar"
 	"compress/gzip"
+	"crypto/sha256"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -83,19 +84,23 @@ func TestInstallScript(t *testing.T) {
 	archivePath := buildFakeArchive(t, version)
 	archiveData, err := os.ReadFile(archivePath)
 	require.NoError(t, err)
+	archiveChecksum := fmt.Sprintf("%x  %s\n", sha256.Sum256(archiveData), filepath.Base(archivePath))
 
 	// Serve the archive at the exact path install.sh constructs.
 	expectedPath := fmt.Sprintf("/JetBrains/youtrack-cli/releases/download/v%s/youtrack_%s_%s_%s.tar.gz",
 		version, version, runtime.GOOS, archName())
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != expectedPath {
+		switch r.URL.Path {
+		case expectedPath:
+			w.Header().Set("Content-Type", "application/octet-stream")
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write(archiveData)
+		case fmt.Sprintf("/JetBrains/youtrack-cli/releases/download/v%s/checksums.txt", version):
+			_, _ = w.Write([]byte(archiveChecksum))
+		default:
 			http.NotFound(w, r)
-			return
 		}
-		w.Header().Set("Content-Type", "application/octet-stream")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(archiveData)
 	}))
 	defer srv.Close()
 
@@ -106,8 +111,8 @@ func TestInstallScript(t *testing.T) {
 	// Replace the hardcoded GitHub base URL with the test server.
 	patched := strings.ReplaceAll(
 		string(scriptSrc),
-		`"https://github.com/${REPO}/releases/download/${RELEASE}`,
-		`"`+srv.URL+`/JetBrains/youtrack-cli/releases/download/${RELEASE}`,
+		`"https://github.com/${REPO}/releases/download/${RELEASE}"`,
+		`"`+srv.URL+`/JetBrains/youtrack-cli/releases/download/${RELEASE}"`,
 	)
 	require.NotEqual(t, string(scriptSrc), patched, "URL replacement in install.sh did not match — check the script's download URL pattern")
 
@@ -116,6 +121,10 @@ func TestInstallScript(t *testing.T) {
 	patched = strings.ReplaceAll(patched,
 		"if command -v gh >/dev/null 2>&1; then",
 		"if false; then",
+	)
+	patched = strings.ReplaceAll(patched,
+		"if command -v gh >/dev/null 2>&1 &&",
+		"if false &&",
 	)
 
 	patchedScript := filepath.Join(t.TempDir(), "install.sh")

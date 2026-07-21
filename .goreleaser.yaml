@@ -18,6 +18,27 @@ builds:
     goarch:
       - amd64
       - arm64
+    hooks:
+      post:
+        - cmd: |
+            sh -c '
+            if [ "{{ .IsSnapshot }}" = "false" ] && [ "{{ .Os }}" = "$(go env GOOS)" ] && [ "{{ .Arch }}" = "$(go env GOARCH)" ]; then
+              ver=$(chmod +x "{{ .Path }}"; "{{ .Path }}" --version 2>&1)
+              if ! echo "$ver" | grep -qF "youtrack {{ .Version }}"; then
+                echo "Version mismatch: expected string containing \"youtrack {{ .Version }}\" but got \"$ver\""
+                exit 1
+              fi
+              echo "Version check passed: $ver"
+            fi'
+          output: true
+        - cmd: |
+            sh -c '
+            set -e
+            if [ "{{ .IsSnapshot }}" = "false" ] && [ "{{ .Os }}" != "linux" ] && [ "$SIGN" = "true" ]; then
+              echo "Signing {{ .Path }}"
+              codesign-client {{ if eq .Os "darwin" }}-denoted-content-type=application/x-mac-app-bin {{ end }}-signed-files-dir="$(dirname "{{ .Path }}")/" "{{ .Path }}"
+            fi'
+          output: true
 
 archives:
   - name_template: 'youtrack_{{ .Version }}_{{ .Os }}_{{- if eq .Arch "amd64" }}x86_64{{- else }}{{ .Arch }}{{ end }}'
@@ -40,12 +61,152 @@ nfpms:
       - apk
       - deb
       - rpm
+      - archlinux
     bindir: /usr/bin
     contents:
       - src: LICENSE
         dst: /usr/share/licenses/youtrack/LICENSE
       - src: README.md
         dst: /usr/share/doc/youtrack/README.md
+
+# External package-manager channels. All publishing is credential-gated and is
+# skipped at release time (--skip=homebrew,scoop,aur,winget,chocolatey,npm) until
+# the corresponding tokens are provisioned; the definitions live here so the set
+# is complete and can be switched on by dropping the skip and adding the secret.
+brews:
+  - name: youtrack
+    repository:
+      owner: JetBrains
+      name: homebrew-utils
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_author:
+      name: youtrack-bot
+      email: youtrack-support@jetbrains.com
+    commit_msg_template: "chore: update {{ .ProjectName }} to {{ .Tag }}"
+    directory: Formula
+    homepage: https://github.com/JetBrains/youtrack-cli
+    description: A command-line interface for JetBrains YouTrack
+    license: Apache-2.0
+    install: |
+      bin.install "youtrack"
+
+scoops:
+  - name: youtrack
+    repository:
+      owner: JetBrains
+      name: scoop-utils
+      token: "{{ .Env.SCOOP_GITHUB_TOKEN }}"
+    commit_author:
+      name: youtrack-bot
+      email: youtrack-support@jetbrains.com
+    commit_msg_template: "chore: update {{ .ProjectName }} to {{ .Tag }}"
+    homepage: https://github.com/JetBrains/youtrack-cli
+    description: A command-line interface for JetBrains YouTrack
+    license: Apache-2.0
+
+aurs:
+  - name: youtrack-bin
+    homepage: https://github.com/JetBrains/youtrack-cli
+    description: A command-line interface for JetBrains YouTrack
+    license: Apache-2.0
+    maintainers:
+      - "YouTrack Bot <youtrack-support@jetbrains.com>"
+    private_key: "{{ .Env.AUR_SSH_KEY }}"
+    git_url: "ssh://aur@aur.archlinux.org/youtrack-bin.git"
+    provides:
+      - youtrack
+    conflicts:
+      - youtrack
+    commit_author:
+      name: youtrack-bot
+      email: youtrack-support@jetbrains.com
+    commit_msg_template: "chore: update {{ .ProjectName }} to {{ .Tag }}"
+    skip_upload: auto
+
+npms:
+  - name: "@jetbrains/youtrack-cli"
+    description: A command-line interface for JetBrains YouTrack
+    homepage: https://github.com/JetBrains/youtrack-cli
+    license: Apache-2.0
+    author: JetBrains <youtrack-support@jetbrains.com>
+    repository: https://github.com/JetBrains/youtrack-cli
+    bugs: https://jb.gg/yt/issues
+    keywords:
+      - youtrack
+      - jetbrains
+      - cli
+      - issue-tracker
+    access: public
+    tag: latest
+
+chocolateys:
+  - name: YouTrackCLI
+    title: YouTrack CLI
+    authors: JetBrains
+    owners: JetBrains
+    summary: A command-line interface for JetBrains YouTrack
+    description: |
+      {{ .ProjectName }} is a command-line interface for interacting with JetBrains YouTrack issue tracker.
+
+      Features:
+      - Manage issues, projects, and users from terminal
+      - JSON output for scripting
+      - Multi-instance support
+      - Designed for AI agents and developers
+    project_url: https://github.com/JetBrains/youtrack-cli
+    copyright: JetBrains s.r.o.
+    license_url: https://github.com/JetBrains/youtrack-cli/blob/master/LICENSE
+    require_license_acceptance: false
+    project_source_url: https://github.com/JetBrains/youtrack-cli
+    bug_tracker_url: https://jb.gg/yt/issues
+    tags: youtrack jetbrains cli issue-tracker
+    release_notes: https://github.com/JetBrains/youtrack-cli/releases/tag/v{{ .Version }}
+    api_key: '{{ .Env.CHOCOLATEY_API_KEY }}'
+    source_repo: https://push.chocolatey.org/
+
+winget:
+  - name: YouTrackCLI
+    publisher: JetBrains
+    publisher_url: https://www.jetbrains.com/
+    publisher_support_url: https://jb.gg/yt/issues
+    short_description: A command-line interface for JetBrains YouTrack
+    description: |
+      youtrack is a command-line interface for interacting with JetBrains YouTrack issue tracker.
+      Manage issues, projects, and users without leaving your terminal.
+    license: Apache-2.0
+    license_url: https://github.com/JetBrains/youtrack-cli/blob/master/LICENSE
+    copyright: JetBrains s.r.o.
+    homepage: https://github.com/JetBrains/youtrack-cli
+    tags:
+      - youtrack
+      - jetbrains
+      - cli
+      - issue-tracker
+    release_notes_url: https://github.com/JetBrains/youtrack-cli/releases/tag/v{{ .Version }}
+    repository:
+      owner: "{{ .Env.WINGET_FORK_OWNER }}"
+      name: winget-pkgs
+      branch: "JetBrains.YouTrackCLI-{{.Version}}"
+      token: "{{ .Env.WINGET_GITHUB_TOKEN }}"
+      pull_request:
+        enabled: true
+        base:
+          owner: microsoft
+          name: winget-pkgs
+          branch: master
+    commit_author:
+      name: youtrack-bot
+      email: youtrack-support@jetbrains.com
+    commit_msg_template: "New version: JetBrains.YouTrackCLI version {{.Version}}"
+
+signs:
+  - cmd: sh
+    args:
+      - -c
+      - 'if [ "$SIGN" = "true" ]; then codesign-client -gpg-key "$FINGERPRINT" -signed-files-dir=./dist/ "${artifact}"; else echo "Skipping signing (SIGN != true)" && touch "${signature}"; fi'
+    artifacts: checksum
+    signature: "${artifact}.asc"
+    output: true
 
 checksum:
   name_template: checksums.txt

@@ -63,25 +63,41 @@ detect_arch() {
     esac
 }
 
-download() {
-    local url="$1"
+download_to_file() {
+    local url="$1" destination="$2"
     if command -v curl >/dev/null 2>&1; then
-        curl --fail --location --silent --show-error "$url"
+        curl --fail --location --silent --show-error "$url" --output "$destination"
     elif command -v wget >/dev/null 2>&1; then
-        wget -qO- "$url"
+        wget -qO "$destination" "$url"
     else
         fail "neither curl nor wget is installed"
     fi
+}
+
+verify_checksum() {
+    local archive="$1" checksums="$2" expected actual
+    expected="$(awk -v name="$archive" '$2 == name || $2 == "*" name { print $1; exit }' "$checksums" | tr '[:upper:]' '[:lower:]')"
+    [[ "$expected" =~ ^[0-9a-fA-F]{64}$ ]] || fail "checksum entry not found for $archive"
+
+    if command -v sha256sum >/dev/null 2>&1; then
+        actual="$(sha256sum "$archive" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
+    elif command -v shasum >/dev/null 2>&1; then
+        actual="$(shasum -a 256 "$archive" | awk '{print $1}' | tr '[:upper:]' '[:lower:]')"
+    else
+        fail "sha256sum or shasum is required to verify the download"
+    fi
+    [[ "$actual" == "$expected" ]] || fail "checksum verification failed for $archive"
 }
 
 resolve_latest() {
     # Prefer gh CLI — works with private/internal repos
     if command -v gh >/dev/null 2>&1; then
         local tag
-        tag="$(gh api "repos/${REPO}/releases/latest" --jq '.tag_name' 2>/dev/null)"
-        [[ -n "$tag" ]] || fail "failed to resolve latest release via gh (run: gh auth login)"
-        printf '%s' "$tag"
-        return
+        tag="$(gh api "repos/${REPO}/releases/latest" --jq '.tag_name' 2>/dev/null || true)"
+        if [[ -n "$tag" ]]; then
+            printf '%s' "$tag"
+            return
+        fi
     fi
 
     # Public fallback: follow GitHub's /releases/latest redirect
@@ -115,11 +131,11 @@ install_youtrack() {
 
     [[ "$RELEASE" =~ ^v?[0-9A-Za-z._-]+$ ]] || fail "invalid release: $RELEASE"
 
-    local os arch version url target
+    local os arch version release_url target
     os="$(detect_os)"
     arch="$(detect_arch)"
     version="${RELEASE#v}"
-    url="https://github.com/${REPO}/releases/download/${RELEASE}/${PROG}_${version}_${os}_${arch}.tar.gz"
+    release_url="https://github.com/${REPO}/releases/download/${RELEASE}"
     target="${OUT_DIR}/${PROG}"
 
     printf '\033[0;90mInstalling %s %s for %s/%s...\033[0m\n\n' "$PROG" "$RELEASE" "$os" "$arch"
@@ -140,13 +156,18 @@ install_youtrack() {
     TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/${PROG}.XXXXXX")"
     cd "$TMP_DIR"
 
-    local archive="${PROG}_${version}_${os}_${arch}.tar.gz"
-    if command -v gh >/dev/null 2>&1; then
-        gh release download "${RELEASE}" --repo "${REPO}" --pattern "${archive}" --output - \
-            | tar -xzf - || fail "gh release download failed (run: gh auth login)"
-    else
-        download "$url" | tar -xzf - || fail "download or extract failed from $url"
+    local archive="${PROG}_${version}_${os}_${arch}.tar.gz" downloaded=""
+    if command -v gh >/dev/null 2>&1 &&
+        gh release download "${RELEASE}" --repo "${REPO}" --pattern "${archive}" --output "$archive" 2>/dev/null &&
+        gh release download "${RELEASE}" --repo "${REPO}" --pattern checksums.txt --output checksums.txt 2>/dev/null; then
+        downloaded=yes
     fi
+    if [[ -z "$downloaded" ]]; then
+        download_to_file "${release_url}/${archive}" "$archive"
+        download_to_file "${release_url}/checksums.txt" checksums.txt
+    fi
+    verify_checksum "$archive" checksums.txt
+    tar -xzf "$archive" || fail "failed to extract $archive"
 
     local tmp_bin
     tmp_bin="$(find . -type f -name "$PROG" -print -quit)"
