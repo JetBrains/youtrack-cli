@@ -45,7 +45,7 @@ youtrack issue list
 | Variable | Description |
 |---|---|
 | `YOUTRACK_E2E_RESET=1` | Recreate local YouTrack state from scratch |
-| `YOUTRACK_E2E_VERSION=2026.1.12024` | Override the Docker image tag |
+| `YOUTRACK_E2E_VERSION=2026.2.17765` | Override the Docker image tag |
 | `YOUTRACK_E2E_LICENSE_NAME` | License owner name for `configure` |
 | `YOUTRACK_E2E_LICENSE_KEY` | License key for `configure` |
 

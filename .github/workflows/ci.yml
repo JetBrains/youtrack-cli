@@ -34,8 +34,19 @@ jobs:
       - name: Run lint
         uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a # v9
         with:
-          version: v2.11.4
+          version: v2.12.2
           args: --timeout=5m --config=.golangci.yml
+          # lint runs in seconds here; skipping the cache rules out stale-cache
+          # flakiness for free
+          skip-cache: true
+
+      - name: Run pure-function unit tests
+        run: go test ./api/ ./internal/ -count=1
+
+      - name: Scan for known Go vulnerabilities
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
+        env:
+          GOTOOLCHAIN: go1.26.5
 
       - name: Build
         run: make build
