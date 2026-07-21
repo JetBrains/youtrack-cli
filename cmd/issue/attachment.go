@@ -1,6 +1,8 @@
 package issue
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -59,10 +61,14 @@ func newIssueAttachmentAddCmd() *cobra.Command {
 }
 
 func newIssueAttachmentDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use: "delete <issueId> <attachmentId>", Short: "Delete an attachment from an issue",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Delete attachment %s from issue %s?", args[1], args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -74,4 +80,6 @@ func newIssueAttachmentDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }

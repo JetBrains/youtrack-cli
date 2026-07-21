@@ -83,6 +83,10 @@ func newRolePermissionCmd() *cobra.Command {
 		Use: "remove <roleId> <permId>", Short: "Remove a permission from a role",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Remove permission %s from role %s?", args[1], args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -94,6 +98,7 @@ func newRolePermissionCmd() *cobra.Command {
 			return nil
 		},
 	}
+	remove.Flags().Bool("force", false, "Skip the confirmation prompt")
 	cmd.AddCommand(list, add, remove)
 	return cmd
 }
@@ -145,10 +150,13 @@ func newRoleCreateCmd() *cobra.Command {
 }
 
 func newRoleDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use: "delete <id>", Short: "Delete a role by ID",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete role %s?", args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -160,6 +168,8 @@ func newRoleDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }
 
 func newRoleUpdateCmd() *cobra.Command {
@@ -167,6 +177,10 @@ func newRoleUpdateCmd() *cobra.Command {
 		Use: "update <id>", Short: "Update role permissions",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Replace all permissions on role %s?", args[0])); abort {
+				return err
+			}
 			permStr, _ := cmd.Flags().GetString("permissions")
 			permIDs := strings.Split(permStr, ",")
 			client, err := internal.GetClient(cmd)
@@ -177,6 +191,7 @@ func newRoleUpdateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("permissions", "", "Comma-separated permission IDs (required)")
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
 	internal.MustMarkRequired(cmd, "permissions")
 	return cmd
 }
@@ -211,10 +226,14 @@ func newRoleGrantCmd() *cobra.Command {
 }
 
 func newRoleRevokeCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use: "revoke <assignedRoleID>", Short: "Revoke a role assignment by ID",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Revoke role assignment %s?", args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -226,6 +245,8 @@ func newRoleRevokeCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }
 
 func newRoleAssignmentsCmd() *cobra.Command {

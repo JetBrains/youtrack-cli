@@ -140,7 +140,7 @@ func TestCmd_FieldDelete(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, field.ID)
 
-	runCmd(t, "field", "delete", field.ID)
+	runCmd(t, "field", "delete", field.ID, "--force")
 
 	// YouTrack deletion may not be immediately reflected in listings; poll briefly.
 	require.Eventually(t, func() bool {
@@ -159,7 +159,7 @@ func TestCmd_FieldPrivacy(t *testing.T) {
 	t.Cleanup(func() { _ = c.DeleteCustomField(field.ID) })
 
 	// setting --private should succeed with exit 0
-	runCmd(t, "field", "privacy", field.ID, "--private")
+	runCmd(t, "field", "privacy", field.ID, "--private", "--force")
 }
 
 func TestCmd_FieldPrototypes(t *testing.T) {

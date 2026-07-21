@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -78,6 +80,9 @@ func newGroupDeleteCmd() *cobra.Command {
 		Use: "delete <group>", Short: "Delete a group by ID or name",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete group %s?", args[0])); abort {
+				return err
+			}
 			successor, _ := cmd.Flags().GetString("successor")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -91,6 +96,7 @@ func newGroupDeleteCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("successor", "", "ID or name of the group that inherits references from the deleted group")
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
 	internal.MustMarkRequired(cmd, "successor")
 	return cmd
 }

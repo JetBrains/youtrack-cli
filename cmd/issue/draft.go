@@ -21,6 +21,27 @@ func newIssueDraftCmd() *cobra.Command {
 	cmd.AddCommand(newIssueDraftCreateCmd())
 	cmd.AddCommand(newIssueDraftUpdateCmd())
 	cmd.AddCommand(newIssueDraftSubmitCmd())
+	cmd.AddCommand(newIssueDraftDeleteCmd())
+	return cmd
+}
+
+func newIssueDraftDeleteCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "delete <draftId>",
+		Short: "Delete a draft",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete draft %s?", args[0])); abort {
+				return err
+			}
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			return client.DeleteDraft(args[0])
+		},
+	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
 	return cmd
 }
 

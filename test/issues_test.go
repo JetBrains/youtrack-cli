@@ -492,7 +492,7 @@ func TestCmd_IssueLinkRemove(t *testing.T) {
 
 	linkID := links[0].ID
 
-	runCmd(t, "issue", "link", "remove", src.IDReadable, linkID)
+	runCmd(t, "issue", "link", "remove", src.IDReadable, linkID, "--force")
 
 	links, err = c.GetLinkedIssues(src.IDReadable)
 	require.NoError(t, err)
@@ -589,7 +589,7 @@ func TestCmd_IssueAttachmentCRUD(t *testing.T) {
 	assert.Contains(t, listOut, attach.ID)
 
 	// Delete attachment
-	delOut := runCmd(t, "issue", "attachment", "delete", issue.IDReadable, attach.ID)
+	delOut := runCmd(t, "issue", "attachment", "delete", issue.IDReadable, attach.ID, "--force")
 	assert.Contains(t, delOut, "deleted attachment "+attach.ID)
 
 	// Verify gone
@@ -703,7 +703,7 @@ func TestCmd_IssueReactionAddDelete(t *testing.T) {
 	require.NotEmpty(t, reactionID)
 
 	// Delete reaction via CLI
-	delOut := runCmd(t, "issue", "reaction", "delete", issue.IDReadable, comment.ID, reactionID)
+	delOut := runCmd(t, "issue", "reaction", "delete", issue.IDReadable, comment.ID, reactionID, "--force")
 	assert.Contains(t, delOut, "deleted reaction "+reactionID)
 
 	// Verify gone

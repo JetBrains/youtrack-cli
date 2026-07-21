@@ -72,7 +72,7 @@ func TestCmd_UserCRUD(t *testing.T) {
 		login, newUser.ID,
 	)
 
-	out = runCmd(t, "user", "ban", login)
+	out = runCmd(t, "user", "ban", login, "--force")
 	assert.Contains(t, out, "banned user "+login)
 	assertUserBanState(t, c, login, true)
 
@@ -96,16 +96,6 @@ func TestCmd_UserLocaleSet(t *testing.T) {
 	require.NoError(t, err)
 	// Should not error — HTTP 500 means the body key is wrong
 	runCmd(t, "user", "locale", "set", me.Login, "en_US")
-}
-
-func TestCmd_UserPinProject(t *testing.T) {
-	c := newTestClient(t)
-	proj := createTempProject(t, c)
-	me, err := c.GetCurrentUser()
-	require.NoError(t, err)
-
-	// Pass login (not opaque ID) — should succeed after the fix
-	runCmd(t, "user", "pin-project", me.Login, proj.ID)
 }
 
 func TestCmd_UserDeleteRequiresSuccessor(t *testing.T) {
@@ -156,11 +146,11 @@ func TestCmd_UserDrafts(t *testing.T) {
 	require.NoError(t, err)
 
 	// Listing by login, "me", or no argument at all must resolve to the same drafts.
-	out := runCmd(t, "user", "drafts", "list", me.Login, "--format", "json")
+	out := runCmd(t, "user", "drafts", "issues", me.Login, "--format", "json")
 	assert.Contains(t, out, draft.ID)
-	out = runCmd(t, "user", "drafts", "list", "me", "--format", "json")
+	out = runCmd(t, "user", "drafts", "issues", "me", "--format", "json")
 	assert.Contains(t, out, draft.ID)
-	out = runCmd(t, "user", "drafts", "list", "--format", "json")
+	out = runCmd(t, "user", "drafts", "issues", "--format", "json")
 	assert.Contains(t, out, draft.ID)
 
 	// Article drafts are private too: no argument defaults to the current user (a JSON array),
@@ -177,7 +167,7 @@ func TestCmd_UserDrafts(t *testing.T) {
 	assert.NotEmpty(t, drafts, "delete for an unknown user must not wipe the current user's drafts")
 
 	// Delete by login, then assert the fixture is gone (not that the list is empty, since the account may have other drafts).
-	runCmd(t, "user", "drafts", "delete", me.Login)
+	runCmd(t, "user", "drafts", "delete", me.Login, "--force")
 	drafts, err = c.GetUserIssueDrafts("me")
 	require.NoError(t, err)
 	for _, d := range drafts {

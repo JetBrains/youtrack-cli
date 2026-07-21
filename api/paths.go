@@ -2,23 +2,11 @@ package api
 
 const (
 	// Admin / Global Settings
-	pathAdminGlobalSettings              = "/api/admin/globalSettings"
-	pathAdminGlobalSettingsNotifications = "/api/admin/globalSettings/notificationSettings"
-	pathAdminFeatureFlag                 = "/api/admin/featureFlags/%s"
-	pathGrazieConfig                     = "/api/grazie/config"
-	pathConfig                           = "/api/config"
-	pathAdminPluginUsages                = "/api/admin/pluginUsages"
-	pathAdminPluginUsage                 = "/api/admin/pluginUsages/%s"
-
-	// VCS / Integrations
-	pathAdminVCSServers     = "/api/admin/integrations/vcsHostingServers"
-	pathAdminVCSServer      = "/api/admin/integrations/vcsHostingServers/%s"
-	pathAdminVCSServerProcs = "/api/admin/integrations/vcsHostingServers/%s/changesProcessors"
-	pathAdminVCSProcessors  = "/api/admin/integrations/vcsHostingProcessors"
-	pathAdminVCSProcessor   = "/api/admin/integrations/vcsHostingProcessors/%s"
-	pathAdminMailboxes      = "/api/admin/integrations/mailbox/mailboxes"
-	pathAdminMailbox        = "/api/admin/integrations/mailbox/mailboxes/%s"
-	pathAdminMailboxRules   = "/api/admin/integrations/mailbox/rules"
+	pathAdminGlobalSettings = "/api/admin/globalSettings"
+	pathAdminFeatureFlag    = "/api/admin/featureFlags/%s"
+	pathConfig              = "/api/config"
+	pathAdminPluginUsages   = "/api/admin/pluginUsages"
+	pathAdminPluginUsage    = "/api/admin/pluginUsages/%s"
 
 	// Apps
 	pathAdminApps = "/api/admin/apps"
@@ -154,7 +142,6 @@ const (
 	pathUserDraft                = "/api/users/%s/drafts/%s"
 	pathUserDraftField           = "/api/users/%s/drafts/%s/fields/%s"
 	pathUserArticleDrafts        = "/api/users/%s/articleDrafts"
-	pathUserPinnedProjects       = "/api/users/%s/pinnedProjects"
 
 	// Workflows
 	pathAdminWorkflows              = "/api/admin/workflows"

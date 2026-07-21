@@ -1,6 +1,8 @@
 package issue
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -63,7 +65,7 @@ func newIssueLinkAddCmd() *cobra.Command {
 }
 
 func newIssueLinkRemoveCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "remove <issueId> <linkId>",
 		Short: "Remove a link from an issue",
 		Long: `Remove a link from an issue. <linkId> is the opaque ID shown in the ID
@@ -72,6 +74,10 @@ column of 'issue link list' (e.g. 100-1). To find it:
   youtrack issue link list <issueId>`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Remove link %s from issue %s?", args[1], args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -79,6 +85,8 @@ column of 'issue link list' (e.g. 100-1). To find it:
 			return client.RemoveIssueLink(args[0], args[1])
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }
 
 func newIssueLinkTypeCmd() *cobra.Command {

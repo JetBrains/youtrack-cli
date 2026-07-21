@@ -15,13 +15,8 @@ func newUserDeleteCmd() *cobra.Command {
 		Short: "Delete a user account",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			confirmed, err := internal.Confirm(cmd, fmt.Sprintf("Delete user %s?", args[0]))
-			if err != nil {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete user %s?", args[0])); abort {
 				return err
-			}
-			if !confirmed {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "Canceled.")
-				return nil
 			}
 			successor, _ := cmd.Flags().GetString("successor")
 			client, err := internal.GetClient(cmd)

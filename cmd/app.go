@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -39,11 +41,14 @@ func newAppListCmd() *cobra.Command {
 }
 
 func newAppDeleteCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "delete <id>",
 		Short: "Delete an app by ID",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete app %s?", args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -51,6 +56,8 @@ func newAppDeleteCmd() *cobra.Command {
 			return client.DeleteApp(args[0])
 		},
 	}
+	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
 }
 
 func newAppDeactivateCmd() *cobra.Command {
@@ -89,6 +96,9 @@ func newAppPluginCmd() *cobra.Command {
 		Use: "delete <id>", Short: "Delete a plugin",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete plugin %s?", args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -100,6 +110,7 @@ func newAppPluginCmd() *cobra.Command {
 			return nil
 		},
 	}
+	del.Flags().Bool("force", false, "Skip the confirmation prompt")
 	cmd.AddCommand(list, del)
 	return cmd
 }

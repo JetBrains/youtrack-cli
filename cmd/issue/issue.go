@@ -18,7 +18,6 @@ func NewCmd() *cobra.Command {
 		&cobra.Group{ID: "apply", Title: "Apply changes:"},
 		&cobra.Group{ID: "content", Title: "Discussion & content:"},
 		&cobra.Group{ID: "track", Title: "Track & engage:"},
-		&cobra.Group{ID: "ai", Title: "AI:"},
 	)
 
 	internal.AddToGroup(cmd, "work",
@@ -37,9 +36,6 @@ func NewCmd() *cobra.Command {
 	internal.AddToGroup(cmd, "track",
 		newIssueVoteCmd(), newIssueUnvoteCmd(), newIssueWatchCmd(), newIssueUnwatchCmd(),
 		newIssueActivityCmd(), newIssueCountCmd(), newIssueSprintCmd(), newIssueVCSCmd(),
-	)
-	internal.AddToGroup(cmd, "ai",
-		newIssueSuggestCmd(), newIssueAssistCmd(),
 	)
 
 	return cmd

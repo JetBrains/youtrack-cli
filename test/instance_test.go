@@ -29,6 +29,12 @@ const twoInstanceConfig = `{
   }
 }`
 
+func TestInstance_Version(t *testing.T) {
+	out := runCmd(t, "instance", "version", "--format", "json")
+	assert.Contains(t, out, `"version"`)
+	assert.Contains(t, out, `"build"`)
+}
+
 func TestInstance_List(t *testing.T) {
 	tmpHome := t.TempDir()
 	configFixture(t, tmpHome, twoInstanceConfig)

@@ -57,7 +57,7 @@ func TestCmd_WhiteboardDeletePrintsSuccess(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteCanvas(wb.ID) })
 
-	out := runCmd(t, "whiteboard", "delete", wb.ID)
+	out := runCmd(t, "whiteboard", "delete", wb.ID, "--force")
 	assert.Contains(t, out, wb.ID)
 }
 

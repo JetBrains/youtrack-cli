@@ -93,6 +93,7 @@ youtrack issue field set <issueId> <fieldName> <value>
 youtrack issue reaction add <issueId> <commentId> <reaction>
 youtrack issue reaction delete <issueId> <commentId> <reactionId>
 youtrack issue draft create [--project P] [--summary S]
+youtrack issue draft delete <draftId>
 youtrack issue workitem add <issueId> --duration <ISO8601>   # e.g. PT1H30M
 ```
 
@@ -129,11 +130,10 @@ youtrack user add --login L --fullName "..." --email E --password P [--type stan
 youtrack user delete <login> --successor <login>   # --successor required; cannot delete yourself
 youtrack user ban <login>
 youtrack user unban <login>
-youtrack user pin-project <userId> <projectId>     # ⚠ opaque userId, not login (F-06)
 ```
 
 ```bash
-youtrack user drafts list <login>
+youtrack user drafts issues <login>
 youtrack user drafts delete <login>
 youtrack user drafts articles <login>
 youtrack user locale set <login> <locale>          # ⚠ HTTP 500 (F-03)

@@ -1,6 +1,8 @@
 package user
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -20,7 +22,7 @@ func newUserDraftsCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "drafts", Short: "Manage your issue and article drafts"}
 	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
-		Use: "list [userId]", Short: "List your issue drafts (defaults to 'me'; drafts are private to their owner)",
+		Use: "issues [userId]", Short: "List your issue drafts (defaults to 'me'; drafts are private to their owner)",
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -38,6 +40,10 @@ func newUserDraftsCmd() *cobra.Command {
 		Use: "delete <userId>", Short: "Delete all your issue drafts (pass 'me' or your own login; drafts are private to their owner)",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Delete ALL issue drafts for user %s?", args[0])); abort {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -45,6 +51,7 @@ func newUserDraftsCmd() *cobra.Command {
 			return client.DeleteAllUserDrafts(args[0])
 		},
 	}
+	del.Flags().Bool("force", false, "Skip the confirmation prompt")
 	articles := &cobra.Command{
 		Use: "articles [userId]", Short: "List your article drafts (defaults to 'me'; drafts are private to their owner)",
 		Args: cobra.MaximumNArgs(1),

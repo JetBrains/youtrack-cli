@@ -72,7 +72,7 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 		newFieldCmd(), newWorkflowCmd(), newSettingsCmd(),
 	)
 	internal.AddToGroup(rootCmd, "integrations",
-		newVCSCmd(), newMailboxCmd(), newAppCmd(),
+		newAppCmd(),
 	)
 	internal.AddToGroup(rootCmd, "planning",
 		newDashboardCmd(), newGanttCmd(), newWhiteboardCmd(),

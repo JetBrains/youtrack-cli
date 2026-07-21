@@ -10,7 +10,7 @@ import (
 )
 
 func newIssueCommandCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "command <issueId[,issueId...]> <query>",
 		Short: "Apply a YouTrack command to one or more issues",
 		Example: `  youtrack issue command FOO-42 "State Fixed"
@@ -32,4 +32,6 @@ func newIssueCommandCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.AddCommand(newIssueCommandSuggestCmd())
+	return cmd
 }

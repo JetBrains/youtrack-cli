@@ -103,24 +103,27 @@ See [docs/security.md](docs/security.md) for the full token disclaimer and mutab
 | Group | Subcommands |
 |---|---|
 | `auth` | `get-token` (`login`), `refresh-token`, `logout`, `status` |
-| `instance` | `add`, `login`, `list`, `use`, `remove`, `update-token` |
-| `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `count`, `suggest`, `assist`, `activity`, `sprint`, `vcs` |
+| `instance` | `add`, `login`, `list`, `use`, `remove`, `update-token`, `version` |
+| `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `count`, `activity`, `sprint`, `vcs` |
 | `issue comment` | `list`, `add`, `update`, `delete`, `pin`, `visibility` |
+| `issue command` | `suggest` |
 | `issue link` | `list`, `add`, `remove` |
 | `issue link type` | `list`, `add` |
 | `issue attachment` | `list`, `add`, `delete` |
 | `issue field` | `get`, `set` |
 | `issue reaction` | `add`, `delete` |
-| `issue draft` | `create`, `update`, `submit` |
+| `issue draft` | `create`, `update`, `submit`, `delete` |
 | `issue` (actions) | `assign`, `unassign`, `watch`, `unwatch`, `vote`, `unvote`, `tag`, `visibility`, `workitem add` |
+| `article comment` | `list`, `add` (`create`), `update`, `delete`, `view`, `pin`, `visibility` |
+| `article comment reaction` | `list`, `add`, `delete` |
 | `project` | `list`, `get` (`view`), `add` (`create`), `delete`, `archive` |
 | `project team` | `add-user`, `add-group` |
 | `project field` | `list`, `add` |
 | `project template` | `list`, `convert` |
 | `project timetrack` | `set` |
 | `project workflow` | `add` |
-| `user` | `list`, `get` (`view`), `current` (`me`), `add` (`create`), `delete`, `ban`, `unban`, `pin-project` |
-| `user drafts` | `list`, `delete`, `articles` |
+| `user` | `list`, `get` (`view`), `current` (`me`), `add` (`create`), `delete`, `ban`, `unban` |
+| `user drafts` | `issues`, `delete`, `articles` |
 | `user locale` | `set` |
 | `user timezone` | `get`, `set` |
 | `user profile` | `general`, `appearance`, `notifications`, `articles`, `issues-list`, `grazie`, `tips`, `property` |
@@ -146,7 +149,7 @@ youtrack issue count --query "State: Open"
 # Issues — workflow and actions
 youtrack issue command MYPROJ-42 "State In Progress"
 youtrack issue command MYPROJ-42 "assignee alice.doe"
-youtrack issue suggest MYPROJ-42 "State "
+youtrack issue command suggest MYPROJ-42 "State "
 youtrack issue assign MYPROJ-42 john.doe
 youtrack issue watch MYPROJ-42
 youtrack issue vote MYPROJ-42
@@ -170,6 +173,13 @@ youtrack issue draft submit <draftId>
 
 # Work items
 youtrack issue workitem add MYPROJ-42 --minutes 90 --text "Investigation"
+
+# Articles (knowledge base)
+youtrack article list --query "project: MYPROJ"
+youtrack article add --project MYPROJ --summary "Onboarding guide" --content "Step 1..."
+youtrack article comment add MYPROJ-A-1 --text "Looks good."
+youtrack article comment pin MYPROJ-A-1 <commentId>
+youtrack article tag MYPROJ-A-1 <tagId>
 
 # Projects
 youtrack project list

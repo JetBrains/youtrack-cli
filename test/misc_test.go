@@ -64,7 +64,7 @@ func TestCmd_OrgCreateDelete(t *testing.T) {
 	createdID := org.ID
 	t.Cleanup(func() { _ = c.DeleteOrganization(createdID) })
 
-	out = runCmd(t, "org", "delete", createdID)
+	out = runCmd(t, "org", "delete", createdID, "--force")
 	assert.Empty(t, strings.TrimSpace(out))
 
 	orgs, err := c.ListOrganizations()

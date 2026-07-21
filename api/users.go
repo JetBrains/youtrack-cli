@@ -220,15 +220,6 @@ func (c *Client) GetUserArticleDrafts(identifier string) ([]ArticleDraft, error)
 	return result, err
 }
 
-func (c *Client) PinProjectForUser(userID, projectID string) error {
-	user, err := c.GetUser(userID)
-	if err != nil {
-		return err
-	}
-	path := fmt.Sprintf(pathUserPinnedProjects, url.PathEscape(user.ID))
-	return c.Post(path, map[string]any{"id": projectID}, nil)
-}
-
 func (c *Client) SetUserGeneralProfile(id string, body map[string]any) error {
 	return c.Post(fmt.Sprintf(pathUserProfileGeneral, url.PathEscape(id)), body, nil)
 }

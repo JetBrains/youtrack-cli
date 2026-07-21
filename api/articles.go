@@ -101,6 +101,37 @@ func (c *Client) UpdateArticleComment(articleID, commentID, text string) (*Comme
 	return &result, err
 }
 
+func (c *Client) GetArticleComment(articleID, commentID string) (*Comment, error) {
+	var result Comment
+	path := fmt.Sprintf(pathArticleComment+"?fields=%s", url.PathEscape(articleID), url.PathEscape(commentID), articleCommentFields)
+	err := c.Get(path, &result)
+	return &result, err
+}
+
+func (c *Client) PinArticleComment(articleID, commentID string, pinned bool) error {
+	return c.Post(fmt.Sprintf(pathArticleComment, url.PathEscape(articleID), url.PathEscape(commentID)),
+		map[string]any{"pinned": pinned}, nil)
+}
+
+func (c *Client) UpdateArticleCommentVisibility(articleID, commentID string, groupIDs, userIDs []string) error {
+	groups := make([]map[string]any, len(groupIDs))
+	for i, id := range groupIDs {
+		groups[i] = map[string]any{"id": id}
+	}
+	users := make([]map[string]any, len(userIDs))
+	for i, id := range userIDs {
+		users[i] = map[string]any{"id": id}
+	}
+	body := map[string]any{
+		"visibility": map[string]any{
+			"$type":           "LimitedVisibility",
+			"permittedGroups": groups,
+			"permittedUsers":  users,
+		},
+	}
+	return c.Post(fmt.Sprintf(pathArticleComment, url.PathEscape(articleID), url.PathEscape(commentID)), body, nil)
+}
+
 func (c *Client) SetParentArticle(articleID, parentID string) error {
 	path := fmt.Sprintf(pathArticle, url.PathEscape(articleID))
 	return c.Post(path, map[string]any{"parentArticle": map[string]any{"id": parentID}}, nil)
@@ -143,6 +174,11 @@ func (c *Client) ListArticleCommentReactions(articleID, commentID string) ([]Rea
 func (c *Client) AddArticleCommentReaction(articleID, commentID, reaction string) error {
 	path := fmt.Sprintf(pathArticleCommentReactions, url.PathEscape(articleID), url.PathEscape(commentID))
 	return c.Post(path, map[string]any{"reaction": reaction}, nil)
+}
+
+func (c *Client) DeleteArticleCommentReaction(articleID, commentID, reactionID string) error {
+	return c.Delete(fmt.Sprintf(pathArticleCommentReaction,
+		url.PathEscape(articleID), url.PathEscape(commentID), url.PathEscape(reactionID)))
 }
 
 func (c *Client) UpdateArticleVisibility(articleID string, groupIDs, userIDs []string) error {
