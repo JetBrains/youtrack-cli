@@ -27,6 +27,11 @@ var (
 )
 
 func TestMain(m *testing.M) {
+	// Force file-only token storage in spawned binaries — deterministic across platforms and keeps test tokens out of the real keychain.
+	if err := os.Setenv("YOUTRACK_DISABLE_KEYRING", "1"); err != nil {
+		log.Fatalf("failed to set YOUTRACK_DISABLE_KEYRING: %v", err)
+	}
+
 	tmpDir, err := os.MkdirTemp("", "youtrack-cli-test-*")
 	if err != nil {
 		log.Fatalf("failed to create temp dir: %v", err)
