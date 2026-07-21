@@ -10,9 +10,18 @@ import (
 	"net/textproto"
 	"os"
 	"strings"
+	"time"
 )
 
 const envReadOnly = "YOUTRACK_RO"
+
+const defaultTimeout = 30 * time.Second
+
+// maxErrorBodySize caps error-body reads so a misbehaving server can't balloon client memory.
+const maxErrorBodySize = 1 << 20 // 1 MiB
+
+// UserAgent is sent on every request; internal.GetClient sets it to the build version.
+var UserAgent = "youtrack-cli"
 
 // Client sends authenticated requests to a YouTrack instance.
 type Client struct {
@@ -27,7 +36,7 @@ func NewClient(baseURL, token string) *Client {
 	return &Client{
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		Token:      token,
-		HTTPClient: &http.Client{},
+		HTTPClient: &http.Client{Timeout: defaultTimeout},
 	}
 }
 
@@ -38,6 +47,7 @@ func (c *Client) doRequest(method, path string, body io.Reader, contentType stri
 	}
 	req.Header.Set("Authorization", "Bearer "+c.Token)
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", UserAgent)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -58,11 +68,11 @@ func (c *Client) doRequest(method, path string, body io.Reader, contentType stri
 // and optionally unmarshals JSON into result.
 func handleResponse(resp *http.Response, result any) error {
 	defer func() { _ = resp.Body.Close() }()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return err
-	}
 	if resp.StatusCode >= 300 {
+		data, err := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
+		if err != nil {
+			return err
+		}
 		var apiErr struct {
 			ErrorDescription string `json:"error_description"`
 			ErrorDevMessage  string `json:"error_developer_message"`
@@ -82,6 +92,10 @@ func handleResponse(resp *http.Response, result any) error {
 			}
 		}
 		return &APIError{StatusCode: resp.StatusCode, Message: string(data)}
+	}
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
 	}
 	if result == nil || len(data) == 0 {
 		return nil

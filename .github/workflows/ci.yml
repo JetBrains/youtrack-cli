@@ -51,6 +51,25 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GORELEASER_KEY: ${{ secrets.GORELEASER_KEY }}
 
+      - name: Verify snapshot binary --version
+        if: runner.os == 'Linux' && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+        run: |
+          arch=$(uname -m)
+          case "$arch" in
+            x86_64) goarch=amd64 ;;
+            aarch64|arm64) goarch=arm64 ;;
+            *) echo "unsupported runner arch: $arch" >&2; exit 1 ;;
+          esac
+          binary=$(find dist -maxdepth 1 -type d -name "youtrack_linux_${goarch}*" -print -quit)/youtrack
+          expected=$(jq -r .version dist/metadata.json)
+          actual=$("$binary" --version)
+          echo "expected version: $expected"
+          echo "actual output:    $actual"
+          case "$actual" in
+            *"$expected"*) ;;
+            *) echo "binary --version output does not contain snapshot version $expected" >&2; exit 1 ;;
+          esac
+
   e2e:
     needs: verify
     runs-on: ubuntu-latest
