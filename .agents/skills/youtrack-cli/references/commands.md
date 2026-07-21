@@ -3,28 +3,31 @@
 ## Auth
 
 ```bash
-youtrack auth get-token [--alias <name>]   # interactive auth; alias: login
+youtrack auth login [--alias <name>]    # interactive auth (4-method menu)
 youtrack auth status                        # check credentials for all instances
 youtrack auth logout [--instance <alias>]
 youtrack auth refresh-token [<alias>]
 ```
 
-Auth methods: (1) basic login+password, (2) web browser, (3) paste token.
-Saves to `~/.youtrack-cli-config.json`. Single-instance: use `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`.
+Auth methods: (1) basic login+password, (2) web browser, (3) paste token, (4) browser SSO with OAuth 2.0 + PKCE.
+Saved tokens use the OS keyring with a mode-`0600` config fallback. Single-instance automation can use `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`.
 
 ```bash
+youtrack instance add [--alias <name>] [--save=false]
+youtrack instance login [<url-or-alias>] [--no-browser] [--save=false] [--alias <name>] [--scope <ids>] [--port N] [--client-id <id>] [--timeout <dur>]   # browser SSO (~1h token)
 youtrack instance list
 youtrack instance use <alias>
-youtrack instance remove [--force] <alias>
-youtrack instance update-token <alias>
+youtrack instance version                        # active instance's YouTrack version + build number
+youtrack instance delete [--force] <alias>       # alias: remove
+youtrack instance refresh-token <alias>          # alias: update-token
 ```
 
 ## Global Flags
 
 ```
---json / -j            Force JSON output
+--json / -j            Force JSON output (rendering only; still uses each command's default field
+                       projection — add --fields for extra data like custom fields, comments, votes, links)
 --plain                Force tab-separated output (no headers, pipeline-friendly)
---format json|table|plain  Explicit format override (default: table on TTY, json when piped)
 --fields FIELDS / -f   Comma-separated field projection, e.g. id,summary,reporter
                        Sub-field spec: --fields 'comments(id,text)' (shell quotes required)
 --server ALIAS / -s    Use a named instance profile for this invocation (does not persist)
@@ -33,19 +36,26 @@ youtrack instance update-token <alias>
 --verbose              Print HTTP requests/responses to stderr
 ```
 
+(`--format json|table|plain` still works but is a deprecated, hidden alias for `--json`/`--plain`.)
+
+On `list`-style commands that support `--limit`, pass it to cap the result size on large
+projects/queries instead of pulling every record.
+
+Destructive commands (deletes, `user ban`, `project archive`, `settings feature`, link/reaction
+removals, etc.) prompt for confirmation and accept `--force` to skip the prompt.
+
 ## issue
 
 ```bash
-youtrack issue get <issueId>           # alias: view
-youtrack issue list [--query Q] [--limit N]
-youtrack issue add --project P --summary S [--description D] [--parent <issueId>] [--description-file path]
-                                       # alias: create
+youtrack issue view <issueId>           # alias: get
+youtrack issue list --query Q [--limit N]
+youtrack issue create --project P --summary S [--description D] [--parent <issueId>] [--description-file path]
+                                       # alias: add
 youtrack issue update <issueId> [--summary S] [--description D]
 youtrack issue delete <issueId>
 youtrack issue command <issueId[,issueId...]> <query>   # apply a YouTrack command string
+youtrack issue command suggest <issueId[,issueId...]> <query>   # preview suggestions without applying
 youtrack issue count [--query Q]       # may return -1 on first call (async); retry manually
-youtrack issue suggest <issueId[,issueId...]> <query>
-youtrack issue assist <query> <issueId...>
 ```
 
 **social actions**
@@ -63,7 +73,7 @@ youtrack issue visibility <issueId> [flags]
 **comment**
 ```bash
 youtrack issue comment list <issueId>
-youtrack issue comment add <issueId> --text "..."
+youtrack issue comment create <issueId> --text "..."   # alias: add
 youtrack issue comment update <issueId> <commentId> --text "..."
 youtrack issue comment delete <issueId> <commentId>
 youtrack issue comment pin <issueId> <commentId>
@@ -73,45 +83,45 @@ youtrack issue comment visibility <issueId> <commentId> [flags]
 **link**
 ```bash
 youtrack issue link list <issueId>
-youtrack issue link add <issueId> --target <targetId> --type <linkTypeId>   # ⚠ HTTP 405 (F-01)
+youtrack issue link add <issueId> --target <targetId> --type <linkTypeId>
 youtrack issue link remove <issueId> <linkId>   # linkId from 'issue link list --json | jq .[].id'
 youtrack issue link type list
-youtrack issue link type add [flags]
+youtrack issue link type create --name N --source-to-target S --target-to-source T [flags]   # alias: add
 ```
 
 **attachment**
 ```bash
 youtrack issue attachment list <issueId>
-youtrack issue attachment add <issueId> <filepath>
+youtrack issue attachment add <issueId> --file <filepath>
 youtrack issue attachment delete <issueId> <attachmentId>
 ```
 
 **field / reaction / draft / workitem**
 ```bash
-youtrack issue field get <issueId> <fieldName>
+youtrack issue field view <issueId> <fieldName>   # alias: get
 youtrack issue field set <issueId> <fieldName> <value>
 youtrack issue reaction add <issueId> <commentId> <reaction>
 youtrack issue reaction delete <issueId> <commentId> <reactionId>
 youtrack issue draft create [--project P] [--summary S]
-youtrack issue draft delete <draftId>
-youtrack issue workitem add <issueId> --duration <ISO8601>   # e.g. PT1H30M
+youtrack issue draft delete <draftId>             # prompts; --force to skip
+youtrack issue workitem create <issueId> --minutes N [--text T] [--type ID]   # alias: add
 ```
 
 ## project
 
 ```bash
 youtrack project list
-youtrack project get <shortName>       # alias: view
-youtrack project add --shortName P --name "..." --leader <login> [--template helpdesk]
-                                       # alias: create; --leader required (API rejects without it)
+youtrack project view <shortName>       # alias: get
+youtrack project create --shortName P --name "..." --leader <login> [--template helpdesk]
+                                       # alias: add; --leader required (API rejects without it)
 youtrack project delete <shortName>
 youtrack project archive <shortName>
 ```
 
 ```bash
 # ⚠ Both require opaque IDs, not logins/names
-youtrack project team add-user <shortName> <userId>    # userId: 'user get <login> --json | jq .id'
-youtrack project team add-group <shortName> <groupId>  # groupId: 'group get <name> --json | jq .id'
+youtrack project team add-user <shortName> <userId>    # userId: 'user view <login> --json | jq .id'
+youtrack project team add-group <shortName> <groupId>  # groupId: 'group view <name> --json | jq .id'
 youtrack project field list <shortName>
 youtrack project field add <shortName> [flags]
 youtrack project template list
@@ -124,22 +134,25 @@ youtrack project workflow add <shortName> [flags]
 
 ```bash
 youtrack user list [--query Q]
-youtrack user get <login>              # alias: view
-youtrack user current                  # alias: me
-youtrack user add --login L --fullName "..." --email E --password P [--type standard|agent|reporter]
+youtrack user view <login>              # alias: get
+youtrack user current                   # alias: me
+youtrack user create --login L --fullName "..." --email E --password P [--type standard|agent|reporter]
+                                       # alias: add
 youtrack user delete <login> --successor <login>   # --successor required; cannot delete yourself
 youtrack user ban <login>
 youtrack user unban <login>
 ```
 
 ```bash
-youtrack user drafts issues <login>
-youtrack user drafts delete <login>
+youtrack user drafts issues <login>                # draft issues for the given user (login or 'me')
+youtrack user drafts delete <login>                # prompts; --force to skip
 youtrack user drafts articles <login>
-youtrack user locale set <login> <locale>          # ⚠ HTTP 500 (F-03)
-youtrack user timezone get <login>
+youtrack user locale set <login> <locale>
+youtrack user timezone view <login>                # alias: get
 youtrack user timezone set <login> <timezoneId>    # e.g. "Europe/Berlin"
+youtrack user profile view <login>       # alias: get; general profile snapshot
 youtrack user profile general|appearance|notifications|articles|issues-list|grazie|tips|property <login> [flags]
+youtrack user profile timetracking view <login>
 ```
 
 **user profile examples**
@@ -156,13 +169,13 @@ youtrack user profile general|appearance|notifications|articles|issues-list|graz
 
 ```bash
 youtrack whiteboard list
-youtrack whiteboard add --name NAME [--owner LOGIN]
-youtrack whiteboard get <id>
+youtrack whiteboard create --name NAME [--owner LOGIN]   # alias: add
+youtrack whiteboard view <id>                             # alias: get
 youtrack whiteboard delete <id>
 youtrack whiteboard reload <id>
 youtrack whiteboard node list <whiteboardId>
-youtrack whiteboard node get <whiteboardId> <cardId>
-youtrack whiteboard node add <whiteboardId> --x N --y N [--label L] [--description D]
+youtrack whiteboard node view <whiteboardId> <cardId>      # alias: get
+youtrack whiteboard node create <whiteboardId> --x N --y N [--label L] [--description D]  # alias: add
 youtrack whiteboard links <whiteboardId>
 youtrack whiteboard link <whiteboardId> --source <cardId> --target <cardId> [--link-type ONE_WAY|TWO_WAY|PROTOTYPED] [--link-prototype <id>]
 ```
@@ -171,29 +184,35 @@ youtrack whiteboard link <whiteboardId> --source <cardId> --target <cardId> [--l
 
 ```bash
 youtrack board list
-youtrack board get <id>                # alias: view
-youtrack board add --name NAME [flags] # alias: create
-youtrack board update <id> [flags]
+youtrack board view <id>                       # alias: get
+youtrack board create --name NAME --project P  # alias: add
+youtrack board update <id> [--name NAME]
 youtrack board delete <id>
-youtrack board sprint list <boardId>
-youtrack board sprint get <boardId> <sprintId>
-youtrack board sprint add <boardId> --name NAME --start DATE --end DATE [--goal G]
+youtrack board sprint list --board <boardId>
+youtrack board sprint view --board <boardId> <sprintId>   # alias: get
+youtrack board sprint create --board <boardId> --name NAME [--start <epochMs>] [--end <epochMs>] [--goal G]
+                                                   # alias: add
 ```
 
 ## article
 
 ```bash
 youtrack article list [--query Q]
-youtrack article get <articleId>
-youtrack article add --project P --summary S [--description D] [--description-file path]
-youtrack article update <articleId> [--summary S] [--description D]
+youtrack article view <articleId>       # alias: get
+youtrack article create --project P --summary S [--content C] [--asUser login]
+                                       # alias: add
+youtrack article update <articleId> [--summary S] [--content C]
 youtrack article delete <articleId>
 youtrack article comment list <articleId>
-youtrack article comment add <articleId> --text "..."
+youtrack article comment view <articleId> <commentId>
+youtrack article comment create <articleId> --text "..."   # alias: add
 youtrack article comment update <articleId> <commentId> --text "..."
 youtrack article comment delete <articleId> <commentId>
+youtrack article comment pin <articleId> <commentId> [--unpin]
+youtrack article comment visibility <articleId> <commentId> [--groups <ids>] [--users <ids>]
+youtrack article comment reaction delete <articleId> <commentId> <reactionId>   # prompts; --force to skip
 youtrack article attachment list <articleId>
-youtrack article attachment add <articleId> <filepath>
+youtrack article attachment add <articleId> --file <filepath>
 youtrack article tag <articleId> <tagId>
 ```
 
@@ -201,7 +220,8 @@ youtrack article tag <articleId> <tagId>
 
 ```bash
 youtrack dashboard list
-youtrack dashboard add --name NAME     # alias: create
+youtrack dashboard create --name NAME     # alias: add
+youtrack dashboard update <id> --name NAME
 youtrack dashboard delete <id>
 ```
 
@@ -209,25 +229,27 @@ youtrack dashboard delete <id>
 
 ```bash
 youtrack tag list
-youtrack tag get <id>
-youtrack tag add --name NAME [flags]
+youtrack tag create --name NAME [flags]   # alias: add
 youtrack tag delete <id>
+youtrack tag issue list <tagId>           # view issues for a tag
 ```
 
 ## search
 
 ```bash
 youtrack search list
-youtrack search add --name NAME --query Q
+youtrack search view <id>                          # alias: get
+youtrack search create --name NAME --query Q       # alias: add
 youtrack search delete <id>
+youtrack search share <id>
 ```
 
 ## group
 
 ```bash
 youtrack group list [--query Q]
-youtrack group get <name>
-youtrack group add --name NAME
+youtrack group view <name>              # alias: get
+youtrack group create --name NAME       # alias: add
 youtrack group delete <name>
 ```
 
@@ -235,8 +257,8 @@ youtrack group delete <name>
 
 ```bash
 youtrack role list
-youtrack role get <id>
-youtrack role grant --user <userId>|--group <groupId> --role <roleId> [--project <shortName>]
+youtrack role view <id>                # alias: get
+youtrack role grant --user <userId>|--group <groupId> --role <roleId> [--project <projectId>]
 youtrack role revoke <assignedRoleId>
 youtrack role assignments [--holder <userId>]
 ```

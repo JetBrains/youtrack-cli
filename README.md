@@ -1,249 +1,132 @@
-# youtrack-cli
+# YouTrack CLI
 
-Create issues, manage projects, and automate YouTrack — without leaving your terminal.
+[![](https://jb.gg/badges/official-plastic.svg)](https://github.com/JetBrains)
+[![GitHub Release](https://img.shields.io/github/v/release/JetBrains/youtrack-cli?style=plastic)](https://github.com/JetBrains/youtrack-cli/releases/latest)
 
-A Go CLI for interacting with YouTrack via its REST API. Designed for developers and AI agents.
+`youtrack` is the command-line client for [YouTrack](https://www.jetbrains.com/youtrack/). It covers the day-to-day — creating and searching issues, applying commands, managing projects and users — and the odd jobs too: knowledge-base articles, agile boards, admin settings, and raw REST calls when nothing else fits. It's built for both people at a terminal and AI agents driving YouTrack in a pipeline.
 
-> **Security notice:** YouTrack does not currently support granular token permissions. Any token grants full account access. Review [docs/security.md](docs/security.md) before using in pipelines or agent integrations.
+Full documentation — installation, authentication, configuration, and a command reference — lives under [docs/](docs/topics/youtrack-cli.md).
 
-## Installation
+> **Security notice:** YouTrack does not support granular token scopes; any token grants full account access. See [docs/security.md](docs/security.md) before using `youtrack` in pipelines or with AI agents.
 
-> The repository is currently internal. Use one of the options below.
+## Install
 
-**Via GitHub CLI** (requires [`gh`](https://cli.github.com/) authenticated with `gh auth login`):
-
+**macOS & Linux (install script):**
 ```bash
-gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash
+curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash
 ```
 
-**Via `go install`** (requires [Go 1.21+](https://go.dev/dl/)):
+**Windows:** download `youtrack_<version>_windows_x86_64.zip` from [Releases](https://github.com/JetBrains/youtrack-cli/releases/latest), extract it, and add the folder to your `PATH`.
 
+<details>
+<summary>More installation methods (deb, rpm, go install)</summary>
+
+**Debian/Ubuntu:**
+```bash
+curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.deb
+sudo dpkg -i youtrack_linux_amd64.deb
+```
+
+**RHEL/Fedora:**
+```bash
+sudo rpm -i https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.rpm
+```
+
+Replace `amd64` with `arm64` on ARM machines.
+
+**Build from source** (requires [Go 1.26.5+](https://go.dev/dl/)):
 ```bash
 go install github.com/JetBrains/youtrack-cli@latest
 ```
 
-**Windows / manual:** Download from [Releases](https://github.com/JetBrains/youtrack-cli/releases/latest), extract, add `youtrack` to `PATH`.
+See the [getting started guide](docs/topics/youtrack-cli-get-started.md) for the full walkthrough.
 
-## Quick Start
+</details>
+
+## Usage
+
+Authenticate once and the CLI remembers the instance:
 
 ```bash
-# Authenticate once — saves credentials to ~/.youtrack-cli-config.json
 youtrack instance add
-# YouTrack base URL: https://your-instance.youtrack.cloud
-# Instance alias [your-instance]: mywork
-# Select authentication method: ...
-# ✓ Authenticated as Jane Doe (jane.doe)
+```
 
-# Verify connection
-youtrack user current
+Then:
 
-# Find your open issues
+```bash
+# your open issues
 youtrack issue list --query "assignee: me State: Open"
 
-# Create an issue
-youtrack issue add --project MYPROJ --summary "Bug title"
+# create an issue
+youtrack issue create --project DEMO --summary "Login button unresponsive on Safari"
 
-# Apply a command
-youtrack issue command MYPROJ-42 "State In Progress"
+# move it along
+youtrack issue command DEMO-42 "State In Progress"
+
+# view an issue with its five most recent comments
+youtrack issue view DEMO-42 --comments 5
+
+# what a command would do, without applying it
+youtrack issue command suggest DEMO-42 "State "
 ```
 
-> **CI / scripting:** skip the interactive setup and export env vars instead:
-> ```bash
-> export YOUTRACK_BASE_URL=https://your-instance.youtrack.cloud
-> export YOUTRACK_TOKEN=perm:...
-> ```
+Every command takes `--json` or `--plain` for [scripting](docs/topics/youtrack-cli-scripting.md), and `--fields` to pick table/plain columns and pull extra fields from the API. When no command covers what you need, `youtrack raw` calls the REST API directly with your stored credentials. You can register several instances and switch between them, sign in through the browser, or point at a server with environment variables — see [authentication](docs/topics/youtrack-cli-authentication.md) and [configuration](docs/topics/youtrack-cli-configuration.md).
 
-## Authentication
-
-For a single instance, env vars are enough — see the CI/scripting note in Quick Start above.
-
-**Multiple instances** — use `instance add` to register each under a named alias:
-
-```bash
-youtrack instance add
-youtrack instance login https://your-instance.youtrack.cloud   # browser OAuth sign-in (~1h token)
-youtrack instance login mywork        # renew an existing alias's token via the browser
-youtrack instance use personal        # switch active context
-youtrack instance list                # show all instances
-youtrack instance remove work         # remove an instance
-youtrack instance update-token work   # replace the saved token for an instance
-youtrack auth refresh-token           # replace token for the active instance
-youtrack auth logout                  # remove active instance credentials
-```
-
-Auth methods: **Browser SSO** (`instance login` — OAuth 2.0 + PKCE against JetBrains Hub, no paste needed, ~1-hour session token), **Basic** (login + password), **Web browser** (opens token page), or **Paste token** (fallback for cloud/SSO).
-
-Credentials are saved to `~/.youtrack-cli-config.json`. Env vars are a single-instance fallback.
-
-### Credential Precedence
-
-The CLI resolves credentials in this order (highest wins):
-
-1. `--base-url` / `--token` flags — per-invocation override
-2. `--server <alias>` flag — selects a named profile from `~/.youtrack-cli-config.json`
-3. `YOUTRACK_BASE_URL` / `YOUTRACK_TOKEN` env vars — explicit, process-scoped (CI/Docker)
-4. Active instance in `~/.youtrack-cli-config.json` — convenience fallback
-
-**Gotcha:** Env vars (Tier 3) always win over the active config instance (Tier 4).
-
-## Read-Only Mode
-
-Set `YOUTRACK_RO=1` to block all write operations — useful for AI agents, CI read jobs, or safe exploration:
-
-```bash
-export YOUTRACK_RO=1
-youtrack issue list   # works
-youtrack issue add …  # error: read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked
-```
-
-See [docs/security.md](docs/security.md) for the full token disclaimer and mutability reference.
+Set `YOUTRACK_RO=1` to block every write at the client layer — a safety net for AI agents, CI read jobs, and exploration.
 
 ## Commands
 
-| Group | Subcommands |
-|---|---|
-| `auth` | `get-token` (`login`), `refresh-token`, `logout`, `status` |
-| `instance` | `add`, `login`, `list`, `use`, `remove`, `update-token`, `version` |
-| `issue` | `get` (`view`), `list`, `add` (`create`), `update`, `delete`, `command`, `count`, `activity`, `sprint`, `vcs` |
-| `issue comment` | `list`, `add`, `update`, `delete`, `pin`, `visibility` |
-| `issue command` | `suggest` |
-| `issue link` | `list`, `add`, `remove` |
-| `issue link type` | `list`, `add` |
-| `issue attachment` | `list`, `add`, `delete` |
-| `issue field` | `get`, `set` |
-| `issue reaction` | `add`, `delete` |
-| `issue draft` | `create`, `update`, `submit`, `delete` |
-| `issue` (actions) | `assign`, `unassign`, `watch`, `unwatch`, `vote`, `unvote`, `tag`, `visibility`, `workitem add` |
-| `article comment` | `list`, `add` (`create`), `update`, `delete`, `view`, `pin`, `visibility` |
-| `article comment reaction` | `list`, `add`, `delete` |
-| `project` | `list`, `get` (`view`), `add` (`create`), `delete`, `archive` |
-| `project team` | `add-user`, `add-group` |
-| `project field` | `list`, `add` |
-| `project template` | `list`, `convert` |
-| `project timetrack` | `set` |
-| `project workflow` | `add` |
-| `user` | `list`, `get` (`view`), `current` (`me`), `add` (`create`), `delete`, `ban`, `unban` |
-| `user drafts` | `issues`, `delete`, `articles` |
-| `user locale` | `set` |
-| `user timezone` | `get`, `set` |
-| `user profile` | `general`, `appearance`, `notifications`, `articles`, `issues-list`, `grazie`, `tips`, `property` |
-| `board` | `list`, `get` (`view`), `add` (`create`), `update`, `delete` |
-| `board sprint` | `list`, `get`, `add` |
-| `whiteboard` | `list`, `get`, `add` (`create`), `delete`, `reload` |
-| `whiteboard node` | `list`, `get`, `add` |
-| `whiteboard links` | list links |
-| `whiteboard link` | create a link between two nodes |
+Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete` (`get`/`add` linger as deprecated aliases). Run `youtrack <group> --help` for the full subcommand list, or see the [command reference](docs/topics/youtrack-cli.md).
 
-## Examples
+| Group | Commands |
+|---|---|
+| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field`, `reaction`, `draft`, `workitem`, `activity` |
+| **project** | `list`, `view`, `create`, `delete`, `archive`, `team`, `field`, `template`, `timetrack`, `workflow` |
+| **article** | `list`, `view`, `create`, `update`, `delete`, `comment`, `attachment`, `tag` |
+| **board** | `list`, `view`, `create`, `update`, `delete`, `sprint` |
+| **tag** | `list`, `create`, `delete`, `issue` |
+| **search** | `list`, `view`, `create`, `delete`, `share` |
+| **user** | `list`, `view`, `current`, `create`, `delete`, `ban`/`unban`, `drafts`, `locale`, `timezone`, `profile` |
+| **group** | `list`, `view`, `create`, `delete`, `member`, `role` |
+| **role** | `list`, `view`, `create`, `update`, `delete`, `grant`, `revoke`, `permission` |
+| **org** | `list`, `create`, `delete` |
+| **field** | `list`, `create`, `delete`, `bundle`, `prototypes` |
+| **workflow** | `list`, `create`, `delete`, `rule` |
+| **settings** | `view`, `feature` |
+| **app** | `list`, `plugin`, `deactivate`, `delete` |
+| **dashboard** | `list`, `create`, `update`, `delete` |
+| **gantt** | `list`, `update`, `delete`, `settings`, `member` |
+| **whiteboard** | `list`, `view`, `create`, `delete`, `node`, `link` |
+| **auth** | `login` (`get-token`), `logout`, `status`, `refresh-token` |
+| **instance** | `add`, `login`, `list`, `use`, `version`, `delete`, `refresh-token` |
+| **raw** | Authenticated request to any REST endpoint |
+| **skill** | `list`, `install`, `update`, `remove` |
+
+## For AI agents
+
+The CLI ships with an [Agent Skill](https://agentskills.io) that teaches coding agents (Claude Code, Cursor, and others) how to drive `youtrack`:
 
 ```bash
-# Issues — CRUD
-youtrack issue get MYPROJ-42
-youtrack issue list --query "assignee: me State: Open" --limit 50
-youtrack issue add --project MYPROJ --summary "Login button unresponsive on Safari"
-youtrack issue add --project MYPROJ --summary "Child issue" --parent MYPROJ-10
-youtrack issue update MYPROJ-42 --summary "New title"
-youtrack issue delete MYPROJ-42
-youtrack issue count --query "State: Open"
-
-# Issues — workflow and actions
-youtrack issue command MYPROJ-42 "State In Progress"
-youtrack issue command MYPROJ-42 "assignee alice.doe"
-youtrack issue command suggest MYPROJ-42 "State "
-youtrack issue assign MYPROJ-42 john.doe
-youtrack issue watch MYPROJ-42
-youtrack issue vote MYPROJ-42
-
-# Comments
-youtrack issue comment list MYPROJ-42
-youtrack issue comment add MYPROJ-42 --text "Reproducing locally."
-youtrack issue comment update MYPROJ-42 <commentId> --text "Updated text"
-youtrack issue comment delete MYPROJ-42 <commentId>
-
-# Links and attachments
-youtrack issue link list MYPROJ-42
-youtrack issue link add MYPROJ-42 --target MYPROJ-10 --type <linkTypeId>
-youtrack issue attachment add MYPROJ-42 ./screenshot.png
-youtrack issue field set MYPROJ-42 Priority Critical
-
-# Drafts
-youtrack issue draft create --project MYPROJ --format json
-youtrack issue draft update <draftId> --summary "New title"
-youtrack issue draft submit <draftId>
-
-# Work items
-youtrack issue workitem add MYPROJ-42 --minutes 90 --text "Investigation"
-
-# Articles (knowledge base)
-youtrack article list --query "project: MYPROJ"
-youtrack article add --project MYPROJ --summary "Onboarding guide" --content "Step 1..."
-youtrack article comment add MYPROJ-A-1 --text "Looks good."
-youtrack article comment pin MYPROJ-A-1 <commentId>
-youtrack article tag MYPROJ-A-1 <tagId>
-
-# Projects
-youtrack project list
-youtrack project add --shortName MYPROJ --name "My Project" --leader john.doe
-youtrack project archive MYPROJ
-youtrack project team add-user MYPROJ 2-9   # opaque ID from: youtrack user get john.doe | jq .id
-youtrack project field list MYPROJ
-youtrack project timetrack set MYPROJ --enabled
-
-# Users
-youtrack user current
-youtrack user list --query "john"
-youtrack user add --login john.doe --fullName "John Doe" --email john.doe@example.com --password "Test1234!"
-youtrack user ban john.doe
-youtrack user delete john.doe --successor admin
-youtrack user timezone set john.doe "Europe/Berlin"
+youtrack skill install    # install the bundled skill for detected agents
+youtrack skill update     # update to the version bundled with this release
+youtrack skill remove     # uninstall
 ```
 
-## Global Flags
-
-| Flag | Description |
-|---|---|
-| `--json` / `-j` | Force JSON output |
-| `--plain` | Force tab-separated output, no headers |
-| `--fields FIELDS` / `-f` | Field projection: `--fields id,summary,reporter` |
-| `--server ALIAS` / `-s` | Use a named instance for this invocation |
-| `--base-url URL` | Override `YOUTRACK_BASE_URL` |
-| `--token TOKEN` | Override `YOUTRACK_TOKEN` |
-| `--verbose` | Print HTTP requests/responses to stderr |
-| `--quiet` | Suppress tips and hints (useful for scripting) |
-
-**Output defaults:** table when stdout is a TTY; JSON when piped or redirected.
-
-### --fields projection
-
-```bash
-youtrack issue list --fields id,summary,reporter
-youtrack issue list --fields 'comments(id,text)'
-youtrack issue list --fields project.shortName
-```
-
-Nested entity names auto-expand: `reporter` → `reporter(id,login,fullName)`.
-
-## AI Agent Integration
-
-A skill file for AI coding agents is included at `.agents/skills/youtrack-cli/SKILL.md`. Claude Code picks it up automatically from the repo root.
-
-To install it into another project with the [GitHub CLI](https://cli.github.com/manual/gh_skill_install):
-
+or specifically for **Claude Code** via the GitHub CLI:
 ```bash
 gh skill install JetBrains/youtrack-cli youtrack-cli --allow-hidden-dirs --agent claude-code
 ```
 
-`--allow-hidden-dirs` is required because the skill lives under `.agents/` (gh skips dot-prefixed directories by default). Add `--scope user` to install once for all projects instead of just the current repo.
+See [AI agent integration](docs/topics/youtrack-cli-ai-agent-integration.md) for read-only mode, JSON output, and skill details.
 
-## Further Reading
+## Learn more
 
-- [Security & Token Permissions](docs/security.md) — token disclaimer, `YOUTRACK_RO`, mutability reference
-- [Development Guide](docs/development.md) — build targets, E2E harness, project structure, adding commands
+- [Getting started](docs/topics/youtrack-cli-get-started.md) — install, authenticate, and run your first commands
+- [Authentication](docs/topics/youtrack-cli-authentication.md) — tokens, browser SSO, multiple instances, credential precedence
+- [Configuration](docs/topics/youtrack-cli-configuration.md) — config file, environment variables, global flags, update checks
+- [Scripting and automation](docs/topics/youtrack-cli-scripting.md) — JSON/plain output, field projection, exit codes, CI
+- [Security](docs/security.md) — token disclaimer, `YOUTRACK_RO`, keyring storage, command-mutability reference
 
 ## Contributing
 
-Open an issue before submitting a pull request for significant changes.
-
-## License
-
-Apache-2.0
+YouTrack CLI is open source under the Apache-2.0 license. Bug reports and pull requests are welcome — [CONTRIBUTING.md](CONTRIBUTING.md) covers how the project is built and tested.

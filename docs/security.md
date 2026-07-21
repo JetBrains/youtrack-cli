@@ -17,7 +17,7 @@ Any token you create via **Profile → Account Security → New Token** receives
 
 ## Token Storage
 
-Tokens saved via `auth get-token`, `instance add`, or `auth refresh-token` are stored in the OS keyring when one is available:
+Tokens saved via `auth login`, `instance add`, or `auth refresh-token` are stored in the OS keyring when one is available:
 
 - **macOS** — Keychain
 - **Windows** — Credential Manager
@@ -35,7 +35,7 @@ To opt out of keyring storage entirely (e.g. for deterministic CI setups), set:
 export YOUTRACK_DISABLE_KEYRING=1
 ```
 
-Environment variables (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored credentials entirely and are unaffected.
+Environment credentials (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored credentials entirely and are unaffected. Prefer an environment secret over a command-line token in automation, because command-line arguments can appear in shell history and process listings.
 
 ## Read-Only Mode
 
@@ -43,8 +43,8 @@ Set `YOUTRACK_RO=1` to prevent any write operations at the client level:
 
 ```bash
 export YOUTRACK_RO=1
-youtrack issue list --query "assignee: me"   # works
-youtrack issue add --project MYPROJ --summary "..."   # error: read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked
+youtrack issue list --query "assignee: me"      # works
+youtrack issue create --project MYPROJ --summary "..."   # error: read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked
 ```
 
 This flag blocks all `POST`, `PUT`, `DELETE`, and multipart upload requests at the HTTP client layer — no command-level checks required, so it protects against accidental writes regardless of which command is invoked.
@@ -56,58 +56,60 @@ This is particularly useful for:
 
 ## Command Mutability Reference
 
+Destructive commands (deletes, bans, archives, and similar) prompt for confirmation before acting; pass `--force` to skip the prompt in scripts.
+
 | Command | Mutates data? |
 |---|---|
-| `issue get` / `issue list` / `issue count` / `issue command suggest` | No |
-| `issue add` / `issue update` / `issue delete` | **Yes** |
+| `issue view` / `issue list` / `issue count` / `issue command suggest` | No |
+| `issue create` / `issue update` / `issue delete` | **Yes** |
 | `issue command` / `issue assign` / `issue unassign` | **Yes** |
 | `issue watch` / `issue unwatch` / `issue vote` / `issue unvote` | **Yes** |
 | `issue tag` / `issue visibility` | **Yes** |
 | `issue comment list` | No |
-| `issue comment add` / `issue comment update` / `issue comment delete` | **Yes** |
+| `issue comment create` / `issue comment update` / `issue comment delete` | **Yes** |
 | `issue comment pin` / `issue comment visibility` | **Yes** |
 | `issue link list` | No |
 | `issue link add` / `issue link remove` | **Yes** |
 | `issue link type list` | No |
-| `issue link type add` | **Yes** |
+| `issue link type create` | **Yes** |
 | `issue attachment list` | No |
 | `issue attachment add` / `issue attachment delete` | **Yes** |
-| `issue field get` | No |
+| `issue field view` | No |
 | `issue field set` | **Yes** |
 | `issue reaction add` / `issue reaction delete` | **Yes** |
-| `issue draft create` | **Yes** |
-| `issue workitem add` | **Yes** |
-| `article list` / `article get` | No |
-| `article add` / `article update` / `article delete` | **Yes** |
+| `issue draft create` / `issue draft update` / `issue draft submit` / `issue draft delete` | **Yes** |
+| `issue workitem create` | **Yes** |
+| `article list` / `article view` | No |
+| `article create` / `article update` / `article delete` | **Yes** |
 | `article tag` / `article visibility` / `article set-parent` | **Yes** |
-| `article comment list` / `article comment get` | No |
-| `article comment add` / `article comment update` / `article comment delete` | **Yes** |
+| `article comment list` / `article comment view` | No |
+| `article comment create` / `article comment update` / `article comment delete` | **Yes** |
 | `article comment pin` / `article comment visibility` | **Yes** |
 | `article comment reaction list` | No |
 | `article comment reaction add` / `article comment reaction delete` | **Yes** |
 | `article attachment list` | No |
 | `article attachment add` | **Yes** |
-| `article child list` / `article parent get` | No |
+| `article child list` / `article parent view` | No |
 | `article child add` | **Yes** |
-| `project list` / `project get` | No |
-| `project add` / `project delete` / `project archive` | **Yes** |
+| `project list` / `project view` | No |
+| `project create` / `project delete` / `project archive` | **Yes** |
 | `project team add-user` / `project team add-group` | **Yes** |
 | `project field list` | No |
 | `project field add` | **Yes** |
 | `project timetrack set` / `project workflow add` | **Yes** |
 | `project template list` | No |
-| `board list` / `board get` | No |
-| `board add` / `board delete` | **Yes** |
-| `board sprint list` / `board sprint get` | No |
-| `board sprint add` | **Yes** |
-| `user list` / `user get` / `user current` | No |
-| `user add` / `user delete` / `user ban` / `user unban` | **Yes** |
+| `board list` / `board view` | No |
+| `board create` / `board update` / `board delete` | **Yes** |
+| `board sprint list` / `board sprint view` | No |
+| `board sprint create` | **Yes** |
+| `user list` / `user view` / `user current` | No |
+| `user create` / `user delete` / `user ban` / `user unban` | **Yes** |
 | `user locale set` / `user timezone set` | **Yes** |
-| `user timezone get` | No |
+| `user timezone view` | No |
 | `user profile *` | No (reads only) |
-| `user drafts issues` | No |
+| `user drafts issues` / `user drafts articles` | No |
 | `user drafts delete` | **Yes** |
 | `auth status` | No |
-| `auth get-token` / `auth refresh-token` / `auth logout` | **Yes** (local config only) |
-| `instance add` / `instance use` / `instance remove` / `instance update-token` | **Yes** (local config only) |
-| `instance list` | No |
+| `auth login` / `auth refresh-token` / `auth logout` | **Yes** (local config only) |
+| `instance add` / `instance use` / `instance delete` / `instance refresh-token` / `instance login` | **Yes** (local config only) |
+| `instance list` / `instance version` | No |
