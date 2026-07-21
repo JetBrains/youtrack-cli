@@ -155,11 +155,19 @@ func TestCmd_UserDrafts(t *testing.T) {
 	draft, err := c.CreateDraft(proj.ID, "user drafts fixture", "")
 	require.NoError(t, err)
 
-	// Listing by login must resolve to the same drafts as "me".
+	// Listing by login, "me", or no argument at all must resolve to the same drafts.
 	out := runCmd(t, "user", "drafts", "list", me.Login, "--format", "json")
 	assert.Contains(t, out, draft.ID)
 	out = runCmd(t, "user", "drafts", "list", "me", "--format", "json")
 	assert.Contains(t, out, draft.ID)
+	out = runCmd(t, "user", "drafts", "list", "--format", "json")
+	assert.Contains(t, out, draft.ID)
+
+	// Article drafts are private too: no argument defaults to the current user (a JSON array),
+	// and another user's drafts are inaccessible.
+	out = runCmd(t, "user", "drafts", "articles", "--format", "json")
+	assert.Contains(t, out, "[")
+	runCmdExpectError(t, "user", "drafts", "articles", "no-such-user-e2e")
 
 	// An unknown login must error out, not silently target the current user.
 	runCmdExpectError(t, "user", "drafts", "list", "no-such-user-e2e")
