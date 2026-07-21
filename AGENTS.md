@@ -39,10 +39,10 @@ export YOUTRACK_TOKEN=perm:...
 | `api/users.go` | User API methods |
 | `cmd/youtrack.go` | Cobra root command, exports `NewRootCmd()`, global flags, subcommand registration |
 | `internal/client.go` | `GetClient()` helper — reads flags and env vars |
-| `cmd/issue/` | Issue subcommands (17 files) |
-| `cmd/project/` | Project subcommands (10 files) |
-| `cmd/user/` | User subcommands (12 files) |
-| `cmd/output/` | JSON and table output formatters |
+| `cmd/issue/` | Issue subcommands (23 files) |
+| `cmd/project/` | Project subcommands (11 files) |
+| `cmd/user/` | User subcommands (13 files) |
+| `internal/output/` | JSON and table output formatters |
 | `test/` | End-to-end tests against a real YouTrack instance (`package api_test`) |
 
 ## Command Registration
@@ -51,7 +51,7 @@ Add a new file in `cmd/` (e.g., `cmd/issue_foo.go`). Create a constructor `newIs
 
 - Use `internal.GetClient(cmd)` to obtain the API client.
 - Return errors from `RunE` — the root command prints them to stderr.
-- Use `output.Print(cmd, data)` for all output — it respects `--format`.
+- Use `output.Print(cmd, data)` for all output — it respects `--json`/`--plain`.
 
 ## When Adding a Command
 
@@ -84,6 +84,10 @@ transport, and neither is a second product surface asserting client behavior:
   inside the E2E job, it diffs our Go structs against the live server's OpenAPI spec to catch contract
   changes. It asserts no client behavior; it is a static schema-vs-struct guard, not a conformance suite.
 
+Two scoped exceptions complement the E2E suite: (1) pure-function unit tests in `api/*_test.go` and `internal/*_test.go`,
+run with `go test ./api/ ./internal/`; (2) API drift detection in `test/drift_test.go` (`TestAPIDrift`), which diffs the
+Go structs against the live OpenAPI spec.
+
 Run the full suite with `make test`. It boots or reuses the local Dockerized YouTrack harness, bootstraps credentials,
 and runs the entire `./test` package against that live instance. Each test is self-contained: it creates all needed
 entities and registers `t.Cleanup()` teardown. Helper functions in `test/helpers_test.go`: `newTestClient(t)`,
@@ -104,8 +108,8 @@ surface with its own parallel contract suite. Keep CLI coverage centered on obse
 
 ## Gotchas
 
-- **IMPORTANT — `project add` requires `--leader`**: the YouTrack API rejects project creation without it. Use `user current` to get the current user's login if none is specified.
-- **`project team add-user` / `project team add-group` expect opaque IDs** (e.g. `2-9`, `4-1`), not logins or group names. When creating entities, capture the `id` field from the JSON response and pass that. When using existing entities, retrieve the ID first with `user get <login>` or `group get <name>`.
+- **IMPORTANT — `project create` requires `--leader`**: the YouTrack API rejects project creation without it. Use `user current` to get the current user's login if none is specified.
+- **`project team add-user` / `project team add-group` expect opaque IDs** (e.g. `2-9`, `4-1`), not logins or group names. When creating entities, capture the `id` field from the JSON response and pass that. When using existing entities, retrieve the ID first with `user view <login>` or `group view <name>`.
 - **`issue command` logins**: the CLI auto-wraps logins containing `.`, `-`, or `@` in braces for YouTrack's command parser (`alice.qa` → `{alice.qa}`). Write the login as-is.
 - **`--asUser <login>`**: the target user must have at least a Contributor role in the project.
 

@@ -21,7 +21,14 @@ Always run `make check` before pushing. It runs formatting, linting, build, and 
 
 ## Testing
 
-Tests are end-to-end only — no mocks, no fake transport. The subject under test is the compiled `youtrack` binary against a real YouTrack instance running in Docker.
+CLI behavior is tested end-to-end only — no mocks, no fake transport. The subject under test is the compiled `youtrack` binary against a real YouTrack instance running in Docker.
+
+Two scoped exceptions complement the E2E suite:
+
+- Pure-function unit tests live in `api/*_test.go` and `internal/*_test.go`; run them with `go test ./api/ ./internal/`.
+- API drift detection lives in `test/drift_test.go` (`TestAPIDrift`, gated on the E2E environment), which diffs the Go structs against the live OpenAPI spec.
+
+CI also runs a `govulncheck` scan.
 
 ```bash
 make e2e-up          # start (or reuse) the local Docker YouTrack instance
@@ -80,7 +87,7 @@ go test ./test/ -run TestGetIssue -v
 | `cmd/issue/` | Issue subcommands |
 | `cmd/project/` | Project subcommands |
 | `cmd/user/` | User subcommands |
-| `cmd/output/` | JSON and table output formatters |
+| `internal/output/` | JSON and table output formatters |
 | `test/` | End-to-end tests (`package api_test`) |
 
 ## Adding a Command
@@ -90,7 +97,7 @@ go test ./test/ -run TestGetIssue -v
 3. Register it in the parent's `NewCmd()`: grouped parents (root, `issue`, `project`, `user`) use `internal.AddToGroup(cmd, "<groupID>", newIssueFooCmd())` so the command lands in a help group; flat parents call `cmd.AddCommand(newIssueFooCmd())`.
 4. Use `internal.GetClient(cmd)` to obtain the API client.
 5. Return errors from `RunE` — the root command prints them to stderr.
-6. Use `output.Print(cmd, data)` for all output (respects `--format`).
+6. Use `output.Print(cmd, data)` for all output (respects `--json`/`--plain`, with TTY auto-detection).
 7. Add a usage example to `README.md` and update `.agents/skills/youtrack-cli/SKILL.md` if part of a non-trivial workflow.
 
 ## Coding Conventions
