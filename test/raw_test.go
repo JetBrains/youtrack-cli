@@ -29,6 +29,7 @@ func TestCmd_RawFieldsProjection(t *testing.T) {
 func TestCmd_RawUnexpectedResponse(t *testing.T) {
 	requireE2EEnv(t)
 
+	// The JSON error envelope is rendered on stderr; stdout carries only data.
 	out := runCmdExpectError(t,
 		"--base-url", os.Getenv("YOUTRACK_BASE_URL"),
 		"--token", os.Getenv("YOUTRACK_TOKEN"),

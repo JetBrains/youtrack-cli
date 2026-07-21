@@ -164,6 +164,7 @@ func tryCmdNoFail(t *testing.T, args ...string) (string, error) {
 	return stdout.String(), err
 }
 
+// runCmdExpectError runs the binary, asserts a non-zero exit, and returns stderr (where errors render).
 func runCmdExpectError(t *testing.T, args ...string) string {
 	t.Helper()
 	requireE2EEnv(t)
@@ -175,7 +176,7 @@ func runCmdExpectError(t *testing.T, args ...string) string {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	require.Error(t, err, "binary stdout: %s\nbinary stderr: %s", stdout.String(), stderr.String())
-	return stdout.String()
+	return stderr.String()
 }
 
 // runCmdWithInput executes the compiled CLI binary with the given args and provides

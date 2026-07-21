@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -71,8 +69,8 @@ func newDashboardDeleteCmd() *cobra.Command {
 			if err := client.DeleteDashboard(args[0]); err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), "deleted dashboard "+args[0])
-			return err
+			output.PrintSuccess(cmd, "deleted dashboard "+args[0])
+			return nil
 		},
 	}
 }

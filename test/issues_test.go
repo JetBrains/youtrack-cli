@@ -416,7 +416,7 @@ func TestCmd_UserDeleteSelfRejected(t *testing.T) {
 	require.NoError(t, err)
 
 	out := runCmdExpectError(t, "user", "delete", me.Login, "--successor", me.Login, "--force")
-	_ = out // error is on stderr; runCmdExpectError asserts non-zero exit
+	_ = out // runCmdExpectError asserts non-zero exit; errors render on stderr
 }
 
 func TestCmd_IssueCommentView(t *testing.T) {
