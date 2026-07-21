@@ -5,6 +5,8 @@
 
 `youtrack` is the command-line client for [YouTrack](https://www.jetbrains.com/youtrack/). It covers the day-to-day — creating and searching issues, applying commands, managing projects and users — and the odd jobs too: knowledge-base articles, agile boards, admin settings, and raw REST calls when nothing else fits. It's built for both people at a terminal and AI agents driving YouTrack in a pipeline.
 
+![youtrack-cli demo](docs/assets/youtrack-cli.gif)
+
 Full documentation — installation, authentication, configuration, and a command reference — lives under [docs/](docs/topics/youtrack-cli.md).
 
 > **Security notice:** YouTrack does not support granular token scopes; any token grants full account access. See [docs/security.md](docs/security.md) before using `youtrack` in pipelines or with AI agents.
