@@ -167,7 +167,7 @@ func TestCmd_UserDrafts(t *testing.T) {
 	assert.NotEmpty(t, drafts, "delete for an unknown user must not wipe the current user's drafts")
 
 	// Delete by login, then assert the fixture is gone (not that the list is empty, since the account may have other drafts).
-	runCmd(t, "user", "drafts", "delete", me.Login)
+	runCmd(t, "user", "drafts", "delete", me.Login, "--force")
 	drafts, err = c.GetUserIssueDrafts("me")
 	require.NoError(t, err)
 	for _, d := range drafts {
