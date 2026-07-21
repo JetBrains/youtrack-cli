@@ -3,7 +3,7 @@
 [![](https://jb.gg/badges/official-plastic.svg)](https://github.com/JetBrains)
 [![GitHub Release](https://img.shields.io/github/v/release/JetBrains/youtrack-cli?style=plastic)](https://github.com/JetBrains/youtrack-cli/releases/latest)
 
-`youtrack` is the command-line client for [YouTrack](https://www.jetbrains.com/youtrack/). It covers the day-to-day — creating and searching issues, applying commands, managing projects and users — and the odd jobs too: knowledge-base articles, agile boards, admin settings, and raw REST calls when nothing else fits. It's built for both people at a terminal and AI agents driving YouTrack in a pipeline.
+Command-line client for [YouTrack](https://www.jetbrains.com/youtrack/), covering the day-to-day — issues, commands, projects, users — plus the odd jobs: knowledge-base articles, agile boards, admin settings, and raw REST calls when nothing else fits. Built for people at a terminal and AI agents driving YouTrack in a pipeline.
 
 ![youtrack-cli demo](docs/assets/youtrack-cli.gif)
 
