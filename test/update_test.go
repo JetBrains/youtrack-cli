@@ -84,28 +84,24 @@ func TestCmd_Update_JSON(t *testing.T) {
 	require.Empty(t, stderr)
 }
 
-func TestCmd_Update_Table_ShowsFallbackForUnknownInstall(t *testing.T) {
-	// The test binary lives in a throwaway temp dir, matching no known install
-	// method, so DetectInstallMethod() resolves to InstallUnknown here — the
-	// command must fall back to printing instructions rather than attempting
-	// to run anything.
+// TestCmd_Update_NonTTY_ReportsWithoutAttempting covers a redirected/logged
+// invocation of "update --format table" — piping through exec.Command always
+// gives a non-TTY stdout, exactly the case that must never trigger a real
+// auto-upgrade attempt, even though --format table resolves the same as an
+// interactive run. It should still report the available update and the manual
+// upgrade command, just without attempting to run anything or suggesting the
+// gh-based alternative (that's only surfaced as part of the interactive
+// fallback flow).
+func TestCmd_Update_NonTTY_ReportsWithoutAttempting(t *testing.T) {
 	stdout, stderr, err := runUpdate(t, nil, "--format", "table")
 	skipIfUpdateCheckUnreachable(t, stdout, stderr, err)
 
 	require.Contains(t, stderr, "Checking for updates...")
-	require.Contains(t, stdout, "YouTrack CLI dev")
+	require.Contains(t, stdout, "YouTrack CLI")
+	require.Contains(t, stdout, "is available (you have dev)")
 	require.Contains(t, stdout, "Upgrade:")
 	require.Contains(t, stdout, "https://github.com/JetBrains/youtrack-cli/releases/latest")
-
-	hasGH := false
-	if _, lookErr := exec.LookPath("gh"); lookErr == nil {
-		hasGH = true
-	}
-	if hasGH {
-		require.Contains(t, stdout, "Alternative (via gh):")
-	} else {
-		require.NotContains(t, stdout, "Alternative (via gh):")
-	}
+	require.NotContains(t, stdout, "Alternative (via gh):")
 }
 
 func TestCmd_Update_AlreadyUpToDate(t *testing.T) {
