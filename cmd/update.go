@@ -3,9 +3,11 @@ package cmd
 import (
 	"fmt"
 	"io"
+	"os"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
@@ -26,15 +28,19 @@ With --json or --plain, or when no newer release exists, only the status is
 reported — no upgrade is attempted.`,
 		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			interactive := output.Format(cmd) == "table"
-			if interactive {
+			humanFormat := output.Format(cmd) == "table"
+			if humanFormat {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Checking for updates...")
 			}
 			status, err := internal.CheckNow(internal.Version)
 			if err != nil {
 				return fmt.Errorf("checking for updates: %w", err)
 			}
-			if !status.UpdateAvailable || !interactive {
+			// Auto-upgrade must never fire on a redirected/logged invocation, even if
+			// --format table was explicitly passed (which bypasses Format's own TTY
+			// auto-detection) — require a real terminal on top of the resolved format.
+			canAutoUpgrade := humanFormat && term.IsTerminal(int(os.Stdout.Fd()))
+			if !status.UpdateAvailable || !canAutoUpgrade {
 				return output.Print(cmd, status)
 			}
 			return runUpgrade(cmd, status)

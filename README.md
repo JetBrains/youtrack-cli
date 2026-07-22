@@ -91,6 +91,9 @@ youtrack issue view DEMO-42 --comments 5
 
 # what a command would do, without applying it
 youtrack issue command suggest DEMO-42 "State "
+
+# keep the CLI itself up to date
+youtrack update
 ```
 
 Every command takes `--json` or `--plain` for [scripting](docs/topics/youtrack-cli-scripting.md), and `--fields` to pick table/plain columns and pull extra fields from the API. When no command covers what you need, `youtrack raw` calls the REST API directly with your stored credentials. You can register several instances and switch between them, sign in through the browser, or point at a server with environment variables — see [authentication](docs/topics/youtrack-cli-authentication.md) and [configuration](docs/topics/youtrack-cli-configuration.md).

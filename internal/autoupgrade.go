@@ -6,7 +6,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"os/exec"
+	"path/filepath"
 )
 
 const installScriptURL = "https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh"
@@ -61,12 +63,25 @@ func RunAutoUpgrade(method InstallMethod, out, errOut io.Writer) (attempted bool
 	return true, cmd.Run()
 }
 
+// runInstallScriptUpgrade re-runs install.sh targeting the directory that already
+// holds the running binary. Without this, install.sh's own default (/usr/local/bin,
+// falling back to ~/.local/bin only if that's unwritable) can silently diverge from
+// wherever this binary actually lives, leaving a second, unused copy behind instead
+// of replacing the one on PATH.
 func runInstallScriptUpgrade(out, errOut io.Writer) error {
 	script, err := downloadInstallScript()
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command("bash")
+	exe, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	outDir := filepath.Dir(exe)
+
+	// bash -s reads the script from stdin; everything after "--" becomes $1, $2, ...
+	// RELEASE ($1) is left empty so install.sh resolves the latest release itself.
+	cmd := exec.Command("bash", "-s", "--", "", outDir)
 	cmd.Stdin = bytes.NewReader(script)
 	cmd.Stdout = out
 	cmd.Stderr = errOut

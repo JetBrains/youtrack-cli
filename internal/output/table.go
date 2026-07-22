@@ -237,9 +237,13 @@ func PrintTable(out io.Writer, data any) error {
 			_, _ = fmt.Fprintf(w, "%s\t%s\n", f.ID, name)
 		}
 	case *internal.UpdateStatus:
-		// UpdateAvailable is always false here: the "update" command handles the
-		// available case itself (it attempts an upgrade instead of just reporting).
-		_, _ = fmt.Fprintf(w, "%s YouTrack CLI %s — up to date\n", successIcon, internal.FormatVersion(v.CurrentVersion))
+		if v.UpdateAvailable {
+			_, _ = fmt.Fprintf(w, "YouTrack CLI %s is available (you have %s)\n",
+				internal.FormatVersion(v.LatestVersion), internal.FormatVersion(v.CurrentVersion))
+			_, _ = fmt.Fprintf(w, "Upgrade:\t%s\n", v.UpgradeCommand)
+		} else {
+			_, _ = fmt.Fprintf(w, "%s YouTrack CLI %s — up to date\n", successIcon, internal.FormatVersion(v.CurrentVersion))
+		}
 	default:
 		return printJSON(out, data)
 	}
