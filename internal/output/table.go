@@ -9,6 +9,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/JetBrains/youtrack-cli/api"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 // PrintTable renders data as a human-readable table. Falls back to JSON for unknown types.
@@ -235,6 +236,10 @@ func PrintTable(out io.Writer, data any) error {
 			}
 			_, _ = fmt.Fprintf(w, "%s\t%s\n", f.ID, name)
 		}
+	case *internal.UpdateStatus:
+		// UpdateAvailable is always false here: the "update" command handles the
+		// available case itself (it attempts an upgrade instead of just reporting).
+		_, _ = fmt.Fprintf(w, "%s YouTrack CLI %s — up to date\n", successIcon, internal.FormatVersion(v.CurrentVersion))
 	default:
 		return printJSON(out, data)
 	}

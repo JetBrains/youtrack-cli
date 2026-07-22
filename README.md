@@ -123,6 +123,7 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 | **auth** | `login` (`get-token`), `logout`, `status`, `refresh-token` |
 | **instance** | `add`, `login`, `list`, `use`, `version`, `delete`, `refresh-token` |
 | **raw** | Authenticated request to any REST endpoint |
+| **update** | Check for a newer CLI release and upgrade through the detected install method |
 | **skill** | `list`, `install`, `update`, `remove` |
 
 ## For AI agents

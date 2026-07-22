@@ -81,7 +81,7 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 		auth.NewCmd(), instance.NewCmd(),
 	)
 	internal.AddToGroup(rootCmd, "util",
-		newRawCmd(), skill.NewCmd(fs),
+		newRawCmd(), newUpdateCmd(), skill.NewCmd(fs),
 	)
 
 	return rootCmd
