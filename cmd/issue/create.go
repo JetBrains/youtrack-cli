@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -125,20 +124,26 @@ func newIssueCreateCmd() *cobra.Command {
 	return cmd
 }
 
-// jsonToCommand converts {"State":"Fixed"} into a sorted, deterministic YouTrack command; user logins are braced downstream by api.WrapUserValues.
+// jsonToCommand converts {"Type":"Bug","Subsystem":"UI"} into a YouTrack command,
+// preserving JSON key order so conditional fields can be ordered before dependents
+// (e.g. Type before Subsystem). User logins are braced downstream by api.WrapUserValues.
 func jsonToCommand(jsonStr string) (string, error) {
-	var fields map[string]string
-	if err := json.Unmarshal([]byte(jsonStr), &fields); err != nil {
-		return "", fmt.Errorf(`%w (custom-fields must be a flat JSON object of string values, e.g. {"Assignee":"alice.qa"})`, err)
+	shape := fmt.Errorf(`custom-fields must be a flat JSON object of string values, e.g. {"Type":"Bug","Assignee":"alice.qa"}`)
+	dec := json.NewDecoder(strings.NewReader(jsonStr))
+	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
+		return "", shape
 	}
-	keys := make([]string, 0, len(fields))
-	for k := range fields {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
-	parts := make([]string, 0, len(fields)*2)
-	for _, k := range keys {
-		parts = append(parts, k, fields[k])
+	var parts []string
+	for dec.More() {
+		key, err := dec.Token()
+		if err != nil {
+			return "", shape
+		}
+		var value string
+		if err := dec.Decode(&value); err != nil {
+			return "", fmt.Errorf("%w (%w)", err, shape)
+		}
+		parts = append(parts, key.(string), value)
 	}
 	return strings.Join(parts, " "), nil
 }
