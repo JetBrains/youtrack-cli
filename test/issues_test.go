@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -158,6 +159,26 @@ func TestCmd_IssueCreateWithFieldsProjection(t *testing.T) {
 			t.Cleanup(func() { _ = c.DeleteIssue(iss.IDReadable) })
 		}
 	}
+}
+
+// A failing --custom-fields must not leave a stray issue behind: create rolls back atomically.
+func TestCmd_IssueCreateRollsBackOnBadCustomField(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	out, err := runCmdFail(t, "issue", "create",
+		"--project", proj.ShortName,
+		"--summary", "rollback test",
+		"--custom-fields", `{"NonExistentField999":"Bug"}`,
+	)
+	require.Error(t, err)
+	require.Contains(t, out, "rolled back", "output: %s", out)
+
+	m := regexp.MustCompile(`issue ([A-Z0-9]+-\d+) was rolled back`).FindStringSubmatch(out)
+	require.Len(t, m, 2, "error should name the rolled-back issue: %s", out)
+
+	_, err = c.GetIssueDetail(m[1])
+	assert.Error(t, err, "rolled-back issue %s should no longer exist", m[1])
 }
 
 func TestCmd_IssueView(t *testing.T) {

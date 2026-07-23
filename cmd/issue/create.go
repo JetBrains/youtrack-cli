@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -51,6 +52,16 @@ func newIssueCreateCmd() *cobra.Command {
 				customFields = string(b)
 			}
 
+			// Parse before creating so bad input never leaves a stray, partially-fielded issue.
+			var customFieldsCmd string
+			if customFields != "" {
+				q, err := jsonToCommand(customFields)
+				if err != nil {
+					return fmt.Errorf("parse custom-fields: %w", err)
+				}
+				customFieldsCmd = q
+			}
+
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -80,20 +91,23 @@ func newIssueCreateCmd() *cobra.Command {
 				return err
 			}
 
-			if customFields != "" {
-				cmdQuery, err := jsonToCommand(customFields)
-				if err != nil {
-					return fmt.Errorf("parse custom-fields: %w", err)
-				}
-				if err := client.ApplyCommand(cmdQuery, []string{issue.IDReadable}); err != nil {
-					return fmt.Errorf("apply custom fields: %w", err)
+			// Custom fields and parent apply as follow-up commands; roll back the issue if either fails so create stays atomic.
+			var applyErr error
+			if customFieldsCmd != "" {
+				if err := client.ApplyCommand(customFieldsCmd, []string{issue.IDReadable}); err != nil {
+					applyErr = fmt.Errorf("apply custom fields: %w", err)
 				}
 			}
-
-			if parent != "" {
+			if applyErr == nil && parent != "" {
 				if err := client.ApplyCommand("parent for "+parent, []string{issue.IDReadable}); err != nil {
-					return fmt.Errorf("set parent: %w", err)
+					applyErr = fmt.Errorf("set parent: %w", err)
 				}
+			}
+			if applyErr != nil {
+				if delErr := client.DeleteIssue(issue.IDReadable); delErr != nil {
+					return fmt.Errorf("%w; issue %s was created but could not be rolled back: %w", applyErr, issue.IDReadable, delErr)
+				}
+				return fmt.Errorf("%w; created issue %s was rolled back", applyErr, issue.IDReadable)
 			}
 
 			return output.Print(cmd, issue)
@@ -111,15 +125,20 @@ func newIssueCreateCmd() *cobra.Command {
 	return cmd
 }
 
-// jsonToCommand converts {"State":"Fixed","Priority":"High"} → "State Fixed Priority High".
+// jsonToCommand converts {"State":"Fixed"} into a sorted, deterministic YouTrack command; user logins are braced downstream by api.WrapUserValues.
 func jsonToCommand(jsonStr string) (string, error) {
 	var fields map[string]string
 	if err := json.Unmarshal([]byte(jsonStr), &fields); err != nil {
-		return "", err
+		return "", fmt.Errorf(`%w (custom-fields must be a flat JSON object of string values, e.g. {"Assignee":"alice.qa"})`, err)
 	}
+	keys := make([]string, 0, len(fields))
+	for k := range fields {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
 	parts := make([]string, 0, len(fields)*2)
-	for k, v := range fields {
-		parts = append(parts, k, v)
+	for _, k := range keys {
+		parts = append(parts, k, fields[k])
 	}
 	return strings.Join(parts, " "), nil
 }

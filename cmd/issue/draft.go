@@ -146,7 +146,7 @@ func newIssueDraftUpdateCmd() *cobra.Command {
 			if customFields != "" {
 				var fields map[string]string
 				if err := json.Unmarshal([]byte(customFields), &fields); err != nil {
-					return fmt.Errorf("parse --custom-fields: %w", err)
+					return fmt.Errorf(`parse --custom-fields: %w (custom-fields must be a flat JSON object of string values, e.g. {"Priority":"High"})`, err)
 				}
 				for name, value := range fields {
 					field := findDraftField(draft.Fields, name)
