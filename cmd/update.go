@@ -60,7 +60,7 @@ func runUpgrade(cmd *cobra.Command, status *internal.UpdateStatus) error {
 		color.New(color.Faint).Sprint("→"),
 		color.New(color.FgGreen).Sprint(internal.FormatVersion(status.LatestVersion)))
 
-	attempted, err := internal.RunAutoUpgrade(method, out, errOut)
+	attempted, err := internal.RunAutoUpgrade(method, status.LatestVersion, out, errOut)
 	if !attempted {
 		printUpgradeFallback(out, method)
 		return nil

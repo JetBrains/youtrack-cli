@@ -197,7 +197,7 @@ func (c *Client) GetUserIssueDrafts(identifier string) ([]IssueDraft, error) {
 		return nil, err
 	}
 	var result []IssueDraft
-	path := fmt.Sprintf(pathUserDrafts+"?fields=id,summary,created&$top=-1", "me")
+	path := fmt.Sprintf(pathUserDrafts+"?fields=id,summary,created&$top=500", "me")
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -215,7 +215,7 @@ func (c *Client) GetUserArticleDrafts(identifier string) ([]ArticleDraft, error)
 		return nil, err
 	}
 	var result []ArticleDraft
-	path := fmt.Sprintf(pathUserArticleDrafts+"?fields=id,summary&$top=-1", "me")
+	path := fmt.Sprintf(pathUserArticleDrafts+"?fields=id,summary&$top=500", "me")
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -303,7 +303,7 @@ func (c *Client) GetUserProfile(id string) (map[string]any, error) {
 
 func (c *Client) ListUserTags(id string) ([]Tag, error) {
 	var result []Tag
-	path := fmt.Sprintf(pathUserTags+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve&$top=-1", url.PathEscape(id))
+	path := fmt.Sprintf(pathUserTags+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve&$top=500", url.PathEscape(id))
 	err := c.Get(path, &result)
 	return result, err
 }

@@ -39,10 +39,10 @@ Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still
 | Links | `issue link list`, `add`, `remove`, `type list/create` (`add`) |
 | Attachments | `issue attachment list`, `add`, `delete` |
 | Custom fields | `issue field view` (`get`), `set` |
-| Work items | `issue workitem create` (`add`) |
+| Work items | `issue workitem list`, `view`, `create` (`add`), `update`, `delete` |
 | Projects | `project list`, `view` (`get`), `create` (`add`), `delete`, `archive` |
-| Project team | `project team add-user`, `add-group` |
-| Project fields | `project field list`, `add` |
+| Project team | `project team list-users`, `list-groups`, `add-user`, `add-group`, `remove-user`, `remove-group` |
+| Project fields | `project field list`, `add`, `remove` |
 | Users | `user list`, `view` (`get`), `current` (`me`), `create` (`add`), `delete`, `ban`, `unban` |
 | User profile | `user profile view` (`get`), `general`, `appearance`, `notifications`, `articles`, `issues-list`, `grazie`, `tips`, `property`, `timetracking view` |
 | Groups | `group list`, `view` (`get`), `create` (`add`), `delete` |
@@ -62,7 +62,9 @@ Bare `--json` returns every field the API sends for that entity. `--fields` / `-
 youtrack issue list --query "assignee: me" --fields id,summary,state
 ```
 
-On large projects, pass `--limit` on `issue list` (default 100) to cap how many issues come back instead of pulling the full list.
+On large projects, page through `issue list` with `--limit` (default 100) and
+`--offset`. For arbitrary collection endpoints, `raw --paginate` combines all
+pages and accepts `--page-size`.
 
 ## Quick Workflows
 

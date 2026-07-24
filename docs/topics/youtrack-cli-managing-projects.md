@@ -107,7 +107,7 @@ youtrack project delete DEMO --force
 
 ## Managing the project team {id="team"}
 
-Add users and groups to a project team so they can work on its issues.
+List, add, and remove users and groups in a project team.
 
 Both team commands take opaque IDs, not logins or group names. A user ID looks like `2-9`; a group ID looks like `4-1`. Look up the ID first, then pass it.
 
@@ -116,6 +116,8 @@ To add a user, read the user's `id`, then add it:
 ```Shell
 youtrack user view jane.doe --json
 youtrack project team add-user DEMO 2-9
+youtrack project team list-users DEMO
+youtrack project team remove-user DEMO 2-9
 ```
 
 To add a group, read the group's `id`, then add it:
@@ -123,6 +125,8 @@ To add a group, read the group's `id`, then add it:
 ```Shell
 youtrack group view Developers --json
 youtrack project team add-group DEMO 4-1
+youtrack project team list-groups DEMO
+youtrack project team remove-group DEMO 4-1
 ```
 
 > Extract the ID in one step with a JSON processor, for example `youtrack user view jane.doe --json | jq -r .id`.
@@ -138,6 +142,13 @@ youtrack project field list DEMO
 ```
 
 Attach an existing custom field to a project with `youtrack project field add`. The `--field` flag takes the custom field's ID, which you look up at the instance level:
+
+Remove an attached field with its project-field ID (the `id` returned by
+`project field list`, not the global field ID):
+
+```Shell
+youtrack project field remove DEMO 92-3 --force
+```
 
 ```Shell
 youtrack field list --json

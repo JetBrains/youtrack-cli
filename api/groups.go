@@ -11,7 +11,7 @@ const groupDeleteSyncTimeout = 30 * time.Second
 
 func (c *Client) ListGroups(query string) ([]Group, error) {
 	var result []Group
-	path := pathGroups + fmt.Sprintf("?fields=id,name&searchQuery=%s&$top=-1", url.QueryEscape(query))
+	path := pathGroups + fmt.Sprintf("?fields=id,name&searchQuery=%s&$top=500", url.QueryEscape(query))
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -43,14 +43,14 @@ func (c *Client) AddGroup(name string) (*Group, error) {
 
 func (c *Client) ListGroupMembers(groupID string) ([]User, error) {
 	var result []User
-	path := fmt.Sprintf(pathGroupMembers+"?fields="+userFields+"&$top=-1", url.PathEscape(groupID))
+	path := fmt.Sprintf(pathGroupMembers+"?fields="+userFields+"&$top=500", url.PathEscape(groupID))
 	err := c.Get(path, &result)
 	return result, err
 }
 
 func (c *Client) ListGroupProjectRoles(groupID string) ([]AssignedRole, error) {
 	var all []AssignedRole
-	path := pathAssignedRoles + "?fields=id,role(id,name),holder(id,$type),scope($type,project(id,shortName,name))&$top=-1"
+	path := pathAssignedRoles + "?fields=id,role(id,name),holder(id,$type),scope($type,project(id,shortName,name))&$top=500"
 	if err := c.Get(path, &all); err != nil {
 		return nil, err
 	}

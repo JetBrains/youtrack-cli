@@ -7,7 +7,7 @@ import (
 
 func (c *Client) ListDashboards() ([]Dashboard, error) {
 	var result []Dashboard
-	err := c.Get(pathDashboards+"?fields=id,name&$top=-1", &result)
+	err := c.Get(pathDashboards+"?fields=id,name&$top=500", &result)
 	return result, err
 }
 

@@ -48,7 +48,7 @@ func (c *Client) RemoveRolePermission(roleID, permID string) error {
 
 func (c *Client) ListRoles() ([]Role, error) {
 	var result []Role
-	err := c.Get(pathRoles+"?fields="+roleFields+"&$top=-1", &result)
+	err := c.Get(pathRoles+"?fields="+roleFields+"&$top=500", &result)
 	return result, err
 }
 
@@ -82,7 +82,7 @@ func (c *Client) UpdateRole(id string, permissionIDs []string) error {
 
 func (c *Client) GetPermissions() ([]Permission, error) {
 	var result []Permission
-	err := c.Get(pathPermissions+"?fields=id,name,description,key&$top=-1", &result)
+	err := c.Get(pathPermissions+"?fields=id,name,description,key&$top=500", &result)
 	return result, err
 }
 
@@ -134,7 +134,7 @@ func (c *Client) GrantRoleToGroup(groupID, roleID, projectID string) error {
 func (c *Client) ListAssignedRoles(holderID string) ([]AssignedRole, error) {
 	path := pathAssignedRoles +
 		"?fields=id,role(id,name,description),holder($type,id,name,login,email)," +
-		"scope($type,id,project(id,name,shortName))&$top=-1"
+		"scope($type,id,project(id,name,shortName))&$top=500"
 	if holderID != "" {
 		path += "&query=" + url.QueryEscape("holder: "+holderID)
 	}

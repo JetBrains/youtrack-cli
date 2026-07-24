@@ -40,21 +40,28 @@ func TestInstance_List(t *testing.T) {
 	configFixture(t, tmpHome, twoInstanceConfig)
 
 	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome}, "instance", "list")
-
-	assert.Contains(t, out, "work")
-	assert.Contains(t, out, "https://work.example.com")
-	assert.Contains(t, out, "[active]")
-	assert.Contains(t, out, "personal")
-	assert.Contains(t, out, "https://personal.example.com")
-	assert.NotContains(t, out, "No instances configured")
+	var items []struct {
+		Alias  string `json:"alias"`
+		URL    string `json:"url"`
+		Active bool   `json:"active"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &items))
+	require.Len(t, items, 2)
+	assert.Equal(t, "personal", items[0].Alias)
+	assert.Equal(t, "https://personal.example.com", items[0].URL)
+	assert.False(t, items[0].Active)
+	assert.Equal(t, "work", items[1].Alias)
+	assert.Equal(t, "https://work.example.com", items[1].URL)
+	assert.True(t, items[1].Active)
 }
 
 func TestInstance_List_Empty(t *testing.T) {
 	tmpHome := t.TempDir()
 
 	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome}, "instance", "list")
-
-	assert.Contains(t, out, "No instances configured")
+	var items []any
+	require.NoError(t, json.Unmarshal([]byte(out), &items))
+	assert.Empty(t, items)
 }
 
 func TestInstance_Use(t *testing.T) {
@@ -62,8 +69,13 @@ func TestInstance_Use(t *testing.T) {
 	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)
 
 	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome}, "instance", "use", "personal")
-
-	assert.Contains(t, out, `"personal"`)
+	var success struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &success))
+	assert.Equal(t, "ok", success.Status)
+	assert.Contains(t, success.Message, "personal")
 
 	data, err := os.ReadFile(cfgPath)
 	require.NoError(t, err)
@@ -94,9 +106,14 @@ func TestInstance_Delete_NonActive(t *testing.T) {
 	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)
 
 	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome}, "instance", "delete", "personal")
-
-	assert.Contains(t, out, `"personal"`)
-	assert.Contains(t, out, "deleted")
+	var success struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &success))
+	assert.Equal(t, "ok", success.Status)
+	assert.Contains(t, success.Message, "personal")
+	assert.Contains(t, success.Message, "deleted")
 
 	data, err := os.ReadFile(cfgPath)
 	require.NoError(t, err)
@@ -114,10 +131,15 @@ func TestInstance_Delete_Active(t *testing.T) {
 	cfgPath := configFixture(t, tmpHome, twoInstanceConfig)
 
 	out := runCmdWithEnv(t, "y\n", []string{"HOME=" + tmpHome}, "instance", "delete", "work")
-
-	assert.Contains(t, out, `"work"`)
-	assert.Contains(t, out, "deleted")
-	assert.Contains(t, out, "youtrack instance use")
+	var success struct {
+		Status  string `json:"status"`
+		Message string `json:"message"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &success))
+	assert.Equal(t, "ok", success.Status)
+	assert.Contains(t, success.Message, "work")
+	assert.Contains(t, success.Message, "deleted")
+	assert.Contains(t, success.Message, "youtrack instance use")
 
 	data, err := os.ReadFile(cfgPath)
 	require.NoError(t, err)

@@ -224,31 +224,82 @@ func FormatVersion(v string) string {
 
 // IsNewerVersion reports whether latest is a newer semantic version than current.
 func IsNewerVersion(current, latest string) bool {
-	curMajor, curMinor, curPatch := parseSemver(current)
-	latMajor, latMinor, latPatch := parseSemver(latest)
+	cur := parseSemver(current)
+	lat := parseSemver(latest)
 
-	if latMajor != curMajor {
-		return latMajor > curMajor
+	if lat.major != cur.major {
+		return lat.major > cur.major
 	}
-	if latMinor != curMinor {
-		return latMinor > curMinor
+	if lat.minor != cur.minor {
+		return lat.minor > cur.minor
 	}
-	return latPatch > curPatch
+	if lat.patch != cur.patch {
+		return lat.patch > cur.patch
+	}
+	return comparePrerelease(lat.prerelease, cur.prerelease) > 0
 }
 
-func parseSemver(v string) (major, minor, patch int) {
-	v = strings.TrimPrefix(v, "v")
-	base, _, _ := strings.Cut(v, "-")
-	parts := strings.SplitN(base, ".", 3)
+type semVersion struct {
+	major, minor, patch int
+	prerelease          string
+}
 
+func parseSemver(v string) semVersion {
+	v = strings.TrimPrefix(v, "v")
+	v, _, _ = strings.Cut(v, "+")
+	base, prerelease, _ := strings.Cut(v, "-")
+	parts := strings.SplitN(base, ".", 3)
+	var result semVersion
 	if len(parts) >= 1 {
-		major, _ = strconv.Atoi(parts[0])
+		result.major, _ = strconv.Atoi(parts[0])
 	}
 	if len(parts) >= 2 {
-		minor, _ = strconv.Atoi(parts[1])
+		result.minor, _ = strconv.Atoi(parts[1])
 	}
 	if len(parts) >= 3 {
-		patch, _ = strconv.Atoi(parts[2])
+		result.patch, _ = strconv.Atoi(parts[2])
 	}
-	return
+	result.prerelease = prerelease
+	return result
+}
+
+// comparePrerelease implements SemVer precedence for dot-separated identifiers.
+// A stable version has higher precedence than any prerelease of the same version.
+func comparePrerelease(a, b string) int {
+	if a == b {
+		return 0
+	}
+	if a == "" {
+		return 1
+	}
+	if b == "" {
+		return -1
+	}
+	aParts, bParts := strings.Split(a, "."), strings.Split(b, ".")
+	for i := 0; i < len(aParts) && i < len(bParts); i++ {
+		if aParts[i] == bParts[i] {
+			continue
+		}
+		aNum, aErr := strconv.Atoi(aParts[i])
+		bNum, bErr := strconv.Atoi(bParts[i])
+		switch {
+		case aErr == nil && bErr == nil:
+			if aNum > bNum {
+				return 1
+			}
+			return -1
+		case aErr == nil:
+			return -1
+		case bErr == nil:
+			return 1
+		case aParts[i] > bParts[i]:
+			return 1
+		default:
+			return -1
+		}
+	}
+	if len(aParts) > len(bParts) {
+		return 1
+	}
+	return -1
 }

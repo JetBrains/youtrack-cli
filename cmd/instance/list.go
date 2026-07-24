@@ -2,13 +2,24 @@ package instance
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal/config"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
+
+type instanceListItem struct {
+	Alias    string `json:"alias"`
+	URL      string `json:"url"`
+	Login    string `json:"login,omitempty"`
+	FullName string `json:"fullName,omitempty"`
+	Status   string `json:"status"`
+	Active   bool   `json:"active"`
+}
 
 func newListCmd() *cobra.Command {
 	return &cobra.Command{
@@ -19,25 +30,47 @@ func newListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			if len(cfg.Instances) == 0 {
-				_, _ = fmt.Fprintln(cmd.OutOrStdout(), "No instances configured. Run: youtrack auth get-token")
-				return nil
-			}
+			items := make([]instanceListItem, 0, len(cfg.Instances))
 			w := cmd.OutOrStdout()
 			for _, alias := range cfg.Aliases() {
 				inst := cfg.Instances[alias]
-				activeMarker := ""
-				if alias == cfg.CurrentInstance {
-					activeMarker = " " + color.New(color.FgGreen).Sprint("[active]")
-				}
+				item := instanceListItem{Alias: alias, URL: inst.URL, Active: alias == cfg.CurrentInstance}
 				c := api.NewClient(inst.URL, inst.Token)
 				user, err := c.GetCurrentUser()
 				if err != nil {
+					item.Status = "unavailable"
+				} else {
+					item.Status = "authenticated"
+					item.Login = user.Login
+					item.FullName = user.FullName
+				}
+				items = append(items, item)
+			}
+			switch output.Format(cmd) {
+			case "json":
+				return output.Print(cmd, items)
+			case "plain":
+				for _, item := range items {
+					_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+						item.Alias, item.URL, item.Login, item.Status, strconv.FormatBool(item.Active))
+				}
+				return nil
+			}
+			if len(items) == 0 {
+				_, _ = fmt.Fprintln(w, "No instances configured. Run: youtrack auth get-token")
+				return nil
+			}
+			for _, item := range items {
+				activeMarker := ""
+				if item.Active {
+					activeMarker = " " + color.New(color.FgGreen).Sprint("[active]")
+				}
+				if item.Status != "authenticated" {
 					_, _ = fmt.Fprintf(w, "  %s %-20s %s%s\n",
-						color.New(color.FgRed).Sprint("✗"), alias, inst.URL, activeMarker)
+						color.New(color.FgRed).Sprint("✗"), item.Alias, item.URL, activeMarker)
 				} else {
 					_, _ = fmt.Fprintf(w, "  %s %-20s %s  %s (%s)%s\n",
-						color.New(color.FgGreen).Sprint("✓"), alias, inst.URL, user.FullName, user.Login, activeMarker)
+						color.New(color.FgGreen).Sprint("✓"), item.Alias, item.URL, item.FullName, item.Login, activeMarker)
 				}
 			}
 			return nil

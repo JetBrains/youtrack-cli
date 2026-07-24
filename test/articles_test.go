@@ -243,10 +243,37 @@ func TestCmd_ArticleAttachmentAdd(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, f.Close())
 
-	runCmd(t, "article", "attachment", "add", article.IDReadable, "--file", f.Name())
+	addOut := runCmd(t, "article", "attachment", "add", article.IDReadable, "--file", f.Name(), "--json")
+	var attachment api.ArticleAttachment
+	require.NoError(t, json.Unmarshal([]byte(addOut), &attachment))
+	require.NotEmpty(t, attachment.ID)
 
 	out := runCmd(t, "article", "attachment", "list", article.IDReadable, "--format", "json")
 	assert.Contains(t, out, filepath.Base(f.Name()))
+
+	delOut := runCmd(t, "article", "attachment", "delete", article.IDReadable, attachment.ID, "--force")
+	assert.Contains(t, delOut, "deleted attachment "+attachment.ID)
+	attachments, err := c.ListArticleAttachments(article.IDReadable)
+	require.NoError(t, err)
+	for _, current := range attachments {
+		assert.NotEqual(t, attachment.ID, current.ID)
+	}
+}
+
+func TestCmd_ArticleUntag(t *testing.T) {
+	c := newTestClient(t)
+	article := newTempArticle(t, c)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+	tags, err := c.ListUserTags(me.ID)
+	require.NoError(t, err)
+	if len(tags) == 0 {
+		t.Skip("no user tags available")
+	}
+
+	runCmd(t, "article", "tag", article.IDReadable, tags[0].ID)
+	out := runCmd(t, "article", "untag", article.IDReadable, tags[0].ID)
+	assert.Contains(t, out, "removed tag "+tags[0].ID)
 }
 
 func TestCmd_ArticleVisibility(t *testing.T) {

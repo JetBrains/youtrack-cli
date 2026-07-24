@@ -1,6 +1,8 @@
 package project
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -39,6 +41,26 @@ func newProjectFieldCmd() *cobra.Command {
 	}
 	add.Flags().String("field", "", "Custom field ID (required)")
 	internal.MustMarkRequired(add, "field")
-	cmd.AddCommand(list, add)
+	remove := &cobra.Command{
+		Use: "remove <shortName> <projectFieldId>", Short: "Remove a custom field from a project",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Remove project field %s from project %s?", args[1], args[0])); abort {
+				return err
+			}
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.RemoveProjectCustomField(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "removed project field "+args[1]+" from project "+args[0])
+			return nil
+		},
+	}
+	remove.Flags().Bool("force", false, "Skip the confirmation prompt")
+	cmd.AddCommand(list, add, remove)
 	return cmd
 }

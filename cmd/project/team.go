@@ -1,6 +1,8 @@
 package project
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -44,6 +46,76 @@ func newProjectTeamCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.AddCommand(addUser, addGroup)
+	listUsers := &cobra.Command{
+		Use: "list-users <shortName>", Short: "List users in the project team",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			users, err := client.ListProjectTeamUsers(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, users)
+		},
+	}
+	listGroups := &cobra.Command{
+		Use: "list-groups <shortName>", Short: "List groups in the project team",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			groups, err := client.ListProjectTeamGroups(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, groups)
+		},
+	}
+	removeUser := &cobra.Command{
+		Use: "remove-user <shortName> <userId>", Short: "Remove a user from the project team",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Remove user %s from project %s?", args[1], args[0])); abort {
+				return err
+			}
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.RemoveUserFromProjectTeam(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "removed user "+args[1]+" from project "+args[0])
+			return nil
+		},
+	}
+	removeUser.Flags().Bool("force", false, "Skip the confirmation prompt")
+	removeGroup := &cobra.Command{
+		Use: "remove-group <shortName> <groupId>", Short: "Remove a group from the project team",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Remove group %s from project %s?", args[1], args[0])); abort {
+				return err
+			}
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.RemoveGroupFromProjectTeam(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "removed group "+args[1]+" from project "+args[0])
+			return nil
+		},
+	}
+	removeGroup.Flags().Bool("force", false, "Skip the confirmation prompt")
+	cmd.AddCommand(addUser, addGroup, listUsers, listGroups, removeUser, removeGroup)
 	return cmd
 }

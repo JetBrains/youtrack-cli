@@ -12,7 +12,7 @@ type AddTagRequest struct {
 
 func (c *Client) ListTags() ([]Tag, error) {
 	var result []Tag
-	err := c.Get(pathTags+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve&$top=-1", &result)
+	err := c.Get(pathTags+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve&$top=500", &result)
 	return result, err
 }
 

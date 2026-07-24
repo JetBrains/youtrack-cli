@@ -7,7 +7,7 @@ import (
 
 func (c *Client) ListApps() ([]App, error) {
 	var result []App
-	err := c.Get(pathAdminApps+"?fields=id,name,title,version&$top=-1", &result)
+	err := c.Get(pathAdminApps+"?fields=id,name,title,version&$top=500", &result)
 	return result, err
 }
 

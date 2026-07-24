@@ -253,7 +253,7 @@ func TestCmd_IssueCreateParent(t *testing.T) {
 			IDReadable string `json:"idReadable"`
 		} `json:"issues"`
 	}
-	err = c.Get(fmt.Sprintf("/api/issues/%s/links?fields=linkType(targetToSource),issues(idReadable)&$top=-1",
+	err = c.Get(fmt.Sprintf("/api/issues/%s/links?fields=linkType(targetToSource),issues(idReadable)&$top=500",
 		url.PathEscape(childID)), &links)
 	require.NoError(t, err)
 

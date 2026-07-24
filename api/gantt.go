@@ -22,7 +22,7 @@ func (c *Client) AddGanttChart(name string, projectIDs []string, startDate int64
 
 func (c *Client) ListGanttCharts() ([]GanttChart, error) {
 	var result []GanttChart
-	err := c.Get(pathGanttCharts+"?fields=id,name&$top=-1", &result)
+	err := c.Get(pathGanttCharts+"?fields=id,name&$top=500", &result)
 	return result, err
 }
 
@@ -51,7 +51,7 @@ func (c *Client) UpdateGanttChart(id, name string, startDate int64) (*GanttChart
 
 func (c *Client) ListGanttResources(ganttID string) ([]GanttResource, error) {
 	var result []GanttResource
-	err := c.Get(fmt.Sprintf(pathGanttResources+"?fields=id,issue(id,idReadable),startDate&$top=-1", url.PathEscape(ganttID)), &result)
+	err := c.Get(fmt.Sprintf(pathGanttResources+"?fields=id,issue(id,idReadable),startDate&$top=500", url.PathEscape(ganttID)), &result)
 	return result, err
 }
 

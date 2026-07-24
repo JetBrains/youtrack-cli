@@ -9,18 +9,19 @@ import (
 
 func newIssueListCmd() *cobra.Command {
 	var limit int
+	var offset int
 
 	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "Search issues by query",
-		Example: "  youtrack issue list --query \"assignee: me #Unresolved\"\n  youtrack issue list --query \"project: FOO\" --limit 20 -f idReadable,summary,state",
+		Example: "  youtrack issue list --query \"assignee: me #Unresolved\"\n  youtrack issue list --query \"project: FOO\" --limit 20 --offset 20 -f idReadable,summary,state",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query, _ := cmd.Flags().GetString("query")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			issues, err := client.ListIssues(query, limit)
+			issues, err := client.ListIssuesPage(query, limit, offset)
 			if err != nil {
 				return err
 			}
@@ -32,6 +33,7 @@ func newIssueListCmd() *cobra.Command {
 	}
 	cmd.Flags().String("query", "", "YouTrack query string (required)")
 	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of issues to return")
+	cmd.Flags().IntVar(&offset, "offset", 0, "Number of issues to skip")
 	internal.MustMarkRequired(cmd, "query")
 	return cmd
 }

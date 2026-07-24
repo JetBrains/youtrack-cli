@@ -1,6 +1,8 @@
 package issue
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -69,5 +71,41 @@ func newIssueWorkitemCmd() *cobra.Command {
 	updateCmd.Flags().Int("minutes", 0, "New work duration in minutes")
 	updateCmd.Flags().String("text", "", "New work item description")
 	cmd.AddCommand(updateCmd)
+	listCmd := &cobra.Command{
+		Use: "list <issueId>", Short: "List work items on an issue",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			items, err := client.ListWorkItems(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, items)
+		},
+	}
+	deleteCmd := &cobra.Command{
+		Use: "delete <issueId> <workItemId>", Short: "Delete a work item",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Delete work item %s from issue %s?", args[1], args[0])); abort {
+				return err
+			}
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.DeleteWorkItem(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "deleted work item "+args[1])
+			return nil
+		},
+	}
+	deleteCmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	cmd.AddCommand(listCmd, deleteCmd)
 	return cmd
 }

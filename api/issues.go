@@ -74,9 +74,14 @@ func (c *Client) GetIssue(id string) (*Issue, error) {
 }
 
 func (c *Client) ListIssues(query string, limit int) ([]Issue, error) {
+	return c.ListIssuesPage(query, limit, 0)
+}
+
+// ListIssuesPage returns one page of issues starting at offset.
+func (c *Client) ListIssuesPage(query string, limit, offset int) ([]Issue, error) {
 	var result []Issue
-	path := pathIssues + fmt.Sprintf("?query=%s&$top=%d&fields=%s",
-		url.QueryEscape(query), limit, issueFields)
+	path := pathIssues + fmt.Sprintf("?query=%s&$top=%d&$skip=%d&fields=%s",
+		url.QueryEscape(query), limit, offset, issueFields)
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -142,7 +147,7 @@ func (c *Client) GetIssueCount(query string) (int, error) {
 
 func (c *Client) GetIssueLinkTypes() ([]IssueLinkType, error) {
 	var result []IssueLinkType
-	err := c.Get(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource,directed&$top=-1", &result)
+	err := c.Get(pathIssueLinkTypes+"?fields=id,name,sourceToTarget,targetToSource,directed&$top=500", &result)
 	return result, err
 }
 
@@ -173,7 +178,7 @@ func (c *Client) AddIssueLinkType(name, sourceToTarget, targetToSource string, d
 
 func (c *Client) GetLinkedIssues(issueID string) ([]IssueLink, error) {
 	var result []IssueLink
-	path := fmt.Sprintf(pathIssueLinks+"?fields=id,direction,linkType(id,name,sourceToTarget,targetToSource),issues(id,idReadable,summary)&$top=-1", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueLinks+"?fields=id,direction,linkType(id,name,sourceToTarget,targetToSource),issues(id,idReadable,summary)&$top=500", url.PathEscape(issueID))
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -205,7 +210,7 @@ func (c *Client) LinkIssues(issueID, targetID, linkTypeID string) error {
 func (c *Client) RemoveIssueLink(issueID, linkID string) error {
 	// Fetch the link to discover which issues are attached to it.
 	var link IssueLink
-	path := fmt.Sprintf(pathIssueLink+"?fields=id,issues(id)&$top=-1",
+	path := fmt.Sprintf(pathIssueLink+"?fields=id,issues(id)&$top=500",
 		url.PathEscape(issueID), url.PathEscape(linkID))
 	if err := c.Get(path, &link); err != nil {
 		return err
@@ -226,9 +231,13 @@ func (c *Client) TagIssue(issueID, tagID string) error {
 	return c.Post(path, map[string]any{"id": tagID}, nil)
 }
 
+func (c *Client) UntagIssue(issueID, tagID string) error {
+	return c.Delete(fmt.Sprintf(pathIssueTag, url.PathEscape(issueID), url.PathEscape(tagID)))
+}
+
 func (c *Client) ListIssueTags(issueID string) ([]Tag, error) {
 	var result []Tag
-	path := fmt.Sprintf(pathIssueTags+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve&$top=-1", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueTags+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve&$top=500", url.PathEscape(issueID))
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -242,7 +251,7 @@ func (c *Client) GetIssueTag(issueID, tagID string) (*Tag, error) {
 
 func (c *Client) GetIssueAttachments(issueID string) ([]IssueAttachment, error) {
 	var result []IssueAttachment
-	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created&$top=-1", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created&$top=500", url.PathEscape(issueID))
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -281,9 +290,16 @@ func (c *Client) AddWorkItem(issueID string, minutes int, text, typeID string) (
 	return &result, err
 }
 
+func (c *Client) ListWorkItems(issueID string) ([]WorkItem, error) {
+	var result []WorkItem
+	path := fmt.Sprintf(pathIssueWorkItems+"?fields=id,text,date,duration(minutes),author(id,login,fullName)&$top=500", url.PathEscape(issueID))
+	err := c.Get(path, &result)
+	return result, err
+}
+
 func (c *Client) GetCustomFieldValue(issueID, fieldName string) (*IssueField, error) {
 	var fields []IssueField
-	path := fmt.Sprintf(pathIssueFields+"?fields=id,name,value(name,presentation,text,login,minutes)&$top=-1", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueFields+"?fields=id,name,value(name,presentation,text,login,minutes)&$top=500", url.PathEscape(issueID))
 	if err := c.Get(path, &fields); err != nil {
 		return nil, err
 	}
@@ -297,7 +313,7 @@ func (c *Client) GetCustomFieldValue(issueID, fieldName string) (*IssueField, er
 
 func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string) error {
 	var fields []IssueField
-	path := fmt.Sprintf(pathIssueFields+"?fields=id,name&$top=-1", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueFields+"?fields=id,name&$top=500", url.PathEscape(issueID))
 	if err := c.Get(path, &fields); err != nil {
 		return err
 	}
@@ -413,7 +429,7 @@ func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]a
 
 func (c *Client) ListIssueCommentReactions(issueID, commentID string) ([]Reaction, error) {
 	var result []Reaction
-	path := fmt.Sprintf(pathIssueCommentReactions+"?fields=id,reaction,author(id,login,fullName)&$top=-1",
+	path := fmt.Sprintf(pathIssueCommentReactions+"?fields=id,reaction,author(id,login,fullName)&$top=500",
 		url.PathEscape(issueID), url.PathEscape(commentID))
 	err := c.Get(path, &result)
 	return result, err
@@ -582,7 +598,7 @@ func (c *Client) UnvoteIssue(id string) error {
 // ListRecentComments returns the last `top` comments; YouTrack serves them oldest-first, so fetch all and keep the tail.
 func (c *Client) ListRecentComments(issueID string, top int) ([]Comment, error) {
 	var result []Comment
-	path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=-1", url.PathEscape(issueID), commentFields)
+	path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=500", url.PathEscape(issueID), commentFields)
 	if err := c.Get(path, &result); err != nil {
 		return nil, err
 	}
@@ -620,23 +636,27 @@ func (c *Client) UpdateWorkItem(issueID, workItemID string, minutes int, text st
 	return &result, err
 }
 
+func (c *Client) DeleteWorkItem(issueID, workItemID string) error {
+	return c.Delete(fmt.Sprintf(pathIssueWorkItem, url.PathEscape(issueID), url.PathEscape(workItemID)))
+}
+
 func (c *Client) ListIssueActivities(issueID string) ([]map[string]any, error) {
 	var result []map[string]any
-	path := fmt.Sprintf(pathIssueActivities+"?fields=id,timestamp,author(id,login,fullName),target,added,removed,field(id,name)&categories=CommentsCategory,IssueResolvedCategory,CustomFieldCategory&$top=-1", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueActivities+"?fields=id,timestamp,author(id,login,fullName),target,added,removed,field(id,name)&categories=CommentsCategory,IssueResolvedCategory,CustomFieldCategory&$top=500", url.PathEscape(issueID))
 	err := c.Get(path, &result)
 	return result, err
 }
 
 func (c *Client) ListIssueSprints(issueID string) ([]Sprint, error) {
 	var result []Sprint
-	path := fmt.Sprintf(pathIssueSprints+"?fields=id,name,archived,isDefault&$top=-1", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueSprints+"?fields=id,name,archived,isDefault&$top=500", url.PathEscape(issueID))
 	err := c.Get(path, &result)
 	return result, err
 }
 
 func (c *Client) ListIssueVCSChanges(issueID string) ([]map[string]any, error) {
 	var result []map[string]any
-	path := fmt.Sprintf(pathIssueVCSChanges+"?fields=id,date,text,version,urls,state,author(id,login,fullName)&$top=-1", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueVCSChanges+"?fields=id,date,text,version,urls,state,author(id,login,fullName)&$top=500", url.PathEscape(issueID))
 	err := c.Get(path, &result)
 	return result, err
 }

@@ -21,6 +21,7 @@ func newArticleCmd() *cobra.Command {
 		newArticleCommentCmd(),
 		newArticleAttachmentCmd(),
 		newArticleTagCmd(),
+		newArticleUntagCmd(),
 		newArticleVisibilityCmd(),
 		newArticleSetParentCmd(),
 		newArticleChildCmd(),
@@ -367,6 +368,25 @@ func newArticleTagCmd() *cobra.Command {
 	}
 }
 
+func newArticleUntagCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use: "untag <articleId> <tagId>", Short: "Remove a tag from an article",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.UntagArticle(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "removed tag "+args[1]+" from article "+args[0])
+			return nil
+		},
+	}
+	return cmd
+}
+
 func newArticleVisibilityCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "visibility <articleId>", Short: "Set visibility on an article",
@@ -444,7 +464,27 @@ func newArticleAttachmentCmd() *cobra.Command {
 	}
 	add.Flags().String("file", "", "Path to file (required)")
 	internal.MustMarkRequired(add, "file")
-	cmd.AddCommand(list, add)
+	del := &cobra.Command{
+		Use: "delete <articleId> <attachmentId>", Short: "Delete an attachment from an article",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(
+				"Delete attachment %s from article %s?", args[1], args[0])); abort {
+				return err
+			}
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.DeleteArticleAttachment(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "deleted attachment "+args[1])
+			return nil
+		},
+	}
+	del.Flags().Bool("force", false, "Skip the confirmation prompt")
+	cmd.AddCommand(list, add, del)
 	return cmd
 }
 

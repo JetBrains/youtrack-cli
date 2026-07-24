@@ -7,7 +7,7 @@ import (
 
 func (c *Client) ListBoards() ([]Board, error) {
 	var result []Board
-	err := c.Get(pathBoards+"?fields=id,name,owner(id,login,fullName),status,currentSprint(id,name),projects(id,shortName),sprints(id,name,archived,isDefault)&$top=-1", &result)
+	err := c.Get(pathBoards+"?fields=id,name,owner(id,login,fullName),status,currentSprint(id,name),projects(id,shortName),sprints(id,name,archived,isDefault)&$top=500", &result)
 	return result, err
 }
 
@@ -48,7 +48,7 @@ func (c *Client) DeleteBoard(id string) error {
 
 func (c *Client) ListSprints(boardID string) ([]Sprint, error) {
 	var result []Sprint
-	path := fmt.Sprintf(pathBoardSprints+"?fields=id,name,goal,start,finish,archived,isDefault&$top=-1", url.PathEscape(boardID))
+	path := fmt.Sprintf(pathBoardSprints+"?fields=id,name,goal,start,finish,archived,isDefault&$top=500", url.PathEscape(boardID))
 	err := c.Get(path, &result)
 	return result, err
 }

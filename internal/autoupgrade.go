@@ -4,14 +4,23 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
 )
 
-const installScriptURL = "https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh"
+const (
+	upgradeTimeout       = 10 * time.Minute
+	maxInstallScriptSize = 1 << 20 // 1 MiB
+)
+
+var releaseVersionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?$`)
 
 // GHInstallScriptCommand is the channel-independent upgrade path: re-running the
 // install script through gh, which works even while the repo is private. Shown as
@@ -49,15 +58,17 @@ func (m InstallMethod) AutoUpgradeCommand() (name string, args []string, ok bool
 // streaming the underlying command's output to out/errOut. attempted is false when
 // the method has no safe automated path — callers should fall back to printing
 // manual instructions in that case.
-func RunAutoUpgrade(method InstallMethod, out, errOut io.Writer) (attempted bool, err error) {
+func RunAutoUpgrade(method InstallMethod, version string, out, errOut io.Writer) (attempted bool, err error) {
 	if method == InstallScript {
-		return true, runInstallScriptUpgrade(out, errOut)
+		return true, runInstallScriptUpgrade(version, out, errOut)
 	}
 	name, args, ok := method.AutoUpgradeCommand()
 	if !ok {
 		return false, nil
 	}
-	cmd := exec.Command(name, args...)
+	ctx, cancel := context.WithTimeout(context.Background(), upgradeTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdout = out
 	cmd.Stderr = errOut
 	return true, cmd.Run()
@@ -68,8 +79,8 @@ func RunAutoUpgrade(method InstallMethod, out, errOut io.Writer) (attempted bool
 // falling back to ~/.local/bin only if that's unwritable) can silently diverge from
 // wherever this binary actually lives, leaving a second, unused copy behind instead
 // of replacing the one on PATH.
-func runInstallScriptUpgrade(out, errOut io.Writer) error {
-	script, err := downloadInstallScript()
+func runInstallScriptUpgrade(version string, out, errOut io.Writer) error {
+	script, err := downloadInstallScript(version)
 	if err != nil {
 		return err
 	}
@@ -81,7 +92,9 @@ func runInstallScriptUpgrade(out, errOut io.Writer) error {
 
 	// bash -s reads the script from stdin; everything after "--" becomes $1, $2, ...
 	// RELEASE ($1) is left empty so install.sh resolves the latest release itself.
-	cmd := exec.Command("bash", "-s", "--", "", outDir)
+	ctx, cancel := context.WithTimeout(context.Background(), upgradeTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "bash", "-s", "--", "v"+strings.TrimPrefix(version, "v"), outDir)
 	cmd.Stdin = bytes.NewReader(script)
 	cmd.Stdout = out
 	cmd.Stderr = errOut
@@ -90,8 +103,12 @@ func runInstallScriptUpgrade(out, errOut io.Writer) error {
 
 // downloadInstallScript fetches install.sh's contents, preferring the public URL
 // (works once the repo is public) and falling back to gh (works while it's private).
-func downloadInstallScript() ([]byte, error) {
-	if body, err := downloadInstallScriptViaAPI(); err == nil {
+func downloadInstallScript(version string) ([]byte, error) {
+	tag, err := releaseTag(version)
+	if err != nil {
+		return nil, err
+	}
+	if body, err := downloadInstallScriptViaAPI(tag); err == nil {
 		return body, nil
 	}
 	if !cmdExists("gh") {
@@ -99,11 +116,19 @@ func downloadInstallScript() ([]byte, error) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), updateCheckTimeout)
 	defer cancel()
-	return exec.CommandContext(ctx, "gh", "release", "download",
+	body, err := exec.CommandContext(ctx, "gh", "release", "download", tag,
 		"--repo", "JetBrains/youtrack-cli", "--pattern", "install.sh", "-O", "-").Output()
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > maxInstallScriptSize {
+		return nil, errors.New("install script exceeds 1 MiB size limit")
+	}
+	return body, nil
 }
 
-func downloadInstallScriptViaAPI() ([]byte, error) {
+func downloadInstallScriptViaAPI(version string) ([]byte, error) {
+	installScriptURL := "https://github.com/JetBrains/youtrack-cli/releases/download/" + version + "/install.sh"
 	req, err := http.NewRequest(http.MethodGet, installScriptURL, nil)
 	if err != nil {
 		return nil, err
@@ -121,7 +146,22 @@ func downloadInstallScriptViaAPI() ([]byte, error) {
 	if resp.StatusCode != http.StatusOK {
 		return nil, errors.New("install script URL returned a non-200 status")
 	}
-	return io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxInstallScriptSize+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > maxInstallScriptSize {
+		return nil, errors.New("install script exceeds 1 MiB size limit")
+	}
+	return body, nil
+}
+
+func releaseTag(version string) (string, error) {
+	version = strings.TrimPrefix(version, "v")
+	if !releaseVersionPattern.MatchString(version) {
+		return "", fmt.Errorf("invalid release version %q", version)
+	}
+	return "v" + version, nil
 }
 
 // HasGH reports whether the gh CLI is available on PATH.

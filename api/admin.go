@@ -24,7 +24,7 @@ func (c *Client) GetInstanceVersion() (*InstanceVersion, error) {
 
 func (c *Client) ListPlugins() ([]Plugin, error) {
 	var result []Plugin
-	err := c.Get(pathAdminPluginUsages+"?fields=id,enabled,state&$top=-1", &result)
+	err := c.Get(pathAdminPluginUsages+"?fields=id,enabled,state&$top=500", &result)
 	return result, err
 }
 
