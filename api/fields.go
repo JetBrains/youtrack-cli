@@ -7,7 +7,7 @@ import (
 
 func (c *Client) ListCustomFields() ([]CustomField, error) {
 	var result []CustomField
-	err := c.Get(pathAdminCustomFields+"?fields=id,name,fieldType(id),isPrivate,isAutoAttached,isDisplayedInIssueList,localizedName,isUpdateable&$top=-1", &result)
+	err := c.Get(pathAdminCustomFields+"?fields=id,name,fieldType(id),isPrivate,isAutoAttached,isDisplayedInIssueList,localizedName,isUpdateable&$top=500", &result)
 	return result, err
 }
 
@@ -34,7 +34,7 @@ func (c *Client) DeleteCustomField(id string) error {
 func (c *Client) ListBundles(bundleType string) ([]Bundle, error) {
 	bundleType = NormalizeBundlePathType(bundleType)
 	var result []Bundle
-	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name,isUpdateable,$type&$top=-1", url.PathEscape(bundleType))
+	path := fmt.Sprintf(pathAdminBundles+"?fields=id,name,isUpdateable,$type&$top=500", url.PathEscape(bundleType))
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -142,7 +142,7 @@ func (c *Client) AttachBundleToField(fieldID, bundleID, bundleType string) error
 
 func (c *Client) ListWorkItemTypes() ([]WorkItemType, error) {
 	var result []WorkItemType
-	err := c.Get(pathAdminWorkItemTypes+"?fields=id,name,autoAttach&$top=-1", &result)
+	err := c.Get(pathAdminWorkItemTypes+"?fields=id,name,autoAttach&$top=500", &result)
 	return result, err
 }
 
@@ -176,6 +176,6 @@ func (c *Client) SetWorkTimeSettings(minutesADayPresentation string) error {
 
 func (c *Client) GetCustomFieldPrototypes() ([]CustomField, error) {
 	var result []CustomField
-	err := c.Get(pathAdminCustomFields+"?fields=id,name,fieldType(id),isPrivate&$top=-1", &result)
+	err := c.Get(pathAdminCustomFields+"?fields=id,name,fieldType(id),isPrivate&$top=500", &result)
 	return result, err
 }

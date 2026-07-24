@@ -197,6 +197,7 @@ List an article's attachments with `youtrack article attachment list`, and attac
 ```Shell
 youtrack article attachment list DEMO-A-1
 youtrack article attachment add DEMO-A-1 --file ./architecture.png
+youtrack article attachment delete DEMO-A-1 5-12
 ```
 
 ## Tagging an article
@@ -205,6 +206,7 @@ Attach an existing tag to an article with `youtrack article tag`. The second arg
 
 ```Shell
 youtrack article tag DEMO-A-1 6-12
+youtrack article untag DEMO-A-1 6-12
 ```
 
 > Look up a tag's ID with `youtrack tag list` before tagging.

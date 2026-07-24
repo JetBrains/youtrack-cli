@@ -12,13 +12,13 @@ type AddCanvasRequest struct {
 
 func (c *Client) ListCanvases() ([]Canvas, error) {
 	var result []Canvas
-	err := c.Get(pathPlanningCanvases+"?fields=id,name,owner(id,login,fullName),pinned,$type&$top=-1", &result)
+	err := c.Get(pathPlanningCanvases+"?fields=id,name,owner(id,login,fullName),pinned,$type&$top=500", &result)
 	return result, err
 }
 
 func (c *Client) ListCanvasCards(canvasID string) ([]CanvasNode, error) {
 	var result []CanvasNode
-	err := c.Get(fmt.Sprintf(pathPlanningCanvasCards+"?fields=id,label,x,y,description,width,height,$type&$top=-1", url.PathEscape(canvasID)), &result)
+	err := c.Get(fmt.Sprintf(pathPlanningCanvasCards+"?fields=id,label,x,y,description,width,height,$type&$top=500", url.PathEscape(canvasID)), &result)
 	return result, err
 }
 
@@ -65,7 +65,7 @@ func (c *Client) AddCanvasNode(canvasID string, x, y int, label, description str
 
 func (c *Client) GetCanvasLinks(canvasID string) ([]CanvasLink, error) {
 	var result []CanvasLink
-	err := c.Get(fmt.Sprintf(pathPlanningCanvasLinks+"?fields=id,sourceCard(id,label),targetCard(id,label)&$top=-1", url.PathEscape(canvasID)), &result)
+	err := c.Get(fmt.Sprintf(pathPlanningCanvasLinks+"?fields=id,sourceCard(id,label),targetCard(id,label)&$top=500", url.PathEscape(canvasID)), &result)
 	return result, err
 }
 

@@ -104,6 +104,7 @@ Attach, list, and inspect tags with `youtrack issue tag`. A tag is identified by
 youtrack issue tag list DEMO-42
 youtrack issue tag add DEMO-42 6-3
 youtrack issue tag view DEMO-42 6-3
+youtrack issue tag remove DEMO-42 6-3
 ```
 
 ## Linking issues {id="links"}

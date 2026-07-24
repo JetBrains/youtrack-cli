@@ -48,7 +48,7 @@ removals, etc.) prompt for confirmation and accept `--force` to skip the prompt.
 
 ```bash
 youtrack issue view <issueId>           # alias: get
-youtrack issue list --query Q [--limit N]
+youtrack issue list --query Q [--limit N] [--offset N]
 youtrack issue create --project P --summary S [--description D] [--parent <issueId>] [--description-file path]
                                        # alias: add
 youtrack issue update <issueId> [--summary S] [--description D]
@@ -66,7 +66,9 @@ youtrack issue watch <issueId>
 youtrack issue unwatch <issueId>
 youtrack issue vote <issueId>          # cannot vote on your own issues
 youtrack issue unvote <issueId>
-youtrack issue tag <issueId> <tagId>
+youtrack issue tag list <issueId>
+youtrack issue tag add <issueId> <tagId>
+youtrack issue tag remove <issueId> <tagId>
 youtrack issue visibility <issueId> [flags]
 ```
 
@@ -105,6 +107,10 @@ youtrack issue reaction delete <issueId> <commentId> <reactionId>
 youtrack issue draft create [--project P] [--summary S]
 youtrack issue draft delete <draftId>             # prompts; --force to skip
 youtrack issue workitem create <issueId> --minutes N [--text T] [--type ID]   # alias: add
+youtrack issue workitem list <issueId>
+youtrack issue workitem view <issueId> <workItemId>
+youtrack issue workitem update <issueId> <workItemId> [--minutes N] [--text T]
+youtrack issue workitem delete <issueId> <workItemId>
 ```
 
 ## project
@@ -122,8 +128,13 @@ youtrack project archive <shortName>
 # ⚠ Both require opaque IDs, not logins/names
 youtrack project team add-user <shortName> <userId>    # userId: 'user view <login> --json | jq .id'
 youtrack project team add-group <shortName> <groupId>  # groupId: 'group view <name> --json | jq .id'
+youtrack project team list-users <shortName>
+youtrack project team list-groups <shortName>
+youtrack project team remove-user <shortName> <userId>
+youtrack project team remove-group <shortName> <groupId>
 youtrack project field list <shortName>
 youtrack project field add <shortName> [flags]
+youtrack project field remove <shortName> <projectFieldId>
 youtrack project template list
 youtrack project template convert <shortName>
 youtrack project timetrack set <shortName> --enabled[=false]
@@ -213,7 +224,16 @@ youtrack article comment visibility <articleId> <commentId> [--groups <ids>] [--
 youtrack article comment reaction delete <articleId> <commentId> <reactionId>   # prompts; --force to skip
 youtrack article attachment list <articleId>
 youtrack article attachment add <articleId> --file <filepath>
+youtrack article attachment delete <articleId> <attachmentId>
 youtrack article tag <articleId> <tagId>
+youtrack article untag <articleId> <tagId>
+```
+
+## raw API
+
+```bash
+youtrack raw <path> [--method GET|POST|PUT|DELETE] [--body JSON] [--fields FIELDS]
+youtrack raw <collection-path> --paginate [--page-size N]
 ```
 
 ## dashboard

@@ -130,6 +130,11 @@ func PrintTable(out io.Writer, data any) error {
 	case *api.Sprint:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
 		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Name)
+	case []api.Sprint:
+		_, _ = fmt.Fprintln(w, "ID\tNAME")
+		for _, s := range v {
+			_, _ = fmt.Fprintf(w, "%s\t%s\n", s.ID, s.Name)
+		}
 	case *api.Dashboard:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
 		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Name)
@@ -183,6 +188,17 @@ func PrintTable(out io.Writer, data any) error {
 		for _, g := range v {
 			_, _ = fmt.Fprintf(w, "%s\t%s\n", g.ID, g.Name)
 		}
+	case *api.GanttChart:
+		_, _ = fmt.Fprintln(w, "ID\tNAME")
+		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Name)
+	case *api.GanttResource:
+		_, _ = fmt.Fprintln(w, "ID\tISSUE")
+		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.ID, issueKey(v.Issue))
+	case []api.GanttResource:
+		_, _ = fmt.Fprintln(w, "ID\tISSUE")
+		for _, resource := range v {
+			_, _ = fmt.Fprintf(w, "%s\t%s\n", resource.ID, issueKey(resource.Issue))
+		}
 	case []api.ProjectTemplate:
 		_, _ = fmt.Fprintln(w, "ID\tNAME\tKEY")
 		for _, t := range v {
@@ -201,14 +217,25 @@ func PrintTable(out io.Writer, data any) error {
 		for _, a := range v {
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.ID, a.Name, a.URL)
 		}
+	case *api.IssueAttachment:
+		_, _ = fmt.Fprintln(w, "ID\tNAME\tURL")
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.ID, v.Name, v.URL)
 	case []api.ArticleAttachment:
 		_, _ = fmt.Fprintln(w, "ID\tNAME\tURL")
 		for _, a := range v {
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", a.ID, a.Name, a.URL)
 		}
+	case *api.ArticleAttachment:
+		_, _ = fmt.Fprintln(w, "ID\tNAME\tURL")
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.ID, v.Name, v.URL)
 	case *api.WorkItem:
 		_, _ = fmt.Fprintln(w, "ID\tTEXT")
 		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Text)
+	case []api.WorkItem:
+		_, _ = fmt.Fprintln(w, "ID\tTEXT")
+		for _, item := range v {
+			_, _ = fmt.Fprintf(w, "%s\t%s\n", item.ID, item.Text)
+		}
 	case []api.IssueLink:
 		_, _ = fmt.Fprintln(w, "ID\tTYPE\tISSUES")
 		for _, l := range v {
@@ -251,7 +278,7 @@ func PrintTable(out io.Writer, data any) error {
 }
 
 // PrintPlain writes data as tab-separated values with no headers or borders.
-// Falls back to JSON for types without a defined plain formatter.
+// Returns an explicit error for types without a defined plain formatter.
 func PrintPlain(out io.Writer, data any) error {
 	write := func(fields ...string) {
 		_, _ = fmt.Fprintln(out, strings.Join(fields, "\t"))
@@ -283,6 +310,12 @@ func PrintPlain(out io.Writer, data any) error {
 			}
 			write(c.ID, author, c.Text)
 		}
+	case *api.Comment:
+		author := ""
+		if v.Author != nil {
+			author = v.Author.Login
+		}
+		write(v.ID, author, v.Text)
 	case *api.Article:
 		write(v.IDReadable, v.Summary, projectKey(v.Project))
 	case []api.Article:
@@ -305,10 +338,22 @@ func PrintPlain(out io.Writer, data any) error {
 		for _, p := range v {
 			write(p.ID, p.Name)
 		}
+	case []api.AssignedRole:
+		for _, a := range v {
+			write(a.ID, assignedRoleHolder(a.Holder), roleName(a.Role), assignedRoleScope(a.Scope))
+		}
+	case *api.Workflow:
+		write(v.ID, v.Name, v.Title)
 	case []api.Workflow:
 		for _, wf := range v {
 			write(wf.ID, wf.Name, wf.Title)
 		}
+	case *api.CustomField:
+		typeID := ""
+		if v.FieldType != nil {
+			typeID = v.FieldType.ID
+		}
+		write(v.ID, v.Name, typeID)
 	case []api.CustomField:
 		for _, f := range v {
 			typeID := ""
@@ -321,25 +366,73 @@ func PrintPlain(out io.Writer, data any) error {
 		for _, b := range v {
 			write(b.ID, b.Name)
 		}
+	case []api.WorkItemType:
+		for _, itemType := range v {
+			write(itemType.ID, itemType.Name)
+		}
+	case *api.Board:
+		write(v.ID, v.Name)
 	case []api.Board:
 		for _, b := range v {
 			write(b.ID, b.Name)
 		}
+	case *api.Sprint:
+		write(v.ID, v.Name)
+	case []api.Sprint:
+		for _, sprint := range v {
+			write(sprint.ID, sprint.Name)
+		}
+	case *api.Dashboard:
+		write(v.ID, v.Name)
 	case []api.Dashboard:
 		for _, d := range v {
 			write(d.ID, d.Name)
 		}
+	case *api.Tag:
+		write(v.ID, v.Name)
 	case []api.Tag:
 		for _, t := range v {
 			write(t.ID, t.Name)
 		}
+	case *api.SavedSearch:
+		write(v.ID, v.Name, v.Query)
 	case []api.SavedSearch:
 		for _, s := range v {
 			write(s.ID, s.Name, s.Query)
 		}
+	case *api.Organization:
+		write(v.ID, v.Name)
+	case []api.Organization:
+		for _, org := range v {
+			write(org.ID, org.Name)
+		}
 	case []api.App:
 		for _, a := range v {
 			write(a.ID, a.Name, a.Title, a.Version)
+		}
+	case *api.CanvasNode:
+		write(v.ID, v.Label, fmt.Sprint(v.X), fmt.Sprint(v.Y))
+	case *api.Canvas:
+		write(v.ID, v.Name)
+	case []api.Canvas:
+		for _, canvas := range v {
+			write(canvas.ID, canvas.Name)
+		}
+	case *api.GanttChart:
+		write(v.ID, v.Name)
+	case []api.GanttChart:
+		for _, chart := range v {
+			write(chart.ID, chart.Name)
+		}
+	case *api.GanttResource:
+		write(v.ID, issueKey(v.Issue))
+	case []api.GanttResource:
+		for _, resource := range v {
+			write(resource.ID, issueKey(resource.Issue))
+		}
+	case []api.ProjectTemplate:
+		for _, tmpl := range v {
+			write(tmpl.ID, tmpl.Name, tmpl.ShortName)
 		}
 	case []api.IssueLink:
 		for _, l := range v {
@@ -371,6 +464,24 @@ func PrintPlain(out io.Writer, data any) error {
 		for _, d := range v {
 			write(d.ID, d.Summary)
 		}
+	case []api.IssueAttachment:
+		for _, attachment := range v {
+			write(attachment.ID, attachment.Name, attachment.URL)
+		}
+	case *api.IssueAttachment:
+		write(v.ID, v.Name, v.URL)
+	case []api.ArticleAttachment:
+		for _, attachment := range v {
+			write(attachment.ID, attachment.Name, attachment.URL)
+		}
+	case *api.ArticleAttachment:
+		write(v.ID, v.Name, v.URL)
+	case *api.WorkItem:
+		write(v.ID, v.Text)
+	case []api.WorkItem:
+		for _, item := range v {
+			write(item.ID, item.Text)
+		}
 	case *internal.UpdateStatus:
 		if v.UpdateAvailable {
 			write(internal.FormatVersion(v.LatestVersion), v.UpgradeCommand)
@@ -378,7 +489,7 @@ func PrintPlain(out io.Writer, data any) error {
 			write(internal.FormatVersion(v.CurrentVersion), "up-to-date")
 		}
 	default:
-		return printJSON(out, data)
+		return fmt.Errorf("plain output is not supported for %T; use --json or select scalar columns with --fields", data)
 	}
 	return nil
 }
@@ -466,6 +577,13 @@ func projectKey(p *api.Project) string {
 		return ""
 	}
 	return p.ShortName
+}
+
+func issueKey(issue *api.Issue) string {
+	if issue == nil {
+		return ""
+	}
+	return issue.IDReadable
 }
 
 func roleName(r *api.Role) string {

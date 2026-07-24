@@ -122,6 +122,30 @@ func TestAuth_Status_PipedOutputIsJSON(t *testing.T) {
 	assert.Equal(t, "authenticated", result.Status)
 }
 
+func TestAuth_Status_EnvironmentOverridesSavedInstances(t *testing.T) {
+	requireE2EEnv(t)
+	tmpHome := t.TempDir()
+	configFixture(t, tmpHome, `{
+  "currentInstance": "saved",
+  "instances": {
+    "saved": {"url": "https://invalid.example", "token": "perm:invalid"}
+  }
+}`)
+
+	out := runCmdWithEnv(t, "", []string{
+		"HOME=" + tmpHome,
+		"YOUTRACK_BASE_URL=" + os.Getenv("YOUTRACK_BASE_URL"),
+		"YOUTRACK_TOKEN=" + os.Getenv("YOUTRACK_TOKEN"),
+	}, "--json", "auth", "status")
+	var status struct {
+		URL    string `json:"url"`
+		Status string `json:"status"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &status))
+	assert.Equal(t, "authenticated", status.Status)
+	assert.Equal(t, os.Getenv("YOUTRACK_BASE_URL"), status.URL)
+}
+
 func TestAuth_GetTokenViaBasicAuthCLI(t *testing.T) {
 	login := os.Getenv("YOUTRACK_LOGIN")
 	password := os.Getenv("YOUTRACK_PASSWORD")

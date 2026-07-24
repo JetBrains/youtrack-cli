@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal/config"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newUseCmd() *cobra.Command {
@@ -30,7 +31,7 @@ func newUseCmd() *cobra.Command {
 			if err := cfg.Save(); err != nil {
 				return err
 			}
-			_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Switched to instance %q\n", alias)
+			output.PrintSuccess(cmd, fmt.Sprintf("switched to instance %q", alias))
 			return nil
 		},
 	}

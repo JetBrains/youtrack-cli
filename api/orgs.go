@@ -11,7 +11,7 @@ type AddOrganizationRequest struct {
 
 func (c *Client) ListOrganizations() ([]Organization, error) {
 	var result []Organization
-	err := c.Get(pathAdminOrganizations+"?fields=id,name&$top=-1", &result)
+	err := c.Get(pathAdminOrganizations+"?fields=id,name&$top=500", &result)
 	return result, err
 }
 

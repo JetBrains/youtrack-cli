@@ -78,24 +78,26 @@ Destructive commands (deletes, bans, archives, and similar) prompt for confirmat
 | `issue field set` | **Yes** |
 | `issue reaction add` / `issue reaction delete` | **Yes** |
 | `issue draft create` / `issue draft update` / `issue draft submit` / `issue draft delete` | **Yes** |
-| `issue workitem create` | **Yes** |
+| `issue workitem list` / `issue workitem view` | No |
+| `issue workitem create` / `issue workitem update` / `issue workitem delete` | **Yes** |
 | `article list` / `article view` | No |
 | `article create` / `article update` / `article delete` | **Yes** |
-| `article tag` / `article visibility` / `article set-parent` | **Yes** |
+| `article tag` / `article untag` / `article visibility` / `article set-parent` | **Yes** |
 | `article comment list` / `article comment view` | No |
 | `article comment create` / `article comment update` / `article comment delete` | **Yes** |
 | `article comment pin` / `article comment visibility` | **Yes** |
 | `article comment reaction list` | No |
 | `article comment reaction add` / `article comment reaction delete` | **Yes** |
 | `article attachment list` | No |
-| `article attachment add` | **Yes** |
+| `article attachment add` / `article attachment delete` | **Yes** |
 | `article child list` / `article parent view` | No |
 | `article child add` | **Yes** |
 | `project list` / `project view` | No |
 | `project create` / `project delete` / `project archive` | **Yes** |
-| `project team add-user` / `project team add-group` | **Yes** |
+| `project team list-users` / `project team list-groups` | No |
+| `project team add-user` / `project team add-group` / `project team remove-user` / `project team remove-group` | **Yes** |
 | `project field list` | No |
-| `project field add` | **Yes** |
+| `project field add` / `project field remove` | **Yes** |
 | `project timetrack set` / `project workflow add` | **Yes** |
 | `project template list` | No |
 | `board list` / `board view` | No |

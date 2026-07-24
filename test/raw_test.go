@@ -26,6 +26,18 @@ func TestCmd_RawFieldsProjection(t *testing.T) {
 	assert.NotEmpty(t, result.Login)
 }
 
+func TestCmd_RawPaginate(t *testing.T) {
+	requireE2EEnv(t)
+
+	out := runCmd(t, "raw", "/api/users", "--fields", "id,login", "--paginate", "--page-size", "1")
+	var users []map[string]any
+	require.NoError(t, json.Unmarshal([]byte(out), &users))
+	require.NotEmpty(t, users)
+	for _, user := range users {
+		assert.NotEmpty(t, user["id"])
+	}
+}
+
 func TestCmd_RawUnexpectedResponse(t *testing.T) {
 	requireE2EEnv(t)
 

@@ -103,6 +103,28 @@ func TestCmd_IssueFieldsProjection(t *testing.T) {
 	})
 }
 
+func TestCmd_IssueListOffset(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	for _, summary := range []string{"offset page first", "offset page second"} {
+		issue, err := c.AddIssue(api.AddIssueRequest{Summary: summary, Project: &api.Project{ID: proj.ID}})
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	}
+
+	firstRaw := runCmd(t, "issue", "list", "--query", "project: "+proj.ShortName,
+		"--limit", "1", "--offset", "0", "--json")
+	secondRaw := runCmd(t, "issue", "list", "--query", "project: "+proj.ShortName,
+		"--limit", "1", "--offset", "1", "--json")
+	var first, second []api.Issue
+	require.NoError(t, json.Unmarshal([]byte(firstRaw), &first))
+	require.NoError(t, json.Unmarshal([]byte(secondRaw), &second))
+	require.Len(t, first, 1)
+	require.Len(t, second, 1)
+	assert.NotEqual(t, first[0].IDReadable, second[0].IDReadable)
+}
+
 // Cmd-layer tests
 
 func TestCmd_IssueList(t *testing.T) {
@@ -581,6 +603,29 @@ func TestCmd_IssueWorkitemUpdate(t *testing.T) {
 	assert.Equal(t, 90, got.Duration.Minutes)
 }
 
+func TestCmd_IssueWorkitemListAndDelete(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	runCmd(t, "project", "timetrack", "set", proj.ShortName, "--enabled")
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "workitem lifecycle test", Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	item, err := c.AddWorkItem(issue.IDReadable, 15, "delete this item", "")
+	require.NoError(t, err)
+
+	listOut := runCmd(t, "issue", "workitem", "list", issue.IDReadable, "--json")
+	assert.Contains(t, listOut, item.ID)
+	delOut := runCmd(t, "issue", "workitem", "delete", issue.IDReadable, item.ID, "--force")
+	assert.Contains(t, delOut, "deleted work item "+item.ID)
+	items, err := c.ListWorkItems(issue.IDReadable)
+	require.NoError(t, err)
+	for _, current := range items {
+		assert.NotEqual(t, item.ID, current.ID)
+	}
+}
+
 func TestCmd_IssueAttachmentCRUD(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
@@ -649,6 +694,14 @@ func TestCmd_IssueTag(t *testing.T) {
 	// List tags on issue
 	listOut := runCmd(t, "issue", "tag", "list", issue.IDReadable, "--format", "json")
 	assert.Contains(t, listOut, tagID)
+
+	removeOut := runCmd(t, "issue", "tag", "remove", issue.IDReadable, tagID)
+	assert.Contains(t, removeOut, "removed tag "+tagID)
+	tagsAfter, err := c.ListIssueTags(issue.IDReadable)
+	require.NoError(t, err)
+	for _, current := range tagsAfter {
+		assert.NotEqual(t, tagID, current.ID)
+	}
 }
 
 func TestCmd_IssueFieldView(t *testing.T) {

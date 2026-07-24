@@ -7,6 +7,7 @@ import (
 
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newDeleteCmd() *cobra.Command {
@@ -39,12 +40,11 @@ func newDeleteCmd() *cobra.Command {
 				return err
 			}
 			config.PurgeKeyringToken(alias)
+			message := fmt.Sprintf("instance %q deleted", alias)
 			if wasActive {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(),
-					"Instance %q deleted.\nRun: youtrack instance use <alias> to set a new active instance.\n", alias)
-			} else {
-				_, _ = fmt.Fprintf(cmd.OutOrStdout(), "Instance %q deleted.\n", alias)
+				message += "; run 'youtrack instance use <alias>' to set a new active instance"
 			}
+			output.PrintSuccess(cmd, message)
 			return nil
 		},
 	}

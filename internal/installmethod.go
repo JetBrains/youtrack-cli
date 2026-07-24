@@ -1,11 +1,15 @@
 package internal
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"runtime"
 	"strings"
+	"time"
 )
+
+const installMethodProbeTimeout = 3 * time.Second
 
 // InstallMethod identifies how the running youtrack binary reached this machine,
 // so "youtrack update" can point at the right upgrade command.
@@ -93,7 +97,9 @@ func cmdExists(name string) bool {
 }
 
 func isInstalledVia(exe, cmd string, args ...string) bool {
-	out, err := exec.Command(cmd, append(args, exe)...).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), installMethodProbeTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, cmd, append(args, exe)...).CombinedOutput()
 	if err != nil {
 		return false
 	}

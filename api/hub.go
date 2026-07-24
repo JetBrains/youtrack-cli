@@ -174,7 +174,7 @@ func GetHubMe(baseURL, login, password string) (*HubUser, error) {
 
 // ListHubServices returns all services registered in Hub.
 func ListHubServices(baseURL, login, password string) ([]HubService, error) {
-	data, err := hubDo("GET", baseURL, "/hub/api/rest/services?fields=id,name&$top=-1",
+	data, err := hubDo("GET", baseURL, "/hub/api/rest/services?fields=id,name&$top=500",
 		hubBasicAuth(login, password), nil)
 	if err != nil {
 		return nil, err

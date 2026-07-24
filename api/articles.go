@@ -58,7 +58,7 @@ func (c *Client) DeleteArticle(id string) error {
 
 func (c *Client) ListArticleAttachments(articleID string) ([]ArticleAttachment, error) {
 	var result []ArticleAttachment
-	path := fmt.Sprintf(pathArticleAttachments+"?fields=%s&$top=-1", url.PathEscape(articleID), articleAttachmentFields)
+	path := fmt.Sprintf(pathArticleAttachments+"?fields=%s&$top=500", url.PathEscape(articleID), articleAttachmentFields)
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -75,9 +75,13 @@ func (c *Client) AddArticleAttachment(articleID, filePath string) (*ArticleAttac
 	return &results[0], nil
 }
 
+func (c *Client) DeleteArticleAttachment(articleID, attachmentID string) error {
+	return c.Delete(fmt.Sprintf(pathArticleAttachment, url.PathEscape(articleID), url.PathEscape(attachmentID)))
+}
+
 func (c *Client) ListArticleComments(articleID string) ([]Comment, error) {
 	var result []Comment
-	path := fmt.Sprintf(pathArticleComments+"?fields=%s&$top=-1", url.PathEscape(articleID), articleCommentFields)
+	path := fmt.Sprintf(pathArticleComments+"?fields=%s&$top=500", url.PathEscape(articleID), articleCommentFields)
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -142,6 +146,10 @@ func (c *Client) TagArticle(articleID, tagID string) error {
 	return c.Post(path, map[string]any{"$type": "Tag", "id": tagID}, nil)
 }
 
+func (c *Client) UntagArticle(articleID, tagID string) error {
+	return c.Delete(fmt.Sprintf(pathArticleTag, url.PathEscape(articleID), url.PathEscape(tagID)))
+}
+
 func (c *Client) ListArticleChildren(articleID string) ([]Article, error) {
 	article, err := c.GetArticle(articleID)
 	if err != nil {
@@ -165,7 +173,7 @@ func (c *Client) GetArticleParent(articleID string) (*Article, error) {
 
 func (c *Client) ListArticleCommentReactions(articleID, commentID string) ([]Reaction, error) {
 	var result []Reaction
-	path := fmt.Sprintf(pathArticleCommentReactions+"?fields=id,reaction,author(id,login,fullName)&$top=-1",
+	path := fmt.Sprintf(pathArticleCommentReactions+"?fields=id,reaction,author(id,login,fullName)&$top=500",
 		url.PathEscape(articleID), url.PathEscape(commentID))
 	err := c.Get(path, &result)
 	return result, err

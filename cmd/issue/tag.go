@@ -59,6 +59,21 @@ func newIssueTagCmd() *cobra.Command {
 			return output.Print(cmd, tag)
 		},
 	}
-	cmd.AddCommand(add, list, view)
+	remove := &cobra.Command{
+		Use: "remove <issueId> <tagId>", Short: "Remove a tag from an issue",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.UntagIssue(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "removed tag "+args[1]+" from issue "+args[0])
+			return nil
+		},
+	}
+	cmd.AddCommand(add, list, view, remove)
 	return cmd
 }

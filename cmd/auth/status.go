@@ -54,7 +54,7 @@ Use --json for machine-readable output.`,
 			// Multi-instance path: config exists with at least one instance.
 			// Skip if the caller explicitly overrode the URL or token via flags —
 			// explicit flags mean "check this specific instance", not all instances.
-			if len(cfg.Instances) > 0 && !flagChanged(cmd, "base-url") && !flagChanged(cmd, "token") {
+			if len(cfg.Instances) > 0 && !hasCredentialOverride(cmd) {
 				return runMultiInstanceStatus(cmd, cfg)
 			}
 
@@ -100,6 +100,13 @@ Use --json for machine-readable output.`,
 			return output.Print(cmd, s)
 		},
 	}
+}
+
+// hasCredentialOverride reports whether auth status should inspect the same
+// effective credentials as ordinary commands instead of every saved instance.
+func hasCredentialOverride(cmd *cobra.Command) bool {
+	return flagChanged(cmd, "base-url") || flagChanged(cmd, "token") || flagChanged(cmd, "server") ||
+		os.Getenv("YOUTRACK_BASE_URL") != "" || os.Getenv("YOUTRACK_TOKEN") != ""
 }
 
 func printAuthStatus(cmd *cobra.Command, s AuthStatus) {

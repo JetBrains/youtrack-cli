@@ -126,6 +126,13 @@ youtrack raw /api/issues/DEMO-42/comments \
 
 Raw responses are arbitrary JSON, so pass `--json` or pipe the output when you want to parse it.
 
+For collection endpoints, `--paginate` follows `$skip`/`$top` pages and emits
+one combined JSON array. `--page-size` defaults to 100:
+
+```Shell
+youtrack raw /api/issues --fields "idReadable,summary" --paginate --page-size 100
+```
+
 <table>
 <tr>
 <td>

@@ -16,7 +16,7 @@ type AddProjectRequest struct {
 
 func (c *Client) ListProjects() ([]Project, error) {
 	var result []Project
-	err := c.Get(pathAdminProjects+"?fields="+projectFields+"&$top=-1", &result)
+	err := c.Get(pathAdminProjects+"?fields="+projectFields+"&$top=500", &result)
 	return result, err
 }
 
@@ -62,7 +62,7 @@ func (c *Client) ArchiveProject(shortName string) error {
 
 func (c *Client) GetProjectTemplates() ([]ProjectTemplate, error) {
 	var result []ProjectTemplate
-	err := c.Get(pathAdminProjectTemplates+"?fields=id,name,shortName&$top=-1", &result)
+	err := c.Get(pathAdminProjectTemplates+"?fields=id,name,shortName&$top=500", &result)
 	return result, err
 }
 
@@ -72,7 +72,7 @@ func (c *Client) GetProjectCustomFields(shortName string) ([]ProjectCustomField,
 		return nil, err
 	}
 	var result []ProjectCustomField
-	path := fmt.Sprintf(pathAdminProjectFields+"?fields=id,field(id,name),bundle(id,name)&$top=-1", url.PathEscape(p.ID))
+	path := fmt.Sprintf(pathAdminProjectFields+"?fields=id,field(id,name),bundle(id,name)&$top=500", url.PathEscape(p.ID))
 	err = c.Get(path, &result)
 	return result, err
 }
@@ -116,6 +116,33 @@ func (c *Client) AddProjectCustomField(shortName, fieldID string) error {
 		"$type": fieldType,
 		"field": map[string]any{"id": fieldID},
 	}, nil)
+}
+
+func (c *Client) RemoveProjectCustomField(shortName, projectFieldID string) error {
+	p, err := c.GetProject(shortName)
+	if err != nil {
+		return err
+	}
+	return c.Delete(fmt.Sprintf(pathAdminProjectField, url.PathEscape(p.ID), url.PathEscape(projectFieldID)))
+}
+
+func (c *Client) ListProjectTeamUsers(shortName string) ([]User, error) {
+	p, err := c.GetProject(shortName)
+	if err != nil {
+		return nil, err
+	}
+	var result []User
+	path := fmt.Sprintf(pathAdminProjectTeamOwnUsers+"?fields="+userFields+"&$top=500", url.PathEscape(p.ID))
+	err = c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) RemoveUserFromProjectTeam(shortName, userID string) error {
+	p, err := c.GetProject(shortName)
+	if err != nil {
+		return err
+	}
+	return c.Delete(fmt.Sprintf(pathAdminProjectTeamOwnUser, url.PathEscape(p.ID), url.PathEscape(userID)))
 }
 
 func (c *Client) AddUserToProjectTeam(shortName, userID string) (bool, error) {
@@ -171,6 +198,25 @@ func (c *Client) AddGroupToProjectTeam(shortName, groupID string) error {
 	}
 	path := fmt.Sprintf(pathAdminProjectTeamGroups, url.PathEscape(p.ID))
 	return c.Post(path, map[string]any{"id": groupID}, nil)
+}
+
+func (c *Client) ListProjectTeamGroups(shortName string) ([]Group, error) {
+	p, err := c.GetProject(shortName)
+	if err != nil {
+		return nil, err
+	}
+	var result []Group
+	path := fmt.Sprintf(pathAdminProjectTeamGroups+"?fields=id,name&$top=500", url.PathEscape(p.ID))
+	err = c.Get(path, &result)
+	return result, err
+}
+
+func (c *Client) RemoveGroupFromProjectTeam(shortName, groupID string) error {
+	p, err := c.GetProject(shortName)
+	if err != nil {
+		return err
+	}
+	return c.Delete(fmt.Sprintf(pathAdminProjectTeamGroup, url.PathEscape(p.ID), url.PathEscape(groupID)))
 }
 
 func (c *Client) AttachWorkflowToProject(shortName, workflowID string) error {

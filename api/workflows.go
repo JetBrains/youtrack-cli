@@ -7,7 +7,7 @@ import (
 
 func (c *Client) ListWorkflows() ([]Workflow, error) {
 	var result []Workflow
-	err := c.Get(pathAdminWorkflows+"?fields=id,name,title,rules(id,name,title)&$top=-1", &result)
+	err := c.Get(pathAdminWorkflows+"?fields=id,name,title,rules(id,name,title)&$top=500", &result)
 	return result, err
 }
 

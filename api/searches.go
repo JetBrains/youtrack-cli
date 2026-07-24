@@ -14,7 +14,7 @@ const savedSearchFields = "id,name,query,owner(id,login,fullName),readSharingSet
 
 func (c *Client) ListSavedSearches() ([]SavedSearch, error) {
 	var result []SavedSearch
-	err := c.Get(pathSavedQueries+"?fields="+savedSearchFields+"&$top=-1", &result)
+	err := c.Get(pathSavedQueries+"?fields="+savedSearchFields+"&$top=500", &result)
 	return result, err
 }
 
@@ -53,7 +53,7 @@ func (c *Client) allUsersGroupID() (string, error) {
 		ID            string `json:"id"`
 		AllUsersGroup bool   `json:"allUsersGroup"`
 	}
-	if err := c.Get(pathGroups+"?fields=id,allUsersGroup&$top=-1", &groups); err != nil {
+	if err := c.Get(pathGroups+"?fields=id,allUsersGroup&$top=500", &groups); err != nil {
 		return "", fmt.Errorf("fetch groups: %w", err)
 	}
 	for _, g := range groups {
