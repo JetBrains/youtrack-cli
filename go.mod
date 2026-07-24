@@ -3,6 +3,7 @@ module github.com/JetBrains/youtrack-cli
 go 1.26.5
 
 require (
+	github.com/creack/pty v1.1.24
 	github.com/fatih/color v1.19.0
 	github.com/spf13/cobra v1.10.2
 	github.com/tiulpin/instill v0.0.0-20260409102126-21f299ecb245
@@ -11,7 +12,6 @@ require (
 )
 
 require (
-	github.com/creack/pty v1.1.24 // indirect
 	github.com/danieljoos/wincred v1.2.3 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/godbus/dbus/v5 v5.2.2 // indirect

@@ -185,7 +185,7 @@ func checkForUpdate(currentVersion string) string {
 		return ""
 	}
 	return fmt.Sprintf(
-		"ℹ  YouTrack CLI v%s is available (you have %s) — run 'youtrack update' for upgrade instructions",
+		"ℹ  YouTrack CLI v%s is available (you have %s) — run 'youtrack update' to update",
 		release.Version, currentVersion,
 	)
 }

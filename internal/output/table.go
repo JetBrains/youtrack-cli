@@ -371,6 +371,12 @@ func PrintPlain(out io.Writer, data any) error {
 		for _, d := range v {
 			write(d.ID, d.Summary)
 		}
+	case *internal.UpdateStatus:
+		if v.UpdateAvailable {
+			write(internal.FormatVersion(v.LatestVersion), v.UpgradeCommand)
+		} else {
+			write(internal.FormatVersion(v.CurrentVersion), "up-to-date")
+		}
 	default:
 		return printJSON(out, data)
 	}
