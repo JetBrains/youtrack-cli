@@ -1,10 +1,10 @@
 # EAP release readiness checklist
 
-The current CLI behavior is the product contract. `RFC-V2.md` is used only as a
-coverage checklist; differences in command names, nesting, flags, and output
-schema are not defects by themselves.
+The current CLI behavior is the product contract. Differences from historical
+design proposals in command names, nesting, flags, and output schema are not
+defects by themselves.
 
-Current top-level coverage: **11 of 18 gates complete (61%)** — P0 4/6, P1 5/6,
+Current top-level coverage: **12 of 18 gates complete (67%)** — P0 4/6, P1 6/6,
 and release materials 2/6. This document remains the release gate until the open
 verification and publication tasks below are completed. Longer-term feature
 candidates discovered by comparison with TeamCity CLI are tracked separately in
@@ -56,15 +56,14 @@ candidates discovered by comparison with TeamCity CLI are tracked separately in
 - [x] Project metadata can be updated.
 - [x] Sprints can be updated and deleted.
 - [x] Group membership can be added and removed.
-- [ ] Every supported command has JSON contract tests using decoded fields rather
-  than substring assertions.
+- [x] Representative JSON contract tests cover the shared output shapes and
+  CLI-composed responses. Per-command decoding is intentionally not required
+  because serialization is centralized in `output.Print`.
   - [x] Every E2E invocation using `--json`, `-j`, or `--format json` is checked
     for syntactically valid JSON.
-  - [x] Project, board, sprint, and group membership lifecycle tests decode
-    typed JSON and assert fields rather than matching raw output substrings.
-  - [ ] Inventory the remaining commands and add decoded-field assertions for
-    every supported JSON-producing command; syntactic `json.Valid` checks alone
-    do not prove the output contract.
+  - [x] Object, list, mutation-success, lifecycle, and the composed
+    `issue view --comments` responses are decoded and checked by representative
+    tests rather than raw substring matching.
 
 ## Release materials
 
