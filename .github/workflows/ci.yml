@@ -103,6 +103,8 @@ jobs:
         run: go install gotest.tools/gotestsum@v1.13.0
 
       - name: Run Tests
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -a && source .e2e/youtrack.env && set +a
           gotestsum --junitfile test-results.xml --format github-actions -- -count=1 ./test/...
