@@ -14,6 +14,15 @@ type AddProjectRequest struct {
 	Leader    *User  `json:"leader"`
 }
 
+// UpdateProjectRequest contains only project metadata explicitly selected by the caller.
+type UpdateProjectRequest struct {
+	ShortName   *string `json:"shortName,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Leader      *User   `json:"leader,omitempty"`
+	Archived    *bool   `json:"archived,omitempty"`
+}
+
 func (c *Client) ListProjects() ([]Project, error) {
 	var result []Project
 	err := c.Get(pathAdminProjects+"?fields="+projectFields+"&$top=500", &result)
@@ -47,6 +56,17 @@ func (c *Client) AddProject(req AddProjectRequest, template string) (*Project, e
 		path += "&template=" + url.QueryEscape(template)
 	}
 	err := c.Post(path, req, &result)
+	return &result, err
+}
+
+func (c *Client) UpdateProject(shortName string, req UpdateProjectRequest) (*Project, error) {
+	p, err := c.GetProject(shortName)
+	if err != nil {
+		return nil, err
+	}
+	var result Project
+	path := fmt.Sprintf(pathAdminProject+"?fields="+projectFields, url.PathEscape(p.ID))
+	err = c.Post(path, req, &result)
 	return &result, err
 }
 

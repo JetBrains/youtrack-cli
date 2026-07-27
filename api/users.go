@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -39,8 +40,13 @@ func (c *Client) ListUsers(query string, limit int) ([]User, error) {
 func (c *Client) GetUser(login string) (*User, error) {
 	var result User
 	path := fmt.Sprintf(pathUser+"?fields=%s", url.PathEscape(login), userFields)
-	if err := c.Get(path, &result); err == nil {
+	err := c.Get(path, &result)
+	if err == nil {
 		return &result, nil
+	}
+	var apiErr *APIError
+	if !errors.As(err, &apiErr) || apiErr.StatusCode != 404 {
+		return nil, err
 	}
 
 	users, err := c.ListUsers(login, userLookupLimit)
@@ -82,7 +88,9 @@ func (c *Client) WaitForHubSync(userID string) (bool, error) {
 		if time.Now().After(deadline) {
 			return false, nil
 		}
-		time.Sleep(hubSyncPollInterval)
+		if err := c.wait(hubSyncPollInterval); err != nil {
+			return false, err
+		}
 	}
 }
 
@@ -115,7 +123,9 @@ func (c *Client) DeleteUser(identifier, successorIdentifier string) error {
 		if !isHubNotMappedError(err) || time.Now().After(deadline) {
 			return err
 		}
-		time.Sleep(hubSyncPollInterval)
+		if err := c.wait(hubSyncPollInterval); err != nil {
+			return err
+		}
 	}
 }
 
@@ -134,7 +144,9 @@ func (c *Client) BanUser(identifier string, ban bool) error {
 		if time.Now().After(deadline) {
 			return err
 		}
-		time.Sleep(hubSyncPollInterval)
+		if err := c.wait(hubSyncPollInterval); err != nil {
+			return err
+		}
 	}
 }
 
@@ -290,7 +302,9 @@ func (c *Client) waitForUserDeletion(login, id string) error {
 		if time.Now().After(deadline) {
 			return fmt.Errorf("user '%s' is still visible after delete; YouTrack sync may still be in progress", login)
 		}
-		time.Sleep(entityDeletePollInterval)
+		if err := c.wait(entityDeletePollInterval); err != nil {
+			return err
+		}
 	}
 }
 

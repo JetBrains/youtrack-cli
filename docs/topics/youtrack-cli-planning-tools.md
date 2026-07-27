@@ -46,7 +46,7 @@ youtrack board delete 126-0
 
 ## Managing sprints {id="sprints"}
 
-A sprint is a time-boxed iteration on a board. The CLI can list, view, and create sprints. Editing or deleting a sprint is not available from the CLI — use the YouTrack web interface for those.
+A sprint is a time-boxed iteration on a board. The CLI can list, view, create, update, and delete sprints.
 
 ### Listing and viewing sprints
 
@@ -75,6 +75,19 @@ youtrack board sprint create --board 126-0 --name "Sprint 14" --goal "Ship the s
 > The `-j -f` form is macOS `date`. On Linux, use `$(date -d 2026-08-01 +%s)000`.
 >
 {style="tip"}
+
+### Updating and deleting a sprint
+
+Change only the fields you pass. An empty goal clears the existing goal, and
+`--archived=false` restores an archived sprint:
+
+```Shell
+youtrack board sprint update 127-3 --board 126-0 --name "Sprint 14B" --goal "Revised scope"
+youtrack board sprint update 127-3 --board 126-0 --archived=true
+youtrack board sprint delete 127-3 --board 126-0 --force
+```
+
+`sprint delete` asks for confirmation unless `--force` is supplied.
 
 ## Working with Gantt charts {id="gantt"}
 

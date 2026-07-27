@@ -156,7 +156,7 @@ func acquireTokenViaBasicAuth(cmd *cobra.Command, reader *bufio.Reader, baseURL 
 		password = string(raw)
 	}
 
-	me, err := api.GetHubMe(baseURL, login, password)
+	me, err := api.GetHubMeContext(cmd.Context(), baseURL, login, password)
 	if err != nil {
 		if strings.Contains(err.Error(), "basic auth is not available") {
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\nBasic auth is not available for this instance.\nFalling back to direct token input.\n\n")
@@ -169,7 +169,7 @@ func acquireTokenViaBasicAuth(cmd *cobra.Command, reader *bufio.Reader, baseURL 
 		return nil, err
 	}
 
-	services, err := api.ListHubServices(baseURL, login, password)
+	services, err := api.ListHubServicesContext(cmd.Context(), baseURL, login, password)
 	if err != nil {
 		return nil, fmt.Errorf("listing Hub services: %w", err)
 	}
@@ -179,7 +179,7 @@ func acquireTokenViaBasicAuth(cmd *cobra.Command, reader *bufio.Reader, baseURL 
 		return nil, err
 	}
 
-	tok, err := api.CreateHubToken(baseURL, login, password, me.ID, tokenName, scopeIDs)
+	tok, err := api.CreateHubTokenContext(cmd.Context(), baseURL, login, password, me.ID, tokenName, scopeIDs)
 	if err != nil {
 		return nil, fmt.Errorf("creating token: %w", err)
 	}
@@ -195,7 +195,7 @@ func acquireTokenViaWeb(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 	}
 
 	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Detecting Hub configuration for %s...\n", baseURL)
-	hubURL, isInternal, err := api.DetectHubURL(baseURL)
+	hubURL, isInternal, err := api.DetectHubURLContext(cmd.Context(), baseURL)
 	if err != nil {
 		return "", fmt.Errorf("detecting Hub: %w", err)
 	}
@@ -226,8 +226,11 @@ func acquireTokenViaWeb(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 // paste a token directly. Returns the verified token.
 func acquireTokenViaPaste(cmd *cobra.Command, reader *bufio.Reader, baseURL string) (string, error) {
 	tokenPageURL := baseURL + "/users/me?tab=account-security"
-	if hubURL, isInternal, err := api.DetectHubURL(baseURL); err == nil && !isInternal {
+	if hubURL, isInternal, err := api.DetectHubURLContext(cmd.Context(), baseURL); err == nil && !isInternal {
 		tokenPageURL = hubURL + "/users/me?tab=authentication"
+	}
+	if err := cmd.Context().Err(); err != nil {
+		return "", err
 	}
 	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Create a permanent token at:\n  %s\n\n", hyperlink(tokenPageURL))
 	return promptAndVerifyToken(cmd, reader, baseURL)
@@ -249,7 +252,7 @@ func promptAndVerifyToken(cmd *cobra.Command, reader *bufio.Reader, baseURL stri
 	}
 
 	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Verifying token...")
-	verifyClient := api.NewClient(baseURL, token)
+	verifyClient := api.NewClient(baseURL, token).WithContext(cmd.Context())
 	user, err := verifyClient.GetCurrentUser()
 	if err != nil {
 		return "", fmt.Errorf("token verification failed: %w\nRe-run and paste the token again", err)

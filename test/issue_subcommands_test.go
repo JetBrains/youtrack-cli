@@ -6,7 +6,6 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -284,15 +283,22 @@ func TestCmd_IssueViewComments(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	// Output includes the issue JSON followed by the comments JSON array.
-	out := runCmd(t, "issue", "view", issue.IDReadable, "--comments", "5", "--format", "json")
-	assert.True(t, strings.Contains(out, "first comment"), "expected comment text in output")
+	result := runJSON[struct {
+		IDReadable string        `json:"idReadable"`
+		Comments   []api.Comment `json:"comments"`
+	}](t, "issue", "view", issue.IDReadable, "--comments", "5", "--json")
+	require.Equal(t, issue.IDReadable, result.IDReadable)
+	require.Len(t, result.Comments, 3)
+	require.Equal(t, "first comment", result.Comments[0].Text)
 
 	// --comments N must return the N most recent comments, not the N oldest.
-	out = runCmd(t, "issue", "view", issue.IDReadable, "--comments", "2", "--format", "json")
-	assert.NotContains(t, out, "first comment")
-	assert.Contains(t, out, "second comment")
-	assert.Contains(t, out, "third comment")
+	result = runJSON[struct {
+		IDReadable string        `json:"idReadable"`
+		Comments   []api.Comment `json:"comments"`
+	}](t, "issue", "view", issue.IDReadable, "--comments", "2", "--json")
+	require.Len(t, result.Comments, 2)
+	require.Equal(t, "second comment", result.Comments[0].Text)
+	require.Equal(t, "third comment", result.Comments[1].Text)
 }
 
 func TestCmd_IssueViewPlain(t *testing.T) {

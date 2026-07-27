@@ -120,6 +120,7 @@ youtrack project list
 youtrack project view <shortName>       # alias: get
 youtrack project create --shortName P --name "..." --leader <login> [--template helpdesk]
                                        # alias: add; --leader required (API rejects without it)
+youtrack project update <shortName> [--shortName P] [--name NAME] [--description TEXT] [--leader LOGIN] [--archived[=false]]
 youtrack project delete <shortName>
 youtrack project archive <shortName>
 ```
@@ -203,6 +204,8 @@ youtrack board sprint list --board <boardId>
 youtrack board sprint view --board <boardId> <sprintId>   # alias: get
 youtrack board sprint create --board <boardId> --name NAME [--start <epochMs>] [--end <epochMs>] [--goal G]
                                                    # alias: add
+youtrack board sprint update --board <boardId> <sprintId> [--name NAME] [--goal G] [--start <epochMs>] [--end <epochMs>] [--archived[=false]]
+youtrack board sprint delete --board <boardId> <sprintId>
 ```
 
 ## article
@@ -271,6 +274,9 @@ youtrack group list [--query Q]
 youtrack group view <name>              # alias: get
 youtrack group create --name NAME       # alias: add
 youtrack group delete <name>
+youtrack group member list <groupId>
+youtrack group member add <groupId> <userId>
+youtrack group member remove <groupId> <userId>
 ```
 
 ## role

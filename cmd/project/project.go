@@ -19,7 +19,7 @@ func NewCmd() *cobra.Command {
 	)
 
 	internal.AddToGroup(cmd, "work",
-		newProjectListCmd(), newProjectViewCmd(), newProjectCreateCmd(),
+		newProjectListCmd(), newProjectViewCmd(), newProjectCreateCmd(), newProjectUpdateCmd(),
 		newProjectDeleteCmd(), newProjectArchiveCmd(),
 	)
 	internal.AddToGroup(cmd, "config",

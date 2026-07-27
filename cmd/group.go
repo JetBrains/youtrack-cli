@@ -119,7 +119,41 @@ func newGroupMemberCmd() *cobra.Command {
 			return output.Print(cmd, members)
 		},
 	}
-	cmd.AddCommand(list)
+	add := &cobra.Command{
+		Use: "add <group-id> <user-id>", Short: "Add a user to a group",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.AddGroupMember(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "added user "+args[1]+" to group "+args[0])
+			return nil
+		},
+	}
+	remove := &cobra.Command{
+		Use: "remove <group-id> <user-id>", Short: "Remove a user from a group",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Remove user %s from group %s?", args[1], args[0])); abort {
+				return err
+			}
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.RemoveGroupMember(args[0], args[1]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "removed user "+args[1]+" from group "+args[0])
+			return nil
+		},
+	}
+	remove.Flags().Bool("force", false, "Skip the confirmation prompt")
+	cmd.AddCommand(list, add, remove)
 	return cmd
 }
 

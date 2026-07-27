@@ -59,14 +59,18 @@ func (m InstallMethod) AutoUpgradeCommand() (name string, args []string, ok bool
 // the method has no safe automated path — callers should fall back to printing
 // manual instructions in that case.
 func RunAutoUpgrade(method InstallMethod, version string, out, errOut io.Writer) (attempted bool, err error) {
+	return RunAutoUpgradeContext(context.Background(), method, version, out, errOut)
+}
+
+func RunAutoUpgradeContext(parent context.Context, method InstallMethod, version string, out, errOut io.Writer) (attempted bool, err error) {
 	if method == InstallScript {
-		return true, runInstallScriptUpgrade(version, out, errOut)
+		return true, runInstallScriptUpgrade(parent, version, out, errOut)
 	}
 	name, args, ok := method.AutoUpgradeCommand()
 	if !ok {
 		return false, nil
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), upgradeTimeout)
+	ctx, cancel := context.WithTimeout(parent, upgradeTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Stdout = out
@@ -79,8 +83,8 @@ func RunAutoUpgrade(method InstallMethod, version string, out, errOut io.Writer)
 // falling back to ~/.local/bin only if that's unwritable) can silently diverge from
 // wherever this binary actually lives, leaving a second, unused copy behind instead
 // of replacing the one on PATH.
-func runInstallScriptUpgrade(version string, out, errOut io.Writer) error {
-	script, err := downloadInstallScript(version)
+func runInstallScriptUpgrade(parent context.Context, version string, out, errOut io.Writer) error {
+	script, err := downloadInstallScript(parent, version)
 	if err != nil {
 		return err
 	}
@@ -92,7 +96,7 @@ func runInstallScriptUpgrade(version string, out, errOut io.Writer) error {
 
 	// bash -s reads the script from stdin; everything after "--" becomes $1, $2, ...
 	// RELEASE ($1) is left empty so install.sh resolves the latest release itself.
-	ctx, cancel := context.WithTimeout(context.Background(), upgradeTimeout)
+	ctx, cancel := context.WithTimeout(parent, upgradeTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "bash", "-s", "--", "v"+strings.TrimPrefix(version, "v"), outDir)
 	cmd.Stdin = bytes.NewReader(script)
@@ -103,18 +107,21 @@ func runInstallScriptUpgrade(version string, out, errOut io.Writer) error {
 
 // downloadInstallScript fetches install.sh's contents, preferring the public URL
 // (works once the repo is public) and falling back to gh (works while it's private).
-func downloadInstallScript(version string) ([]byte, error) {
+func downloadInstallScript(parent context.Context, version string) ([]byte, error) {
 	tag, err := releaseTag(version)
 	if err != nil {
 		return nil, err
 	}
-	if body, err := downloadInstallScriptViaAPI(tag); err == nil {
+	if body, err := downloadInstallScriptViaAPI(parent, tag); err == nil {
 		return body, nil
+	}
+	if err := parent.Err(); err != nil {
+		return nil, err
 	}
 	if !cmdExists("gh") {
 		return nil, errors.New("install script not reachable and gh CLI not found")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), updateCheckTimeout)
+	ctx, cancel := context.WithTimeout(parent, updateCheckTimeout)
 	defer cancel()
 	body, err := exec.CommandContext(ctx, "gh", "release", "download", tag,
 		"--repo", "JetBrains/youtrack-cli", "--pattern", "install.sh", "-O", "-").Output()
@@ -127,9 +134,9 @@ func downloadInstallScript(version string) ([]byte, error) {
 	return body, nil
 }
 
-func downloadInstallScriptViaAPI(version string) ([]byte, error) {
+func downloadInstallScriptViaAPI(ctx context.Context, version string) ([]byte, error) {
 	installScriptURL := "https://github.com/JetBrains/youtrack-cli/releases/download/" + version + "/install.sh"
-	req, err := http.NewRequest(http.MethodGet, installScriptURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, installScriptURL, nil)
 	if err != nil {
 		return nil, err
 	}

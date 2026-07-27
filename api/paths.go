@@ -55,6 +55,7 @@ const (
 	pathGroups            = "/api/groups"
 	pathGroup             = "/api/groups/%s"
 	pathGroupMembers      = "/api/groups/%s/ownUsers"
+	pathGroupMember       = "/api/groups/%s/ownUsers/%s"
 	pathGroupProjectRoles = "/api/groups/%s/projectroles"
 
 	// Issues

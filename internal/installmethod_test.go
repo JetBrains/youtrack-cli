@@ -20,7 +20,7 @@ func TestDetectFromPath(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := detectFromPath(c.exe); got != c.want {
+			if got := detectFromPathContext(t.Context(), c.exe); got != c.want {
 				t.Errorf("detectFromPath(%q) = %v, want %v", c.exe, got, c.want)
 			}
 		})

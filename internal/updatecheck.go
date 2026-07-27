@@ -99,8 +99,8 @@ func updateCheckDue(currentVersion string) bool {
 // fetchLatestRelease queries for the latest published release via the public,
 // unauthenticated API first. If that fails (e.g. the repo is private/internal),
 // it falls back to the gh CLI, which carries the caller's own GitHub auth.
-func fetchLatestRelease() (*ReleaseInfo, error) {
-	release, apiErr := fetchLatestReleaseViaAPI()
+func fetchLatestRelease(ctx context.Context) (*ReleaseInfo, error) {
+	release, apiErr := fetchLatestReleaseViaAPI(ctx)
 	if apiErr == nil {
 		return release, nil
 	}
@@ -110,12 +110,12 @@ func fetchLatestRelease() (*ReleaseInfo, error) {
 			apiErr,
 		)
 	}
-	return fetchLatestReleaseViaGH()
+	return fetchLatestReleaseViaGH(ctx)
 }
 
 // fetchLatestReleaseViaGH shells out to the gh CLI. Callers must check cmdExists("gh") first.
-func fetchLatestReleaseViaGH() (*ReleaseInfo, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), updateCheckTimeout)
+func fetchLatestReleaseViaGH(parent context.Context) (*ReleaseInfo, error) {
+	ctx, cancel := context.WithTimeout(parent, updateCheckTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "gh", "api", "repos/JetBrains/youtrack-cli/releases/latest")
 	var stderr bytes.Buffer
@@ -130,8 +130,8 @@ func fetchLatestReleaseViaGH() (*ReleaseInfo, error) {
 	return parseReleaseJSON(out)
 }
 
-func fetchLatestReleaseViaAPI() (*ReleaseInfo, error) {
-	req, err := http.NewRequest(http.MethodGet, updateCheckURL, nil)
+func fetchLatestReleaseViaAPI(ctx context.Context) (*ReleaseInfo, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, updateCheckURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -176,7 +176,7 @@ func parseReleaseJSON(data []byte) (*ReleaseInfo, error) {
 }
 
 func checkForUpdate(currentVersion string) string {
-	release, err := fetchLatestRelease()
+	release, err := fetchLatestRelease(context.Background())
 	if err != nil {
 		return ""
 	}
@@ -190,11 +190,11 @@ func checkForUpdate(currentVersion string) string {
 	)
 }
 
-// CheckNow performs an explicit, synchronous update check that bypasses the throttle
+// CheckNowContext performs an explicit, synchronous update check that bypasses the throttle
 // interval, for the "youtrack update" command. On success it persists the check
 // timestamp so the passive background check doesn't immediately refire on the next run.
-func CheckNow(currentVersion string) (*UpdateStatus, error) {
-	release, err := fetchLatestRelease()
+func CheckNowContext(ctx context.Context, currentVersion string) (*UpdateStatus, error) {
+	release, err := fetchLatestRelease(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -208,7 +208,7 @@ func CheckNow(currentVersion string) (*UpdateStatus, error) {
 	}
 	if IsNewerVersion(current, release.Version) {
 		status.UpdateAvailable = true
-		status.UpgradeCommand = DetectInstallMethod().UpgradeCommand()
+		status.UpgradeCommand = DetectInstallMethodContext(ctx).UpgradeCommand()
 	}
 	return status, nil
 }

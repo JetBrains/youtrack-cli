@@ -39,7 +39,7 @@ func TestOAuthDiscovery(t *testing.T) {
 	requireE2EEnv(t)
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 
-	ring, err := api.GetRingConfig(baseURL)
+	ring, err := api.GetRingConfigContext(t.Context(), baseURL)
 	require.NoError(t, err)
 	require.NotEmpty(t, ring.ServiceID, "ring.serviceId must be discoverable unauthenticated")
 
@@ -48,7 +48,7 @@ func TestOAuthDiscovery(t *testing.T) {
 		hubURL = strings.TrimRight(baseURL, "/") + "/hub"
 	}
 
-	eps, err := api.DiscoverOAuthEndpoints(hubURL)
+	eps, err := api.DiscoverOAuthEndpointsContext(t.Context(), hubURL)
 	require.NoError(t, err)
 	assert.NotEmpty(t, eps.AuthorizationEndpoint)
 	assert.NotEmpty(t, eps.TokenEndpoint)

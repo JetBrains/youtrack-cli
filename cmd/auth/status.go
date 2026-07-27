@@ -131,15 +131,21 @@ func runMultiInstanceStatus(cmd *cobra.Command, cfg *config.Config) error {
 	aliases := cfg.Aliases()
 	statuses := make([]InstanceStatus, 0, len(aliases))
 	for _, alias := range aliases {
+		if err := cmd.Context().Err(); err != nil {
+			return err
+		}
 		inst := cfg.Instances[alias]
 		s := InstanceStatus{
 			Alias:  alias,
 			URL:    inst.URL,
 			Active: alias == cfg.CurrentInstance,
 		}
-		c := api.NewClient(inst.URL, inst.Token)
+		c := api.NewClient(inst.URL, inst.Token).WithContext(cmd.Context())
 		user, err := c.GetCurrentUser()
 		if err != nil {
+			if contextErr := cmd.Context().Err(); contextErr != nil {
+				return contextErr
+			}
 			s.Status = fmt.Sprintf("invalid token: %s", err.Error())
 		} else {
 			s.Status = "authenticated"

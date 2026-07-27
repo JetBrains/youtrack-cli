@@ -76,3 +76,23 @@ func (c *Client) AddSprint(boardID, name string, start, finish int64, goal strin
 	err := c.Post(path, body, &result)
 	return &result, err
 }
+
+// UpdateSprintRequest contains only sprint properties explicitly selected by the caller.
+type UpdateSprintRequest struct {
+	Name     *string `json:"name,omitempty"`
+	Goal     *string `json:"goal,omitempty"`
+	Start    *int64  `json:"start,omitempty"`
+	Finish   *int64  `json:"finish,omitempty"`
+	Archived *bool   `json:"archived,omitempty"`
+}
+
+func (c *Client) UpdateSprint(boardID, sprintID string, req UpdateSprintRequest) (*Sprint, error) {
+	var result Sprint
+	path := fmt.Sprintf(pathBoardSprint+"?fields=id,name,goal,start,finish,archived,isDefault", url.PathEscape(boardID), url.PathEscape(sprintID))
+	err := c.Post(path, req, &result)
+	return &result, err
+}
+
+func (c *Client) DeleteSprint(boardID, sprintID string) error {
+	return c.Delete(fmt.Sprintf(pathBoardSprint, url.PathEscape(boardID), url.PathEscape(sprintID)))
+}

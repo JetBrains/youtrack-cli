@@ -65,10 +65,12 @@ type Comment struct {
 
 // Project is a YouTrack project.
 type Project struct {
-	ID        string `json:"id,omitempty"`
-	ShortName string `json:"shortName,omitempty"`
-	Name      string `json:"name,omitempty"`
-	Leader    *User  `json:"leader,omitempty"`
+	ID          string `json:"id,omitempty"`
+	ShortName   string `json:"shortName,omitempty"`
+	Name        string `json:"name,omitempty"`
+	Leader      *User  `json:"leader,omitempty"`
+	Description string `json:"description,omitempty"`
+	Archived    bool   `json:"archived,omitempty"`
 }
 
 // User is a YouTrack user.

@@ -141,7 +141,9 @@ func (c *Client) GetIssueCount(query string) (int, error) {
 		if time.Now().After(deadline) {
 			return 0, fmt.Errorf("issue count timed out after %v (query: %q): YouTrack async computation did not complete", pollTimeout, query)
 		}
-		time.Sleep(pollInterval)
+		if err := c.wait(pollInterval); err != nil {
+			return 0, err
+		}
 	}
 }
 

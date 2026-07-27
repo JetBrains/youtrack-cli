@@ -40,14 +40,14 @@ Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still
 | Attachments | `issue attachment list`, `add`, `delete` |
 | Custom fields | `issue field view` (`get`), `set` |
 | Work items | `issue workitem list`, `view`, `create` (`add`), `update`, `delete` |
-| Projects | `project list`, `view` (`get`), `create` (`add`), `delete`, `archive` |
+| Projects | `project list`, `view` (`get`), `create` (`add`), `update`, `delete`, `archive` |
 | Project team | `project team list-users`, `list-groups`, `add-user`, `add-group`, `remove-user`, `remove-group` |
 | Project fields | `project field list`, `add`, `remove` |
 | Users | `user list`, `view` (`get`), `current` (`me`), `create` (`add`), `delete`, `ban`, `unban` |
 | User profile | `user profile view` (`get`), `general`, `appearance`, `notifications`, `articles`, `issues-list`, `grazie`, `tips`, `property`, `timetracking view` |
-| Groups | `group list`, `view` (`get`), `create` (`add`), `delete` |
+| Groups | `group list`, `view` (`get`), `create` (`add`), `delete` + `group member list/add/remove` |
 | Roles | `role list`, `view` (`get`), `grant`, `revoke`, `assignments` |
-| Boards | `board list`, `view` (`get`), `create` (`add`), `update`, `delete` + `board sprint list/view(get)/create(add)` |
+| Boards | `board list`, `view` (`get`), `create` (`add`), `update`, `delete` + `board sprint list/view(get)/create(add)/update/delete` |
 | Whiteboards | `whiteboard list`, `create` (`add`), `view` (`get`), `delete`, `reload` + `whiteboard node list/view(get)/create(add)`, `links`, `link` |
 | Articles | `article list`, `view` (`get`), `create` (`add`), `update`, `delete` + comments, attachments, tags |
 | Tags | `tag list`, `create` (`add`), `delete`, `tag issue list <tagId>` |
