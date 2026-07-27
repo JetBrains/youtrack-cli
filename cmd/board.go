@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
@@ -192,5 +193,77 @@ func newBoardSprintCmd() *cobra.Command {
 	create.Flags().String("goal", "", "Sprint goal")
 	internal.MustMarkRequired(create, "board", "name")
 	cmd.AddCommand(create)
+	update := &cobra.Command{
+		Use: "update <sprint-id>", Short: "Update a sprint",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if !cmd.Flags().Changed("name") && !cmd.Flags().Changed("goal") &&
+				!cmd.Flags().Changed("start") && !cmd.Flags().Changed("end") &&
+				!cmd.Flags().Changed("archived") {
+				return fmt.Errorf("at least one of --name, --goal, --start, --end, or --archived must be set")
+			}
+			boardID, _ := cmd.Flags().GetString("board")
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			req := api.UpdateSprintRequest{}
+			if cmd.Flags().Changed("name") {
+				value, _ := cmd.Flags().GetString("name")
+				req.Name = &value
+			}
+			if cmd.Flags().Changed("goal") {
+				value, _ := cmd.Flags().GetString("goal")
+				req.Goal = &value
+			}
+			if cmd.Flags().Changed("start") {
+				value, _ := cmd.Flags().GetInt64("start")
+				req.Start = &value
+			}
+			if cmd.Flags().Changed("end") {
+				value, _ := cmd.Flags().GetInt64("end")
+				req.Finish = &value
+			}
+			if cmd.Flags().Changed("archived") {
+				value, _ := cmd.Flags().GetBool("archived")
+				req.Archived = &value
+			}
+			sprint, err := client.UpdateSprint(boardID, args[0], req)
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, sprint)
+		},
+	}
+	update.Flags().String("board", "", "Board ID (required)")
+	update.Flags().String("name", "", "New sprint name")
+	update.Flags().String("goal", "", "New sprint goal (empty clears it)")
+	update.Flags().Int64("start", 0, "New start date (epoch ms)")
+	update.Flags().Int64("end", 0, "New end date (epoch ms)")
+	update.Flags().Bool("archived", false, "Archive or restore the sprint")
+	internal.MustMarkRequired(update, "board")
+	deleteCmd := &cobra.Command{
+		Use: "delete <sprint-id>", Short: "Delete a sprint",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			boardID, _ := cmd.Flags().GetString("board")
+			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete sprint %s from board %s?", args[0], boardID)); abort {
+				return err
+			}
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			if err := client.DeleteSprint(boardID, args[0]); err != nil {
+				return err
+			}
+			output.PrintSuccess(cmd, "deleted sprint "+args[0]+" from board "+boardID)
+			return nil
+		},
+	}
+	deleteCmd.Flags().String("board", "", "Board ID (required)")
+	deleteCmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	internal.MustMarkRequired(deleteCmd, "board")
+	cmd.AddCommand(update, deleteCmd)
 	return cmd
 }

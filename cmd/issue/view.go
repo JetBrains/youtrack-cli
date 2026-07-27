@@ -1,6 +1,8 @@
 package issue
 
 import (
+	"encoding/json"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -39,10 +41,26 @@ func newIssueViewCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			n, _ := cmd.Flags().GetInt("comments")
+			if output.Format(cmd) == "json" && n > 0 {
+				comments, err := client.ListRecentComments(args[0], n)
+				if err != nil {
+					return err
+				}
+				data, err := json.Marshal(issue)
+				if err != nil {
+					return err
+				}
+				var result map[string]any
+				if err := json.Unmarshal(data, &result); err != nil {
+					return err
+				}
+				result["comments"] = comments
+				return output.Print(cmd, result)
+			}
 			if err := output.Print(cmd, issue); err != nil {
 				return err
 			}
-			n, _ := cmd.Flags().GetInt("comments")
 			if n > 0 {
 				comments, err := client.ListRecentComments(args[0], n)
 				if err != nil {

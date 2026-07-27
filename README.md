@@ -107,7 +107,7 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 | Group | Commands |
 |---|---|
 | **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field`, `reaction`, `draft`, `workitem`, `activity` |
-| **project** | `list`, `view`, `create`, `delete`, `archive`, `team`, `field`, `template`, `timetrack`, `workflow` |
+| **project** | `list`, `view`, `create`, `update`, `delete`, `archive`, `team`, `field`, `template`, `timetrack`, `workflow` |
 | **article** | `list`, `view`, `create`, `update`, `delete`, `comment`, `attachment`, `tag` |
 | **board** | `list`, `view`, `create`, `update`, `delete`, `sprint` |
 | **tag** | `list`, `create`, `delete`, `issue` |
@@ -153,6 +153,7 @@ See [AI agent integration](docs/topics/youtrack-cli-ai-agent-integration.md) for
 - [Configuration](docs/topics/youtrack-cli-configuration.md) — config file, environment variables, global flags, update checks
 - [Scripting and automation](docs/topics/youtrack-cli-scripting.md) — JSON/plain output, field projection, exit codes, CI
 - [Security](docs/security.md) — token disclaimer, `YOUTRACK_RO`, keyring storage, command-mutability reference
+- [TeamCity CLI comparison](docs/teamcity-cli-feature-comparison.md) — evaluated feature candidates and proposed implementation order
 
 ## Contributing
 

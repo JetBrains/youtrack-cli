@@ -36,6 +36,12 @@ func TestCmd_UserList(t *testing.T) {
 	assert.Contains(t, out, "login")
 }
 
+func TestCmd_UserViewPreservesAuthenticationFailure(t *testing.T) {
+	errOutput := runCmdExpectError(t, "--token", "invalid-e2e-token", "user", "view", "admin", "--json")
+	assert.Contains(t, errOutput, "HTTP 401")
+	assert.NotContains(t, errOutput, "not found")
+}
+
 func TestCmd_UserCRUD(t *testing.T) {
 	c := newTestClient(t)
 	successor, err := c.GetCurrentUser()

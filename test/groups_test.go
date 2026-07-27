@@ -83,8 +83,44 @@ func TestCmd_GroupMemberList(t *testing.T) {
 	}
 	_ = members
 
-	out := runCmd(t, "group", "member", "list", group.ID, "--format", "json")
-	assert.Contains(t, out, "[")
+	_ = runJSON[[]api.User](t, "group", "member", "list", group.ID, "--json")
+}
+
+func TestCmd_GroupMemberAddAndRemove(t *testing.T) {
+	c := newTestClient(t)
+	groupName := fmt.Sprintf("e2e-grp-members-%d", time.Now().UnixMilli()%100000)
+	group, err := c.AddGroup(groupName)
+	require.NoError(t, err)
+	successorGroup := groupDeleteSuccessor(t, c, group.ID)
+	t.Cleanup(func() { _ = c.DeleteGroup(group.ID, successorGroup.ID) })
+
+	successorUser, err := c.GetCurrentUser()
+	require.NoError(t, err)
+	login := fmt.Sprintf("groupmember%d", time.Now().UnixMilli()%100000)
+	user, err := c.AddUser(&api.AddUserRequest{
+		Login: login, FullName: "Group Member", Email: login + "@example.com", Password: "Test1234!",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteUser(login, successorUser.Login) })
+
+	addOut := runCmd(t, "group", "member", "add", group.ID, user.ID)
+	assert.Contains(t, addOut, "added user "+user.ID)
+	members := runJSON[[]api.User](t, "group", "member", "list", group.ID, "--json")
+	require.True(t, containsUser(members, user.ID))
+
+	removeOut := runCmd(t, "group", "member", "remove", group.ID, user.ID, "--force")
+	assert.Contains(t, removeOut, "removed user "+user.ID)
+	members = runJSON[[]api.User](t, "group", "member", "list", group.ID, "--json")
+	require.False(t, containsUser(members, user.ID))
+}
+
+func containsUser(users []api.User, id string) bool {
+	for _, user := range users {
+		if user.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCmd_GroupRoleList(t *testing.T) {

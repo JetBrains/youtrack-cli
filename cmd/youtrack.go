@@ -2,9 +2,12 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"embed"
 	"fmt"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -91,7 +94,9 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 func Execute(fs embed.FS) error {
 	root := NewRootCmd(fs)
 	done := internal.CheckForUpdateAsync(internal.Version)
-	execErr := root.Execute()
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	execErr := root.ExecuteContext(ctx)
 	quiet, _ := root.PersistentFlags().GetBool("quiet")
 	jsonMode := output.Format(root) == "json"
 	if execErr != nil {

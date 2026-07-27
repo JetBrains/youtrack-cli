@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"os"
 	"os/exec"
@@ -25,12 +26,12 @@ func TestAuth_GetTokenViaBasicAuth(t *testing.T) {
 		t.Skip("YOUTRACK_BASE_URL not set — skipping basic auth test")
 	}
 
-	me, err := api.GetHubMe(baseURL, login, password)
+	me, err := api.GetHubMeContext(t.Context(), baseURL, login, password)
 	require.NoError(t, err)
 	assert.NotEmpty(t, me.ID)
 	assert.NotEmpty(t, me.Login)
 
-	services, err := api.ListHubServices(baseURL, login, password)
+	services, err := api.ListHubServicesContext(t.Context(), baseURL, login, password)
 	require.NoError(t, err)
 	require.NotEmpty(t, services)
 
@@ -45,12 +46,12 @@ func TestAuth_GetTokenViaBasicAuth(t *testing.T) {
 		scopeIDs = []string{services[0].ID}
 	}
 
-	tok, err := api.CreateHubToken(baseURL, login, password, me.ID, "test-cli-token", scopeIDs)
+	tok, err := api.CreateHubTokenContext(t.Context(), baseURL, login, password, me.ID, "test-cli-token", scopeIDs)
 	require.NoError(t, err)
 	assert.NotEmpty(t, tok.Token)
 	assert.NotEmpty(t, tok.ID)
 	t.Cleanup(func() {
-		_ = api.DeleteHubToken(baseURL, login, password, me.ID, tok.ID)
+		_ = api.DeleteHubTokenContext(context.Background(), baseURL, login, password, me.ID, tok.ID)
 	})
 }
 
@@ -79,11 +80,11 @@ func TestAuth_HubDiscovery(t *testing.T) {
 		t.Skip("YOUTRACK_BASE_URL not set — skipping hub discovery test")
 	}
 
-	resource, err := api.GetOAuthProtectedResource(baseURL)
+	resource, err := api.GetOAuthProtectedResourceContext(t.Context(), baseURL)
 	require.NoError(t, err)
 	assert.NotEmpty(t, resource.AuthorizationServers, "expected at least one authorization server")
 
-	hubURL, _, err := api.DetectHubURL(baseURL)
+	hubURL, _, err := api.DetectHubURLContext(t.Context(), baseURL)
 	require.NoError(t, err)
 	// isInternal depends on the YouTrack instance topology (bundled vs. external Hub).
 	// We only verify the function returns a non-empty URL without asserting the topology.
@@ -172,9 +173,9 @@ func TestAuth_GetTokenViaBasicAuthCLI(t *testing.T) {
 	}
 	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
 	t.Cleanup(func() {
-		me, err := api.GetHubMe(baseURL, login, password)
+		me, err := api.GetHubMeContext(context.Background(), baseURL, login, password)
 		if err == nil {
-			_ = api.DeleteHubToken(baseURL, login, password, me.ID, result.ID)
+			_ = api.DeleteHubTokenContext(context.Background(), baseURL, login, password, me.ID, result.ID)
 		}
 	})
 	assert.NotEmpty(t, result.Token)

@@ -2,6 +2,7 @@ package auth
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"net"
 	"net/url"
@@ -169,12 +170,15 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	}
 
 	_, _ = fmt.Fprintf(stderr, "Discovering Hub configuration for %s...\n", baseURL)
-	hubURL, ytServiceID := discoverHub(baseURL)
+	hubURL, ytServiceID := discoverHub(cmd.Context(), baseURL)
+	if err := cmd.Context().Err(); err != nil {
+		return err
+	}
 	if ytServiceID == "" {
 		return fmt.Errorf("could not discover the YouTrack service ID from %s — this instance may be too old for browser login; use `youtrack auth login` instead", baseURL)
 	}
 
-	endpoints, err := api.DiscoverOAuthEndpoints(hubURL)
+	endpoints, err := api.DiscoverOAuthEndpointsContext(cmd.Context(), hubURL)
 	if err != nil {
 		return err
 	}
@@ -208,8 +212,11 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	authorizeURL := endpoints.AuthorizationEndpoint + "?" + q.Encode()
 
 	// Pre-flight: verify the Hub knows this client and accepts the loopback redirect; fall back to paste-token otherwise.
-	if err := api.PreflightOAuthClient(authorizeURL); err != nil {
+	if err := api.PreflightOAuthClientContext(cmd.Context(), authorizeURL); err != nil {
 		_ = listener.Close()
+		if contextErr := cmd.Context().Err(); contextErr != nil {
+			return contextErr
+		}
 		_, _ = fmt.Fprintf(stderr, "This Hub has no public CLI OAuth client (%q); falling back to the paste-token flow.\n\n", opts.clientID)
 		return runDirectTokenFlow(cmd, reader, baseURL)
 	}
@@ -235,7 +242,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	}
 
 	_, _ = fmt.Fprintln(stderr, "Exchanging authorization code...")
-	tok, err := api.ExchangeOAuthCode(endpoints.TokenEndpoint, opts.clientID, res.Code, redirectURI, verifier)
+	tok, err := api.ExchangeOAuthCodeContext(cmd.Context(), endpoints.TokenEndpoint, opts.clientID, res.Code, redirectURI, verifier)
 	if err != nil {
 		return fmt.Errorf("exchanging authorization code: %w", err)
 	}
@@ -244,7 +251,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	}
 
 	_, _ = fmt.Fprintln(stderr, "Verifying token...")
-	user, err := api.NewClient(baseURL, tok.AccessToken).GetCurrentUser()
+	user, err := api.NewClient(baseURL, tok.AccessToken).WithContext(cmd.Context()).GetCurrentUser()
 	if err != nil {
 		return fmt.Errorf("token verification failed: %w", err)
 	}
@@ -296,13 +303,13 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 }
 
 // discoverHub resolves the Hub base URL and YouTrack service ID (OAuth scope): /api/config ring(...) primary, MCP oauth-protected-resource fallback.
-func discoverHub(baseURL string) (hubURL, ytServiceID string) {
-	if ring, err := api.GetRingConfig(baseURL); err == nil {
+func discoverHub(ctx context.Context, baseURL string) (hubURL, ytServiceID string) {
+	if ring, err := api.GetRingConfigContext(ctx, baseURL); err == nil {
 		hubURL = strings.TrimRight(ring.URL, "/")
 		ytServiceID = ring.ServiceID
 	}
 	if hubURL == "" || ytServiceID == "" {
-		if res, err := api.GetOAuthProtectedResource(baseURL); err == nil {
+		if res, err := api.GetOAuthProtectedResourceContext(ctx, baseURL); err == nil {
 			if hubURL == "" && len(res.AuthorizationServers) > 0 {
 				hubURL = strings.TrimRight(res.AuthorizationServers[0], "/")
 			}

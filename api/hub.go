@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -50,11 +51,15 @@ type OAuthProtectedResource struct {
 	ScopesSupported      []string `json:"scopes_supported"`
 }
 
-// GetOAuthProtectedResource fetches OAuth protected resource metadata from the YouTrack
+// GetOAuthProtectedResourceContext fetches OAuth protected resource metadata from the YouTrack
 // instance. This reveals which Hub authorization server it is configured to use.
-func GetOAuthProtectedResource(baseURL string) (*OAuthProtectedResource, error) {
+func GetOAuthProtectedResourceContext(ctx context.Context, baseURL string) (*OAuthProtectedResource, error) {
 	endpoint := strings.TrimRight(baseURL, "/") + "/.well-known/oauth-protected-resource/mcp"
-	resp, err := hubHTTPClient.Get(endpoint)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := hubHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetching oauth-protected-resource: %w", err)
 	}
@@ -71,10 +76,10 @@ func GetOAuthProtectedResource(baseURL string) (*OAuthProtectedResource, error) 
 	return &r, err
 }
 
-// DetectHubURL discovers the Hub URL from YouTrack's oauth-protected-resource metadata.
+// DetectHubURLContext discovers the Hub URL from YouTrack's oauth-protected-resource metadata.
 // Returns the hub URL and whether Hub is internal (same host as YouTrack) or external.
-func DetectHubURL(baseURL string) (hubURL string, isInternal bool, err error) {
-	resource, err := GetOAuthProtectedResource(baseURL)
+func DetectHubURLContext(ctx context.Context, baseURL string) (hubURL string, isInternal bool, err error) {
+	resource, err := GetOAuthProtectedResourceContext(ctx, baseURL)
 	if err != nil {
 		return "", false, err
 	}
@@ -99,7 +104,7 @@ func hubBasicAuth(login, password string) string {
 	return "Basic " + base64.StdEncoding.EncodeToString([]byte(login+":"+password))
 }
 
-func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
+func hubDo(ctx context.Context, method, baseURL, path, auth string, body any) ([]byte, error) {
 	var bodyReader io.Reader
 	contentType := ""
 	if body != nil {
@@ -110,7 +115,7 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 		bodyReader = bytes.NewReader(data)
 		contentType = "application/json"
 	}
-	req, err := http.NewRequest(method, baseURL+path, bodyReader)
+	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, bodyReader)
 	if err != nil {
 		return nil, err
 	}
@@ -160,9 +165,9 @@ func hubDo(method, baseURL, path, auth string, body any) ([]byte, error) {
 	return data, nil
 }
 
-// GetHubMe returns the currently authenticated Hub user.
-func GetHubMe(baseURL, login, password string) (*HubUser, error) {
-	data, err := hubDo("GET", baseURL, "/hub/api/rest/users/me?fields=id,login,name",
+// GetHubMeContext returns the currently authenticated Hub user.
+func GetHubMeContext(ctx context.Context, baseURL, login, password string) (*HubUser, error) {
+	data, err := hubDo(ctx, "GET", baseURL, "/hub/api/rest/users/me?fields=id,login,name",
 		hubBasicAuth(login, password), nil)
 	if err != nil {
 		return nil, err
@@ -172,9 +177,9 @@ func GetHubMe(baseURL, login, password string) (*HubUser, error) {
 	return &u, err
 }
 
-// ListHubServices returns all services registered in Hub.
-func ListHubServices(baseURL, login, password string) ([]HubService, error) {
-	data, err := hubDo("GET", baseURL, "/hub/api/rest/services?fields=id,name&$top=500",
+// ListHubServicesContext returns all services registered in Hub.
+func ListHubServicesContext(ctx context.Context, baseURL, login, password string) ([]HubService, error) {
+	data, err := hubDo(ctx, "GET", baseURL, "/hub/api/rest/services?fields=id,name&$top=500",
 		hubBasicAuth(login, password), nil)
 	if err != nil {
 		return nil, err
@@ -191,8 +196,8 @@ func ListHubServices(baseURL, login, password string) ([]HubService, error) {
 	return list, err
 }
 
-// CreateHubToken creates a permanent token for the given Hub user.
-func CreateHubToken(baseURL, login, password, userID, tokenName string, scopeIDs []string) (*HubToken, error) {
+// CreateHubTokenContext creates a permanent token for the given Hub user.
+func CreateHubTokenContext(ctx context.Context, baseURL, login, password, userID, tokenName string, scopeIDs []string) (*HubToken, error) {
 	scope := make([]map[string]string, len(scopeIDs))
 	for i, id := range scopeIDs {
 		scope[i] = map[string]string{"id": id}
@@ -201,7 +206,7 @@ func CreateHubToken(baseURL, login, password, userID, tokenName string, scopeIDs
 		"/hub/api/rest/users/%s/permanenttokens?fields=id,name,token,scope(id,name),creationTime",
 		url.PathEscape(userID),
 	)
-	data, err := hubDo("POST", baseURL, path, hubBasicAuth(login, password),
+	data, err := hubDo(ctx, "POST", baseURL, path, hubBasicAuth(login, password),
 		map[string]any{"name": tokenName, "scope": scope})
 	if err != nil {
 		return nil, err
@@ -211,10 +216,10 @@ func CreateHubToken(baseURL, login, password, userID, tokenName string, scopeIDs
 	return &tok, err
 }
 
-// DeleteHubToken deletes a permanent token by ID (used for test cleanup).
-func DeleteHubToken(baseURL, login, password, userID, tokenID string) error {
+// DeleteHubTokenContext deletes a permanent token by ID (used for test cleanup).
+func DeleteHubTokenContext(ctx context.Context, baseURL, login, password, userID, tokenID string) error {
 	path := fmt.Sprintf("/hub/api/rest/users/%s/permanenttokens/%s",
 		url.PathEscape(userID), url.PathEscape(tokenID))
-	_, err := hubDo("DELETE", baseURL, path, hubBasicAuth(login, password), nil)
+	_, err := hubDo(ctx, "DELETE", baseURL, path, hubBasicAuth(login, password), nil)
 	return err
 }

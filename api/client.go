@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -30,6 +31,7 @@ type Client struct {
 	HTTPClient *http.Client
 	Verbose    bool
 	Fields     string // when non-empty, extends the fields= query param on GET requests
+	ctx        context.Context
 }
 
 func NewClient(baseURL, token string) *Client {
@@ -37,11 +39,40 @@ func NewClient(baseURL, token string) *Client {
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		Token:      token,
 		HTTPClient: &http.Client{Timeout: defaultTimeout},
+		ctx:        context.Background(),
+	}
+}
+
+// WithContext binds requests and polling waits to the caller's lifecycle.
+// A nil context is treated as context.Background.
+func (c *Client) WithContext(ctx context.Context) *Client {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	c.ctx = ctx
+	return c
+}
+
+func (c *Client) context() context.Context {
+	if c.ctx == nil {
+		return context.Background()
+	}
+	return c.ctx
+}
+
+func (c *Client) wait(delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return nil
+	case <-c.context().Done():
+		return c.context().Err()
 	}
 }
 
 func (c *Client) doRequest(method, path string, body io.Reader, contentType string) (*http.Response, error) {
-	req, err := http.NewRequest(method, c.BaseURL+path, body)
+	req, err := http.NewRequestWithContext(c.context(), method, c.BaseURL+path, body)
 	if err != nil {
 		return nil, err
 	}

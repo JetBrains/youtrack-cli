@@ -33,11 +33,17 @@ func newListCmd() *cobra.Command {
 			items := make([]instanceListItem, 0, len(cfg.Instances))
 			w := cmd.OutOrStdout()
 			for _, alias := range cfg.Aliases() {
+				if err := cmd.Context().Err(); err != nil {
+					return err
+				}
 				inst := cfg.Instances[alias]
 				item := instanceListItem{Alias: alias, URL: inst.URL, Active: alias == cfg.CurrentInstance}
-				c := api.NewClient(inst.URL, inst.Token)
+				c := api.NewClient(inst.URL, inst.Token).WithContext(cmd.Context())
 				user, err := c.GetCurrentUser()
 				if err != nil {
+					if contextErr := cmd.Context().Err(); contextErr != nil {
+						return contextErr
+					}
 					item.Status = "unavailable"
 				} else {
 					item.Status = "authenticated"

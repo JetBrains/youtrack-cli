@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -33,10 +34,14 @@ type RingConfig struct {
 	HasEmbeddedHub bool   `json:"hasEmbeddedHub"`
 }
 
-// GetRingConfig fetches Hub connection details from YouTrack's frontend config.
-func GetRingConfig(baseURL string) (*RingConfig, error) {
+// GetRingConfigContext fetches Hub connection details from YouTrack's frontend config.
+func GetRingConfigContext(ctx context.Context, baseURL string) (*RingConfig, error) {
 	endpoint := strings.TrimRight(baseURL, "/") + "/api/config?fields=ring(url,serviceId,hasEmbeddedHub)"
-	resp, err := hubHTTPClient.Get(endpoint)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := hubHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetching ring config: %w", err)
 	}
@@ -65,15 +70,22 @@ type OAuthEndpoints struct {
 	CodeChallengeMethods  []string `json:"code_challenge_methods_supported"`
 }
 
-// DiscoverOAuthEndpoints resolves a Hub's authorization and token endpoints; if it advertises code_challenge_methods_supported, S256 must be among them.
-func DiscoverOAuthEndpoints(hubURL string) (*OAuthEndpoints, error) {
+// DiscoverOAuthEndpointsContext resolves a Hub's authorization and token endpoints; if it advertises code_challenge_methods_supported, S256 must be among them.
+func DiscoverOAuthEndpointsContext(ctx context.Context, hubURL string) (*OAuthEndpoints, error) {
 	hubURL = strings.TrimRight(hubURL, "/")
 	fallback := &OAuthEndpoints{
 		AuthorizationEndpoint: hubURL + "/api/rest/oauth2/auth",
 		TokenEndpoint:         hubURL + "/api/rest/oauth2/token",
 	}
-	resp, err := hubHTTPClient.Get(hubURL + "/.well-known/openid-configuration")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, hubURL+"/.well-known/openid-configuration", nil)
 	if err != nil {
+		return fallback, nil
+	}
+	resp, err := hubHTTPClient.Do(req)
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
 		return fallback, nil
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -131,9 +143,13 @@ func validateOAuthEndpoint(hubURL, endpoint, name string) error {
 	return nil
 }
 
-// PreflightOAuthClient checks, without opening a browser, whether Hub accepts the client_id and redirect_uri in authorizeURL (303 to /auth/oauth/error means rejected).
-func PreflightOAuthClient(authorizeURL string) error {
-	resp, err := noRedirectClient.Get(authorizeURL)
+// PreflightOAuthClientContext checks, without opening a browser, whether Hub accepts the client_id and redirect_uri in authorizeURL (303 to /auth/oauth/error means rejected).
+func PreflightOAuthClientContext(ctx context.Context, authorizeURL string) error {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, authorizeURL, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := noRedirectClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("preflight authorization request: %w", err)
 	}
@@ -157,8 +173,8 @@ type OAuthToken struct {
 	Scope       string `json:"scope"`
 }
 
-// ExchangeOAuthCode redeems an authorization code as a public client — client_id in the form body, no secret, PKCE code_verifier for proof of possession.
-func ExchangeOAuthCode(tokenEndpoint, clientID, code, redirectURI, codeVerifier string) (*OAuthToken, error) {
+// ExchangeOAuthCodeContext redeems an authorization code as a public client — client_id in the form body, no secret, PKCE code_verifier for proof of possession.
+func ExchangeOAuthCodeContext(ctx context.Context, tokenEndpoint, clientID, code, redirectURI, codeVerifier string) (*OAuthToken, error) {
 	form := url.Values{}
 	form.Set("grant_type", "authorization_code")
 	form.Set("code", code)
@@ -166,7 +182,12 @@ func ExchangeOAuthCode(tokenEndpoint, clientID, code, redirectURI, codeVerifier 
 	form.Set("client_id", clientID)
 	form.Set("code_verifier", codeVerifier)
 
-	resp, err := hubHTTPClient.PostForm(tokenEndpoint, form)
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	resp, err := hubHTTPClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("token request: %w", err)
 	}

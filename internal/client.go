@@ -100,7 +100,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 
 	api.UserAgent = "youtrack-cli/" + Version
 
-	c := api.NewClient(baseURL, token)
+	c := api.NewClient(baseURL, token).WithContext(cmd.Context())
 	c.Verbose = verbose
 	c.Fields = expandFields(fields)
 	return c, nil

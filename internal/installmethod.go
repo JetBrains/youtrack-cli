@@ -29,17 +29,17 @@ const (
 	InstallScript
 )
 
-// DetectInstallMethod inspects the running executable's path (and, on Linux, the
+// DetectInstallMethodContext inspects the running executable's path (and, on Linux, the
 // system package database) to guess which install method put it there.
-func DetectInstallMethod() InstallMethod {
+func DetectInstallMethodContext(ctx context.Context) InstallMethod {
 	exe, err := os.Executable()
 	if err != nil {
 		return InstallUnknown
 	}
-	return detectFromPath(exe)
+	return detectFromPathContext(ctx, exe)
 }
 
-func detectFromPath(exe string) InstallMethod {
+func detectFromPathContext(ctx context.Context, exe string) InstallMethod {
 	exeLower := strings.ToLower(exe)
 
 	if strings.Contains(exeLower, "/cellar/") || strings.Contains(exeLower, "/homebrew/") {
@@ -62,13 +62,13 @@ func detectFromPath(exe string) InstallMethod {
 	}
 
 	if runtime.GOOS == "linux" {
-		if cmdExists("dpkg") && isInstalledVia(exe, "dpkg", "-S") {
+		if cmdExists("dpkg") && isInstalledVia(ctx, exe, "dpkg", "-S") {
 			return InstallApt
 		}
-		if cmdExists("rpm") && isInstalledVia(exe, "rpm", "-qf") {
+		if cmdExists("rpm") && isInstalledVia(ctx, exe, "rpm", "-qf") {
 			return InstallRPM
 		}
-		if cmdExists("pacman") && isInstalledVia(exe, "pacman", "-Qo") {
+		if cmdExists("pacman") && isInstalledVia(ctx, exe, "pacman", "-Qo") {
 			return InstallArch
 		}
 	}
@@ -96,8 +96,8 @@ func cmdExists(name string) bool {
 	return err == nil
 }
 
-func isInstalledVia(exe, cmd string, args ...string) bool {
-	ctx, cancel := context.WithTimeout(context.Background(), installMethodProbeTimeout)
+func isInstalledVia(parent context.Context, exe, cmd string, args ...string) bool {
+	ctx, cancel := context.WithTimeout(parent, installMethodProbeTimeout)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, cmd, append(args, exe)...).CombinedOutput()
 	if err != nil {

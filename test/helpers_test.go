@@ -2,6 +2,8 @@ package api_test
 
 import (
 	"bytes"
+	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/exec"
@@ -154,7 +156,30 @@ func runCmd(t *testing.T, args ...string) string {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	require.NoError(t, err, "binary stdout: %s\nbinary stderr: %s", stdout.String(), stderr.String())
+	if requestsJSON(args) {
+		require.True(t, json.Valid(stdout.Bytes()), "command emitted invalid JSON: %s", stdout.String())
+	}
 	return stdout.String()
+}
+
+func runJSON[T any](t *testing.T, args ...string) T {
+	t.Helper()
+	out := runCmd(t, args...)
+	var result T
+	require.NoError(t, json.Unmarshal([]byte(out), &result), "command output: %s", out)
+	return result
+}
+
+func requestsJSON(args []string) bool {
+	for i, arg := range args {
+		if arg == "--json" || arg == "-j" {
+			return true
+		}
+		if arg == "--format=json" || (arg == "--format" && i+1 < len(args) && args[i+1] == "json") {
+			return true
+		}
+	}
+	return false
 }
 
 // tryCmdNoFail runs the binary and returns (stdout, error) without failing the test.
@@ -166,6 +191,9 @@ func tryCmdNoFail(t *testing.T, args ...string) (string, error) {
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	err := cmd.Run()
+	if err == nil && requestsJSON(args) && !json.Valid(stdout.Bytes()) {
+		return stdout.String(), fmt.Errorf("command emitted invalid JSON: %s", stdout.String())
+	}
 	return stdout.String(), err
 }
 
@@ -202,6 +230,9 @@ func runCmdWithInput(t *testing.T, stdinInput string, args ...string) string {
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	require.NoError(t, err, "binary stdout: %s\nbinary stderr: %s", stdout.String(), stderr.String())
+	if requestsJSON(args) {
+		require.True(t, json.Valid(stdout.Bytes()), "command emitted invalid JSON: %s", stdout.String())
+	}
 	return stdout.String()
 }
 
@@ -219,6 +250,9 @@ func runCmdInDir(t *testing.T, dir string, args ...string) (stdout, stderr strin
 	cmd.Stdout = &outBuf
 	cmd.Stderr = &errBuf
 	err = cmd.Run()
+	if err == nil && requestsJSON(args) && !json.Valid(outBuf.Bytes()) {
+		err = fmt.Errorf("command emitted invalid JSON: %s", outBuf.String())
+	}
 	return outBuf.String(), errBuf.String(), err
 }
 
@@ -234,5 +268,8 @@ func runCmdWithEnv(t *testing.T, stdinInput string, extraEnv []string, args ...s
 	cmd.Stderr = &stderr
 	err := cmd.Run()
 	require.NoError(t, err, "binary stdout: %s\nbinary stderr: %s", stdout.String(), stderr.String())
+	if requestsJSON(args) {
+		require.True(t, json.Valid(stdout.Bytes()), "command emitted invalid JSON: %s", stdout.String())
+	}
 	return stdout.String()
 }

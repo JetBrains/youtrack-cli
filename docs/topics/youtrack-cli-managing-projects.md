@@ -77,6 +77,19 @@ youtrack project create --shortName DEMO --name "Demo Project" --template scrum
 </td></tr>
 </table>
 
+## Updating a project
+
+Change an existing project's name, short name, description, leader, or archived state:
+
+```Shell
+youtrack project update DEMO --name "Demo Platform" --description "Customer demo environment"
+youtrack project update DEMO --leader jane.doe
+youtrack project update DEMO --archived=false
+```
+
+Only explicitly supplied fields are changed. Passing an empty `--description` clears it.
+The value of `--leader` is a user login; the CLI resolves it to the required opaque ID.
+
 ## Archiving a project
 
 Archive a project to retire it from active use without deleting its data:

@@ -16,16 +16,25 @@ func TestCmd_ProjectList(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
-	out := runCmd(t, "project", "list", "--format", "json")
-	assert.Contains(t, out, proj.ShortName)
+	projects := runJSON[[]api.Project](t, "project", "list", "--json")
+	require.True(t, containsProject(projects, proj.ShortName))
+}
+
+func containsProject(projects []api.Project, shortName string) bool {
+	for _, project := range projects {
+		if project.ShortName == shortName {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCmd_ProjectView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
-	out := runCmd(t, "project", "view", proj.ShortName, "--format", "json")
-	assert.Contains(t, out, proj.ShortName)
+	result := runJSON[api.Project](t, "project", "view", proj.ShortName, "--json")
+	assert.Equal(t, proj.ShortName, result.ShortName)
 }
 
 func TestCmd_ProjectCreate(t *testing.T) {
@@ -35,13 +44,28 @@ func TestCmd_ProjectCreate(t *testing.T) {
 
 	shortName := uniqueProjectShortName("CMDP")
 
-	out := runCmd(t, "project", "create",
+	result := runJSON[api.Project](t, "project", "create",
 		"--shortName", shortName,
 		"--name", "Cmd Test Project",
 		"--leader", me.Login,
-		"--format", "json",
+		"--json",
 	)
-	assert.Contains(t, out, shortName)
+	assert.Equal(t, shortName, result.ShortName)
+}
+
+func TestCmd_ProjectUpdate(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	newName := "Updated " + proj.ShortName
+	description := "updated by project update E2E"
+
+	result := runJSON[api.Project](t, "project", "update", proj.ShortName,
+		"--name", newName,
+		"--description", description,
+		"--json",
+	)
+	require.Equal(t, newName, result.Name)
+	require.Equal(t, description, result.Description)
 }
 
 func TestCmd_ProjectArchive(t *testing.T) {
@@ -168,6 +192,7 @@ func TestCmd_ProjectFieldAdd(t *testing.T) {
 	}
 	if target == nil {
 		t.Skip("all global custom fields are already attached to the project")
+		return
 	}
 
 	runCmd(t, "project", "field", "add", proj.ShortName, "--field", target.ID)

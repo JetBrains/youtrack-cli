@@ -32,7 +32,7 @@ reported — no upgrade is attempted.`,
 			if humanFormat {
 				_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Checking for updates...")
 			}
-			status, err := internal.CheckNow(internal.Version)
+			status, err := internal.CheckNowContext(cmd.Context(), internal.Version)
 			if err != nil {
 				return fmt.Errorf("checking for updates: %w", err)
 			}
@@ -53,14 +53,14 @@ reported — no upgrade is attempted.`,
 func runUpgrade(cmd *cobra.Command, status *internal.UpdateStatus) error {
 	out := cmd.OutOrStdout()
 	errOut := cmd.ErrOrStderr()
-	method := internal.DetectInstallMethod()
+	method := internal.DetectInstallMethodContext(cmd.Context())
 
 	_, _ = fmt.Fprintf(out, "YouTrack CLI %s %s %s\n",
 		color.New(color.Faint).Sprint(internal.FormatVersion(status.CurrentVersion)),
 		color.New(color.Faint).Sprint("→"),
 		color.New(color.FgGreen).Sprint(internal.FormatVersion(status.LatestVersion)))
 
-	attempted, err := internal.RunAutoUpgrade(method, status.LatestVersion, out, errOut)
+	attempted, err := internal.RunAutoUpgradeContext(cmd.Context(), method, status.LatestVersion, out, errOut)
 	if !attempted {
 		printUpgradeFallback(out, method)
 		return nil

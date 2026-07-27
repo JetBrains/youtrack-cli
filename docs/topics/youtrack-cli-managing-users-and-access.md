@@ -123,13 +123,17 @@ youtrack group delete "QA Team" --successor Developers
 
 `group delete` asks for confirmation. Add `--force` to skip the prompt in scripts.
 
-### Listing group members
+### Managing group members
 
-List the members of a group. This command takes the opaque group ID:
+List, add, or remove members. Both the group and user arguments are opaque IDs:
 
 ```Shell
 youtrack group member list 2-9
+youtrack group member add 2-9 1-12
+youtrack group member remove 2-9 1-12 --force
 ```
+
+Resolve IDs first with `group view <name> --json` and `user view <login> --json`.
 
 ### Assigning project roles to a group
 
