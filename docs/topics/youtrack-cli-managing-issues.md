@@ -198,6 +198,20 @@ youtrack issue sprint list DEMO-42
 
 To work with the boards and sprints themselves, see [Planning Tools](youtrack-cli-planning-tools.md).
 
+## Logging work {id="work-items"}
+
+Track time spent on an issue with `youtrack issue workitem`:
+
+```Shell
+youtrack issue workitem create DEMO-42 --minutes 90 --text "Implemented the fix"
+youtrack issue workitem list DEMO-42
+youtrack issue workitem view DEMO-42 <workItemId>
+youtrack issue workitem update DEMO-42 <workItemId> --minutes 120
+youtrack issue workitem delete DEMO-42 <workItemId>
+```
+
+`--minutes` is required when creating a work item (for example, `90` means 1 h 30 m). Optionally pass `--text` for a description and `--type` with a work type ID. `workitem delete` prompts for confirmation unless you pass `--force`.
+
 ## Restricting visibility {id="visibility"}
 
 Limit who can see an issue by passing permitted group or user IDs to `youtrack issue visibility`:

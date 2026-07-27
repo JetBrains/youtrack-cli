@@ -30,16 +30,14 @@ func (c *Client) GetProjectByID(id string) (*Project, error) {
 
 // GetProject finds a project by its short name (case-sensitive).
 func (c *Client) GetProject(shortName string) (*Project, error) {
-	projects, err := c.ListProjects()
+	p, err := c.GetProjectByID(shortName)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("project '%s' not found", shortName)
 	}
-	for i := range projects {
-		if projects[i].ShortName == shortName {
-			return &projects[i], nil
-		}
+	if p.ShortName != shortName {
+		return nil, fmt.Errorf("project '%s' not found", shortName)
 	}
-	return nil, fmt.Errorf("project '%s' not found", shortName)
+	return p, nil
 }
 
 func (c *Client) AddProject(req AddProjectRequest, template string) (*Project, error) {
