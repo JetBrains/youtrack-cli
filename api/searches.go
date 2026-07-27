@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 )
 
 type AddSavedSearchRequest struct {
@@ -13,9 +14,19 @@ type AddSavedSearchRequest struct {
 const savedSearchFields = "id,name,query,owner(id,login,fullName),readSharingSettings(permittedGroups(id,name)),updateSharingSettings"
 
 func (c *Client) ListSavedSearches() ([]SavedSearch, error) {
-	var result []SavedSearch
-	err := c.Get(pathSavedQueries+"?fields="+savedSearchFields+"&$top=500", &result)
-	return result, err
+	const pageSize = 500
+	var all []SavedSearch
+	for skip := 0; ; skip += pageSize {
+		var page []SavedSearch
+		if err := c.Get(pathSavedQueries+"?fields="+savedSearchFields+"&$top="+strconv.Itoa(pageSize)+"&$skip="+strconv.Itoa(skip), &page); err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < pageSize {
+			break
+		}
+	}
+	return all, nil
 }
 
 func (c *Client) GetSavedSearch(id string) (*SavedSearch, error) {
