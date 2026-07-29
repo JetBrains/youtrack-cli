@@ -165,7 +165,8 @@ func TestCmd_UserDrafts(t *testing.T) {
 	assert.Contains(t, out, "[")
 	runCmdExpectError(t, "user", "drafts", "articles", "no-such-user-e2e")
 
-	// An unknown login must error out, not silently target the current user.
+	// An empty or unknown login must error out, not silently target the current user.
+	runCmdExpectError(t, "user", "drafts", "delete", "", "--force")
 	runCmdExpectError(t, "user", "drafts", "list", "no-such-user-e2e")
 	runCmdExpectError(t, "user", "drafts", "delete", "no-such-user-e2e")
 	drafts, err := c.GetUserIssueDrafts("me")

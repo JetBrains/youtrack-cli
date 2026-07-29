@@ -191,7 +191,10 @@ func (c *Client) SetUserLocale(id, locale string) error {
 // drafts"). Any other identifier is rejected rather than silently retargeting the caller's
 // own drafts.
 func (c *Client) resolveDraftsSelf(identifier string) error {
-	if identifier == "" || identifier == "me" {
+	if identifier == "" {
+		return fmt.Errorf("draft user identifier must not be empty")
+	}
+	if identifier == "me" {
 		return nil
 	}
 	me, err := c.GetCurrentUser()
