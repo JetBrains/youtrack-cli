@@ -108,7 +108,8 @@ Destructive commands (deletes, bans, archives, and similar) prompt for confirmat
 | `user create` / `user delete` / `user ban` / `user unban` | **Yes** |
 | `user locale set` / `user timezone set` | **Yes** |
 | `user timezone view` | No |
-| `user profile *` | No (reads only) |
+| `user profile view` / `user profile timetracking view` | No |
+| `user profile property` / `user profile appearance` / `user profile notifications` / `user profile grazie` / `user profile articles` / `user profile issues-list` / `user profile tips` / `user profile general` | **Yes** |
 | `user drafts issues` / `user drafts articles` | No |
 | `user drafts delete` | **Yes** |
 | `auth status` | No |
