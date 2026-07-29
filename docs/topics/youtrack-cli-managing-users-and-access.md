@@ -121,7 +121,7 @@ Delete a group and reassign its references to a successor group:
 youtrack group delete "QA Team" --successor Developers
 ```
 
-`group delete` asks for confirmation. Add `--force` to skip the prompt in scripts.
+The `--successor` flag is required: choose the group that should inherit references explicitly. The CLI does not select a default successor because choosing a broad group could unintentionally expand access to reassigned resources. `group delete` also asks for confirmation; add `--force` to skip the prompt in scripts.
 
 ### Managing group members
 

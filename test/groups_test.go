@@ -50,6 +50,14 @@ func TestCmd_GroupDelete(t *testing.T) {
 	assert.Contains(t, err.Error(), "not found")
 }
 
+func TestCmd_GroupDeleteRequiresSuccessor(t *testing.T) {
+	// Security regression: rejecting the command before client creation prevents
+	// an omitted successor from being replaced with a broad default group.
+	out := runCmdExpectError(t, "group", "delete", "sensitive-group", "--force")
+	assert.Contains(t, out, "required flag(s)")
+	assert.Contains(t, out, "successor")
+}
+
 func TestCmd_GroupCreate(t *testing.T) {
 	c := newTestClient(t)
 	name := fmt.Sprintf("e2e-grp-add-%d", time.Now().UnixMilli()%100000)
