@@ -85,7 +85,33 @@ func TestInstallScript(t *testing.T) {
 	archiveData, err := os.ReadFile(archivePath)
 	require.NoError(t, err)
 	archiveChecksum := fmt.Sprintf("%x  %s\n", sha256.Sum256(archiveData), filepath.Base(archivePath))
+	servedChecksum := archiveChecksum
+	gnupgHome := t.TempDir()
+	gpgEnv := append(os.Environ(), "GNUPGHOME="+gnupgHome)
+	generateKey := exec.Command("gpg", "--batch", "--passphrase", "", "--quick-generate-key", "Installer Test <installer@example.invalid>", "ed25519", "sign", "0")
+	generateKey.Env = gpgEnv
+	require.NoError(t, generateKey.Run())
+	showFingerprint := exec.Command("gpg", "--batch", "--with-colons", "--fingerprint")
+	showFingerprint.Env = gpgEnv
+	fingerprintOutput, err := showFingerprint.Output()
+	require.NoError(t, err)
+	var fingerprint string
+	for _, line := range strings.Split(string(fingerprintOutput), "\n") {
+		fields := strings.Split(line, ":")
+		if len(fields) > 9 && fields[0] == "fpr" {
+			fingerprint = fields[9]
+			break
+		}
+	}
+	require.NotEmpty(t, fingerprint)
 
+	checksumsPath := filepath.Join(t.TempDir(), "checksums.txt")
+	require.NoError(t, os.WriteFile(checksumsPath, []byte(archiveChecksum), 0600))
+	signChecksums := exec.Command("gpg", "--batch", "--armor", "--detach-sign", checksumsPath)
+	signChecksums.Env = gpgEnv
+	require.NoError(t, signChecksums.Run())
+	signatureData, err := os.ReadFile(checksumsPath + ".asc")
+	require.NoError(t, err)
 	// Serve the archive at the exact path install.sh constructs.
 	expectedPath := fmt.Sprintf("/JetBrains/youtrack-cli/releases/download/v%s/youtrack_%s_%s_%s.tar.gz",
 		version, version, runtime.GOOS, archName())
@@ -97,7 +123,9 @@ func TestInstallScript(t *testing.T) {
 			w.WriteHeader(http.StatusOK)
 			_, _ = w.Write(archiveData)
 		case fmt.Sprintf("/JetBrains/youtrack-cli/releases/download/v%s/checksums.txt", version):
-			_, _ = w.Write([]byte(archiveChecksum))
+			_, _ = w.Write([]byte(servedChecksum))
+		case fmt.Sprintf("/JetBrains/youtrack-cli/releases/download/v%s/checksums.txt.asc", version):
+			_, _ = w.Write(signatureData)
 		default:
 			http.NotFound(w, r)
 		}
@@ -123,6 +151,10 @@ func TestInstallScript(t *testing.T) {
 		"if false; then",
 	)
 	patched = strings.ReplaceAll(patched,
+		`RELEASE_FINGERPRINT="B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501"`,
+		`RELEASE_FINGERPRINT="`+fingerprint+`"`,
+	)
+	patched = strings.ReplaceAll(patched,
 		"if command -v gh >/dev/null 2>&1 &&",
 		"if false &&",
 	)
@@ -133,6 +165,7 @@ func TestInstallScript(t *testing.T) {
 	installDir := t.TempDir()
 
 	cmd := exec.Command("bash", patchedScript, "v"+version, installDir)
+	cmd.Env = gpgEnv
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "install.sh failed:\n%s", string(out))
 
@@ -146,4 +179,16 @@ func TestInstallScript(t *testing.T) {
 	versionOut, err := exec.Command(installedBin, "--version").Output()
 	require.NoError(t, err, "--version failed on installed binary")
 	require.Contains(t, string(versionOut), "youtrack ", "unexpected --version output: %s", string(versionOut))
+
+	// Replacing both a release archive checksum entry and its manifest is not
+	// enough: the manifest must still carry a valid signature from the pinned key.
+	servedChecksum = fmt.Sprintf("%064x  %s\n", 0, filepath.Base(archivePath))
+	tamperedInstallDir := t.TempDir()
+	tamperedCmd := exec.Command("bash", patchedScript, "v"+version, tamperedInstallDir)
+	tamperedCmd.Env = gpgEnv
+	tamperedOut, err := tamperedCmd.CombinedOutput()
+	require.Error(t, err, "installer accepted a tampered checksum manifest:\n%s", string(tamperedOut))
+	require.Contains(t, string(tamperedOut), "invalid checksums signature")
+	_, err = os.Stat(filepath.Join(tamperedInstallDir, "youtrack"))
+	require.ErrorIs(t, err, os.ErrNotExist, "installer wrote a binary after signature verification failed")
 }
