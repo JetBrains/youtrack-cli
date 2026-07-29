@@ -19,8 +19,8 @@ func newUpdateCmd() *cobra.Command {
 		Short: "Check for a newer YouTrack CLI release and upgrade",
 		Long: `Checks GitHub for the latest YouTrack CLI release. When a newer release
 exists, detects the install method (Homebrew, Scoop, Chocolatey, WinGet, npm,
-go install, or the install script) and upgrades through that same channel.
-Install methods with no safe single-package upgrade path (apt, rpm, AUR) or an
+or go install) and upgrades through that same channel. Install-script installs,
+methods with no safe single-package upgrade path (apt, rpm, AUR), and an
 undetected install fall back to printing manual instructions, plus a
 gh-based alternative when the gh CLI is installed.
 
