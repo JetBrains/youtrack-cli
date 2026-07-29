@@ -23,3 +23,25 @@ func TestMergeFieldsParam(t *testing.T) {
 		})
 	}
 }
+
+func TestValidRequestPath(t *testing.T) {
+	tests := []struct {
+		path string
+		want bool
+	}{
+		{path: "/api/issues", want: true},
+		{path: "/api/issues?fields=id", want: true},
+		{path: "https://attacker.example/steal", want: false},
+		{path: "//attacker.example/steal", want: false},
+		{path: "@attacker.example/steal", want: false},
+		{path: "api/issues", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.path, func(t *testing.T) {
+			if got := validRequestPath(tt.path); got != tt.want {
+				t.Errorf("validRequestPath(%q) = %t, want %t", tt.path, got, tt.want)
+			}
+		})
+	}
+}
