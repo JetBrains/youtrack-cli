@@ -72,6 +72,9 @@ func (c *Client) wait(delay time.Duration) error {
 }
 
 func (c *Client) doRequest(method, path string, body io.Reader, contentType string) (*http.Response, error) {
+	if !validRequestPath(path) {
+		return nil, fmt.Errorf("request path must begin with a single slash")
+	}
 	req, err := http.NewRequestWithContext(c.context(), method, c.BaseURL+path, body)
 	if err != nil {
 		return nil, err
@@ -93,6 +96,10 @@ func (c *Client) doRequest(method, path string, body io.Reader, contentType stri
 		_, _ = fmt.Fprintf(os.Stderr, "< %d\n", resp.StatusCode)
 	}
 	return resp, nil
+}
+
+func validRequestPath(path string) bool {
+	return strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "//")
 }
 
 // handleResponse reads the response body, closes it, checks for errors,
