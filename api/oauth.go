@@ -19,7 +19,7 @@ const (
 	maxOAuthResponseBodySize = 1 << 20 // 1 MiB
 )
 
-// noRedirectClient never follows redirects — used to inspect Hub's Location headers.
+// noRedirectClient never follows redirects, preventing sensitive OAuth request bodies from being forwarded to another origin.
 var noRedirectClient = &http.Client{
 	Timeout: oauthHTTPTimeout,
 	CheckRedirect: func(req *http.Request, via []*http.Request) error {
@@ -187,7 +187,7 @@ func ExchangeOAuthCodeContext(ctx context.Context, tokenEndpoint, clientID, code
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	resp, err := hubHTTPClient.Do(req)
+	resp, err := noRedirectClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("token request: %w", err)
 	}
