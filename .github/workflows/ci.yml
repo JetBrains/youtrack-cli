@@ -46,7 +46,7 @@ jobs:
       - name: Scan for known Go vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
         env:
-          GOTOOLCHAIN: go1.26.5
+          GOTOOLCHAIN: go1.26.6
 
       - name: Build
         run: make build
