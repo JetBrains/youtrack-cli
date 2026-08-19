@@ -38,9 +38,7 @@ go install github.com/JetBrains/youtrack-cli@latest
 gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash
 ```
 
-The installer verifies `checksums.txt.asc` using the JetBrains CodeSign public
-key. Obtain and import that key through a trusted JetBrains channel before
-running the installer.
+The installer verifies the downloaded archive against `checksums.txt`.
 
 **Windows:** `gh release download --repo JetBrains/youtrack-cli --pattern '*windows_x86_64.zip'`, extract the archive, and add the folder to your `PATH`.
 
