@@ -14,7 +14,6 @@ set -Eeuo pipefail
 
 PROG="youtrack"
 REPO="JetBrains/youtrack-cli"
-RELEASE_FINGERPRINT="B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501"
 CHECK_MARK=$'\033[1;32m✓\033[0m'
 TMP_DIR=""
 STAGED_BIN=""
@@ -90,33 +89,6 @@ verify_checksum() {
     [[ "$actual" == "$expected" ]] || fail "checksum verification failed for $archive"
 }
 
-verify_checksums_signature() {
-    local checksums="$1" signature="$2" gpg_home key_file status valid_fingerprint
-    need_cmd gpg
-
-    gpg_home="$(mktemp -d "${TMP_DIR}/gnupg.XXXXXX")"
-    key_file="${TMP_DIR}/release-key.gpg"
-    chmod 0700 "$gpg_home"
-    # The release key must already have been obtained through a trusted
-    # JetBrains channel. Do not bootstrap trust from the release being checked
-    # or from a third-party key directory.
-    gpg --batch --quiet --export "$RELEASE_FINGERPRINT" >"$key_file" || \
-        fail "trusted release key $RELEASE_FINGERPRINT is not available in the GPG keyring"
-    [[ -s "$key_file" ]] || fail "trusted release key $RELEASE_FINGERPRINT is not available in the GPG keyring"
-    GNUPGHOME="$gpg_home" gpg --batch --quiet --import "$key_file" >/dev/null 2>&1 || \
-        fail "failed to import the release signing key"
-
-    valid_fingerprint="$(GNUPGHOME="$gpg_home" gpg --batch --with-colons --fingerprint "$RELEASE_FINGERPRINT" 2>/dev/null \
-        | awk -F: '$1 == "fpr" { print $10; exit }')"
-    [[ "$valid_fingerprint" == "$RELEASE_FINGERPRINT" ]] || fail "release signing key fingerprint mismatch"
-
-    status="$(GNUPGHOME="$gpg_home" gpg --batch --status-fd 1 --verify "$signature" "$checksums" 2>/dev/null)" || \
-        fail "invalid checksums signature"
-    printf '%s\n' "$status" | awk -v fingerprint="$RELEASE_FINGERPRINT" \
-        '$1 == "[GNUPG:]" && $2 == "VALIDSIG" && ($3 == fingerprint || $NF == fingerprint) { valid = 1 } END { exit !valid }' || \
-        fail "checksums signature was not made by the trusted release key"
-}
-
 resolve_latest() {
     # Prefer gh CLI — works with private/internal repos
     if command -v gh >/dev/null 2>&1; then
@@ -187,16 +159,13 @@ install_youtrack() {
     local archive="${PROG}_${version}_${os}_${arch}.tar.gz" downloaded=""
     if command -v gh >/dev/null 2>&1 &&
         gh release download "${RELEASE}" --repo "${REPO}" --pattern "${archive}" --output "$archive" 2>/dev/null &&
-        gh release download "${RELEASE}" --repo "${REPO}" --pattern checksums.txt --output checksums.txt 2>/dev/null &&
-        gh release download "${RELEASE}" --repo "${REPO}" --pattern checksums.txt.asc --output checksums.txt.asc 2>/dev/null; then
+        gh release download "${RELEASE}" --repo "${REPO}" --pattern checksums.txt --output checksums.txt 2>/dev/null; then
         downloaded=yes
     fi
     if [[ -z "$downloaded" ]]; then
         download_to_file "${release_url}/${archive}" "$archive"
         download_to_file "${release_url}/checksums.txt" checksums.txt
-        download_to_file "${release_url}/checksums.txt.asc" checksums.txt.asc
     fi
-    verify_checksums_signature checksums.txt checksums.txt.asc
     verify_checksum "$archive" checksums.txt
     tar -xzf "$archive" || fail "failed to extract $archive"
 
