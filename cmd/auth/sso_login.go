@@ -14,6 +14,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
+	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/browserflow"
 	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
@@ -77,7 +78,7 @@ paste-token flow.`,
 				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Instance alias [%s]: ", derived); err != nil {
 					return err
 				}
-				raw, err := reader.ReadString('\n')
+				raw, err := internal.ReadLineContext(cmd.Context(), reader)
 				if err != nil {
 					return fmt.Errorf("reading alias: %w", err)
 				}
@@ -144,7 +145,7 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "YouTrack base URL: "); err != nil {
 			return "", err
 		}
-		line, err := reader.ReadString('\n')
+		line, err := internal.ReadLineContext(cmd.Context(), reader)
 		if err != nil {
 			return "", fmt.Errorf("reading URL: %w", err)
 		}

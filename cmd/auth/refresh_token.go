@@ -10,6 +10,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
+	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
@@ -60,7 +61,7 @@ Use --json for machine-readable output.`,
 
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
 				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\nSelect [1-3]: ")
-			choiceRaw, err := reader.ReadString('\n')
+			choiceRaw, err := internal.ReadLineContext(cmd.Context(), reader)
 			if err != nil {
 				return fmt.Errorf("reading auth type: %w", err)
 			}
@@ -135,7 +136,7 @@ func acquireTokenViaBasicAuth(cmd *cobra.Command, reader *bufio.Reader, baseURL 
 		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Login: "); err != nil {
 			return nil, err
 		}
-		raw, err := reader.ReadString('\n')
+		raw, err := internal.ReadLineContext(cmd.Context(), reader)
 		if err != nil {
 			return nil, fmt.Errorf("reading login: %w", err)
 		}
@@ -146,7 +147,7 @@ func acquireTokenViaBasicAuth(cmd *cobra.Command, reader *bufio.Reader, baseURL 
 		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Password: "); err != nil {
 			return nil, err
 		}
-		raw, err := term.ReadPassword(int(os.Stdin.Fd()))
+		raw, err := internal.ReadPasswordContext(cmd.Context(), int(os.Stdin.Fd()))
 		if _, printErr := fmt.Fprintln(cmd.ErrOrStderr()); printErr != nil {
 			return nil, printErr
 		}
@@ -242,7 +243,7 @@ func promptAndVerifyToken(cmd *cobra.Command, reader *bufio.Reader, baseURL stri
 	if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Paste your token: "); err != nil {
 		return "", err
 	}
-	tokenRaw, err := reader.ReadString('\n')
+	tokenRaw, err := internal.ReadLineContext(cmd.Context(), reader)
 	if err != nil {
 		return "", fmt.Errorf("reading token: %w", err)
 	}

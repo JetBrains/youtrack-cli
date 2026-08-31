@@ -19,8 +19,11 @@ func Confirm(cmd *cobra.Command, msg string) (bool, error) {
 		return false, err
 	}
 	reader := bufio.NewReader(cmd.InOrStdin())
-	answer, err := reader.ReadString('\n')
+	answer, err := ReadLineContext(cmd.Context(), reader)
 	if err != nil {
+		if cmd.Context().Err() != nil {
+			return false, err
+		}
 		return false, fmt.Errorf("confirmation requires interactive input; use --force to skip")
 	}
 	answer = strings.ToLower(strings.TrimSpace(answer))
