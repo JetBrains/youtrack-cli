@@ -12,6 +12,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
+	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
@@ -53,7 +54,7 @@ Use --json for machine-readable output.`,
 				if _, err := fmt.Fprint(cmd.ErrOrStderr(), "YouTrack base URL: "); err != nil {
 					return err
 				}
-				raw, err := reader.ReadString('\n')
+				raw, err := internal.ReadLineContext(cmd.Context(), reader)
 				if err != nil {
 					return fmt.Errorf("reading URL: %w", err)
 				}
@@ -77,7 +78,7 @@ Use --json for machine-readable output.`,
 				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Instance alias [%s]: ", derived); err != nil {
 					return err
 				}
-				raw, err := reader.ReadString('\n')
+				raw, err := internal.ReadLineContext(cmd.Context(), reader)
 				if err != nil {
 					return fmt.Errorf("reading alias: %w", err)
 				}
@@ -93,7 +94,7 @@ Use --json for machine-readable output.`,
 			// Auth-type selection.
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
 				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\n  4) Browser single sign-on (1-hour session token)\nSelect [1-4]: ")
-			choiceRaw, err := reader.ReadString('\n')
+			choiceRaw, err := internal.ReadLineContext(cmd.Context(), reader)
 			if err != nil {
 				return fmt.Errorf("reading auth type: %w", err)
 			}
@@ -138,7 +139,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Login: "); err != nil {
 			return err
 		}
-		raw, err := reader.ReadString('\n')
+		raw, err := internal.ReadLineContext(cmd.Context(), reader)
 		if err != nil {
 			return fmt.Errorf("reading login: %w", err)
 		}
@@ -149,7 +150,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Password: "); err != nil {
 			return err
 		}
-		raw, err := term.ReadPassword(int(os.Stdin.Fd()))
+		raw, err := internal.ReadPasswordContext(cmd.Context(), int(os.Stdin.Fd()))
 		if _, printErr := fmt.Fprintln(cmd.ErrOrStderr()); printErr != nil {
 			return printErr
 		}
@@ -235,7 +236,7 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 	if _, err := fmt.Fprint(cmd.ErrOrStderr(), "\nPaste your token: "); err != nil {
 		return err
 	}
-	tokenRaw, err := reader.ReadString('\n')
+	tokenRaw, err := internal.ReadLineContext(cmd.Context(), reader)
 	if err != nil {
 		return fmt.Errorf("reading token: %w", err)
 	}
@@ -324,7 +325,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 	if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Paste your token: "); err != nil {
 		return err
 	}
-	tokenRaw, err := reader.ReadString('\n')
+	tokenRaw, err := internal.ReadLineContext(cmd.Context(), reader)
 	if err != nil {
 		return fmt.Errorf("reading token: %w", err)
 	}

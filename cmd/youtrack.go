@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -100,7 +101,17 @@ func Execute(fs embed.FS) error {
 	quiet, _ := root.PersistentFlags().GetBool("quiet")
 	jsonMode := output.Format(root) == "json"
 	if execErr != nil {
-		output.RenderError(root.ErrOrStderr(), execErr, jsonMode, quiet)
+		// A user-initiated Ctrl+C during an interactive prompt cancels the root
+		// context; that's not a failure worth an "✗ Error" — print a plain
+		// cancellation notice instead (skipped in JSON mode: there's no
+		// machine-readable "canceled" state worth emitting to a script).
+		if errors.Is(execErr, context.Canceled) {
+			if !jsonMode {
+				_, _ = fmt.Fprintln(root.ErrOrStderr(), "Canceled.")
+			}
+		} else {
+			output.RenderError(root.ErrOrStderr(), execErr, jsonMode, quiet)
+		}
 	}
 	// Suppress the plain-text update notice when a JSON error envelope was written to stderr, so that stream stays parseable.
 	jsonErrEmitted := jsonMode && execErr != nil
