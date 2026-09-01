@@ -58,27 +58,7 @@ func (c *Client) RemoveGroupMember(groupID, userID string) error {
 }
 
 func (c *Client) ListGroupProjectRoles(groupID string) ([]AssignedRole, error) {
-	var all []AssignedRole
-	path := pathAssignedRoles + "?fields=id,role(id,name),holder(id,$type),scope($type,project(id,shortName,name))&$top=500"
-	if err := c.Get(path, &all); err != nil {
-		return nil, err
-	}
-	result := []AssignedRole{}
-	for _, ar := range all {
-		if ar.Holder != nil && ar.Holder.ID == groupID {
-			result = append(result, ar)
-		}
-	}
-	return result, nil
-}
-
-func (c *Client) AddGroupProjectRole(groupID, roleID, projectID string) error {
-	body := map[string]any{"role": map[string]any{"id": roleID}}
-	if projectID != "" {
-		body["project"] = map[string]any{"id": projectID}
-	}
-	path := fmt.Sprintf(pathGroupProjectRoles+"?fields=id", url.PathEscape(groupID))
-	return c.Post(path, body, nil)
+	return c.ListAssignedRoles(groupID)
 }
 
 func (c *Client) DeleteGroup(identifier, successorIdentifier string) error {

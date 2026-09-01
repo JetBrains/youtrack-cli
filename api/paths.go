@@ -52,11 +52,10 @@ const (
 	pathAdminWorkTimeSettings  = "/api/admin/timeTrackingSettings/workTimeSettings"
 
 	// Groups
-	pathGroups            = "/api/groups"
-	pathGroup             = "/api/groups/%s"
-	pathGroupMembers      = "/api/groups/%s/ownUsers"
-	pathGroupMember       = "/api/groups/%s/ownUsers/%s"
-	pathGroupProjectRoles = "/api/groups/%s/projectroles"
+	pathGroups       = "/api/groups"
+	pathGroup        = "/api/groups/%s"
+	pathGroupMembers = "/api/groups/%s/ownUsers"
+	pathGroupMember  = "/api/groups/%s/ownUsers/%s"
 
 	// Issues
 	pathIssues                = "/api/issues"

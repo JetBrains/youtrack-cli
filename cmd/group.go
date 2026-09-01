@@ -161,7 +161,8 @@ func newGroupRoleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "role", Short: "Manage group project roles"}
 	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
-		Use: "list <group-id>", Short: "List project roles assigned to a group",
+		Use: "list <group-id>", Short: "List roles assigned to a group",
+		Long: "List the roles assigned to a group. Alias of 'role assignments --holder <group-id>'.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -176,16 +177,22 @@ func newGroupRoleCmd() *cobra.Command {
 		},
 	}
 	add := &cobra.Command{
-		Use: "add <group-id>", Short: "Add a project role to a group",
+		Use: "add <group-id>", Short: "Add a role to a group",
+		Long: "Add a role to a group. Alias of 'role grant --group <group-id>'. Without --project or " +
+			"--org the role is granted globally; --project scopes it to one project and --org to one organization.",
+		Example: "  youtrack group role add 2-9 --role 2-3\n" +
+			"  youtrack group role add 2-9 --role 2-3 --project 0-1\n" +
+			"  youtrack group role add 2-9 --role 2-3 --org 0-0",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			roleID, _ := cmd.Flags().GetString("role")
 			projectID, _ := cmd.Flags().GetString("project")
+			orgID, _ := cmd.Flags().GetString("org")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			if err := client.AddGroupProjectRole(args[0], roleID, projectID); err != nil {
+			if err := client.GrantRoleToGroup(args[0], roleID, projectID, orgID); err != nil {
 				return err
 			}
 			output.PrintSuccess(cmd, "role assigned to group")
@@ -193,7 +200,9 @@ func newGroupRoleCmd() *cobra.Command {
 		},
 	}
 	add.Flags().String("role", "", "Role ID (required)")
-	add.Flags().String("project", "", "Project ID (optional, for project-scoped role)")
+	add.Flags().String("project", "", "Scope to this project ID (optional)")
+	add.Flags().String("org", "", "Scope to this organization ID (optional)")
+	add.MarkFlagsMutuallyExclusive("project", "org")
 	internal.MustMarkRequired(add, "role")
 	cmd.AddCommand(list, add)
 	return cmd

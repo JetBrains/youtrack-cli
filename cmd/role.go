@@ -199,20 +199,26 @@ func newRoleUpdateCmd() *cobra.Command {
 func newRoleGrantCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "grant", Short: "Grant a role to a user or group",
+		Long: "Grant a role to a user or group. Without --project or --org the role is granted globally; " +
+			"--project scopes it to one project and --org to one organization.",
+		Example: "  youtrack role grant --role 2-3 --user 1-5\n" +
+			"  youtrack role grant --role 2-3 --group 2-9 --project 0-1\n" +
+			"  youtrack role grant --role 2-3 --group 2-9 --org 0-0",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			roleID, _ := cmd.Flags().GetString("role")
 			userID, _ := cmd.Flags().GetString("user")
 			groupID, _ := cmd.Flags().GetString("group")
 			projectID, _ := cmd.Flags().GetString("project")
+			orgID, _ := cmd.Flags().GetString("org")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
 			if userID != "" {
-				return client.GrantRoleToUser(userID, roleID, projectID)
+				return client.GrantRoleToUser(userID, roleID, projectID, orgID)
 			}
 			if groupID != "" {
-				return client.GrantRoleToGroup(groupID, roleID, projectID)
+				return client.GrantRoleToGroup(groupID, roleID, projectID, orgID)
 			}
 			return fmt.Errorf("specify --user or --group")
 		},
@@ -221,6 +227,8 @@ func newRoleGrantCmd() *cobra.Command {
 	cmd.Flags().String("user", "", "User ID to grant role to")
 	cmd.Flags().String("group", "", "Group ID to grant role to")
 	cmd.Flags().String("project", "", "Scope to this project ID (optional)")
+	cmd.Flags().String("org", "", "Scope to this organization ID (optional)")
+	cmd.MarkFlagsMutuallyExclusive("project", "org")
 	internal.MustMarkRequired(cmd, "role")
 	return cmd
 }

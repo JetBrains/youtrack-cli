@@ -86,23 +86,36 @@ func (c *Client) GetPermissions() ([]Permission, error) {
 	return result, err
 }
 
-func (c *Client) GrantRoleToUser(userID, roleID, projectID string) error {
-	body := map[string]any{
-		"holder": map[string]any{"id": userID, "$type": "User"},
-		"role":   map[string]any{"id": roleID},
-	}
-	if projectID != "" {
-		body["scope"] = map[string]any{
+func roleScopeBody(projectID, orgID string) map[string]any {
+	switch {
+	case projectID != "":
+		return map[string]any{
 			"$type":   "ProjectScope",
 			"project": map[string]any{"id": projectID},
 		}
-	} else {
-		body["scope"] = map[string]any{"$type": "GlobalScope"}
+	case orgID != "":
+		return map[string]any{
+			"$type":        "OrganizationScope",
+			"organization": map[string]any{"id": orgID},
+		}
+	default:
+		return map[string]any{"$type": "GlobalScope"}
 	}
-	return c.Post(pathAssignedRoles, body, nil)
 }
 
-func (c *Client) GrantRoleToGroup(groupID, roleID, projectID string) error {
+func (c *Client) grantRole(holderID, holderType, roleID, projectID, orgID string) error {
+	return c.Post(pathAssignedRoles, map[string]any{
+		"holder": map[string]any{"id": holderID, "$type": holderType},
+		"role":   map[string]any{"id": roleID},
+		"scope":  roleScopeBody(projectID, orgID),
+	}, nil)
+}
+
+func (c *Client) GrantRoleToUser(userID, roleID, projectID, orgID string) error {
+	return c.grantRole(userID, "User", roleID, projectID, orgID)
+}
+
+func (c *Client) GrantRoleToGroup(groupID, roleID, projectID, orgID string) error {
 	// Fetch the group to get its concrete $type (NestedGroup, RegisteredUsersGroup, AllUsersGroup)
 	// required by YouTrack's polymorphic Jackson deserialization on the holder field.
 	var g struct {
@@ -116,25 +129,14 @@ func (c *Client) GrantRoleToGroup(groupID, roleID, projectID string) error {
 	if groupType == "" {
 		groupType = "NestedGroup"
 	}
-	body := map[string]any{
-		"holder": map[string]any{"id": groupID, "$type": groupType},
-		"role":   map[string]any{"id": roleID},
-	}
-	if projectID != "" {
-		body["scope"] = map[string]any{
-			"$type":   "ProjectScope",
-			"project": map[string]any{"id": projectID},
-		}
-	} else {
-		body["scope"] = map[string]any{"$type": "GlobalScope"}
-	}
-	return c.Post(pathAssignedRoles, body, nil)
+	return c.grantRole(groupID, groupType, roleID, projectID, orgID)
 }
 
+const assignedRoleFields = "id,role(id,name,description),holder($type,id,name,login,email)," +
+	"scope($type,id,project(id,name,shortName),organization(id,name))"
+
 func (c *Client) ListAssignedRoles(holderID string) ([]AssignedRole, error) {
-	path := pathAssignedRoles +
-		"?fields=id,role(id,name,description),holder($type,id,name,login,email)," +
-		"scope($type,id,project(id,name,shortName))&$top=500"
+	path := pathAssignedRoles + "?fields=" + assignedRoleFields + "&$top=500"
 	if holderID != "" {
 		path += "&query=" + url.QueryEscape("holder: "+holderID)
 	}
