@@ -135,14 +135,18 @@ youtrack group member remove 2-9 1-12 --force
 
 Resolve IDs first with `group view <name> --json` and `user view <login> --json`.
 
-### Assigning project roles to a group
+### Assigning roles to a group
 
-Grant a role to every member of a group. Pass the opaque group ID as the argument and the opaque role ID through `--role`. Add `--project` to scope the role to one project; omit it for a global assignment:
+Grant a role to every member of a group. Pass the opaque group ID as the argument and the opaque role ID through `--role`. Add `--project` to scope the role to one project or `--org` to scope it to one organization; omit both for a global assignment:
 
 ```Shell
+youtrack group role add 2-9 --role 2-3
 youtrack group role add 2-9 --role 2-3 --project 0-1
+youtrack group role add 2-9 --role 2-3 --org 0-0
 youtrack group role list 2-9
 ```
+
+`--project` and `--org` are mutually exclusive. These two commands are aliases: `group role add` is `role grant --group`, and `group role list` is `role assignments --holder`. Use whichever reads better in context.
 
 ## Managing roles and permissions
 
@@ -176,12 +180,15 @@ youtrack role permission remove 2-3 <permId>
 
 ## Granting and revoking roles
 
-Grant a role to a user or a group with `youtrack role grant`. Provide the role ID and exactly one of `--user` or `--group`, both opaque IDs. Add `--project` to scope the grant to a single project:
+Grant a role to a user or a group with `youtrack role grant`. Provide the role ID and exactly one of `--user` or `--group`, both opaque IDs. The grant is global unless you narrow it: `--project` scopes it to a single project, `--org` to a single organization. The two flags are mutually exclusive:
 
 ```Shell
 youtrack role grant --role 2-3 --user 1-5
 youtrack role grant --role 2-3 --group 2-9 --project 0-1
+youtrack role grant --role 2-3 --group 2-9 --org 0-0
 ```
+
+Get organization IDs from `youtrack org list --json`.
 
 Revoking uses the assignment's own ID, not the user or role ID. Find it first with `role assignments`, then pass it to `role revoke`:
 

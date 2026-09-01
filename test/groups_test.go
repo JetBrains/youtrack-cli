@@ -131,23 +131,53 @@ func containsUser(users []api.User, id string) bool {
 	return false
 }
 
-func TestCmd_GroupRoleList(t *testing.T) {
+func TestCmd_GroupRoleScopes(t *testing.T) {
 	c := newTestClient(t)
-	name := fmt.Sprintf("e2e-grp-role-%d", time.Now().UnixMilli()%100000)
-	group, err := c.AddGroup(name)
+
+	group, err := c.AddGroup(fmt.Sprintf("e2e-grp-scope-%d", time.Now().UnixMilli()%100000))
 	require.NoError(t, err)
 	successor := groupDeleteSuccessor(t, c, group.ID)
 	t.Cleanup(func() { _ = c.DeleteGroup(group.ID, successor.ID) })
 
-	// Some YouTrack versions expose project roles as a Hub-only endpoint; skip gracefully if unavailable.
-	roles, err := c.ListGroupProjectRoles(group.ID)
-	if err != nil {
-		t.Skipf("group role list not supported on this instance: %v", err)
-	}
-	_ = roles
+	project := createTempProject(t, c)
 
-	out := runCmd(t, "group", "role", "list", group.ID, "--format", "json")
-	assert.Contains(t, out, "[")
+	roles, err := c.ListRoles()
+	require.NoError(t, err)
+	roleID := make(map[string]string, len(roles))
+	for _, r := range roles {
+		roleID[r.Name] = r.ID
+	}
+	require.Contains(t, roleID, "System Admin")
+	require.Contains(t, roleID, "Project Admin")
+
+	// 'group role add' and 'role grant --group' are the same code path; cover both.
+	runCmd(t, "role", "grant", "--group", group.ID, "--role", roleID["System Admin"])
+	out := runCmd(t, "group", "role", "add", group.ID, "--role", roleID["Project Admin"], "--project", project.ID)
+	assert.Contains(t, out, "role assigned to group")
+
+	assignments := runJSON[[]api.AssignedRole](t, "group", "role", "list", group.ID, "--json")
+	for _, a := range assignments {
+		id := a.ID
+		t.Cleanup(func() { _ = c.RevokeRole(id) })
+	}
+	require.Len(t, assignments, 2, "expected exactly the two granted roles: %+v", assignments)
+
+	scopeByRole := make(map[string]string, len(assignments))
+	for _, a := range assignments {
+		require.NotNil(t, a.Role, "assignment without a role: %+v", a)
+		require.NotNil(t, a.Holder)
+		require.NotNil(t, a.Scope, "assignment without a scope: %+v", a)
+		assert.Equal(t, group.ID, a.Holder.ID, "list must filter server-side to the requested holder")
+		scopeByRole[a.Role.Name] = a.Scope.Type
+		if a.Role.Name == "Project Admin" {
+			require.NotNil(t, a.Scope.Project)
+			assert.Equal(t, project.ID, a.Scope.Project.ID)
+		}
+	}
+	assert.Equal(t, map[string]string{
+		"System Admin":  "GlobalScope",
+		"Project Admin": "ProjectScope",
+	}, scopeByRole)
 }
 
 func groupDeleteSuccessor(t *testing.T, c interface {

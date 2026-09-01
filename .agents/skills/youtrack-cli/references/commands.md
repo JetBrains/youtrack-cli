@@ -277,6 +277,8 @@ youtrack group delete <name>
 youtrack group member list <groupId>
 youtrack group member add <groupId> <userId>
 youtrack group member remove <groupId> <userId>
+youtrack group role list <groupId>                     # alias of 'role assignments --holder'
+youtrack group role add <groupId> --role <roleId> [--project <projectId>|--org <orgId>]  # alias of 'role grant --group'
 ```
 
 ## role
@@ -284,7 +286,7 @@ youtrack group member remove <groupId> <userId>
 ```bash
 youtrack role list
 youtrack role view <id>                # alias: get
-youtrack role grant --user <userId>|--group <groupId> --role <roleId> [--project <projectId>]
+youtrack role grant --user <userId>|--group <groupId> --role <roleId> [--project <projectId>|--org <orgId>]
 youtrack role revoke <assignedRoleId>
 youtrack role assignments [--holder <userId>]
 ```

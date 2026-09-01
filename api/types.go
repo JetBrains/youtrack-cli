@@ -165,9 +165,10 @@ type RoleHolder struct {
 }
 
 type RoleScope struct {
-	Type    string   `json:"$type,omitempty"`
-	ID      string   `json:"id,omitempty"`
-	Project *Project `json:"project,omitempty"`
+	Type         string        `json:"$type,omitempty"`
+	ID           string        `json:"id,omitempty"`
+	Project      *Project      `json:"project,omitempty"`
+	Organization *Organization `json:"organization,omitempty"`
 }
 
 type Workflow struct {

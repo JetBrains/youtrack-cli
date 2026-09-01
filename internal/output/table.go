@@ -610,6 +610,9 @@ func assignedRoleScope(s *api.RoleScope) string {
 	if s.Project != nil && s.Project.ShortName != "" {
 		return s.Project.ShortName
 	}
+	if s.Organization != nil && s.Organization.Name != "" {
+		return s.Organization.Name
+	}
 	switch s.Type {
 	case "GlobalScope":
 		return "global"
