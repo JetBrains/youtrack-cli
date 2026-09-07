@@ -52,26 +52,3 @@ func newIssueSprintCmd() *cobra.Command {
 	cmd.AddCommand(list)
 	return cmd
 }
-
-func newIssueVCSCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "vcs", Short: "View VCS changes linked to an issue"}
-	internal.RequireSubcommand(cmd)
-	list := &cobra.Command{
-		Use:   "list <issueId>",
-		Short: "List VCS changes linked to an issue",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			client, err := internal.GetClient(cmd)
-			if err != nil {
-				return err
-			}
-			changes, err := client.ListIssueVCSChanges(args[0])
-			if err != nil {
-				return err
-			}
-			return output.Print(cmd, changes)
-		},
-	}
-	cmd.AddCommand(list)
-	return cmd
-}

@@ -212,6 +212,23 @@ youtrack issue workitem delete DEMO-42 <workItemId>
 
 `--minutes` is required when creating a work item (for example, `90` means 1 h 30 m). Optionally pass `--text` for a description and `--type` with a work type ID. `workitem delete` prompts for confirmation unless you pass `--force`.
 
+## Linking commits {id="vcs-changes"}
+
+List the commits and pull requests linked to an issue, and link a commit yourself, with `youtrack issue vcs`:
+
+```Shell
+youtrack issue vcs list DEMO-42
+youtrack issue vcs view DEMO-42 <changeId>
+youtrack issue vcs attach DEMO-42 1a2b3c4d5e6f7081
+youtrack issue vcs detach DEMO-42 1a2b3c4d5e6f7081
+```
+
+`attach` takes a commit hash, abbreviated to 12 characters or more. YouTrack resolves the hash against the VCS integrations configured for the issue's project, so the commit must be one an integration can see — otherwise the call reports that no change with that version was found. A Generic VCS integration accepts any hash and takes the commit message from `--message`.
+
+`detach` (aliases `delete`, `remove`) unlinks a change and accepts either the change ID or the commit hash. YouTrack offers two mechanisms and accepts only one of them per change, so the command picks it: a commit you attached by hand is deleted outright, while one that a VCS integration attached is detached instead, because the server refuses to delete those. YouTrack keeps a detached record only where it needs one to stop the integration re-attaching the commit — that is, when the commit message names the issue. Otherwise the change goes for good, and `attach` restores a record that survived.
+
+Writing to VCS changes requires the *Update Issue Private Fields* permission. Pass `--mute-notifications` to suppress notifications about the change, which additionally needs *Apply Commands Silently*.
+
 ## Restricting visibility {id="visibility"}
 
 Limit who can see an issue by passing permitted group or user IDs to `youtrack issue visibility`:

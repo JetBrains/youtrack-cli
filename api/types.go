@@ -249,6 +249,35 @@ type Sprint struct {
 	IsDefault bool   `json:"isDefault,omitempty"`
 }
 
+// VCS change states, as used by the state field of VCSChange.
+const (
+	VCSChangeStateDefault          = 0 // attached by a VCS integration
+	VCSChangeStateManuallyAttached = 1
+	VCSChangeStateDetached         = 2
+	VCSChangeStateLegacy           = 3
+)
+
+// VCSChange is a commit or pull request linked to an issue.
+// The $type field distinguishes the two: "VcsChange" or "PullRequest".
+type VCSChange struct {
+	ID      string `json:"id,omitempty"`
+	Type    string `json:"$type,omitempty"`
+	Version string `json:"version,omitempty"`
+	// State is a pointer because 0 (attached by an integration) is a meaningful
+	// value that omitempty would otherwise drop from a request body.
+	State   *int     `json:"state,omitempty"`
+	Text    string   `json:"text,omitempty"`
+	Date    int64    `json:"date,omitempty"`
+	Fetched int64    `json:"fetched,omitempty"`
+	Files   int      `json:"files,omitempty"`
+	URLs    []string `json:"urls,omitempty"`
+	Author  *User    `json:"author,omitempty"`
+
+	// Pull request fields, empty for commits.
+	IDReadable string `json:"idReadable,omitempty"`
+	Title      string `json:"title,omitempty"`
+}
+
 type Dashboard struct {
 	ID   string `json:"id,omitempty"`
 	Name string `json:"name,omitempty"`

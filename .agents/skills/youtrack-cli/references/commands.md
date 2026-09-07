@@ -111,6 +111,11 @@ youtrack issue workitem list <issueId>
 youtrack issue workitem view <issueId> <workItemId>
 youtrack issue workitem update <issueId> <workItemId> [--minutes N] [--text T]
 youtrack issue workitem delete <issueId> <workItemId>
+youtrack issue vcs list <issueId>
+youtrack issue vcs view <issueId> <changeId>              # alias: get
+youtrack issue vcs attach <issueId> <commitHash> [--message TEXT]
+youtrack issue vcs detach <issueId> <changeIdOrHash>      # aliases: delete, remove
+                                       # attach/detach take --mute-notifications
 ```
 
 ## project

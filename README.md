@@ -94,6 +94,10 @@ youtrack issue view DEMO-42 --comments 5
 # what a command would do, without applying it
 youtrack issue command suggest DEMO-42 "State "
 
+# link a commit to an issue, and list what is linked
+youtrack issue vcs attach DEMO-42 1a2b3c4d5e6f7081
+youtrack issue vcs list DEMO-42
+
 # keep the CLI itself up to date
 youtrack update
 ```
@@ -108,7 +112,7 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 
 | Group | Commands |
 |---|---|
-| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field`, `reaction`, `draft`, `workitem`, `activity` |
+| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field`, `reaction`, `draft`, `workitem`, `activity`, `vcs` |
 | **project** | `list`, `view`, `create`, `update`, `delete`, `archive`, `team`, `field`, `template`, `timetrack`, `workflow` |
 | **article** | `list`, `view`, `create`, `update`, `delete`, `comment`, `attachment`, `tag` |
 | **board** | `list`, `view`, `create`, `update`, `delete`, `sprint` |
