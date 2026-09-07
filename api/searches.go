@@ -60,16 +60,24 @@ func (c *Client) ShareSavedSearch(id string) error {
 }
 
 func (c *Client) allUsersGroupID() (string, error) {
+	const pageSize = 500
 	var groups []struct {
 		ID            string `json:"id"`
 		AllUsersGroup bool   `json:"allUsersGroup"`
 	}
-	if err := c.Get(pathGroups+"?fields=id,allUsersGroup&$top=500", &groups); err != nil {
-		return "", fmt.Errorf("fetch groups: %w", err)
-	}
-	for _, g := range groups {
-		if g.AllUsersGroup {
-			return g.ID, nil
+	for skip := 0; ; skip += pageSize {
+		groups = nil
+		path := pathGroups + "?fields=id,allUsersGroup&$top=" + strconv.Itoa(pageSize) + "&$skip=" + strconv.Itoa(skip)
+		if err := c.Get(path, &groups); err != nil {
+			return "", fmt.Errorf("fetch groups: %w", err)
+		}
+		for _, g := range groups {
+			if g.AllUsersGroup {
+				return g.ID, nil
+			}
+		}
+		if len(groups) < pageSize {
+			break
 		}
 	}
 	return "", fmt.Errorf("all users group not found")
