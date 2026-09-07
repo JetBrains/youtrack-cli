@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 )
 
 const projectFields = "id,shortName,name,leader(id,login,fullName),archived,description,createdBy(id,login,fullName)"
@@ -24,9 +25,20 @@ type UpdateProjectRequest struct {
 }
 
 func (c *Client) ListProjects() ([]Project, error) {
-	var result []Project
-	err := c.Get(pathAdminProjects+"?fields="+projectFields+"&$top=500", &result)
-	return result, err
+	const pageSize = 500
+	var all []Project
+	for skip := 0; ; skip += pageSize {
+		var page []Project
+		path := pathAdminProjects + "?fields=" + projectFields + "&$top=" + strconv.Itoa(pageSize) + "&$skip=" + strconv.Itoa(skip)
+		if err := c.Get(path, &page); err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < pageSize {
+			break
+		}
+	}
+	return all, nil
 }
 
 // GetProjectByID retrieves a project by its opaque ID directly.
