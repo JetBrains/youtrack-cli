@@ -40,6 +40,7 @@ Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still
 | Attachments | `issue attachment list`, `add`, `delete` |
 | Custom fields | `issue field view` (`get`), `set` |
 | Work items | `issue workitem list`, `view`, `create` (`add`), `update`, `delete` |
+| VCS changes | `issue vcs list`, `view`, `attach`, `detach` (`delete`) |
 | Projects | `project list`, `view` (`get`), `create` (`add`), `update`, `delete`, `archive` |
 | Project team | `project team list-users`, `list-groups`, `add-user`, `add-group`, `remove-user`, `remove-group` |
 | Project fields | `project field list`, `add`, `remove` |
@@ -72,6 +73,7 @@ pages and accepts `--page-size`.
 - **Verify auth**: `youtrack auth status` → check `status` field per instance
 - **Create issue**: `youtrack issue create --project P --summary S` → `issue command <id> "assignee me"`
 - **Bulk update**: `youtrack issue list --query Q --json | jq '.[].id'` → loop `issue command`
+- **Link a commit to an issue**: `youtrack issue vcs attach <id> <commitHash>` → `issue vcs list <id>` to confirm. The commit must be one a VCS integration on the project can see; YouTrack answers 404 otherwise. `detach` (alias `delete`) unlinks it, picking the mechanism YouTrack allows for that change: a hand-attached commit is deleted, an integration-attached one is detached.
 - **Add user to project**: `youtrack user view <login> --json | jq .id` → `youtrack project team add-user <proj> <userId>`
 
 ## References

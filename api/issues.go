@@ -656,9 +656,76 @@ func (c *Client) ListIssueSprints(issueID string) ([]Sprint, error) {
 	return result, err
 }
 
-func (c *Client) ListIssueVCSChanges(issueID string) ([]map[string]any, error) {
-	var result []map[string]any
-	path := fmt.Sprintf(pathIssueVCSChanges+"?fields=id,date,text,version,urls,state,author(id,login,fullName)&$top=500", url.PathEscape(issueID))
+// vcsChangeFields is the field selector shared by every VCS change request.
+// idReadable and title are pull-request-only; $type tells the two kinds apart.
+const vcsChangeFields = "id,$type,date,fetched,files,text,version,urls,state,idReadable,title,author(id,login,fullName)"
+
+func (c *Client) ListIssueVCSChanges(issueID string) ([]VCSChange, error) {
+	var result []VCSChange
+	path := fmt.Sprintf(pathIssueVCSChanges+"?fields="+vcsChangeFields+"&$top=500", url.PathEscape(issueID))
 	err := c.Get(path, &result)
 	return result, err
+}
+
+func (c *Client) GetIssueVCSChange(issueID, changeID string) (*VCSChange, error) {
+	var result VCSChange
+	path := fmt.Sprintf(pathIssueVCSChange+"?fields="+vcsChangeFields, url.PathEscape(issueID), url.PathEscape(changeID))
+	if err := c.Get(path, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// AttachIssueVCSChange links a commit to an issue by its hash.
+//
+// The commit is not created here: YouTrack looks it up among the VCS
+// integrations configured for the issue's project and answers 404 when none of
+// them knows the hash. A Generic VCS integration is the exception — it accepts
+// any hash and takes the commit message from text.
+func (c *Client) AttachIssueVCSChange(issueID, version, text string, mute bool) (*VCSChange, error) {
+	state := VCSChangeStateManuallyAttached
+	body := VCSChange{Version: version, State: &state, Text: text}
+
+	var result VCSChange
+	path := fmt.Sprintf(pathIssueVCSChanges+"?fields="+vcsChangeFields, url.PathEscape(issueID)) + muteSuffix(mute)
+	if err := c.Post(path, body, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+// SetIssueVCSChangeState updates the state of a VCS change already on the issue.
+// Detaching uses VCSChangeStateDetached; VCSChangeStateDefault re-attaches a
+// change that an integration had attached and a user then detached.
+//
+// The request asks for no fields, matching what YouTrack's own web client sends.
+// A field projection makes the server render the change after the update, and
+// detaching often deletes it — YouTrack keeps a detached record only as a marker
+// that stops an integration re-attaching the commit, which it needs only when the
+// commit message names the issue, and never for a Generic VCS integration. Asking
+// for fields therefore turns a successful detach into "HTTP 500: VcsChange[..]
+// was removed".
+func (c *Client) SetIssueVCSChangeState(issueID, changeID string, state int, mute bool) error {
+	body := VCSChange{State: &state}
+	path := fmt.Sprintf(pathIssueVCSChange, url.PathEscape(issueID), url.PathEscape(changeID))
+	if mute {
+		path += "?muteUpdateNotifications=true"
+	}
+	return c.Post(path, body, nil)
+}
+
+// DeleteIssueVCSChange removes a manually attached VCS change from an issue.
+// YouTrack rejects the call for changes an integration attached; detach those
+// with SetIssueVCSChangeState instead.
+func (c *Client) DeleteIssueVCSChange(issueID, changeID string) error {
+	return c.Delete(fmt.Sprintf(pathIssueVCSChange, url.PathEscape(issueID), url.PathEscape(changeID)))
+}
+
+// muteUpdateNotifications suppresses issue-change notifications; it needs the
+// Apply Commands Silently permission in every affected project.
+func muteSuffix(mute bool) string {
+	if mute {
+		return "&muteUpdateNotifications=true"
+	}
+	return ""
 }

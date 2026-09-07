@@ -77,6 +77,7 @@ const (
 	pathIssueActivities       = "/api/issues/%s/activities"
 	pathIssueSprints          = "/api/issues/%s/sprints"
 	pathIssueVCSChanges       = "/api/issues/%s/vcsChanges"
+	pathIssueVCSChange        = "/api/issues/%s/vcsChanges/%s"
 	pathIssueFields           = "/api/issues/%s/customFields"
 	pathIssueField            = "/api/issues/%s/customFields/%s"
 	pathIssueDrafts           = "/api/users/%s/drafts"

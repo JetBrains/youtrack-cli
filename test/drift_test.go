@@ -53,6 +53,11 @@ var hubBackedStructs = map[string]string{
 
 // allowedMissingFields permits fields to be absent from a schema (keyed by schema then json field); each value documents why the omission isn't drift.
 var allowedMissingFields = map[string]map[string]string{
+	"VcsChange": {
+		// VCSChange models both kinds of item the vcsChanges resource returns; these two are PullRequest-only.
+		"idReadable": "PullRequest field — VCSChange covers commits and pull requests in one struct",
+		"title":      "PullRequest field — VCSChange covers commits and pull requests in one struct",
+	},
 	"User": {
 		// Helpdesk user type: requested by userFields, sent by user create, read for AGENT auto-add — served live but absent from some builds' User schema.
 		"userType": "served by live instances and used by the CLI, but omitted from some builds' User schema",
@@ -83,6 +88,7 @@ var typeMapping = map[string]string{
 	"Sprint":             "Sprint",
 	"Tag":                "Tag",
 	"User":               "User",
+	"VCSChange":          "VcsChange",
 	"WorkItem":           "IssueWorkItem",
 }
 

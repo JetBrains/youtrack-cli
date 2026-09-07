@@ -263,6 +263,14 @@ func PrintTable(out io.Writer, data any) error {
 			}
 			_, _ = fmt.Fprintf(w, "%s\t%s\n", f.ID, name)
 		}
+	case *api.VCSChange:
+		_, _ = fmt.Fprintln(w, "ID\tVERSION\tDATE\tAUTHOR\tSTATE\tSUMMARY")
+		writeVCSChangeRow(w, v)
+	case []api.VCSChange:
+		_, _ = fmt.Fprintln(w, "ID\tVERSION\tDATE\tAUTHOR\tSTATE\tSUMMARY")
+		for i := range v {
+			writeVCSChangeRow(w, &v[i])
+		}
 	case *internal.UpdateStatus:
 		if v.UpdateAvailable {
 			_, _ = fmt.Fprintf(w, "YouTrack CLI %s is available (you have %s)\n",
@@ -450,6 +458,12 @@ func PrintPlain(out io.Writer, data any) error {
 		for _, lt := range v {
 			write(lt.ID, lt.Name, lt.SourceToTarget, lt.TargetToSource)
 		}
+	case *api.VCSChange:
+		write(v.ID, v.Version, vcsChangeAuthor(v), vcsChangeSummary(v))
+	case []api.VCSChange:
+		for i := range v {
+			write(v[i].ID, v[i].Version, vcsChangeAuthor(&v[i]), vcsChangeSummary(&v[i]))
+		}
 	case []api.ProjectCustomField:
 		for _, f := range v {
 			name := ""
@@ -622,4 +636,55 @@ func assignedRoleScope(s *api.RoleScope) string {
 		return "organization"
 	}
 	return s.Type
+}
+
+// vcsChangeStateNames labels the state codes YouTrack stores on a VCS change.
+var vcsChangeStateNames = map[int]string{
+	api.VCSChangeStateDefault:          "attached",
+	api.VCSChangeStateManuallyAttached: "manual",
+	api.VCSChangeStateDetached:         "detached",
+	api.VCSChangeStateLegacy:           "legacy",
+}
+
+func writeVCSChangeRow(w io.Writer, ch *api.VCSChange) {
+	version := ch.Version
+	if len(version) > 12 {
+		version = version[:12]
+	}
+	date := ""
+	if ch.Date != 0 {
+		date = time.UnixMilli(ch.Date).UTC().Format("2006-01-02 15:04")
+	}
+	state := ""
+	if ch.State != nil {
+		if name, ok := vcsChangeStateNames[*ch.State]; ok {
+			state = name
+		} else {
+			state = fmt.Sprintf("%d", *ch.State)
+		}
+	}
+	_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+		ch.ID, version, date, vcsChangeAuthor(ch), state, vcsChangeSummary(ch))
+}
+
+func vcsChangeAuthor(ch *api.VCSChange) string {
+	if ch.Author == nil {
+		return ""
+	}
+	if ch.Author.Login != "" {
+		return ch.Author.Login
+	}
+	return ch.Author.FullName
+}
+
+// vcsChangeSummary is the pull request title, or a commit's first message line.
+func vcsChangeSummary(ch *api.VCSChange) string {
+	if ch.Title != "" {
+		return truncate(ch.Title, 60)
+	}
+	line := strings.TrimSpace(ch.Text)
+	if idx := strings.IndexByte(line, '\n'); idx >= 0 {
+		line = strings.TrimSpace(line[:idx])
+	}
+	return truncate(line, 60)
 }
