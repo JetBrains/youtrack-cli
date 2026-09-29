@@ -13,6 +13,12 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/config"
 )
 
+// CredentialSource says where GetClient took the token from.
+type CredentialSource struct {
+	Kind  string // "flag" (--token), "env" (YOUTRACK_TOKEN), or "profile" (saved instance)
+	Alias string // saved profile alias when Kind is "profile"
+}
+
 // GetClient builds an API client using a four-tier resolution chain:
 //  1. --base-url / --token flags (explicit per-command override, always wins)
 //  2. --server flag (selects a named profile from config by alias)
@@ -20,7 +26,14 @@ import (
 //  4. Active instance from ~/.youtrack-cli-config.json (set via `instance use`)
 //
 // A token taken from a saved profile (tiers 2 and 4) is only used when the resolved URL has the same origin as that profile.
+// When that profile is an OAuth session with a refresh token, the client refreshes the access token transparently.
 func GetClient(cmd *cobra.Command) (*api.Client, error) {
+	c, _, err := GetClientWithSource(cmd)
+	return c, err
+}
+
+// GetClientWithSource is GetClient that also reports where the token came from (used by auth status).
+func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, error) {
 	flags := cmd.Root().PersistentFlags()
 
 	baseURL, _ := flags.GetString("base-url")
@@ -31,16 +44,22 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 
 	// savedTokenAlias/savedTokenURL record which saved profile supplied the token, so it is only ever sent to that profile's origin.
 	var savedTokenAlias, savedTokenURL string
+	// savedInst is the profile whose non-empty token was taken (OAuth sessions refresh through it).
+	var savedInst *config.Instance
+	src := CredentialSource{Kind: "flag"}
+	if token == "" {
+		src = CredentialSource{}
+	}
 
 	// Tier 2: --server flag selects a named profile (per-invocation, does not persist).
 	if (baseURL == "" || token == "") && serverAlias != "" {
 		cfg, err := config.Load()
 		if err != nil {
-			return nil, fmt.Errorf("loading config: %w", err)
+			return nil, src, fmt.Errorf("loading config: %w", err)
 		}
 		inst, ok := cfg.Instances[serverAlias]
 		if !ok {
-			return nil, fmt.Errorf(
+			return nil, src, fmt.Errorf(
 				"unknown server profile %q — run: youtrack instance list\nKnown: %s",
 				serverAlias, strings.Join(cfg.Aliases(), ", "),
 			)
@@ -51,7 +70,10 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 		if token == "" {
 			token = inst.Token
 			savedTokenAlias, savedTokenURL = serverAlias, inst.URL
-			warnIfTokenExpired(cmd, serverAlias, inst)
+			if token != "" {
+				savedInst, src = &inst, CredentialSource{Kind: "profile", Alias: serverAlias}
+			}
+			warnIfTokenExpired(cmd, serverAlias, &inst)
 		}
 	}
 
@@ -62,6 +84,9 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	}
 	if token == "" {
 		token = os.Getenv("YOUTRACK_TOKEN")
+		if token != "" {
+			src = CredentialSource{Kind: "env"}
+		}
 	}
 
 	// Tier 4: active config instance as convenience fallback.
@@ -77,15 +102,18 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 				if token == "" {
 					token = inst.Token
 					savedTokenAlias, savedTokenURL = alias, inst.URL
-					warnIfTokenExpired(cmd, alias, *inst)
+					if token != "" {
+						savedInst, src = inst, CredentialSource{Kind: "profile", Alias: alias}
+					}
+					warnIfTokenExpired(cmd, alias, inst)
 				}
 			case alias != "": // currentInstance is set but the alias is missing from the map (stale pointer).
-				return nil, fmt.Errorf(
+				return nil, src, fmt.Errorf(
 					"active instance %q not found in config — run: youtrack instance use <alias>\nKnown: %s",
 					alias, strings.Join(cfg.Aliases(), ", "),
 				)
 			default: // Config has instances but none is selected as active.
-				return nil, fmt.Errorf(
+				return nil, src, fmt.Errorf(
 					"no active instance — run: youtrack instance use <alias>\nKnown: %s",
 					strings.Join(cfg.Aliases(), ", "),
 				)
@@ -94,13 +122,19 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	}
 
 	if baseURL == "" {
-		return nil, fmt.Errorf(
+		return nil, src, fmt.Errorf(
 			"no instance configured — run: youtrack auth get-token\n" +
 				"(or set YOUTRACK_BASE_URL + YOUTRACK_TOKEN, or use --base-url + --token flags)",
 		)
 	}
 	if token == "" {
-		return nil, fmt.Errorf(
+		// A saved OAuth session whose refresh failed has its tokens cleared; point at re-login rather than YOUTRACK_TOKEN.
+		if savedTokenAlias != "" {
+			if cfg, err := config.Load(); err == nil && cfg.Instances[savedTokenAlias].AuthMethod == config.AuthMethodOAuth {
+				return nil, src, sessionExpiredError(savedTokenAlias)
+			}
+		}
+		return nil, src, fmt.Errorf(
 			"YOUTRACK_TOKEN is not set — run: youtrack auth get-token\n" +
 				"(or set YOUTRACK_TOKEN, or use --token flag)",
 		)
@@ -108,7 +142,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 
 	// A saved token is bound to its instance: never forward it to a URL overridden via --base-url or YOUTRACK_BASE_URL.
 	if savedTokenURL != "" && !sameOrigin(baseURL, savedTokenURL) {
-		return nil, fmt.Errorf(
+		return nil, src, fmt.Errorf(
 			"refusing to send the saved token for %q (%s) to %s — pass --token or set YOUTRACK_TOKEN for that instance, or select its profile with --server <alias>",
 			savedTokenAlias, savedTokenURL, baseURL,
 		)
@@ -122,9 +156,12 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	api.UserAgent = "youtrack-cli/" + Version
 
 	c := api.NewClient(baseURL, token).WithContext(cmd.Context())
+	if savedInst != nil && canRefresh(savedInst) {
+		c.TokenSource = newOAuthSession(savedTokenAlias, savedInst, verboseWriter(cmd)).Token
+	}
 	c.Verbose = verbose
 	c.Fields = expandFields(fields)
-	return c, nil
+	return c, src, nil
 }
 
 // sameOrigin reports whether two instance URLs share scheme, host and port (default ports normalized); unparsable or host-less URLs never match.
@@ -154,8 +191,8 @@ func originPort(u *url.URL) string {
 }
 
 // warnIfTokenExpired prints a stderr renewal hint when a stored token is past its expiry, before the follow-up request 401s.
-func warnIfTokenExpired(cmd *cobra.Command, alias string, inst config.Instance) {
-	if inst.TokenExpiresAt == 0 || time.Now().Unix() < inst.TokenExpiresAt {
+func warnIfTokenExpired(cmd *cobra.Command, alias string, inst *config.Instance) {
+	if inst.TokenExpiresAt == 0 || time.Now().Unix() < inst.TokenExpiresAt || canRefresh(inst) {
 		return
 	}
 	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),

@@ -76,6 +76,13 @@ Authenticate once and the CLI remembers the instance:
 youtrack instance add
 ```
 
+Or sign in through the browser (OAuth 2.0 + PKCE). The session refreshes itself, and `--no-browser` works over SSH:
+
+```bash
+youtrack instance login https://example.youtrack.cloud
+youtrack auth status      # auth method, expiry, refresh token present — never the token itself
+```
+
 Then:
 
 ```bash
@@ -155,7 +162,7 @@ See [AI agent integration](docs/topics/youtrack-cli-ai-agent-integration.md) for
 ## Learn more
 
 - [Getting started](docs/topics/youtrack-cli-get-started.md) — install, authenticate, and run your first commands
-- [Authentication](docs/topics/youtrack-cli-authentication.md) — tokens, browser SSO, multiple instances, credential precedence
+- [Authentication](docs/topics/youtrack-cli-authentication.md) — tokens, browser SSO (OAuth client registration, headless sign-in, automatic refresh, revocation), multiple instances, credential precedence
 - [Configuration](docs/topics/youtrack-cli-configuration.md) — config file, environment variables, global flags, update checks
 - [Scripting and automation](docs/topics/youtrack-cli-scripting.md) — JSON/plain output, field projection, exit codes, CI
 - [Security](docs/security.md) — token disclaimer, `YOUTRACK_RO`, keyring storage, command-mutability reference

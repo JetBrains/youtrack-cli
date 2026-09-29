@@ -66,6 +66,7 @@ func TestInstanceLogin_FallsBackWithoutOAuthClient(t *testing.T) {
 		"--plain", "instance", "login", baseURL,
 		"--alias", "ssotest",
 		"--no-browser",
+		"--insecure", // the E2E harness serves plain http on loopback
 		"--timeout", "10s",
 	)
 

@@ -553,7 +553,7 @@ func TestInstanceLogin_RejectsUnsafeHubURL(t *testing.T) {
 	hubURL = strings.Replace(srv.URL, "://", "://decoy.example@", 1)
 
 	cmd := exec.Command(binaryPath, "--plain", "instance", "login", srv.URL,
-		"--alias", "unsafehub", "--no-browser", "--timeout", "2s")
+		"--alias", "unsafehub", "--no-browser", "--insecure", "--timeout", "2s")
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
 	cmd.Stdin = strings.NewReader("perm:not-a-real-token\n")
 	var stderr bytes.Buffer

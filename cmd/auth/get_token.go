@@ -36,7 +36,8 @@ an authentication method:
   1) Basic auth   — login + password via Hub API
   2) Web browser  — open the token page in a browser, then paste the token
   3) Paste token  — enter a token directly without opening a browser
-  4) Browser SSO  — OAuth 2.0 + PKCE sign-in (~1-hour session token)
+  4) Browser SSO  — OAuth 2.0 + PKCE sign-in (auto-refreshing session;
+                    same as "youtrack instance login", which has more options)
 
 If basic auth is unavailable (e.g. cloud or SSO-only instances), the CLI
 falls back to option 3 automatically.
@@ -93,7 +94,7 @@ Use --json for machine-readable output.`,
 
 			// Auth-type selection.
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
-				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\n  4) Browser single sign-on (1-hour session token)\nSelect [1-4]: ")
+				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\n  4) Browser single sign-on (OAuth, auto-refreshing session)\nSelect [1-4]: ")
 			choiceRaw, err := internal.ReadLineContext(cmd.Context(), reader)
 			if err != nil {
 				return fmt.Errorf("reading auth type: %w", err)
@@ -106,7 +107,9 @@ Use --json for machine-readable output.`,
 			case "3":
 				return runDirectTokenFlow(cmd, reader, baseURL)
 			case "4":
-				return runSSOFlow(cmd, reader, baseURL, defaultSSOOptions())
+				opts := defaultSSOOptions()
+				opts.insecure, _ = cmd.Flags().GetBool("insecure")
+				return runSSOFlow(cmd, reader, baseURL, &opts)
 			default:
 				return fmt.Errorf("invalid choice %q: enter 1, 2, 3, or 4", strings.TrimSpace(choiceRaw))
 			}

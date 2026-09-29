@@ -12,6 +12,11 @@ import (
 // keyringService is the OS keyring service name for instance tokens; the keyring user is the instance alias.
 const keyringService = "youtrack-cli"
 
+// refreshKeyringUser is the keyring account holding an instance's OAuth refresh token, kept apart from the access token so older CLI versions still read the access token under the bare alias.
+func refreshKeyringUser(alias string) string {
+	return alias + "/refresh-token"
+}
+
 // keyringTimeout guards against keyring backends that hang instead of failing (e.g. a locked keychain awaiting input).
 const keyringTimeout = 3 * time.Second
 

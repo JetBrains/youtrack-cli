@@ -46,7 +46,7 @@ A config file with two instances looks like this:
 The top-level keys are:
 
 - `currentInstance` — alias of the active instance. Its credentials are used when no flag or environment variable overrides them.
-- `instances` — map of alias to instance. Each entry holds a `url`, plus optional OAuth metadata (`authMethod` and `tokenExpiresAt`) for browser-SSO instances. A `token` appears only when keyring storage is unavailable or explicitly disabled.
+- `instances` — map of alias to instance. Each entry holds a `url`, plus optional OAuth session metadata for browser-SSO instances (`authMethod`, `tokenExpiresAt`, `tokenType`, `scope`, `hubUrl`, `clientId`, `tokenEndpoint`, `revocationEndpoint`). A `token` (and, for OAuth sessions, a `refreshToken`) appears only when keyring storage is unavailable or explicitly disabled. The sibling `~/.youtrack-cli-config.json.lock` file serializes token refreshes between concurrent CLI processes.
 - `lastUpdateCheck` — Unix timestamp of the last update check, managed automatically. See [The startup update notice](#update-notice).
 
 Manage the file with the `youtrack instance` commands: `instance add` authenticates and saves a new instance (its alias is derived from the URL hostname unless you pass `--alias`), `instance list` shows all instances and which is active, `instance use <alias>` switches the active instance, `instance refresh-token <alias>` replaces a saved token in place, and `instance delete <alias>` removes one. See [Authentication](youtrack-cli-authentication.md) for how to obtain a permanent token and complete the `instance add` flow.

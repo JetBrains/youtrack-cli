@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -67,6 +68,7 @@ type OAuthEndpoints struct {
 	Issuer                string   `json:"issuer"`
 	AuthorizationEndpoint string   `json:"authorization_endpoint"`
 	TokenEndpoint         string   `json:"token_endpoint"`
+	RevocationEndpoint    string   `json:"revocation_endpoint"`
 	CodeChallengeMethods  []string `json:"code_challenge_methods_supported"`
 }
 
@@ -102,8 +104,9 @@ func DiscoverOAuthEndpointsContext(ctx context.Context, hubURL string) (*OAuthEn
 		"issuer":                 eps.Issuer,
 		"authorization_endpoint": eps.AuthorizationEndpoint,
 		"token_endpoint":         eps.TokenEndpoint,
+		"revocation_endpoint":    eps.RevocationEndpoint,
 	} {
-		if endpoint == "" && name == "issuer" {
+		if endpoint == "" && (name == "issuer" || name == "revocation_endpoint") {
 			continue
 		}
 		if err := validateOAuthEndpoint(hubURL, endpoint, name); err != nil {
@@ -165,12 +168,42 @@ func PreflightOAuthClientContext(ctx context.Context, authorizeURL string) error
 	return nil
 }
 
-// OAuthToken is the Hub token endpoint response for an authorization-code grant.
+// OAuthToken is the Hub token endpoint response for the authorization-code and refresh-token grants.
 type OAuthToken struct {
-	AccessToken string `json:"access_token"`
-	TokenType   string `json:"token_type"`
-	ExpiresIn   int64  `json:"expires_in"`
-	Scope       string `json:"scope"`
+	AccessToken  string `json:"access_token"`
+	TokenType    string `json:"token_type"`
+	ExpiresIn    int64  `json:"expires_in"`
+	Scope        string `json:"scope"`
+	RefreshToken string `json:"refresh_token"`
+}
+
+// OAuthError is an RFC 6749 §5.2 error response from the token endpoint; it carries only the server's error code and description, never request credentials.
+type OAuthError struct {
+	StatusCode  int
+	Code        string
+	Description string
+}
+
+func (e *OAuthError) Error() string {
+	msg := e.Code
+	if e.Description != "" {
+		msg = e.Description
+	}
+	if msg == "" {
+		msg = "token request failed"
+	}
+	switch e.Code {
+	case "invalid_client", "unauthorized_client":
+		// A public client has no secret to send; Hub answers invalid_client when the client is registered as confidential.
+		msg += " — the OAuth client must be registered in YouTrack/Hub as a public client (no secret) with Authorization Code and PKCE enabled"
+	}
+	return fmt.Sprintf("%s (HTTP %d)", msg, e.StatusCode)
+}
+
+// IsInvalidGrant reports whether err means the grant (authorization code or refresh token) is invalid, expired, or revoked.
+func IsInvalidGrant(err error) bool {
+	var oauthErr *OAuthError
+	return errors.As(err, &oauthErr) && oauthErr.Code == "invalid_grant"
 }
 
 // ExchangeOAuthCodeContext redeems an authorization code as a public client — client_id in the form body, no secret, PKCE code_verifier for proof of possession.
@@ -181,13 +214,66 @@ func ExchangeOAuthCodeContext(ctx context.Context, tokenEndpoint, clientID, code
 	form.Set("redirect_uri", redirectURI)
 	form.Set("client_id", clientID)
 	form.Set("code_verifier", codeVerifier)
+	return postTokenForm(ctx, tokenEndpoint, form)
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenEndpoint, strings.NewReader(form.Encode()))
+// RefreshOAuthTokenContext trades a refresh token for a new access token as a public client; Hub requires scope on refresh and may rotate the refresh token.
+func RefreshOAuthTokenContext(ctx context.Context, tokenEndpoint, clientID, refreshToken, scope string) (*OAuthToken, error) {
+	form := url.Values{}
+	form.Set("grant_type", "refresh_token")
+	form.Set("refresh_token", refreshToken)
+	form.Set("client_id", clientID)
+	if scope != "" {
+		form.Set("scope", scope)
+	}
+	return postTokenForm(ctx, tokenEndpoint, form)
+}
+
+// RevokeOAuthTokenContext asks the revocation endpoint (RFC 7009) to invalidate token; callers treat failures as best-effort.
+func RevokeOAuthTokenContext(ctx context.Context, revocationEndpoint, clientID, token, tokenTypeHint string) error {
+	form := url.Values{}
+	form.Set("token", token)
+	form.Set("client_id", clientID)
+	if tokenTypeHint != "" {
+		form.Set("token_type_hint", tokenTypeHint)
+	}
+	resp, err := postForm(ctx, revocationEndpoint, form)
+	if err != nil {
+		return fmt.Errorf("revocation request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxOAuthResponseBodySize))
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("revocation endpoint returned HTTP %d", resp.StatusCode)
+	}
+	return nil
+}
+
+// postForm sends an OAuth form POST over noRedirectClient (never forwarding the body to another origin).
+func postForm(ctx context.Context, endpoint string, form url.Values) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, strings.NewReader(form.Encode()))
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", UserAgent)
+	if hubVerboseOut != nil {
+		// The form body carries codes and tokens, so only the method and endpoint are logged.
+		_, _ = fmt.Fprintf(hubVerboseOut, "> %s %s\n", http.MethodPost, endpoint)
+	}
 	resp, err := noRedirectClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	if hubVerboseOut != nil {
+		_, _ = fmt.Fprintf(hubVerboseOut, "< %d\n", resp.StatusCode)
+	}
+	return resp, nil
+}
+
+func postTokenForm(ctx context.Context, tokenEndpoint string, form url.Values) (*OAuthToken, error) {
+	resp, err := postForm(ctx, tokenEndpoint, form)
 	if err != nil {
 		return nil, fmt.Errorf("token request: %w", err)
 	}
@@ -196,29 +282,116 @@ func ExchangeOAuthCodeContext(ctx context.Context, tokenEndpoint, clientID, code
 	if err != nil {
 		return nil, fmt.Errorf("reading token response: %w", err)
 	}
-	if resp.StatusCode >= 300 {
+	return parseTokenResponse(resp.StatusCode, data)
+}
+
+// parseTokenResponse decodes a token endpoint response; error messages never echo a success body, which holds the tokens.
+func parseTokenResponse(status int, data []byte) (*OAuthToken, error) {
+	if status >= 300 {
 		var hubErr struct {
 			ErrorDescription string `json:"error_description"`
 			Error            string `json:"error"`
 		}
-		if jsonErr := json.Unmarshal(data, &hubErr); jsonErr == nil {
-			if hubErr.ErrorDescription != "" {
-				return nil, fmt.Errorf("%s (HTTP %d)", hubErr.ErrorDescription, resp.StatusCode)
-			}
-			if hubErr.Error != "" {
-				return nil, fmt.Errorf("%s (HTTP %d)", hubErr.Error, resp.StatusCode)
-			}
+		if jsonErr := json.Unmarshal(data, &hubErr); jsonErr == nil && (hubErr.Error != "" || hubErr.ErrorDescription != "") {
+			return nil, &OAuthError{StatusCode: status, Code: hubErr.Error, Description: hubErr.ErrorDescription}
 		}
-		return nil, fmt.Errorf("HTTP %d: %s", resp.StatusCode, string(data))
+		body := string(data)
+		if len(body) > 200 {
+			body = body[:200] + "..."
+		}
+		return nil, fmt.Errorf("HTTP %d: %s", status, body)
 	}
 	var tok OAuthToken
 	if err := json.Unmarshal(data, &tok); err != nil {
-		return nil, fmt.Errorf("parsing token response: %w", err)
+		return nil, errors.New("parsing token response: response is not valid JSON")
 	}
 	if tok.AccessToken == "" {
-		return nil, fmt.Errorf("token response contained no access_token")
+		return nil, errors.New("token response contained no access_token")
+	}
+	// Tokens are sent as "Authorization: Bearer"; any other type would be misused.
+	if tok.TokenType != "" && !strings.EqualFold(tok.TokenType, "bearer") {
+		return nil, fmt.Errorf("token response has unsupported token_type %q", tok.TokenType)
+	}
+	if tok.ExpiresIn <= 0 {
+		return nil, fmt.Errorf("token response contained invalid expires_in %d", tok.ExpiresIn)
 	}
 	return &tok, nil
+}
+
+// TokenExpiry converts expires_in into an absolute unix time anchored at receivedAt (taken before the request, so the estimate errs early).
+func TokenExpiry(receivedAt time.Time, expiresIn int64) int64 {
+	return receivedAt.Unix() + expiresIn
+}
+
+// TokenNeedsRefresh reports whether a token expiring at expiresAt (unix; 0 = never) is expired or within skew of expiring.
+// The skew absorbs modest clock drift between this machine and Hub as well as request latency.
+func TokenNeedsRefresh(expiresAt int64, now time.Time, skew time.Duration) bool {
+	if expiresAt == 0 {
+		return false
+	}
+	return now.Add(skew).Unix() >= expiresAt
+}
+
+// AuthorizationRequest holds the validated components of a Hub authorization-code request.
+type AuthorizationRequest struct {
+	ClientID      string
+	RedirectURI   string
+	Scopes        []string
+	State         string
+	CodeChallenge string // S256 challenge; plain PKCE is never sent
+}
+
+// BuildAuthorizationURL encodes an authorization-code + PKCE (S256) request onto the Hub authorization endpoint.
+// Every value goes through url.Values encoding, so user-supplied client IDs or scopes cannot inject parameters.
+func BuildAuthorizationURL(endpoint string, r *AuthorizationRequest) (string, error) {
+	u, err := url.Parse(endpoint)
+	if err != nil || !u.IsAbs() || u.Host == "" || u.User != nil || u.Fragment != "" {
+		return "", fmt.Errorf("invalid authorization endpoint %q", endpoint)
+	}
+	if !strings.EqualFold(u.Scheme, "https") && !strings.EqualFold(u.Scheme, "http") {
+		return "", fmt.Errorf("authorization endpoint %q must use https", endpoint)
+	}
+	if r.ClientID == "" || r.RedirectURI == "" || r.State == "" || r.CodeChallenge == "" || len(r.Scopes) == 0 {
+		return "", errors.New("authorization request is missing client_id, redirect_uri, scope, state, or code_challenge")
+	}
+	q := u.Query()
+	q.Set("response_type", "code")
+	q.Set("client_id", r.ClientID)
+	q.Set("redirect_uri", r.RedirectURI)
+	q.Set("scope", strings.Join(r.Scopes, " "))
+	q.Set("state", r.State)
+	q.Set("code_challenge", r.CodeChallenge)
+	q.Set("code_challenge_method", "S256")
+	// access_type=offline makes Hub issue a refresh token on the first code exchange; request_credentials=default shows the login form only when the user has no Hub session.
+	q.Set("access_type", "offline")
+	q.Set("request_credentials", "default")
+	u.RawQuery = q.Encode()
+	return u.String(), nil
+}
+
+// ValidateOAuthURL requires an absolute https URL with a host and no user-info; plain http is accepted only for a loopback host when allowInsecureLoopback is set (local development).
+func ValidateOAuthURL(rawURL string, allowInsecureLoopback bool) error {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || !u.IsAbs() || u.Hostname() == "" {
+		return fmt.Errorf("%q is not an absolute URL — use the full address, e.g. https://example.youtrack.cloud", rawURL)
+	}
+	if u.User != nil {
+		return fmt.Errorf("%q must not contain user info", rawURL)
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return nil
+	case "http":
+		if IsInsecureRemoteHTTP(rawURL) {
+			return fmt.Errorf("refusing to sign in over plain http to %s — use the https URL", u.Host)
+		}
+		if !allowInsecureLoopback {
+			return fmt.Errorf("%s uses plain http — use the https URL, or pass --insecure to allow http for a local (loopback) instance", rawURL)
+		}
+		return nil
+	default:
+		return fmt.Errorf("%q must use https", rawURL)
+	}
 }
 
 // GeneratePKCEVerifier returns a 32-byte random code verifier as unpadded base64url (43 chars), per RFC 7636 §4.1.
@@ -234,4 +407,27 @@ func GeneratePKCEVerifier() (string, error) {
 func PKCEChallengeS256(verifier string) string {
 	sum := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
+}
+
+// ResolveHubURL resolves a possibly relative URL (YouTrack Server reports its built-in Hub as "/hub") against baseURL.
+func ResolveHubURL(baseURL, ref string) string {
+	if ref == "" {
+		return ""
+	}
+	base, err := url.Parse(strings.TrimRight(baseURL, "/") + "/")
+	if err != nil {
+		return ref
+	}
+	r, err := url.Parse(ref)
+	if err != nil {
+		return ref
+	}
+	if r.IsAbs() {
+		return ref
+	}
+	// A root-relative "/hub" keeps the instance's path prefix (e.g. https://host/youtrack + /hub → https://host/youtrack/hub) only when the prefix is not already part of it.
+	if strings.HasPrefix(r.Path, "/") && base.Path != "/" && !strings.HasPrefix(r.Path, base.Path) {
+		r.Path = strings.TrimSuffix(base.Path, "/") + r.Path
+	}
+	return base.ResolveReference(r).String()
 }

@@ -81,7 +81,7 @@ The command asks for your base URL (for example, `https://example.youtrack.cloud
 - __Basic auth__ — sign in with your login and password; the CLI creates a permanent token for you.
 - __Web browser__ — the CLI opens the token page so you can create a token and paste it back.
 - __Paste token__ — enter an existing permanent token directly.
-- __Browser SSO__ — authenticate through Hub with OAuth 2.0 + PKCE and save a short-lived token (about one hour). On compatible instances you can also run `youtrack instance login <url>` directly.
+- __Browser SSO__ — authenticate through Hub with OAuth 2.0 + PKCE and save an OAuth session that the CLI refreshes automatically. You can also run `youtrack instance login <url>` directly; add `--no-browser` over SSH.
 
 Saved tokens use the OS keyring when available; the config file at `~/.youtrack-cli-config.json` stores the instance metadata. To manage several instances, register each under its own alias and switch between them with `youtrack instance use <alias>`. See [Configuration](youtrack-cli-configuration.md) for the full precedence and storage rules.
 
