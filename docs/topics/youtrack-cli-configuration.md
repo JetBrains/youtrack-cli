@@ -14,6 +14,8 @@ YouTrack CLI resolves the base URL and token independently. For each one it walk
 
 Because the two values resolve separately, you can mix sources — for example, take the base URL from the active instance while passing the token through `YOUTRACK_TOKEN`.
 
+Saved tokens are bound to their instance: a token taken from a config profile (steps 2 and 4) is only sent when the resolved base URL has the same origin — scheme, host, and port — as that profile. Overriding just the base URL to point at a different host fails with an error rather than forwarding the saved token.
+
 > If no base URL or token can be resolved, the command fails with a message naming the missing value. Run `youtrack instance add` to configure one, or set the environment variables.
 >
 {style="note"}
