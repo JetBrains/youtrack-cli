@@ -170,22 +170,20 @@ func (c *Client) Get(path string, result any) error {
 }
 
 // mergeFieldsParam adds to a URL's fields= param rather than replacing it, so a user projection can't drop fields a call needs internally.
+// Only a real fields= parameter matches, never the suffix of another name such as customFields=.
 func mergeFieldsParam(path, fields string) string {
-	idx := strings.Index(path, "fields=")
-	if idx < 0 {
-		sep := "?"
-		if strings.Contains(path, "?") {
-			sep = "&"
+	base, query, hasQuery := strings.Cut(path, "?")
+	if !hasQuery {
+		return path + "?fields=" + fields
+	}
+	params := strings.Split(query, "&")
+	for i, p := range params {
+		if strings.HasPrefix(p, "fields=") {
+			params[i] = p + "," + fields
+			return base + "?" + strings.Join(params, "&")
 		}
-		return path + sep + "fields=" + fields
 	}
-	valStart := idx + len("fields=")
-	end := strings.IndexByte(path[valStart:], '&')
-	if end < 0 {
-		return path + "," + fields
-	}
-	insertAt := valStart + end
-	return path[:insertAt] + "," + fields + path[insertAt:]
+	return path + "&fields=" + fields
 }
 
 // errReadOnly is returned by every write when YOUTRACK_RO=1.

@@ -14,6 +14,8 @@ func TestMergeFieldsParam(t *testing.T) {
 		{"existing fields param is extended", "/api/issues/FOO-1?fields=id", "summary", "/api/issues/FOO-1?fields=id,summary"},
 		{"fields param followed by another param is extended in place", "/api/issues/FOO-1?fields=id&muteUpdateNotifications=true", "summary", "/api/issues/FOO-1?fields=id,summary&muteUpdateNotifications=true"},
 		{"fields param preceded by another param is extended", "/api/issues/FOO-1?muteUpdateNotifications=true&fields=id", "summary", "/api/issues/FOO-1?muteUpdateNotifications=true&fields=id,summary"},
+		{"param ending in fields= is not mistaken for fields", "/api/issues?customFields=Priority", "id", "/api/issues?customFields=Priority&fields=id"},
+		{"param ending in fields= before the real one is skipped", "/api/issues?customFields=Priority&fields=id", "summary", "/api/issues?customFields=Priority&fields=id,summary"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
