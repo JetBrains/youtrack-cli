@@ -563,3 +563,23 @@ func TestInstanceLogin_RejectsUnsafeHubURL(t *testing.T) {
 	assert.NotContains(t, stderr.String(), "Open this URL in your browser")
 	assert.NotContains(t, stderr.String(), "oauth2/auth")
 }
+
+func TestAuth_GetToken_ReadOnlyBlocksHubTokenCreation(t *testing.T) {
+	login := os.Getenv("YOUTRACK_LOGIN")
+	password := os.Getenv("YOUTRACK_PASSWORD")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	if login == "" || password == "" || baseURL == "" {
+		t.Skip("YOUTRACK_LOGIN, YOUTRACK_PASSWORD, and YOUTRACK_BASE_URL not set — skipping read-only Hub test")
+	}
+
+	cmd := exec.Command(binaryPath, "--base-url", baseURL, "--format", "json", "auth", "get-token",
+		"--login", login, "--password", password, "--token-name", "e2e-ro-must-not-exist", "--save=false")
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir(), "YOUTRACK_RO=1")
+	cmd.Stdin = strings.NewReader("1\n")
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	require.Error(t, cmd.Run(), "stdout: %s", stdout.String())
+	assert.Contains(t, stderr.String(), "read-only mode is enabled")
+	assert.NotContains(t, stdout.String(), `"token"`)
+}

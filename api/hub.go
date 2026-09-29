@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 )
 
@@ -128,6 +129,10 @@ func hubBasicAuth(login, password string) string {
 }
 
 func hubDo(ctx context.Context, method, baseURL, path, auth string, body any) ([]byte, error) {
+	// Hub calls bypass Client, so YOUTRACK_RO needs its own guard here (e.g. permanent-token creation).
+	if method != http.MethodGet && os.Getenv(envReadOnly) == "1" {
+		return nil, fmt.Errorf("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
+	}
 	var bodyReader io.Reader
 	contentType := ""
 	if body != nil {
