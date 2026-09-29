@@ -39,7 +39,9 @@ func newDeleteCmd() *cobra.Command {
 			if err := cfg.Save(); err != nil {
 				return err
 			}
-			config.PurgeKeyringToken(alias)
+			if err := config.PurgeKeyringToken(alias); err != nil {
+				output.PrintWarn(cmd, err.Error())
+			}
 			message := fmt.Sprintf("instance %q deleted", alias)
 			if wasActive {
 				message += "; run 'youtrack instance use <alias>' to set a new active instance"

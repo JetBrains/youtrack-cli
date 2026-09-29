@@ -75,7 +75,9 @@ Use --json for machine-readable output.`,
 			if err := cfg.Save(); err != nil {
 				return err
 			}
-			config.PurgeKeyringToken(targetAlias)
+			if err := config.PurgeKeyringToken(targetAlias); err != nil {
+				output.PrintWarn(cmd, err.Error())
+			}
 			res := LogoutResult{URL: inst.URL, Status: "logged out"}
 			if !jsonOutput(cmd) {
 				output.PrintSuccess(cmd, "logged out from "+inst.URL)
