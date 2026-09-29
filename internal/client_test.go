@@ -55,3 +55,32 @@ func TestSplitFieldsInternal(t *testing.T) {
 		})
 	}
 }
+
+func TestSameOrigin(t *testing.T) {
+	cases := []struct {
+		name string
+		a, b string
+		want bool
+	}{
+		{"identical", "https://work.example.com", "https://work.example.com", true},
+		{"trailing slash and path ignored", "https://work.example.com/", "https://work.example.com/youtrack", true},
+		{"host and scheme case-insensitive", "HTTPS://Work.Example.com", "https://work.example.com", true},
+		{"default https port normalized", "https://work.example.com:443", "https://work.example.com", true},
+		{"default http port normalized", "http://localhost:80", "http://localhost", true},
+		{"different host", "https://attacker.example.net", "https://work.example.com", false},
+		{"lookalike subdomain", "https://work.example.com.attacker.net", "https://work.example.com", false},
+		{"userinfo host trick", "https://work.example.com@attacker.net", "https://work.example.com", false},
+		{"scheme downgrade", "http://work.example.com", "https://work.example.com", false},
+		{"different port", "https://work.example.com:8443", "https://work.example.com", false},
+		{"schemeless url never matches", "work.example.com", "https://work.example.com", false},
+		{"empty url never matches", "", "https://work.example.com", false},
+		{"unparsable url never matches", "https://work.example.com:bad", "https://work.example.com", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := sameOrigin(c.a, c.b); got != c.want {
+				t.Errorf("sameOrigin(%q, %q) = %v, want %v", c.a, c.b, got, c.want)
+			}
+		})
+	}
+}

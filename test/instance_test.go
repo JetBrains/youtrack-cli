@@ -3,9 +3,12 @@ package api_test
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -327,4 +330,125 @@ func TestAuthStatus_MultiInstance(t *testing.T) {
 	assert.Contains(t, out, "myinst")
 	assert.Contains(t, out, "[active]")
 	assert.Contains(t, out, "broken")
+}
+
+// credentialSink is a local HTTP server standing in for an attacker-controlled host; it records every Authorization header it receives.
+func credentialSink(t *testing.T) (*httptest.Server, *[]string) {
+	t.Helper()
+	var mu sync.Mutex
+	var seen []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen = append(seen, r.Header.Get("Authorization"))
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"id":"1-1","login":"attacker"}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &seen
+}
+
+// runIsolated runs the binary with only the given env (no inherited YOUTRACK_* vars) and returns stderr and the exit error.
+func runIsolated(t *testing.T, env []string, args ...string) (string, error) {
+	t.Helper()
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Env = append([]string{"PATH=" + os.Getenv("PATH"), "YOUTRACK_DISABLE_KEYRING=1"}, env...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	return stderr.String(), err
+}
+
+func TestGetClient_SavedTokenNotSentToOverriddenURL(t *testing.T) {
+	cases := []struct {
+		name string
+		env  func(sinkURL string) []string
+		args func(sinkURL string) []string
+	}{
+		{
+			name: "--base-url flag with active instance token",
+			args: func(sinkURL string) []string { return []string{"--base-url", sinkURL} },
+		},
+		{
+			name: "YOUTRACK_BASE_URL env with active instance token",
+			env:  func(sinkURL string) []string { return []string{"YOUTRACK_BASE_URL=" + sinkURL} },
+		},
+		{
+			name: "--base-url flag with --server profile token",
+			args: func(sinkURL string) []string { return []string{"--base-url", sinkURL, "--server", "personal"} },
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			sink, seen := credentialSink(t)
+			tmpHome := t.TempDir()
+			configFixture(t, tmpHome, twoInstanceConfig)
+
+			env := []string{"HOME=" + tmpHome}
+			if c.env != nil {
+				env = append(env, c.env(sink.URL)...)
+			}
+			var args []string
+			if c.args != nil {
+				args = c.args(sink.URL)
+			}
+			args = append(args, "--json", "user", "current")
+
+			stderr, err := runIsolated(t, env, args...)
+			require.Error(t, err, "expected the CLI to refuse; stderr: %s", stderr)
+			assert.Contains(t, stderr, "refusing to send the saved token")
+			assert.NotContains(t, stderr, "perm:aaa")
+			assert.NotContains(t, stderr, "perm:bbb")
+			assert.Empty(t, *seen, "saved token must not reach the overridden host")
+		})
+	}
+}
+
+func TestGetClient_ExplicitTokenStillAllowedForOverriddenURL(t *testing.T) {
+	sink, seen := credentialSink(t)
+	tmpHome := t.TempDir()
+	configFixture(t, tmpHome, twoInstanceConfig)
+
+	// A caller-supplied token is the caller's own choice; only saved tokens are origin-bound.
+	stderr, err := runIsolated(t, []string{"HOME=" + tmpHome},
+		"--base-url", sink.URL, "--token", "perm:explicit", "--json", "user", "current")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.Equal(t, []string{"Bearer perm:explicit"}, *seen)
+}
+
+func TestGetClient_SavedTokenUsedForSameOriginOverride(t *testing.T) {
+	requireE2EEnv(t)
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+	token := os.Getenv("YOUTRACK_TOKEN")
+	tmpHome := t.TempDir()
+	configFixture(t, tmpHome, `{
+  "currentInstance": "myinst",
+  "instances": {
+    "myinst": {"url": "`+baseURL+`", "token": "`+token+`"}
+  }
+}`)
+
+	// Same origin, different spelling (trailing slash) — the saved token is still usable.
+	for _, env := range [][]string{
+		{"HOME=" + tmpHome, "YOUTRACK_BASE_URL=" + baseURL + "/"},
+		{"HOME=" + tmpHome},
+	} {
+		args := []string{"--format", "json", "auth", "status"}
+		if len(env) == 1 {
+			args = append([]string{"--base-url", baseURL + "/"}, args...)
+		}
+		cmd := exec.Command(binaryPath, args...)
+		cmd.Env = append([]string{"YOUTRACK_DISABLE_KEYRING=1"}, env...)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		require.NoError(t, cmd.Run(), "stderr: %s", stderr.String())
+
+		var result struct {
+			Status string `json:"status"`
+		}
+		require.NoError(t, json.Unmarshal(stdout.Bytes(), &result), "output was: %s", stdout.String())
+		assert.Equal(t, "authenticated", result.Status)
+	}
 }

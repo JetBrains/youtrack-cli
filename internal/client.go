@@ -2,6 +2,7 @@ package internal
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -17,6 +18,8 @@ import (
 //  2. --server flag (selects a named profile from config by alias)
 //  3. YOUTRACK_BASE_URL / YOUTRACK_TOKEN env vars (shell/CI, process-scoped)
 //  4. Active instance from ~/.youtrack-cli-config.json (set via `instance use`)
+//
+// A token taken from a saved profile (tiers 2 and 4) is only used when the resolved URL has the same origin as that profile.
 func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	flags := cmd.Root().PersistentFlags()
 
@@ -25,6 +28,9 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	verbose, _ := flags.GetBool("verbose")
 	serverAlias, _ := flags.GetString("server")
 	fields, _ := flags.GetString("fields")
+
+	// savedTokenAlias/savedTokenURL record which saved profile supplied the token, so it is only ever sent to that profile's origin.
+	var savedTokenAlias, savedTokenURL string
 
 	// Tier 2: --server flag selects a named profile (per-invocation, does not persist).
 	if (baseURL == "" || token == "") && serverAlias != "" {
@@ -44,6 +50,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 		}
 		if token == "" {
 			token = inst.Token
+			savedTokenAlias, savedTokenURL = serverAlias, inst.URL
 			warnIfTokenExpired(cmd, serverAlias, inst)
 		}
 	}
@@ -69,6 +76,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 				}
 				if token == "" {
 					token = inst.Token
+					savedTokenAlias, savedTokenURL = alias, inst.URL
 					warnIfTokenExpired(cmd, alias, *inst)
 				}
 			case alias != "": // currentInstance is set but the alias is missing from the map (stale pointer).
@@ -98,12 +106,46 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 		)
 	}
 
+	// A saved token is bound to its instance: never forward it to a URL overridden via --base-url or YOUTRACK_BASE_URL.
+	if savedTokenURL != "" && !sameOrigin(baseURL, savedTokenURL) {
+		return nil, fmt.Errorf(
+			"refusing to send the saved token for %q (%s) to %s — pass --token or set YOUTRACK_TOKEN for that instance, or select its profile with --server <alias>",
+			savedTokenAlias, savedTokenURL, baseURL,
+		)
+	}
+
 	api.UserAgent = "youtrack-cli/" + Version
 
 	c := api.NewClient(baseURL, token).WithContext(cmd.Context())
 	c.Verbose = verbose
 	c.Fields = expandFields(fields)
 	return c, nil
+}
+
+// sameOrigin reports whether two instance URLs share scheme, host and port (default ports normalized); unparsable or host-less URLs never match.
+func sameOrigin(a, b string) bool {
+	ua, errA := url.Parse(strings.TrimSpace(a))
+	ub, errB := url.Parse(strings.TrimSpace(b))
+	if errA != nil || errB != nil || ua.Hostname() == "" || ub.Hostname() == "" {
+		return false
+	}
+	return strings.EqualFold(ua.Scheme, ub.Scheme) &&
+		strings.EqualFold(ua.Hostname(), ub.Hostname()) &&
+		originPort(ua) == originPort(ub)
+}
+
+// originPort returns the explicit port, or the scheme's default so "https://x" and "https://x:443" compare equal.
+func originPort(u *url.URL) string {
+	if p := u.Port(); p != "" {
+		return p
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	}
+	return ""
 }
 
 // warnIfTokenExpired prints a stderr renewal hint when a stored token is past its expiry, before the follow-up request 401s.

@@ -35,6 +35,8 @@ To opt out of keyring storage entirely (e.g. for deterministic CI setups), set:
 export YOUTRACK_DISABLE_KEYRING=1
 ```
 
+A saved token is bound to the origin (scheme, host, and port) of the instance it was saved for. When `--base-url` or `YOUTRACK_BASE_URL` points at a different origin and no explicit token is supplied, the CLI refuses to run instead of sending the saved token to that host — so a caller who can change only the URL cannot redirect a stored credential.
+
 Environment credentials (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored credentials entirely and are unaffected. Prefer an environment secret over a command-line token in automation, because command-line arguments can appear in shell history and process listings.
 
 ## Read-Only Mode
