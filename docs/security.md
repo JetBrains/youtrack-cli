@@ -73,7 +73,7 @@ youtrack issue list --query "assignee: me"      # works
 youtrack issue create --project MYPROJ --summary "..."   # error: read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked
 ```
 
-This flag blocks all `POST`, `PUT`, `DELETE`, and multipart upload requests at the HTTP client layer — no command-level checks required, so it protects against accidental writes regardless of which command is invoked. The Hub API calls are covered too, so basic-auth `auth get-token` cannot create a permanent token in read-only mode.
+This flag blocks all `POST`, `PUT`, `DELETE`, and multipart upload requests at the HTTP client layer — no command-level checks required, so it protects against accidental writes regardless of which command is invoked. The only exceptions are two fixed endpoints that YouTrack exposes as `POST` but that only compute a result: `/api/issuesGetter/count` (`issue count`) and `/api/commands/assist` (`issue command suggest`). `youtrack raw` has no exceptions. The Hub API calls are covered too, so basic-auth `auth get-token` cannot create a permanent token in read-only mode.
 
 This is particularly useful for:
 - AI agent integrations where you want to allow read-only introspection of YouTrack state.

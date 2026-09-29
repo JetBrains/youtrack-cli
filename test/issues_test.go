@@ -1,8 +1,10 @@
 package api_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -869,4 +871,35 @@ func TestCmd_IssueCommand(t *testing.T) {
 		}
 	}
 	assert.True(t, stateFound, "State field should show In Progress after command")
+}
+
+// issue count and command suggest POST to endpoints that change nothing, so read-only mode must not block them.
+func TestCmd_ReadOnlyAllowsQueryEndpoints(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "read-only query test", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	roEnv := []string{"HOME=" + t.TempDir(), "YOUTRACK_RO=1"}
+
+	out := runCmdWithEnv(t, "", roEnv, "issue", "count", "--query", "project: "+proj.ShortName)
+	count, err := strconv.Atoi(strings.TrimSpace(out))
+	require.NoError(t, err, "output should be a plain integer, got: %q", out)
+	assert.GreaterOrEqual(t, count, 0)
+
+	out = runCmdWithEnv(t, "", roEnv, "issue", "command", "suggest", issue.IDReadable, "State ", "--format", "json")
+	assert.Contains(t, out, "commands")
+
+	cmd := exec.Command(binaryPath, "issue", "comment", "create", issue.IDReadable, "--text", "must not be posted")
+	cmd.Env = append(os.Environ(), roEnv...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	require.Error(t, cmd.Run(), "writes must stay blocked in read-only mode")
+	assert.Contains(t, stderr.String(), "read-only mode is enabled")
+
+	comments, err := c.ListComments(issue.IDReadable)
+	require.NoError(t, err)
+	assert.Empty(t, comments)
 }

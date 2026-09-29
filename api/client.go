@@ -200,6 +200,12 @@ func (c *Client) Post(path string, body, result any) error {
 	return c.sendJSON("POST", path, body, result)
 }
 
+// postQuery sends a POST to an endpoint that only computes a result and changes nothing
+// (issue counts, command suggestions), so it stays available in read-only mode.
+func (c *Client) postQuery(path string, body, result any) error {
+	return c.sendJSON("POST", path, body, result)
+}
+
 func (c *Client) Put(path string, body, result any) error {
 	if readOnly() {
 		return errReadOnly

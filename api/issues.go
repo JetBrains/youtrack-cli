@@ -131,7 +131,7 @@ func (c *Client) GetIssueCount(query string) (int, error) {
 		var result struct {
 			Count int `json:"count"`
 		}
-		if err := c.Post(pathIssuesGetterCount+"?fields=count",
+		if err := c.postQuery(pathIssuesGetterCount+"?fields=count",
 			map[string]any{"query": query}, &result); err != nil {
 			return 0, err
 		}
@@ -424,7 +424,7 @@ func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]a
 		issues[i] = map[string]any{"id": issue.ID}
 	}
 	var result map[string]any
-	err := c.Post(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
+	err := c.postQuery(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
 		map[string]any{"query": query, "issues": issues}, &result)
 	return result, err
 }
