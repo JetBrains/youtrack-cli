@@ -116,6 +116,7 @@ Use --json for machine-readable output.`,
 	cmd.Flags().String("password", "", "Password (basic auth; prompted interactively if omitted — avoid in scripts)")
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
+	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
 	return cmd
 }
 
@@ -131,6 +132,10 @@ func acquireTokenViaBasicAuth(cmd *cobra.Command, reader *bufio.Reader, baseURL 
 	password, _ := cmd.Flags().GetString("password")
 	tokenName, _ := cmd.Flags().GetString("token-name")
 	scope, _ := cmd.Flags().GetString("scope")
+
+	if err := requireSecureBasicAuth(cmd, baseURL); err != nil {
+		return nil, err
+	}
 
 	if login == "" {
 		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Login: "); err != nil {

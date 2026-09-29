@@ -114,6 +114,11 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 		)
 	}
 
+	if api.IsInsecureRemoteHTTP(baseURL) {
+		_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
+			"warning: %s uses plain http — the token is sent unencrypted; switch the instance URL to https\n", baseURL)
+	}
+
 	api.UserAgent = "youtrack-cli/" + Version
 
 	c := api.NewClient(baseURL, token).WithContext(cmd.Context())

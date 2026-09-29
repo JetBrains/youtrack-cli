@@ -37,3 +37,32 @@ func TestValidateHubURL(t *testing.T) {
 		})
 	}
 }
+
+func TestIsInsecureRemoteHTTP(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		url  string
+		want bool
+	}{
+		{"https://work.youtrack.cloud", false},
+		{"http://localhost:8080", false},
+		{"http://LOCALHOST", false},
+		{"http://127.0.0.1:8080", false},
+		{"http://127.1.2.3", false},
+		{"http://[::1]:8080", false},
+		{"http://youtrack.intranet", true},
+		{"HTTP://youtrack.intranet", true},
+		{"http://10.0.0.5:8080", true},
+		{"http://localhost.attacker.net", true},
+		{"", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.url, func(t *testing.T) {
+			if got := IsInsecureRemoteHTTP(tt.url); got != tt.want {
+				t.Errorf("IsInsecureRemoteHTTP(%q) = %v, want %v", tt.url, got, tt.want)
+			}
+		})
+	}
+}

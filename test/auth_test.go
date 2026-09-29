@@ -564,6 +564,27 @@ func TestInstanceLogin_RejectsUnsafeHubURL(t *testing.T) {
 	assert.NotContains(t, stderr.String(), "oauth2/auth")
 }
 
+func TestAuth_GetToken_RefusesBasicAuthOverRemoteHTTP(t *testing.T) {
+	// The guard runs before any request, so an unresolvable host is enough.
+	args := []string{"--base-url", "http://youtrack.invalid", "auth", "get-token", "--save=false", "--login", "x", "--password", "y"}
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
+	cmd.Stdin = strings.NewReader("1\n")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	require.Error(t, cmd.Run())
+	assert.Contains(t, stderr.String(), "refusing to send your password over plain http")
+
+	// --insecure lifts the guard; the request then fails on the unresolvable host instead.
+	cmd = exec.Command(binaryPath, append(args, "--insecure")...)
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
+	cmd.Stdin = strings.NewReader("1\n")
+	stderr.Reset()
+	cmd.Stderr = &stderr
+	require.Error(t, cmd.Run())
+	assert.NotContains(t, stderr.String(), "refusing to send your password")
+}
+
 func TestAuth_GetToken_ReadOnlyBlocksHubTokenCreation(t *testing.T) {
 	login := os.Getenv("YOUTRACK_LOGIN")
 	password := os.Getenv("YOUTRACK_PASSWORD")

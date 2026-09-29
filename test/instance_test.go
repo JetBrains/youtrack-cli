@@ -464,3 +464,17 @@ func TestGetClient_SavedTokenUsedForSameOriginOverride(t *testing.T) {
 		assert.Equal(t, "authenticated", result.Status)
 	}
 }
+
+func TestGetClient_WarnsOnRemotePlainHTTP(t *testing.T) {
+	// The warning is printed before the request, so an unresolvable host is enough.
+	stderr, err := runIsolated(t, []string{"HOME=" + t.TempDir()},
+		"--base-url", "http://youtrack.invalid", "--token", "perm:x", "user", "current")
+	require.Error(t, err)
+	assert.Contains(t, stderr, "uses plain http")
+
+	sink, _ := credentialSink(t) // loopback http, as in the local harness: no warning
+	stderr, err = runIsolated(t, []string{"HOME=" + t.TempDir()},
+		"--base-url", sink.URL, "--token", "perm:x", "--json", "user", "current")
+	require.NoError(t, err, "stderr: %s", stderr)
+	assert.NotContains(t, stderr, "uses plain http")
+}
