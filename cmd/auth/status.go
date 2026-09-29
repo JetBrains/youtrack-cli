@@ -115,11 +115,11 @@ func printAuthStatus(cmd *cobra.Command, s AuthStatus) {
 	case s.Status == "authenticated":
 		_, _ = fmt.Fprintf(w, "%s Authenticated\n", color.New(color.FgGreen).Sprint("✓"))
 		_, _ = fmt.Fprintf(w, "  URL:   %s\n", s.URL)
-		_, _ = fmt.Fprintf(w, "  User:  %s (%s)\n", s.FullName, s.Login)
+		_, _ = fmt.Fprintf(w, "  User:  %s (%s)\n", output.Sanitize(s.FullName), output.Sanitize(s.Login))
 	case strings.HasPrefix(s.Status, "invalid token"):
 		_, _ = fmt.Fprintf(w, "%s Token invalid\n", color.New(color.FgRed).Sprint("✗"))
 		_, _ = fmt.Fprintf(w, "  URL:   %s\n", s.URL)
-		_, _ = fmt.Fprintf(w, "  Error: %s\n", strings.TrimPrefix(s.Status, "invalid token: "))
+		_, _ = fmt.Fprintf(w, "  Error: %s\n", output.Sanitize(strings.TrimPrefix(s.Status, "invalid token: ")))
 	default:
 		_, _ = fmt.Fprintf(w, "%s Not configured\n", color.New(color.FgYellow).Sprint("!"))
 		_, _ = fmt.Fprintf(w, "  Run:   youtrack auth get-token\n")
@@ -172,11 +172,11 @@ func printMultiInstanceStatus(cmd *cobra.Command, statuses []InstanceStatus) {
 		case "authenticated":
 			_, _ = fmt.Fprintf(w, "  %s %-20s %s  %s (%s)%s\n",
 				color.New(color.FgGreen).Sprint("✓"),
-				s.Alias, s.URL, s.FullName, s.Login, activeMarker)
+				s.Alias, s.URL, output.Sanitize(s.FullName), output.Sanitize(s.Login), activeMarker)
 		default:
 			_, _ = fmt.Fprintf(w, "  %s %-20s %s  %s%s\n",
 				color.New(color.FgRed).Sprint("✗"),
-				s.Alias, s.URL, s.Status, activeMarker)
+				s.Alias, s.URL, output.Sanitize(s.Status), activeMarker)
 		}
 	}
 }

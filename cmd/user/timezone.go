@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 func newUserTimezoneCmd() *cobra.Command {
@@ -23,7 +24,7 @@ func newUserTimezoneCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			_, err = fmt.Fprintln(cmd.OutOrStdout(), tz)
+			_, err = fmt.Fprintln(cmd.OutOrStdout(), output.Sanitize(tz))
 			return err
 		},
 	}
