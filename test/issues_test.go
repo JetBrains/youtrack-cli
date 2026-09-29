@@ -924,6 +924,37 @@ func TestCmd_ReadOnlyAllowsQueryEndpoints(t *testing.T) {
 	assert.Empty(t, comments)
 }
 
+// Readable IDs go to /api/commands as idReadable; database IDs are still resolved first.
+func TestCmd_IssueCommand_ByDatabaseIDAndUnknownID(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "command by db id", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	tag := "cmdtag" + strconv.FormatInt(time.Now().UnixNano()%1_000_000, 10)
+	t.Cleanup(func() {
+		tags, _ := c.ListTags()
+		for _, tg := range tags {
+			if tg.Name == tag {
+				_ = c.DeleteTag(tg.ID)
+			}
+		}
+	})
+
+	runCmd(t, "issue", "command", issue.ID, "tag "+tag)
+	tags, err := c.ListIssueTags(issue.IDReadable)
+	require.NoError(t, err)
+	var names []string
+	for _, tg := range tags {
+		names = append(names, tg.Name)
+	}
+	assert.Contains(t, names, tag, "command addressed by database ID should apply")
+
+	stderr := runCmdExpectError(t, "issue", "command", proj.ShortName+"-999999", "tag "+tag)
+	assert.NotEmpty(t, strings.TrimSpace(stderr), "unknown issue should produce an error message")
+}
+
 // File names with quotes and line breaks must reach YouTrack without corrupting the multipart part headers.
 func TestCmd_IssueAttachmentAdd_UnusualFileNames(t *testing.T) {
 	c := newTestClient(t)
