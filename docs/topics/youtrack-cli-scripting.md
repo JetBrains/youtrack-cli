@@ -45,7 +45,7 @@ An error object looks like this:
 The `--fields` flag (short `-f`) takes a comma-separated projection. In table and plain output it selects which columns are shown; for every format it is merged into the field set the CLI requests from YouTrack, so you can pull fields the default projection omits.
 
 ```Shell
-youtrack issue list --query "project: DEMO" --fields "idReadable,summary,state"
+youtrack issue list --query "project: DEMO" --fields "idReadable,summary,reporter.login"
 ```
 
 Reach into a nested object with a dot path, or select nested fields with YouTrack's parenthesis syntax:

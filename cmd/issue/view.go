@@ -14,7 +14,7 @@ func newIssueViewCmd() *cobra.Command {
 		Use:     "view <issueId>",
 		Aliases: []string{"get"},
 		Short:   "View an issue by ID",
-		Example: "  youtrack issue view FOO-42\n  youtrack issue view FOO-42 --comments 5\n  youtrack issue view FOO-42 -f id,summary,state,assignee",
+		Example: "  youtrack issue view FOO-42\n  youtrack issue view FOO-42 --comments 5\n  youtrack issue view FOO-42 -f idReadable,summary,reporter.login",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)

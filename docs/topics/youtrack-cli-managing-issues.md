@@ -17,7 +17,7 @@ youtrack issue list --query "project: DEMO State: Open"
 By default the command returns up to 100 issues. Use `--limit` to change that and `-f` to choose which fields to show:
 
 ```Shell
-youtrack issue list --query "project: DEMO" --limit 20 -f idReadable,summary,state
+youtrack issue list --query "project: DEMO" --limit 20 -f idReadable,summary,project.shortName
 ```
 
 To count matches without listing them, use `youtrack issue count`:
@@ -32,7 +32,7 @@ View a single issue by its ID. Add `--comments N` to include the N most recent c
 
 ```Shell
 youtrack issue view DEMO-42
-youtrack issue view DEMO-42 --comments 5 -f id,summary,state,assignee
+youtrack issue view DEMO-42 --comments 5 -f idReadable,summary,reporter.login
 ```
 
 ## Creating an issue {id="create"}
