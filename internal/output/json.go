@@ -106,6 +106,7 @@ func parseFieldSpec(spec string) (key, innerSpec string) {
 // resolving dot-separated paths (e.g. "project.shortName") or sub-field
 // specs (e.g. "comments(id,text)").
 func printProjected(w io.Writer, data any, fields string, withHeader bool) error {
+	w = safeWriter{w}
 	names := splitFields(fields)
 
 	b, err := json.Marshal(data)

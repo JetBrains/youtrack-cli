@@ -24,7 +24,7 @@ func PrintSuccess(cmd *cobra.Command, msg string) {
 		_ = printJSON(cmd.OutOrStdout(), successResult{Status: "ok", Message: msg})
 		return
 	}
-	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", successIcon, msg)
+	_, _ = fmt.Fprintf(cmd.OutOrStdout(), "%s %s\n", successIcon, sanitizeTerminal(msg))
 }
 
 // PrintWarn writes "! msg\n" to cmd's stderr.
@@ -33,7 +33,7 @@ func PrintWarn(cmd *cobra.Command, msg string) {
 	if isQuiet(cmd) {
 		return
 	}
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "%s %s\n", warnIcon, msg)
+	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "%s %s\n", warnIcon, sanitizeTerminal(msg))
 }
 
 // PrintTip writes "  Tip: msg\n" to cmd's stderr.

@@ -39,6 +39,10 @@ A saved token is bound to the origin (scheme, host, and port) of the instance it
 
 Environment credentials (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored credentials entirely and are unaffected. Prefer an environment secret over a command-line token in automation, because command-line arguments can appear in shell history and process listings.
 
+## Untrusted Server Content
+
+Text returned by YouTrack (summaries, descriptions, comments, names, error messages) is authored by other users. In table and plain output the CLI strips terminal control characters (C0 controls other than tab and newline, DEL, and C1 controls) so that stored content cannot inject escape sequences — colors, cursor movement, window titles, or OSC 8 hyperlinks — into your terminal. JSON output is unchanged; the JSON encoder escapes control characters.
+
 ## Read-Only Mode
 
 Set `YOUTRACK_RO=1` to prevent any write operations at the client level:
