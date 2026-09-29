@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -122,6 +123,20 @@ func ValidateHubURL(baseURL, hubURL string) error {
 	default:
 		return fmt.Errorf("hub url %q must use https", hubURL)
 	}
+}
+
+// IsInsecureRemoteHTTP reports whether rawURL uses plain http to a non-loopback host, where credentials travel in clear text.
+func IsInsecureRemoteHTTP(rawURL string) bool {
+	u, err := url.Parse(strings.TrimSpace(rawURL))
+	if err != nil || !strings.EqualFold(u.Scheme, "http") {
+		return false
+	}
+	host := u.Hostname()
+	if strings.EqualFold(host, "localhost") {
+		return false
+	}
+	ip := net.ParseIP(host)
+	return ip == nil || !ip.IsLoopback()
 }
 
 func hubBasicAuth(login, password string) string {

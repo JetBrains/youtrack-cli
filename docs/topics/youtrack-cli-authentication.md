@@ -55,7 +55,7 @@ youtrack auth login
 
 It asks for the base URL (unless you pass `--base-url`), then an alias to save the instance under, and finally an authentication method:
 
-- __Basic auth__ — enter your Hub login and password; the CLI creates a permanent token through the Hub API. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token.
+- __Basic auth__ — enter your Hub login and password; the CLI creates a permanent token through the Hub API. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token. Over a plain `http` URL to a host other than `localhost`, basic auth stops before it asks for the password; use the `https` URL, or pass `--insecure` to send the password unencrypted.
 - __Web browser__ — the CLI opens the token page in your browser. Log in, click __New token__, copy the value, and paste it back into the terminal.
 - __Paste token__ — the CLI prints the token-management URL and prompts you to paste a token you created manually.
 - __Browser SSO__ — the CLI runs an OAuth 2.0 authorization-code flow with PKCE through JetBrains Hub and stores a short-lived token that lasts about one hour and is not refreshed. This option requires a compatible Hub OAuth client; otherwise it falls back to the paste-token flow.

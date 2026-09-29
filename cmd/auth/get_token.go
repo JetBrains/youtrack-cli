@@ -117,9 +117,18 @@ Use --json for machine-readable output.`,
 	cmd.Flags().String("password", "", "Password (basic auth; prompted interactively if omitted — avoid in scripts)")
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
+	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
 	cmd.Flags().Bool("save", true, "Save credentials to ~/.youtrack-cli-config.json")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	return cmd
+}
+
+// requireSecureBasicAuth refuses to send a password over plain http to a non-loopback host unless --insecure is set.
+func requireSecureBasicAuth(cmd *cobra.Command, baseURL string) error {
+	if insecure, _ := cmd.Flags().GetBool("insecure"); insecure || !api.IsInsecureRemoteHTTP(baseURL) {
+		return nil
+	}
+	return fmt.Errorf("refusing to send your password over plain http to %s — use the https URL, choose another sign-in method, or pass --insecure", baseURL)
 }
 
 // runBasicAuthFlow handles the Hub login/password → permanent-token creation flow.
@@ -134,6 +143,10 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 	tokenName, _ := cmd.Flags().GetString("token-name")
 	scope, _ := cmd.Flags().GetString("scope")
 	save, _ := cmd.Flags().GetBool("save")
+
+	if err := requireSecureBasicAuth(cmd, baseURL); err != nil {
+		return err
+	}
 
 	if login == "" {
 		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Login: "); err != nil {
