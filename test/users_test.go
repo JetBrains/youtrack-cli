@@ -115,12 +115,14 @@ func assertUserBanState(t *testing.T, c interface {
 }, login string, want bool) {
 	t.Helper()
 
-	var result struct {
+	// The ban state reaches YouTrack through Hub, so a slow CI runner can read the old value right after the command.
+	var last struct {
 		Banned bool `json:"banned"`
 	}
-	err := c.Get("/api/users/"+url.PathEscape(login)+"?fields=banned", &result)
-	require.NoError(t, err)
-	assert.Equal(t, want, result.Banned)
+	require.Eventually(t, func() bool {
+		err := c.Get("/api/users/"+url.PathEscape(login)+"?fields=banned", &last)
+		return err == nil && last.Banned == want
+	}, 10*time.Second, 200*time.Millisecond, "user %s: banned=%v, want %v", login, last.Banned, want)
 }
 
 func TestCmd_UserTimezone(t *testing.T) {
