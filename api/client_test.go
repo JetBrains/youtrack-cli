@@ -47,3 +47,22 @@ func TestValidRequestPath(t *testing.T) {
 		})
 	}
 }
+
+func TestHeaderBreakEscaper(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"plain name is unchanged", "report.pdf", "report.pdf"},
+		{"quote is left for the server to read", `say "hi".txt`, `say "hi".txt`},
+		{"CR and LF cannot start a new header", "a.txt\r\nContent-Type: text/html", "a.txt%0D%0AContent-Type: text/html"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := headerBreakEscaper.Replace(tt.in); got != tt.want {
+				t.Errorf("headerBreakEscaper.Replace(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}

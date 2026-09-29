@@ -243,7 +243,7 @@ func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any
 	w := multipart.NewWriter(&buf)
 
 	h := make(textproto.MIMEHeader)
-	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="upload"; filename="%s"`, fileName)) //nolint:gocritic // %q uses Go escaping, not RFC 6266 HTTP header quoting
+	h.Set("Content-Disposition", fmt.Sprintf(`form-data; name="upload"; filename="%s"`, headerBreakEscaper.Replace(fileName))) //nolint:gocritic // %q uses Go escaping, not RFC 6266 HTTP header quoting
 	h.Set("Content-Type", mimeType)
 
 	part, err := w.CreatePart(h)
@@ -258,3 +258,7 @@ func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any
 	return c.send("POST", path, &buf, w.FormDataContentType(), result)
 }
 
+// headerBreakEscaper percent-encodes CR and LF in a file name, as browsers do, so a crafted name cannot end the
+// Content-Disposition line and inject part headers. Quotes and backslashes stay as-is: YouTrack reads raw quotes
+// leniently but treats a backslash as a path separator, so escaping them would corrupt the stored name.
+var headerBreakEscaper = strings.NewReplacer("\r", "%0D", "\n", "%0A")

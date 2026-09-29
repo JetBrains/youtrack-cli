@@ -3,6 +3,7 @@ package api_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -921,4 +922,34 @@ func TestCmd_ReadOnlyAllowsQueryEndpoints(t *testing.T) {
 	comments, err := c.ListComments(issue.IDReadable)
 	require.NoError(t, err)
 	assert.Empty(t, comments)
+}
+
+// File names with quotes and line breaks must reach YouTrack without corrupting the multipart part headers.
+func TestCmd_IssueAttachmentAdd_UnusualFileNames(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "quoted attachment name", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	for _, tc := range []struct{ name, file, want string }{
+		{"quote is preserved", `say "hi".txt`, `say "hi".txt`},
+		{"line breaks cannot end the part headers early", "a\r\n\r\nsmuggled.txt", "a%0D%0A%0D%0Asmuggled.txt"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpFile := filepath.Join(t.TempDir(), tc.file)
+			require.NoError(t, os.WriteFile(tmpFile, []byte("content"), 0o600))
+
+			attach := runJSON[api.IssueAttachment](t, "issue", "attachment", "add", issue.IDReadable, "--file", tmpFile, "--format", "json")
+			assert.Equal(t, tc.want, attach.Name)
+
+			// The stored size proves no header text leaked into the file content.
+			var stored struct {
+				Size int `json:"size"`
+			}
+			require.NoError(t, c.Get(fmt.Sprintf("/api/issues/%s/attachments/%s?fields=size", issue.IDReadable, attach.ID), &stored))
+			assert.Equal(t, len("content"), stored.Size)
+		})
+	}
 }
