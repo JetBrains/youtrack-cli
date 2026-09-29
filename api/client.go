@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -102,10 +103,19 @@ func validRequestPath(path string) bool {
 	return strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "//")
 }
 
-// handleResponse reads the response body, closes it, checks for errors,
-// and optionally unmarshals JSON into result.
-func handleResponse(resp *http.Response, result any) error {
+// send performs one request and is the only place that closes a response body.
+func (c *Client) send(method, path string, body io.Reader, contentType string, result any) error {
+	resp, err := c.doRequest(method, path, body, contentType)
+	if err != nil {
+		return err
+	}
 	defer func() { _ = resp.Body.Close() }()
+	return handleResponse(resp, result)
+}
+
+// handleResponse reads the response body, checks for errors,
+// and optionally unmarshals JSON into result. The caller closes the body.
+func handleResponse(resp *http.Response, result any) error {
 	if resp.StatusCode >= 300 {
 		data, err := io.ReadAll(io.LimitReader(resp.Body, maxErrorBodySize))
 		if err != nil {
@@ -156,12 +166,7 @@ func (c *Client) Get(path string, result any) error {
 	if c.Fields != "" {
 		path = mergeFieldsParam(path, c.Fields)
 	}
-	resp, err := c.doRequest("GET", path, nil, "")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	return handleResponse(resp, result)
+	return c.send("GET", path, nil, "", result)
 }
 
 // mergeFieldsParam adds to a URL's fields= param rather than replacing it, so a user projection can't drop fields a call needs internally.
@@ -183,54 +188,46 @@ func mergeFieldsParam(path, fields string) string {
 	return path[:insertAt] + "," + fields + path[insertAt:]
 }
 
+// errReadOnly is returned by every write when YOUTRACK_RO=1.
+var errReadOnly = errors.New("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
+
+func readOnly() bool {
+	return os.Getenv(envReadOnly) == "1"
+}
+
 func (c *Client) Post(path string, body, result any) error {
-	if os.Getenv(envReadOnly) == "1" {
-		return fmt.Errorf("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
+	if readOnly() {
+		return errReadOnly
 	}
-	data, err := json.Marshal(body)
-	if err != nil {
-		return err
-	}
-	resp, err := c.doRequest("POST", path, bytes.NewReader(data), "application/json")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	return handleResponse(resp, result)
+	return c.sendJSON("POST", path, body, result)
 }
 
 func (c *Client) Put(path string, body, result any) error {
-	if os.Getenv(envReadOnly) == "1" {
-		return fmt.Errorf("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
+	if readOnly() {
+		return errReadOnly
 	}
+	return c.sendJSON("PUT", path, body, result)
+}
+
+func (c *Client) Delete(path string) error {
+	if readOnly() {
+		return errReadOnly
+	}
+	return c.send("DELETE", path, nil, "", nil)
+}
+
+func (c *Client) sendJSON(method, path string, body, result any) error {
 	data, err := json.Marshal(body)
 	if err != nil {
 		return err
 	}
-	resp, err := c.doRequest("PUT", path, bytes.NewReader(data), "application/json")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	return handleResponse(resp, result)
-}
-
-func (c *Client) Delete(path string) error {
-	if os.Getenv(envReadOnly) == "1" {
-		return fmt.Errorf("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
-	}
-	resp, err := c.doRequest("DELETE", path, nil, "")
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	return handleResponse(resp, nil)
+	return c.send(method, path, bytes.NewReader(data), "application/json", result)
 }
 
 // Multipart uploads a file as a multipart/form-data attachment.
 func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any) error {
-	if os.Getenv(envReadOnly) == "1" {
-		return fmt.Errorf("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
+	if readOnly() {
+		return errReadOnly
 	}
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -254,10 +251,6 @@ func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any
 	}
 	_ = w.Close()
 
-	resp, err := c.doRequest("POST", path, &buf, w.FormDataContentType())
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	return handleResponse(resp, result)
+	return c.send("POST", path, &buf, w.FormDataContentType(), result)
 }
+
