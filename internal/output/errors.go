@@ -36,7 +36,7 @@ func RenderError(w io.Writer, err error, jsonMode, quiet bool) {
 		_ = enc.Encode(env)
 		return
 	}
-	_, _ = fmt.Fprintf(w, "%s Error: %s\n", color.New(color.FgRed).Sprint("✗"), err)
+	_, _ = fmt.Fprintf(w, "%s Error: %s\n", color.New(color.FgRed).Sprint("✗"), sanitizeTerminal(err.Error()))
 	if tip != "" && !quiet {
 		_, _ = fmt.Fprintf(w, "  Tip: %s\n", tip)
 	}

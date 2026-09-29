@@ -219,6 +219,36 @@ func TestCmd_IssueView(t *testing.T) {
 	assert.Contains(t, out, "cmd get test")
 }
 
+// TestCmd_IssueView_StripsTerminalControls verifies that escape sequences stored in issue text never reach human-readable output.
+func TestCmd_IssueView_StripsTerminalControls(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	const hostile = "\x1b]8;;https://evil.example\x1b\\click\x1b]8;;\x1b\\ \x1b[2J\x9b31m\u009b31m\rspoof\x07"
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary:     "ctl summary " + hostile,
+		Description: "ctl description\nline two " + hostile,
+		Project:     &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	for _, args := range [][]string{
+		{"--format", "table", "issue", "view", issue.IDReadable},
+		{"--plain", "issue", "view", issue.IDReadable},
+		{"--format", "table", "issue", "list", "--query", "project: " + proj.ShortName},
+		{"--format", "table", "--fields", "idReadable,summary,description", "issue", "view", issue.IDReadable},
+	} {
+		out := runCmd(t, args...)
+		assert.Contains(t, out, "ctl summary", "args: %v", args)
+		assert.NotRegexp(t, "[\\x00-\\x08\\x0b-\\x1f\\x7f\\x{80}-\\x{9f}]", out, "args: %v output: %q", args, out)
+	}
+
+	// JSON output keeps the stored text intact (escaped by the encoder) for machine consumers.
+	out := runCmd(t, "--json", "issue", "view", issue.IDReadable)
+	assert.Contains(t, strings.ToLower(out), `\u001b`)
+}
+
 func TestCmd_IssueDelete(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)

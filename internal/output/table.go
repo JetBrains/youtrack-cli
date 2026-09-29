@@ -14,8 +14,9 @@ import (
 
 // PrintTable renders data as a human-readable table. Falls back to JSON for unknown types.
 func PrintTable(out io.Writer, data any) error {
-	w := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
-	defer func() { _ = w.Flush() }()
+	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
+	defer func() { _ = tw.Flush() }()
+	w := safeWriter{tw}
 
 	switch v := data.(type) {
 	case *api.Issue:
@@ -277,7 +278,8 @@ func PrintTable(out io.Writer, data any) error {
 				internal.FormatVersion(v.LatestVersion), internal.FormatVersion(v.CurrentVersion))
 			_, _ = fmt.Fprintf(w, "Upgrade:\t%s\n", v.UpgradeCommand)
 		} else {
-			_, _ = fmt.Fprintf(w, "%s YouTrack CLI %s — up to date\n", successIcon, internal.FormatVersion(v.CurrentVersion))
+			// Written to tw directly so the colored icon's escape sequence survives sanitizing.
+			_, _ = fmt.Fprintf(tw, "%s YouTrack CLI %s — up to date\n", successIcon, internal.FormatVersion(v.CurrentVersion))
 		}
 	default:
 		return printJSON(out, data)
@@ -288,6 +290,7 @@ func PrintTable(out io.Writer, data any) error {
 // PrintPlain writes data as tab-separated values with no headers or borders.
 // Returns an explicit error for types without a defined plain formatter.
 func PrintPlain(out io.Writer, data any) error {
+	out = safeWriter{out}
 	write := func(fields ...string) {
 		_, _ = fmt.Fprintln(out, strings.Join(fields, "\t"))
 	}
@@ -511,6 +514,7 @@ func PrintPlain(out io.Writer, data any) error {
 // PrintIssueDetail renders a single issue in a rich multi-line plain-text format,
 // including custom fields (State, Priority, Assignee, etc.) and the full description.
 func PrintIssueDetail(w io.Writer, v *api.Issue) {
+	w = safeWriter{w}
 	_, _ = fmt.Fprintf(w, "%s  %s\n", v.IDReadable, v.Summary)
 
 	label := func(k, val string) {
