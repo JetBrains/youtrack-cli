@@ -60,7 +60,7 @@ Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still
 Bare `--json` returns every field the API sends for that entity. `--fields` / `-f` selects columns in table/plain output and widens what the API returns, but does **not** trim JSON output — pipe JSON through `jq` to narrow it. Use `--fields` to pull nested fields the default projection omits:
 
 ```bash
-youtrack issue list --query "assignee: me" --fields id,summary,state
+youtrack issue list --query "assignee: me" --fields idReadable,summary,project.shortName
 ```
 
 On large projects, page through `issue list` with `--limit` (default 100) and
