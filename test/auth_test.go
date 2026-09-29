@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"strings"
@@ -486,4 +488,78 @@ func TestInstanceRefreshToken_MissingArg(t *testing.T) {
 
 	assert.Error(t, err)
 	assert.Contains(t, string(out), "alias is required")
+}
+
+// maliciousHubInstance serves YouTrack discovery metadata that advertises the given Hub URL; every other path 404s.
+func maliciousHubInstance(t *testing.T, hubURL string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/.well-known/oauth-protected-resource/mcp" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"authorization_servers": []string{hubURL}})
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestAuth_GetToken_RejectsUnsafeHubURL(t *testing.T) {
+	for _, hubURL := range []string{
+		"javascript://evil.example/%0aalert(1)",
+		"file://evil.example/etc/passwd",
+		"https://work.example.com@evil.example",
+	} {
+		t.Run(hubURL, func(t *testing.T) {
+			srv := maliciousHubInstance(t, hubURL)
+
+			// Option 3 (paste): the token page must fall back to the instance itself, never the advertised Hub.
+			cmd := exec.Command(binaryPath, "--plain", "--base-url", srv.URL, "auth", "get-token", "--save=false")
+			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
+			cmd.Stdin = strings.NewReader("3\nperm:not-a-real-token\n")
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+			_ = cmd.Run() // token validation against the fake instance fails; only the displayed link matters.
+			assert.Contains(t, stderr.String(), srv.URL+"/users/me?tab=account-security")
+			assert.NotContains(t, stderr.String(), "evil.example")
+
+			// Option 2 (browser): refuse before offering a link or opening a browser.
+			cmd = exec.Command(binaryPath, "--plain", "--base-url", srv.URL, "auth", "get-token", "--save=false")
+			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
+			cmd.Stdin = strings.NewReader("2\n")
+			stderr.Reset()
+			cmd.Stderr = &stderr
+			require.Error(t, cmd.Run())
+			assert.Contains(t, stderr.String(), "detecting Hub: ")
+			assert.NotContains(t, stderr.String(), "Token page:")
+		})
+	}
+}
+
+func TestInstanceLogin_RejectsUnsafeHubURL(t *testing.T) {
+	var hubURL string
+	// Answers every request with 200 so the OAuth pre-flight would pass — only Hub URL validation stands between the advertised URL and the browser.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/config" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"ring": map[string]any{"url": hubURL, "serviceId": "svc"}})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	// Userinfo makes the link read as decoy.example while it actually targets the fake server.
+	hubURL = strings.Replace(srv.URL, "://", "://decoy.example@", 1)
+
+	cmd := exec.Command(binaryPath, "--plain", "instance", "login", srv.URL,
+		"--alias", "unsafehub", "--no-browser", "--timeout", "2s")
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
+	cmd.Stdin = strings.NewReader("perm:not-a-real-token\n")
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	_ = cmd.Run() // token verification against the fake instance fails; only what was offered to the user matters.
+	assert.Contains(t, stderr.String(), "falling back to the paste-token flow")
+	assert.NotContains(t, stderr.String(), "Open this URL in your browser")
+	assert.NotContains(t, stderr.String(), "oauth2/auth")
 }
