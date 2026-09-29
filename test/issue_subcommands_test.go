@@ -68,6 +68,18 @@ func assertIssueVoted(t *testing.T, c issueStateGetter, issueID string, want boo
 	assert.Equal(t, want, result.Voters.HasVote)
 }
 
+func assertIssueWatched(t *testing.T, c issueStateGetter, issueID string, want bool) {
+	t.Helper()
+	var result struct {
+		Watchers struct {
+			HasStar bool `json:"hasStar"`
+		} `json:"watchers"`
+	}
+	err := c.Get(fmt.Sprintf("/api/issues/%s?fields=watchers(hasStar)", url.PathEscape(issueID)), &result)
+	require.NoError(t, err)
+	assert.Equal(t, want, result.Watchers.HasStar)
+}
+
 func TestCmd_IssueAssignUnassign(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
@@ -108,11 +120,19 @@ func TestCmd_IssueWatchUnwatch(t *testing.T) {
 	t.Run("watch", func(t *testing.T) {
 		out := runCmd(t, "issue", "watch", issue.IDReadable)
 		assert.Contains(t, out, "watching "+issue.IDReadable)
+		assertIssueWatched(t, c, issue.IDReadable, true)
 	})
 
 	t.Run("unwatch", func(t *testing.T) {
 		out := runCmd(t, "issue", "unwatch", issue.IDReadable)
 		assert.Contains(t, out, "unwatched "+issue.IDReadable)
+		// The reporter watches their own issue from creation, so this is the step that proves the request takes effect.
+		assertIssueWatched(t, c, issue.IDReadable, false)
+	})
+
+	t.Run("watch again", func(t *testing.T) {
+		runCmd(t, "issue", "watch", issue.IDReadable)
+		assertIssueWatched(t, c, issue.IDReadable, true)
 	})
 }
 

@@ -318,7 +318,7 @@ type IssueVoters struct {
 }
 
 type IssueWatchers struct {
-	HasWatchedIssue bool `json:"hasWatchedIssue,omitempty"`
+	HasStar bool `json:"hasStar,omitempty"`
 }
 
 type Visibility struct {

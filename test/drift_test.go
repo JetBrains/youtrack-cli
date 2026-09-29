@@ -79,6 +79,7 @@ var typeMapping = map[string]string{
 	"IssueAttachment":    "IssueAttachment",
 	"IssueLink":          "IssueLink",
 	"IssueLinkType":      "IssueLinkType",
+	"IssueWatchers":      "IssueWatchers",
 	"Organization":       "Organization",
 	"Project":            "Project",
 	"ProjectCustomField": "ProjectCustomField",

@@ -561,13 +561,14 @@ func (c *Client) CreateIssueDraft(projectShortName, summary string) (*IssueDraft
 	return &result, err
 }
 
+// IssueWatchers exposes the current user's watch state as hasStar; YouTrack ignores unknown body fields, so a wrong name is a silent no-op.
 func (c *Client) WatchIssue(id string) error {
 	issue, err := c.GetIssue(id)
 	if err != nil {
 		return err
 	}
 	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasWatchedIssue": true}, nil)
+	return c.Post(path, map[string]any{"hasStar": true}, nil)
 }
 
 func (c *Client) UnwatchIssue(id string) error {
@@ -576,7 +577,7 @@ func (c *Client) UnwatchIssue(id string) error {
 		return err
 	}
 	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasWatchedIssue": false}, nil)
+	return c.Post(path, map[string]any{"hasStar": false}, nil)
 }
 
 func (c *Client) VoteIssue(id string) error {
