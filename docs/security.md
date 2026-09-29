@@ -47,6 +47,16 @@ Text returned by YouTrack (summaries, descriptions, comments, names, error messa
 
 Hub URLs discovered from the server are only shown as links or opened in a browser when they use `https` (or `http` when the instance itself is `http`), have a host, and carry no user-info component.
 
+## Release Verification
+
+Every release archive has a SHA-256 entry in `checksums.txt`, and `checksums.txt` is GPG-signed (`checksums.txt.asc`). Each release also has a GitHub build provenance attestation, which proves that the file was built by this repository's release workflow. Verify a downloaded file with:
+
+```bash
+gh attestation verify youtrack_<version>_<os>_<arch>.tar.gz --repo JetBrains/youtrack-cli
+```
+
+`install.sh` runs this check automatically when the `gh` CLI is installed and stops if the check fails. For releases published before attestations existed, set `YOUTRACK_SKIP_ATTESTATION=1`.
+
 ## Read-Only Mode
 
 Set `YOUTRACK_RO=1` to prevent any write operations at the client level:
