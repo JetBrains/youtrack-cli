@@ -405,6 +405,18 @@ func TestGetClient_SavedTokenNotSentToOverriddenURL(t *testing.T) {
 	}
 }
 
+func TestGetClient_OriginRefusalHasNoReauthTip(t *testing.T) {
+	sink, _ := credentialSink(t)
+	tmpHome := t.TempDir()
+	configFixture(t, tmpHome, twoInstanceConfig)
+
+	// Piped output defaults to JSON, whose errors carry no tip; force text mode, where a misleading re-auth tip would appear.
+	stderr, err := runIsolated(t, []string{"HOME=" + tmpHome}, "--format", "table", "--base-url", sink.URL, "user", "current")
+	require.Error(t, err)
+	assert.Contains(t, stderr, "refusing to send the saved token")
+	assert.NotContains(t, stderr, "Tip:", "the error already says how to proceed")
+}
+
 func TestGetClient_ExplicitTokenStillAllowedForOverriddenURL(t *testing.T) {
 	sink, seen := credentialSink(t)
 	tmpHome := t.TempDir()

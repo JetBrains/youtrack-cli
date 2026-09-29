@@ -61,6 +61,10 @@ func tipFor(err error) string {
 		return "Run 'youtrack auth status' or retry with '--verbose' to confirm which configured instance is being used"
 	}
 	msg := err.Error()
+	// The origin-binding refusal already says how to proceed and mentions YOUTRACK_TOKEN, so it must not get the re-auth tip below.
+	if strings.Contains(msg, "refusing to send the saved token") {
+		return ""
+	}
 	if strings.Contains(msg, "YOUTRACK_BASE_URL") {
 		return "Set it via env var or --base-url flag"
 	}
