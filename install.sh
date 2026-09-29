@@ -89,6 +89,18 @@ verify_checksum() {
     [[ "$actual" == "$expected" ]] || fail "checksum verification failed for $archive"
 }
 
+# verify_attestation checks the GitHub build provenance of the archive, which a replaced release asset cannot fake.
+verify_attestation() {
+    local archive="$1"
+    [[ "${YOUTRACK_SKIP_ATTESTATION:-}" == "1" ]] && return 0
+    if command -v gh >/dev/null 2>&1; then
+        gh attestation verify "$archive" --repo "$REPO" >/dev/null 2>&1 ||
+            fail "build provenance check failed for $archive (gh attestation verify --repo $REPO). Releases published before provenance attestations: set YOUTRACK_SKIP_ATTESTATION=1"
+    else
+        printf 'Note: gh CLI not found, build provenance not checked (checksum verified).\n' >&2
+    fi
+}
+
 resolve_latest() {
     # Prefer gh CLI — works with private/internal repos
     if command -v gh >/dev/null 2>&1; then
@@ -167,6 +179,7 @@ install_youtrack() {
         download_to_file "${release_url}/checksums.txt" checksums.txt
     fi
     verify_checksum "$archive" checksums.txt
+    verify_attestation "$archive"
     tar -xzf "$archive" || fail "failed to extract $archive"
 
     local tmp_bin

@@ -62,6 +62,9 @@ jobs:
     environment: release
     permissions:
       contents: write
+      # Build provenance attestations: OIDC identity for Sigstore signing, plus write access to the attestation store.
+      id-token: write
+      attestations: write
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
@@ -101,3 +104,9 @@ jobs:
           SERVICE_ACCOUNT_NAME: ${{ secrets.SERVICE_ACCOUNT_NAME }}
           SERVICE_ACCOUNT_TOKEN: ${{ secrets.SERVICE_ACCOUNT_TOKEN }}
           SIGN: "true"
+
+      # Provenance independent of the release assets: verify with `gh attestation verify <file> --repo JetBrains/youtrack-cli`.
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+        with:
+          subject-checksums: dist/checksums.txt
