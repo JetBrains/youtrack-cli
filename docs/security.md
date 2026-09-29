@@ -27,7 +27,7 @@ Each token is stored under the service name `youtrack-cli` with the instance ali
 
 When no keyring is available (headless Linux, CI containers, locked keychain), the CLI automatically falls back to storing the token in `~/.youtrack-cli-config.json` (mode 0600), exactly as before, and prints a one-line warning to stderr. Existing file-stored tokens are migrated to the keyring transparently the next time the config is written; the token is then removed from the file.
 
-`instance delete` / `auth logout` remove the keyring entry along with the config entry.
+`instance delete` / `auth logout` remove the keyring entry along with the config entry. If the keyring refuses the delete (for example, a locked keychain), the command prints a warning that names the entry, so you can remove it manually.
 
 To opt out of keyring storage entirely (e.g. for deterministic CI setups), set:
 

@@ -83,6 +83,9 @@ func keyringDelete(alias string) error {
 	}()
 	select {
 	case err := <-ch:
+		if errors.Is(err, gokeyring.ErrNotFound) {
+			return errKeyringNotFound
+		}
 		return err
 	case <-time.After(keyringTimeout):
 		return &keyringTimeoutError{op: "delete"}

@@ -184,9 +184,14 @@ func (c *Config) RemoveInstance(alias string) error {
 	return nil
 }
 
-// PurgeKeyringToken best-effort deletes the keyring entry for alias; call only after a successful Save().
-func PurgeKeyringToken(alias string) {
-	_ = keyringDelete(alias)
+// PurgeKeyringToken deletes the keyring entry for alias; call only after a successful Save().
+// A missing entry or a disabled keyring is not an error.
+func PurgeKeyringToken(alias string) error {
+	err := keyringDelete(alias)
+	if err == nil || errors.Is(err, errKeyringDisabled) || errors.Is(err, errKeyringNotFound) {
+		return nil
+	}
+	return fmt.Errorf("could not remove the token for %q from the OS keyring: %w — remove the %q entry for service %q manually", alias, err, alias, keyringService)
 }
 
 // Aliases returns all configured instance aliases in sorted order.
