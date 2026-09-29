@@ -11,6 +11,11 @@ func sanitizeTerminal(s string) string {
 	return string(sanitizeTerminalBytes([]byte(s)))
 }
 
+// Sanitize is sanitizeTerminal for command handlers that format server strings themselves (e.g. next to colored icons).
+func Sanitize(s string) string {
+	return sanitizeTerminal(s)
+}
+
 func sanitizeTerminalBytes(p []byte) []byte {
 	if !needsSanitizing(p) {
 		return p
