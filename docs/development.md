@@ -25,7 +25,7 @@ CLI behavior is tested end-to-end only — no mocks, no fake transport. The subj
 
 Two scoped exceptions complement the E2E suite:
 
-- Pure-function unit tests live in `api/*_test.go` and `internal/*_test.go`; run them with `go test ./api/ ./internal/`.
+- Pure-function unit tests live in `api/*_test.go` and `internal/*_test.go`; run them with `go test ./api/ ./internal/...`.
 - API drift detection lives in `test/drift_test.go` (`TestAPIDrift`, gated on the E2E environment), which diffs the Go structs against the live OpenAPI spec.
 
 CI also runs a `govulncheck` scan.
