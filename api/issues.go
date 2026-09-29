@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -103,11 +104,22 @@ func (c *Client) DeleteIssue(id string) error {
 	return c.Delete(fmt.Sprintf(pathIssue, url.PathEscape(id)))
 }
 
+// ListComments returns every comment on the issue, paging with $skip; without
+// $top the server returns at most 42 entries.
 func (c *Client) ListComments(issueID string) ([]Comment, error) {
+	const pageSize = 500
 	var result []Comment
-	path := fmt.Sprintf(pathIssueComments+"?fields=%s", url.PathEscape(issueID), commentFields)
-	err := c.Get(path, &result)
-	return result, err
+	for skip := 0; ; skip += pageSize {
+		var page []Comment
+		path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=%d&$skip=%d", url.PathEscape(issueID), commentFields, pageSize, skip)
+		if err := c.Get(path, &page); err != nil {
+			return nil, err
+		}
+		result = append(result, page...)
+		if len(page) < pageSize {
+			return result, nil
+		}
+	}
 }
 
 func (c *Client) AddComment(issueID string, req AddCommentRequest) (*Comment, error) {
@@ -314,15 +326,19 @@ func (c *Client) GetCustomFieldValue(issueID, fieldName string) (*IssueField, er
 }
 
 func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string) error {
-	var fields []IssueField
-	path := fmt.Sprintf(pathIssueFields+"?fields=id,name&$top=500", url.PathEscape(issueID))
+	var fields []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+		Type string `json:"$type"`
+	}
+	path := fmt.Sprintf(pathIssueFields+"?fields=id,name,$type&$top=500", url.PathEscape(issueID))
 	if err := c.Get(path, &fields); err != nil {
 		return err
 	}
-	var fieldID string
+	var fieldID, issueFieldType string
 	for _, f := range fields {
 		if f.Name == fieldName {
-			fieldID = f.ID
+			fieldID, issueFieldType = f.ID, f.Type
 			break
 		}
 	}
@@ -361,6 +377,10 @@ func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string
 		body = map[string]any{"value": fieldValue}
 	default:
 		body = map[string]any{"value": map[string]any{"name": fieldValue}}
+	}
+	if isMultiValueField(issueFieldType) {
+		// Multi-value fields (e.g. MultiEnumIssueCustomField) take an array; a single object is rejected with HTTP 500.
+		body["value"] = []any{body["value"]}
 	}
 	return c.Post(fmt.Sprintf(pathIssueField, url.PathEscape(issueID), url.PathEscape(fieldID)), body, nil)
 }
@@ -492,13 +512,21 @@ func (c *Client) UpdateDraftField(draftID, fieldID, fieldType, valueName string)
 	body := map[string]any{
 		"$type": fieldType,
 	}
+	value := map[string]string{"name": valueName}
 	if valueType != "" {
-		body["value"] = map[string]string{"$type": valueType, "name": valueName}
-	} else {
-		body["value"] = map[string]string{"name": valueName}
+		value["$type"] = valueType
+	}
+	body["value"] = value
+	if isMultiValueField(fieldType) {
+		body["value"] = []map[string]string{value}
 	}
 	path := fmt.Sprintf(pathUserDraftField, "me", url.PathEscape(draftID), url.PathEscape(fieldID))
 	return c.Post(path, body, nil)
+}
+
+// isMultiValueField reports whether an issue custom field $type holds an array of values.
+func isMultiValueField(fieldType string) bool {
+	return strings.HasPrefix(fieldType, "Multi")
 }
 
 // draftFieldValueType maps a field $type to its value $type.
@@ -567,7 +595,7 @@ func (c *Client) WatchIssue(id string) error {
 		return err
 	}
 	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasWatchedIssue": true}, nil)
+	return c.Post(path, map[string]any{"hasStar": true}, nil)
 }
 
 func (c *Client) UnwatchIssue(id string) error {
@@ -576,7 +604,7 @@ func (c *Client) UnwatchIssue(id string) error {
 		return err
 	}
 	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasWatchedIssue": false}, nil)
+	return c.Post(path, map[string]any{"hasStar": false}, nil)
 }
 
 func (c *Client) VoteIssue(id string) error {
@@ -599,9 +627,8 @@ func (c *Client) UnvoteIssue(id string) error {
 
 // ListRecentComments returns the last `top` comments; YouTrack serves them oldest-first, so fetch all and keep the tail.
 func (c *Client) ListRecentComments(issueID string, top int) ([]Comment, error) {
-	var result []Comment
-	path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=500", url.PathEscape(issueID), commentFields)
-	if err := c.Get(path, &result); err != nil {
+	result, err := c.ListComments(issueID)
+	if err != nil {
 		return nil, err
 	}
 	if top >= 0 && len(result) > top {

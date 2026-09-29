@@ -118,6 +118,10 @@ func bundleElementTypeName(pathType string) string {
 
 func (c *Client) AddBundleValue(bundleType, bundleID, value string) error {
 	bundleType = NormalizeBundlePathType(bundleType)
+	if bundleType == "user" {
+		// User bundles have no values collection; members live under /individuals and /groups.
+		return fmt.Errorf("user bundles do not have named values; add users or groups to the bundle in YouTrack instead")
+	}
 	path := fmt.Sprintf(pathAdminBundleValues,
 		url.PathEscape(bundleType), url.PathEscape(bundleID))
 	return c.Post(path, map[string]any{
@@ -142,15 +146,15 @@ func (c *Client) AttachBundleToField(fieldID, bundleID, bundleType string) error
 
 func (c *Client) ListWorkItemTypes() ([]WorkItemType, error) {
 	var result []WorkItemType
-	err := c.Get(pathAdminWorkItemTypes+"?fields=id,name,autoAttach&$top=500", &result)
+	err := c.Get(pathAdminWorkItemTypes+"?fields=id,name,autoAttached&$top=500", &result)
 	return result, err
 }
 
 func (c *Client) AddWorkItemType(name string, autoAttach bool) (*WorkItemType, error) {
 	var result WorkItemType
-	err := c.Post(pathAdminWorkItemTypes+"?fields=id,name,autoAttach", map[string]any{
-		"name":       name,
-		"autoAttach": autoAttach,
+	err := c.Post(pathAdminWorkItemTypes+"?fields=id,name,autoAttached", map[string]any{
+		"name":         name,
+		"autoAttached": autoAttach,
 	}, &result)
 	return &result, err
 }

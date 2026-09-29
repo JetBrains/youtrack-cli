@@ -105,14 +105,23 @@ func TestCmd_IssueWatchUnwatch(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
+	starred := func(t *testing.T) bool {
+		t.Helper()
+		var w api.IssueWatchers
+		require.NoError(t, c.Get("/api/issues/"+issue.ID+"/watchers?fields=hasStar", &w))
+		return w.HasStar
+	}
+
 	t.Run("watch", func(t *testing.T) {
 		out := runCmd(t, "issue", "watch", issue.IDReadable)
 		assert.Contains(t, out, "watching "+issue.IDReadable)
+		assert.True(t, starred(t), "issue should be starred after watch")
 	})
 
 	t.Run("unwatch", func(t *testing.T) {
 		out := runCmd(t, "issue", "unwatch", issue.IDReadable)
 		assert.Contains(t, out, "unwatched "+issue.IDReadable)
+		assert.False(t, starred(t), "issue should not be starred after unwatch")
 	})
 }
 

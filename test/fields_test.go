@@ -105,6 +105,31 @@ func TestCmd_FieldBundleList_PascalCaseType(t *testing.T) {
 	assert.NotEmpty(t, out)
 }
 
+func TestCmd_FieldWorkitemAddTypeAutoAttach(t *testing.T) {
+	c := newTestClient(t)
+
+	name := "AutoType-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
+	created := runJSON[api.WorkItemType](t, "field", "workitem", "add-type", "--name", name, "--auto-attach", "--format", "json")
+	require.NotEmpty(t, created.ID)
+	t.Cleanup(func() { _ = c.Delete("/api/admin/timeTrackingSettings/workItemTypes/" + created.ID) })
+	assert.True(t, created.AutoAttached, "--auto-attach should set autoAttached")
+
+	types := runJSON[[]api.WorkItemType](t, "field", "workitem", "list", "--format", "json")
+	var found bool
+	for _, wt := range types {
+		if wt.ID == created.ID {
+			found = true
+			assert.True(t, wt.AutoAttached, "workitem list should report autoAttached")
+		}
+	}
+	assert.True(t, found, "created work item type %s not listed", created.ID)
+}
+
+func TestCmd_FieldBundleAddValue_UserBundleRejected(t *testing.T) {
+	out := runCmdExpectError(t, "field", "bundle", "add-value", "--type", "user", "--id", "0-0", "--value", "x")
+	assert.Contains(t, out, "user bundles do not have named values")
+}
+
 func TestCmd_FieldWorktimeView(t *testing.T) {
 	out := runCmd(t, "field", "worktime", "view", "--format", "json")
 	assert.NotEmpty(t, out)
