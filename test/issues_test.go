@@ -873,6 +873,25 @@ func TestCmd_IssueCommand(t *testing.T) {
 	assert.True(t, stateFound, "State field should show In Progress after command")
 }
 
+// Collections return at most 42 items without an explicit $top; comment list must not stop there.
+func TestCmd_IssueCommentList_BeyondDefaultPage(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "many comments", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	const total = 45
+	for i := range total {
+		_, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "comment " + strconv.Itoa(i)})
+		require.NoError(t, err)
+	}
+
+	comments := runJSON[[]api.Comment](t, "issue", "comment", "list", issue.IDReadable, "--format", "json")
+	assert.Len(t, comments, total)
+}
+
 // issue count and command suggest POST to endpoints that change nothing, so read-only mode must not block them.
 func TestCmd_ReadOnlyAllowsQueryEndpoints(t *testing.T) {
 	c := newTestClient(t)

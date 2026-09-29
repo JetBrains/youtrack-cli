@@ -105,7 +105,7 @@ func (c *Client) DeleteIssue(id string) error {
 
 func (c *Client) ListComments(issueID string) ([]Comment, error) {
 	var result []Comment
-	path := fmt.Sprintf(pathIssueComments+"?fields=%s", url.PathEscape(issueID), commentFields)
+	path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=500", url.PathEscape(issueID), commentFields)
 	err := c.Get(path, &result)
 	return result, err
 }
