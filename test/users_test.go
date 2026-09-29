@@ -189,9 +189,21 @@ func TestCmd_UserProfileView(t *testing.T) {
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
 
-	out := runCmd(t, "user", "profile", "view", me.Login, "--format", "json")
+	profile := runJSON[map[string]any](t, "user", "profile", "view", me.Login, "--format", "json")
 	// profile returns GeneralUserProfile object, not user login
-	assert.Contains(t, out, "GeneralUserProfile")
+	assert.Equal(t, "GeneralUserProfile", profile["$type"])
+	assert.NotNil(t, profile["timezone"], "general profile should include the time zone")
+	assert.NotNil(t, profile["locale"], "general profile should include the locale")
+}
+
+func TestCmd_UserProfileTimeTrackingView(t *testing.T) {
+	c := newTestClient(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	profile := runJSON[map[string]any](t, "user", "profile", "timetracking", "view", me.Login, "--format", "json")
+	assert.Equal(t, "TimeTrackingUserProfile", profile["$type"])
+	assert.NotNil(t, profile["periodFormat"])
 }
 
 func TestCmd_UserTagList(t *testing.T) {

@@ -200,9 +200,9 @@ type Bundle struct {
 }
 
 type WorkItemType struct {
-	ID         string `json:"id,omitempty"`
-	Name       string `json:"name,omitempty"`
-	AutoAttach bool   `json:"autoAttach,omitempty"`
+	ID           string `json:"id,omitempty"`
+	Name         string `json:"name,omitempty"`
+	AutoAttached bool   `json:"autoAttached,omitempty"`
 }
 
 type IssueLink struct {
@@ -318,7 +318,7 @@ type IssueVoters struct {
 }
 
 type IssueWatchers struct {
-	HasWatchedIssue bool `json:"hasWatchedIssue,omitempty"`
+	HasStar bool `json:"hasStar,omitempty"`
 }
 
 type Visibility struct {
@@ -338,7 +338,7 @@ type WorkTimeSettings struct {
 	DaysAWeek               int    `json:"daysAWeek,omitempty"`
 	MinutesADay             int    `json:"minutesADay,omitempty"`
 	MinutesADayPresentation string `json:"minutesADayPresentation,omitempty"`
-	FirstDayOfWeek          int    `json:"firstDayOfWeek,omitempty"`
+	FirstDayOfWeek          int    `json:"firstDayOfWeek"` // 0 is Sunday, so no omitempty
 }
 
 type ArticleDraft struct {
@@ -368,18 +368,18 @@ type IssueDraft struct {
 }
 
 type SystemSettings struct {
-	ID                  string `json:"id,omitempty"`
-	BaseURL             string `json:"baseUrl,omitempty"`
-	MaxUploadFileSize   int64  `json:"maxUploadFileSize,omitempty"`
-	IsAutoUpdateEnabled bool   `json:"isAutoUpdateEnabled,omitempty"`
-	StatisticsEnabled   bool   `json:"statisticsEnabled,omitempty"`
+	ID                        string `json:"id,omitempty"`
+	BaseURL                   string `json:"baseUrl,omitempty"`
+	MaxUploadFileSize         int64  `json:"maxUploadFileSize,omitempty"`
+	MaxExportItems            int    `json:"maxExportItems,omitempty"`
+	AdministratorEmail        string `json:"administratorEmail,omitempty"`
+	AllowStatisticsCollection bool   `json:"allowStatisticsCollection,omitempty"`
+	IsApplicationReadOnly     bool   `json:"isApplicationReadOnly,omitempty"`
 }
 
 type GlobalSettings struct {
-	ID                string          `json:"id,omitempty"`
-	BaseURL           string          `json:"baseUrl,omitempty"`
-	MaxUploadFileSize int64           `json:"maxUploadFileSize,omitempty"`
-	SystemSettings    *SystemSettings `json:"systemSettings,omitempty"`
+	ID             string          `json:"id,omitempty"`
+	SystemSettings *SystemSettings `json:"systemSettings,omitempty"`
 }
 
 // InstanceVersion is the version/build info reported by a YouTrack instance's

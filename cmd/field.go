@@ -221,7 +221,7 @@ func newFieldWorkTimeCmd() *cobra.Command {
 			return client.SetWorkTimeSettings(presentation)
 		},
 	}
-	set.Flags().String("minutes-a-day", "", "Minutes-a-day presentation string (required)")
+	set.Flags().String("minutes-a-day", "", "Length of a working day as a duration, e.g. 8h or \"7h 30m\"; a bare number is read as hours (required)")
 	internal.MustMarkRequired(set, "minutes-a-day")
 	cmd.AddCommand(view, set)
 	return cmd
@@ -278,7 +278,7 @@ func newFieldWorkItemCmd() *cobra.Command {
 		},
 	}
 	add.Flags().String("name", "", "Type name (required)")
-	add.Flags().Bool("auto-attach", false, "Auto-attach to all projects")
+	add.Flags().Bool("auto-attach", false, "Add this type automatically to projects that enable time tracking")
 	internal.MustMarkRequired(add, "name")
 	cmd.AddCommand(list, add)
 	return cmd
