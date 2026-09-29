@@ -12,6 +12,8 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 // Format resolves the effective output format for the command using a priority chain:
@@ -67,29 +69,6 @@ func printJSON(w io.Writer, data any) error {
 	return enc.Encode(data)
 }
 
-// splitFields splits a comma-separated field spec string while respecting
-// nested parentheses, so "id,comments(id,text),summary" yields three entries
-// rather than four.
-func splitFields(s string) []string {
-	var parts []string
-	depth, start := 0, 0
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '(':
-			depth++
-		case ')':
-			depth--
-		case ',':
-			if depth == 0 {
-				parts = append(parts, strings.TrimSpace(s[start:i]))
-				start = i + 1
-			}
-		}
-	}
-	parts = append(parts, strings.TrimSpace(s[start:]))
-	return parts
-}
-
 // parseFieldSpec splits a spec like "comments(id,text)" into outer key
 // "comments" and inner spec "id,text". Returns the spec unchanged as key
 // with empty innerSpec when no parentheses are present.
@@ -107,7 +86,7 @@ func parseFieldSpec(spec string) (key, innerSpec string) {
 // specs (e.g. "comments(id,text)").
 func printProjected(w io.Writer, data any, fields string, withHeader bool) error {
 	w = safeWriter{w}
-	names := splitFields(fields)
+	names := internal.SplitFields(fields)
 
 	b, err := json.Marshal(data)
 	if err != nil {
@@ -175,7 +154,7 @@ func resolveField(m map[string]any, spec string) string {
 	}
 
 	// Sub-field spec: apply innerSpec to the resolved value.
-	subNames := splitFields(innerSpec)
+	subNames := internal.SplitFields(innerSpec)
 	switch v := val.(type) {
 	case []any:
 		parts := make([]string, 0, len(v))

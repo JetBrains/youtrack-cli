@@ -177,7 +177,7 @@ func expandFields(fields string) string {
 		"draftOwner": "draftOwner(id,login,fullName)",
 		"project":    "project(id,shortName,name)",
 	}
-	parts := splitFieldsInternal(fields)
+	parts := SplitFields(fields)
 	for i, p := range parts {
 		// Only expand bare names (no sub-field spec already present).
 		if expanded, ok := defaults[p]; ok {
@@ -187,9 +187,10 @@ func expandFields(fields string) string {
 	return strings.Join(parts, ",")
 }
 
-// splitFieldsInternal is a copy of the output package's splitFields kept here
-// to avoid a cross-package import cycle. Both must stay in sync.
-func splitFieldsInternal(s string) []string {
+// SplitFields splits a comma-separated field spec while respecting nested
+// parentheses, so "id,comments(id,text),summary" yields three entries rather than four.
+// It serves both the request side (expandFields) and the output projection.
+func SplitFields(s string) []string {
 	var parts []string
 	depth, start := 0, 0
 	for i := 0; i < len(s); i++ {
