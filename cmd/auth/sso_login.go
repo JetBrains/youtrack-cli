@@ -178,6 +178,11 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	if ytServiceID == "" {
 		return fmt.Errorf("could not discover the YouTrack service ID from %s — this instance may be too old for browser login; use `youtrack auth login` instead", baseURL)
 	}
+	// Never hand an unvalidated server-advertised Hub URL to the browser; take the same paste-token fallback as a failed pre-flight.
+	if err := api.ValidateHubURL(baseURL, hubURL); err != nil {
+		_, _ = fmt.Fprintf(stderr, "Hub URL is not usable for browser sign-in (%v); falling back to the paste-token flow.\n\n", err)
+		return runDirectTokenFlow(cmd, reader, baseURL)
+	}
 
 	endpoints, err := api.DiscoverOAuthEndpointsContext(cmd.Context(), hubURL)
 	if err != nil {

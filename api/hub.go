@@ -92,12 +92,35 @@ func DetectHubURLContext(ctx context.Context, baseURL string) (hubURL string, is
 	if err != nil {
 		return "", false, err
 	}
+	if err := ValidateHubURL(baseURL, hubURL); err != nil {
+		return "", false, err
+	}
 	hubParsed, err := url.Parse(hubURL)
 	if err != nil {
 		return "", false, err
 	}
 	isInternal = ytParsed.Hostname() == hubParsed.Hostname()
 	return hubURL, isInternal, nil
+}
+
+// ValidateHubURL rejects a server-advertised Hub URL before it reaches the browser or a terminal hyperlink:
+// it must be https (http only when the instance itself is http), have a host, and carry no userinfo.
+func ValidateHubURL(baseURL, hubURL string) error {
+	hub, err := url.Parse(hubURL)
+	if err != nil || hub.Hostname() == "" || hub.User != nil {
+		return fmt.Errorf("invalid hub url %q", hubURL)
+	}
+	switch strings.ToLower(hub.Scheme) {
+	case "https":
+		return nil
+	case "http":
+		if yt, err := url.Parse(strings.TrimSpace(baseURL)); err == nil && strings.EqualFold(yt.Scheme, "http") {
+			return nil
+		}
+		return fmt.Errorf("hub url %q uses http but the instance uses https", hubURL)
+	default:
+		return fmt.Errorf("hub url %q must use https", hubURL)
+	}
 }
 
 func hubBasicAuth(login, password string) string {
