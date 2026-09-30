@@ -14,7 +14,7 @@ func newIssueListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list",
 		Short:   "Search issues by query",
-		Example: "  youtrack issue list --query \"assignee: me #Unresolved\"\n  youtrack issue list --query \"project: FOO\" --limit 20 --offset 20 -f idReadable,summary,state",
+		Example: "  youtrack issue list --query \"assignee: me #Unresolved\"\n  youtrack issue list --query \"project: FOO\" --limit 20 --offset 20 -f idReadable,summary,project.shortName",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			query, _ := cmd.Flags().GetString("query")
 			client, err := internal.GetClient(cmd)

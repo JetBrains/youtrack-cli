@@ -292,6 +292,28 @@ func TestCmd_IssueUpdate(t *testing.T) {
 	assert.Equal(t, "updated through cli", got.Description)
 }
 
+func TestCmd_IssueCommentList_MoreThanDefaultPage(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "comment paging test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	// Without $top the server stops at 42 entries.
+	const total = 45
+	for i := range total {
+		_, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "comment " + strconv.Itoa(i)})
+		require.NoError(t, err)
+	}
+
+	comments := runJSON[[]api.Comment](t, "issue", "comment", "list", issue.IDReadable, "--format", "json")
+	assert.Len(t, comments, total)
+}
+
 func TestCmd_IssueCommentCRUD(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
@@ -765,6 +787,45 @@ func TestCmd_IssueFieldSet(t *testing.T) {
 
 	out := runCmd(t, "issue", "field", "set", issue.IDReadable, "Priority", "Critical")
 	assert.Contains(t, out, "updated field Priority")
+}
+
+func TestCmd_IssueFieldSet_MultiValue(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	name := "Multi-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
+	field, err := c.AddCustomField(name, api.FieldTypeEnumMulti)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteCustomField(field.ID) })
+	require.NoError(t, c.AddProjectCustomField(proj.ShortName, field.ID))
+
+	var projectFields []struct {
+		Field  api.CustomField `json:"field"`
+		Bundle api.Bundle      `json:"bundle"`
+	}
+	require.NoError(t, c.Get("/api/admin/projects/"+proj.ID+"/customFields?fields=field(id),bundle(id)&$top=500", &projectFields))
+	var bundleID string
+	for _, pf := range projectFields {
+		if pf.Field.ID == field.ID {
+			bundleID = pf.Bundle.ID
+		}
+	}
+	require.NotEmpty(t, bundleID, "project field for %s has no bundle", name)
+	require.NoError(t, c.AddBundleValue("enum", bundleID, "Alpha"))
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "multi-value field set test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "field", "set", issue.IDReadable, name, "Alpha")
+	assert.Contains(t, out, "updated field "+name)
+
+	got, err := c.GetCustomFieldValue(issue.IDReadable, name)
+	require.NoError(t, err)
+	assert.Contains(t, fmt.Sprint(got.Value), "Alpha")
 }
 
 func TestCmd_IssueVisibility(t *testing.T) {

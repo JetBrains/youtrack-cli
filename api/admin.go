@@ -7,7 +7,7 @@ import (
 
 func (c *Client) GetGlobalSettings() (*GlobalSettings, error) {
 	var result GlobalSettings
-	err := c.Get(pathAdminGlobalSettings+"?fields=id,baseUrl,maxUploadFileSize,systemSettings,notificationSettings,restSettings,appearanceSettings(timeZone,dateFieldFormat),localeSettings", &result)
+	err := c.Get(pathAdminGlobalSettings+"?fields=id,systemSettings(id,baseUrl,maxUploadFileSize,maxExportItems,administratorEmail,allowStatisticsCollection,isApplicationReadOnly)", &result)
 	return &result, err
 }
 

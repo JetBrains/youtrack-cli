@@ -74,6 +74,7 @@ var typeMapping = map[string]string{
 	"CustomField":        "CustomField",
 	"ExternalIssue":      "ExternalIssue",
 	"FieldType":          "FieldType",
+	"GlobalSettings":     "GlobalSettings",
 	"Group":              "UserGroup",
 	"Issue":              "Issue",
 	"IssueAttachment":    "IssueAttachment",
@@ -87,10 +88,12 @@ var typeMapping = map[string]string{
 	"Role":               "Role",
 	"SavedSearch":        "SavedQuery",
 	"Sprint":             "Sprint",
+	"SystemSettings":     "SystemSettings",
 	"Tag":                "Tag",
 	"User":               "User",
 	"VCSChange":          "VcsChange",
 	"WorkItem":           "IssueWorkItem",
+	"WorkItemType":       "WorkItemType",
 }
 
 func TestAPIDrift(t *testing.T) {

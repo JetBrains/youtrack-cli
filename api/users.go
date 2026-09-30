@@ -313,7 +313,7 @@ func (c *Client) waitForUserDeletion(login, id string) error {
 
 func (c *Client) GetUserProfile(id string) (map[string]any, error) {
 	var result map[string]any
-	path := fmt.Sprintf(pathUserProfileGeneral+"?fields=id,login,fullName,email,avatarUrl", url.PathEscape(id))
+	path := fmt.Sprintf(pathUserProfileGeneral+"?fields=id,dateFieldFormat(id,presentation,pattern),timezone(id,presentation,offset),locale(id,name,language,locale)", url.PathEscape(id))
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -327,7 +327,7 @@ func (c *Client) ListUserTags(id string) ([]Tag, error) {
 
 func (c *Client) GetUserTimeTracking(id string) (map[string]any, error) {
 	var result map[string]any
-	path := fmt.Sprintf(pathUserProfileTimeTracking+"?fields=id,autoAttach,draftWorkItem(date,duration(id,minutes),type(id,name))", url.PathEscape(id))
+	path := fmt.Sprintf(pathUserProfileTimeTracking+"?fields=id,periodFormat(id)", url.PathEscape(id))
 	err := c.Get(path, &result)
 	return result, err
 }
