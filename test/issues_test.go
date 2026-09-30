@@ -106,6 +106,99 @@ func TestCmd_IssueFieldsProjection(t *testing.T) {
 	})
 }
 
+// issue list --fields mixes issue attributes and custom fields by name, like the visible columns of the issue list UI.
+func TestCmd_IssueListCustomFieldColumns(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	suffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
+	notesName := "Notes " + suffix
+	dueName := "Due " + suffix
+	notes, err := c.AddCustomField(notesName, api.FieldTypeText)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteCustomField(notes.ID) })
+	due, err := c.AddCustomField(dueName, api.FieldTypeDate)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteCustomField(due.ID) })
+	require.NoError(t, c.AddProjectCustomField(proj.ShortName, notes.ID))
+	require.NoError(t, c.AddProjectCustomField(proj.ShortName, due.ID))
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "custom column test", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	require.NoError(t, c.SetCustomField(issue.IDReadable, "Priority", "Critical", ""))
+	runCmd(t, "issue", "assign", issue.IDReadable, me.Login)
+	// 2026-10-13 12:00 UTC — YouTrack stores date-only values at noon UTC.
+	require.NoError(t, c.Post("/api/issues/"+issue.IDReadable+"?fields=id", map[string]any{
+		"customFields": []map[string]any{
+			{"name": notesName, "$type": "TextIssueCustomField", "value": map[string]any{"text": "first note line\nsecond"}},
+			{"name": dueName, "$type": "DateIssueCustomField", "value": int64(1791892800000)},
+		},
+	}, nil))
+
+	stateField, err := c.GetCustomFieldValue(issue.IDReadable, "State")
+	require.NoError(t, err)
+	stateValue, _ := stateField.Value.(map[string]any)
+	state, _ := stateValue["name"].(string)
+	require.NotEmpty(t, state, "default project has no State value")
+
+	query := "project: " + proj.ShortName
+
+	t.Run("table shows attribute and custom field columns in requested order", func(t *testing.T) {
+		out := runCmd(t, "--format", "table", "issue", "list", "--query", query,
+			"--fields", "idReadable,summary,Priority,state,Assignee,"+notesName+","+dueName)
+		lines := strings.Split(strings.TrimSpace(out), "\n")
+		require.Len(t, lines, 2, "output: %s", out)
+		assert.Regexp(t, `^ID\s+SUMMARY\s+PRIORITY\s+STATE\s+ASSIGNEE\s+`+regexp.QuoteMeta(strings.ToUpper(notesName))+`\s+`+regexp.QuoteMeta(strings.ToUpper(dueName))+`$`, lines[0])
+		assert.Regexp(t, `^`+issue.IDReadable+`\s+custom column test\s+Critical\s+`+state+`\s+`+regexp.QuoteMeta(me.Login)+`\s+first note line\s+2026-10-13$`, lines[1])
+	})
+
+	t.Run("plain rows carry custom field values", func(t *testing.T) {
+		out := runCmd(t, "issue", "list", "--query", query, "--fields", "idReadable,Priority,State", "--plain")
+		assert.Equal(t, issue.IDReadable+"\tCritical\t"+state+"\n", out)
+	})
+
+	t.Run("attribute and custom field names are case-insensitive", func(t *testing.T) {
+		out := runCmd(t, "issue", "list", "--query", query, "--fields", "IdReadable,Summary,PRIORITY", "--plain")
+		assert.Equal(t, issue.IDReadable+"\tcustom column test\tCritical\n", out)
+	})
+
+	t.Run("json returns only the requested custom fields", func(t *testing.T) {
+		issues := runJSON[[]api.Issue](t, "issue", "list", "--query", query, "--fields", "idReadable,priority,State", "--json")
+		require.Len(t, issues, 1)
+		assert.Equal(t, issue.IDReadable, issues[0].IDReadable)
+		assert.Equal(t, "custom column test", issues[0].Summary, "default issue fields stay in JSON output")
+		names := make([]string, 0, len(issues[0].CustomFields))
+		for _, f := range issues[0].CustomFields {
+			names = append(names, f.Name)
+		}
+		assert.ElementsMatch(t, []string{"Priority", "State"}, names)
+	})
+
+	t.Run("non-custom names the server returns still resolve as attributes", func(t *testing.T) {
+		stdout, stderr, err := runCmdInDir(t, t.TempDir(), "issue", "list", "--query", query, "--fields", "idReadable,$type", "--plain")
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Equal(t, issue.IDReadable+"\tIssue\n", stdout)
+		assert.NotContains(t, stderr, "no custom field")
+	})
+
+	t.Run("unknown custom field warns on stderr and renders an empty column", func(t *testing.T) {
+		stdout, stderr, err := runCmdInDir(t, t.TempDir(), "issue", "list", "--query", query,
+			"--fields", "idReadable,NoSuchField"+suffix, "--plain")
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Equal(t, issue.IDReadable+"\t\n", stdout)
+		assert.Contains(t, stderr, `no custom field named "NoSuchField`+suffix+`"`)
+
+		_, stderr, err = runCmdInDir(t, t.TempDir(), "--quiet", "issue", "list", "--query", query,
+			"--fields", "idReadable,NoSuchField"+suffix, "--plain")
+		require.NoError(t, err)
+		assert.Empty(t, stderr)
+	})
+}
+
 func TestCmd_IssueListOffset(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)

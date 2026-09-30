@@ -55,6 +55,8 @@ youtrack issue view DEMO-42 --fields "idReadable,summary,project.shortName"
 youtrack issue list --query "for: me" --fields "idReadable,project(shortName)"
 ```
 
+On `issue list`, an entry that is not an issue attribute is read as a custom field name, so `--fields "idReadable,Priority,State"` shows those custom fields as columns (see [Listing and searching issues](youtrack-cli-managing-issues.md#list)).
+
 In table and plain output, each projected field becomes a column. JSON output is **not** trimmed to the projection — the full response is printed (the projection only widens what the server returns), so narrow JSON with a tool like `jq` when you need just a few keys.
 
 ## Plain output for grep and awk {id="plain"}
