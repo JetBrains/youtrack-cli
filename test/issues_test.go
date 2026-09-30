@@ -1,9 +1,11 @@
 package api_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -931,4 +933,115 @@ func TestCmd_IssueCommand(t *testing.T) {
 		}
 	}
 	assert.True(t, stateFound, "State field should show In Progress after command")
+}
+
+// Collections return at most 42 items without an explicit $top; comment list must not stop there.
+func TestCmd_IssueCommentList_BeyondDefaultPage(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "many comments", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	const total = 45
+	for i := range total {
+		_, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "comment " + strconv.Itoa(i)})
+		require.NoError(t, err)
+	}
+
+	comments := runJSON[[]api.Comment](t, "issue", "comment", "list", issue.IDReadable, "--format", "json")
+	assert.Len(t, comments, total)
+}
+
+// issue count and command suggest POST to endpoints that change nothing, so read-only mode must not block them.
+func TestCmd_ReadOnlyAllowsQueryEndpoints(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "read-only query test", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	roEnv := []string{"HOME=" + t.TempDir(), "YOUTRACK_RO=1"}
+
+	out := runCmdWithEnv(t, "", roEnv, "issue", "count", "--query", "project: "+proj.ShortName)
+	count, err := strconv.Atoi(strings.TrimSpace(out))
+	require.NoError(t, err, "output should be a plain integer, got: %q", out)
+	assert.GreaterOrEqual(t, count, 0)
+
+	out = runCmdWithEnv(t, "", roEnv, "issue", "command", "suggest", issue.IDReadable, "State ", "--format", "json")
+	assert.Contains(t, out, "commands")
+
+	cmd := exec.Command(binaryPath, "issue", "comment", "create", issue.IDReadable, "--text", "must not be posted")
+	cmd.Env = append(os.Environ(), roEnv...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	require.Error(t, cmd.Run(), "writes must stay blocked in read-only mode")
+	assert.Contains(t, stderr.String(), "read-only mode is enabled")
+
+	comments, err := c.ListComments(issue.IDReadable)
+	require.NoError(t, err)
+	assert.Empty(t, comments)
+}
+
+// Readable IDs go to /api/commands as idReadable; database IDs are still resolved first.
+func TestCmd_IssueCommand_ByDatabaseIDAndUnknownID(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "command by db id", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	tag := "cmdtag" + strconv.FormatInt(time.Now().UnixNano()%1_000_000, 10)
+	t.Cleanup(func() {
+		tags, _ := c.ListTags()
+		for _, tg := range tags {
+			if tg.Name == tag {
+				_ = c.DeleteTag(tg.ID)
+			}
+		}
+	})
+
+	runCmd(t, "issue", "command", issue.ID, "tag "+tag)
+	tags, err := c.ListIssueTags(issue.IDReadable)
+	require.NoError(t, err)
+	var names []string
+	for _, tg := range tags {
+		names = append(names, tg.Name)
+	}
+	assert.Contains(t, names, tag, "command addressed by database ID should apply")
+
+	stderr := runCmdExpectError(t, "issue", "command", proj.ShortName+"-999999", "tag "+tag)
+	assert.NotEmpty(t, strings.TrimSpace(stderr), "unknown issue should produce an error message")
+}
+
+// File names with quotes and line breaks must reach YouTrack without corrupting the multipart part headers.
+func TestCmd_IssueAttachmentAdd_UnusualFileNames(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "quoted attachment name", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	for _, tc := range []struct{ name, file, want string }{
+		{"quote is preserved", `say "hi".txt`, `say "hi".txt`},
+		{"line breaks cannot end the part headers early", "a\r\n\r\nsmuggled.txt", "a%0D%0A%0D%0Asmuggled.txt"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpFile := filepath.Join(t.TempDir(), tc.file)
+			require.NoError(t, os.WriteFile(tmpFile, []byte("content"), 0o600))
+
+			attach := runJSON[api.IssueAttachment](t, "issue", "attachment", "add", issue.IDReadable, "--file", tmpFile, "--format", "json")
+			assert.Equal(t, tc.want, attach.Name)
+
+			// The stored size proves no header text leaked into the file content.
+			var stored struct {
+				Size int `json:"size"`
+			}
+			require.NoError(t, c.Get(fmt.Sprintf("/api/issues/%s/attachments/%s?fields=size", issue.IDReadable, attach.ID), &stored))
+			assert.Equal(t, len("content"), stored.Size)
+		})
+	}
 }

@@ -41,6 +41,39 @@ type ApplyCommandRequest struct {
 	Issues []Issue `json:"issues"`
 }
 
+// readableIssueIDRe matches readable issue IDs such as FOO-42; database IDs such as 2-15 start with a digit.
+var readableIssueIDRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*-[0-9]+$`)
+
+// commandIssues builds the issues list for /api/commands and /api/commands/assist.
+// Both endpoints accept idReadable, so readable IDs are sent as-is instead of costing one lookup request each;
+// any other form is resolved to its database ID first, so a bad ID still fails before the command runs.
+func (c *Client) commandIssues(issueIDs []string) ([]Issue, error) {
+	issues := make([]Issue, len(issueIDs))
+	for i, id := range issueIDs {
+		if readableIssueIDRe.MatchString(id) {
+			issues[i] = Issue{IDReadable: id}
+			continue
+		}
+		dbID, err := c.issueDBID(id)
+		if err != nil {
+			return nil, fmt.Errorf("resolve issue %s: %w", id, err)
+		}
+		issues[i] = Issue{ID: dbID}
+	}
+	return issues, nil
+}
+
+// issueDBID resolves an issue ID in any form to its database ID, fetching nothing else.
+func (c *Client) issueDBID(id string) (string, error) {
+	var result struct {
+		ID string `json:"id"`
+	}
+	if err := c.Get(fmt.Sprintf(pathIssue+"?fields=id", url.PathEscape(id)), &result); err != nil {
+		return "", err
+	}
+	return result.ID, nil
+}
+
 var userValueRe = regexp.MustCompile(`(?i)\b(assignee|reporter)\s+(\S*[.\-@]\S+)`)
 
 // WrapUserValues braces logins containing dots/hyphens for YouTrack's command parser.
@@ -143,7 +176,7 @@ func (c *Client) GetIssueCount(query string) (int, error) {
 		var result struct {
 			Count int `json:"count"`
 		}
-		if err := c.Post(pathIssuesGetterCount+"?fields=count",
+		if err := c.postQuery(pathIssuesGetterCount+"?fields=count",
 			map[string]any{"query": query}, &result); err != nil {
 			return 0, err
 		}
@@ -198,23 +231,25 @@ func (c *Client) GetLinkedIssues(issueID string) ([]IssueLink, error) {
 }
 
 func (c *Client) LinkIssues(issueID, targetID, linkTypeID string) error {
+	if linkTypeID == "" {
+		return fmt.Errorf("link type ID must not be empty")
+	}
 	// Body requires the opaque internal ID; URL path segment accepts the readable form.
-	target, err := c.GetIssue(targetID)
+	targetDBID, err := c.issueDBID(targetID)
 	if err != nil {
 		return fmt.Errorf("resolve target issue %s: %w", targetID, err)
 	}
 	// For directed link types, append 's' (OUTWARD) unless the caller already
 	// included a direction marker ('s' or 't'). Non-directed link types use the ID as-is.
 	linkID := linkTypeID
-	last := linkTypeID[len(linkTypeID)-1]
-	if last != 's' && last != 't' {
+	if last := linkTypeID[len(linkTypeID)-1]; last != 's' && last != 't' {
 		lt, err := c.GetIssueLinkType(linkTypeID)
 		if err == nil && lt.Directed {
 			linkID = linkTypeID + "s"
 		}
 	}
 	path := fmt.Sprintf(pathIssueLinkTypeIssues, url.PathEscape(issueID), url.PathEscape(linkID))
-	return c.Post(path, map[string]any{"id": target.ID}, nil)
+	return c.Post(path, map[string]any{"id": targetDBID}, nil)
 }
 
 // RemoveIssueLink removes all linked issues from the given link on issueID.
@@ -435,16 +470,12 @@ func (c *Client) UpdateIssueVisibility(issueID string, groupIDs, userIDs []strin
 }
 
 func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]any, error) {
-	issues := make([]map[string]any, len(issueIDs))
-	for i, id := range issueIDs {
-		issue, err := c.GetIssue(id)
-		if err != nil {
-			return nil, fmt.Errorf("resolve issue %s: %w", id, err)
-		}
-		issues[i] = map[string]any{"id": issue.ID}
+	issues, err := c.commandIssues(issueIDs)
+	if err != nil {
+		return nil, err
 	}
 	var result map[string]any
-	err := c.Post(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
+	err = c.postQuery(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
 		map[string]any{"query": query, "issues": issues}, &result)
 	return result, err
 }
@@ -559,15 +590,11 @@ func (c *Client) SubmitDraft(draftID string) (*Issue, error) {
 	return &result, err
 }
 
-// ApplyCommand resolves each issue ID to its internal ID then POSTs to /api/commands.
+// ApplyCommand POSTs the command to /api/commands for the given issues.
 func (c *Client) ApplyCommand(query string, issueIDs []string) error {
-	issues := make([]Issue, len(issueIDs))
-	for i, id := range issueIDs {
-		issue, err := c.GetIssue(id)
-		if err != nil {
-			return fmt.Errorf("resolve issue %s: %w", id, err)
-		}
-		issues[i] = Issue{ID: issue.ID}
+	issues, err := c.commandIssues(issueIDs)
+	if err != nil {
+		return err
 	}
 	return c.Post(pathCommands, ApplyCommandRequest{
 		Query:  WrapUserValues(query),
@@ -589,40 +616,31 @@ func (c *Client) CreateIssueDraft(projectShortName, summary string) (*IssueDraft
 	return &result, err
 }
 
+// WatchIssue and the other watcher/voter methods pass the ID straight into the path,
+// which accepts the readable form, so no lookup request is needed first.
+// IssueWatchers exposes the current user's watch state as hasStar; YouTrack ignores unknown body fields, so a wrong name is a silent no-op.
 func (c *Client) WatchIssue(id string) error {
-	issue, err := c.GetIssue(id)
-	if err != nil {
-		return err
-	}
-	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasStar": true}, nil)
+	return c.setWatching(id, true)
 }
 
 func (c *Client) UnwatchIssue(id string) error {
-	issue, err := c.GetIssue(id)
-	if err != nil {
-		return err
-	}
-	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasStar": false}, nil)
+	return c.setWatching(id, false)
+}
+
+func (c *Client) setWatching(id string, watching bool) error {
+	return c.Post(fmt.Sprintf(pathIssueWatchers, url.PathEscape(id)), map[string]any{"hasStar": watching}, nil)
 }
 
 func (c *Client) VoteIssue(id string) error {
-	issue, err := c.GetIssue(id)
-	if err != nil {
-		return err
-	}
-	path := fmt.Sprintf(pathIssueVoters, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasVote": true}, nil)
+	return c.setVote(id, true)
 }
 
 func (c *Client) UnvoteIssue(id string) error {
-	issue, err := c.GetIssue(id)
-	if err != nil {
-		return err
-	}
-	path := fmt.Sprintf(pathIssueVoters, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasVote": false}, nil)
+	return c.setVote(id, false)
+}
+
+func (c *Client) setVote(id string, vote bool) error {
+	return c.Post(fmt.Sprintf(pathIssueVoters, url.PathEscape(id)), map[string]any{"hasVote": vote}, nil)
 }
 
 // ListRecentComments returns the last `top` comments; YouTrack serves them oldest-first, so fetch all and keep the tail.

@@ -28,7 +28,7 @@ func TestExpandFields(t *testing.T) {
 	}
 }
 
-func TestSplitFieldsInternal(t *testing.T) {
+func TestSplitFields(t *testing.T) {
 	cases := []struct {
 		name string
 		in   string
@@ -43,13 +43,13 @@ func TestSplitFieldsInternal(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			got := splitFieldsInternal(c.in)
+			got := SplitFields(c.in)
 			if len(got) != len(c.out) {
-				t.Fatalf("splitFieldsInternal(%q) = %v, want %v", c.in, got, c.out)
+				t.Fatalf("SplitFields(%q) = %v, want %v", c.in, got, c.out)
 			}
 			for i := range got {
 				if got[i] != c.out[i] {
-					t.Errorf("splitFieldsInternal(%q)[%d] = %q, want %q", c.in, i, got[i], c.out[i])
+					t.Errorf("SplitFields(%q)[%d] = %q, want %q", c.in, i, got[i], c.out[i])
 				}
 			}
 		})
