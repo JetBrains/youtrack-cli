@@ -12,6 +12,10 @@ import (
 
 const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
 const issueDetailFields = issueFields + ",customFields(name,value(name,login,text,presentation))"
+
+// issueCustomFieldValues fetches custom fields with the sub-fields that identify each value type: enum/state/version/build
+// (name), user (login, fullName), text (text), period (presentation); number and date values are scalars.
+const issueCustomFieldValues = "customFields(name,value(name,login,fullName,text,presentation))"
 const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,visibility"
 const draftFields = "id,summary,description,created,fields(id,name,$type)"
 
@@ -113,9 +117,24 @@ func (c *Client) ListIssues(query string, limit int) ([]Issue, error) {
 
 // ListIssuesPage returns one page of issues starting at offset.
 func (c *Client) ListIssuesPage(query string, limit, offset int) ([]Issue, error) {
+	return c.ListIssuesPageWithCustomFields(query, limit, offset, nil)
+}
+
+// ListIssuesPageWithCustomFields is ListIssuesPage that also returns the named custom fields of each issue.
+// Names go in the repeatable customFields= parameter, which the server matches case-insensitively and uses to
+// return only those fields; a name no matched project has is simply absent from customFields.
+func (c *Client) ListIssuesPageWithCustomFields(query string, limit, offset int, customFields []string) ([]Issue, error) {
 	var result []Issue
-	path := pathIssues + fmt.Sprintf("?query=%s&$top=%d&$skip=%d&fields=%s",
-		url.QueryEscape(query), limit, offset, issueFields)
+	fields := issueFields
+	var filter strings.Builder
+	if len(customFields) > 0 {
+		fields += "," + issueCustomFieldValues
+		for _, name := range customFields {
+			filter.WriteString("&customFields=" + url.QueryEscape(name))
+		}
+	}
+	path := pathIssues + fmt.Sprintf("?query=%s&$top=%d&$skip=%d&fields=%s%s",
+		url.QueryEscape(query), limit, offset, fields, filter.String())
 	err := c.Get(path, &result)
 	return result, err
 }

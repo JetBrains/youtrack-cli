@@ -20,6 +20,20 @@ By default the command returns up to 100 issues. Use `--limit` to change that an
 youtrack issue list --query "project: DEMO" --limit 20 -f idReadable,summary,project.shortName
 ```
 
+Custom fields work as columns too, like the visible columns of the issue list in the web interface. Any `--fields` entry that is not an issue attribute (`idReadable`, `summary`, `reporter`, `created`, `project.shortName`, and so on) is read as the name of a custom field in the issue's project. Names are case-insensitive, and a name with spaces needs quoting:
+
+```Shell
+youtrack issue list --query "project: DEMO #Unresolved" --fields "idReadable,summary,Priority,State,Assignee,Fix versions"
+```
+
+```
+ID       SUMMARY                         PRIORITY  STATE        ASSIGNEE  FIX VERSIONS
+DEMO-42  Login button unresponsive       Critical  In Progress  jane.doe  2.1
+DEMO-41  Crash when exporting to PDF     Major     Submitted
+```
+
+When a requested custom field exists in none of the listed issues' projects, the command prints a warning to stderr and leaves that column empty. With `--json`, the output is still the full issue objects, and `customFields` holds only the fields you asked for.
+
 To count matches without listing them, use `youtrack issue count`:
 
 ```Shell

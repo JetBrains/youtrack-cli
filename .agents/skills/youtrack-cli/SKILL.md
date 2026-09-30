@@ -63,6 +63,8 @@ Bare `--json` returns every field the API sends for that entity. `--fields` / `-
 youtrack issue list --query "assignee: me" --fields idReadable,summary,project.shortName
 ```
 
+On `issue list`, any `--fields` entry that is not an Issue attribute is treated as a **custom field name** (case-insensitive), so you can show UI-style columns in one call instead of an `issue view` per issue: `--fields "idReadable,summary,Priority,State,Assignee"`. Quote names containing spaces (`"Fix versions"`). An unknown name gives an empty column and a stderr warning. With `--json`, `customFields` holds just the requested fields.
+
 On large projects, page through `issue list` with `--limit` (default 100) and
 `--offset`. For arbitrary collection endpoints, `raw --paginate` combines all
 pages and accepts `--page-size`.
