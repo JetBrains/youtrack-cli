@@ -198,7 +198,8 @@ func findCustomField(issue map[string]any, name string) map[string]any {
 	return nil
 }
 
-// customFieldCell renders an issue custom field for a table cell; date-only fields drop the time of day.
+// customFieldCell renders an issue custom field for a table cell; date-only fields drop the time of day, and unset
+// fields show the project's empty field text ("Unassigned"), like the issue list UI.
 func customFieldCell(field map[string]any) string {
 	if field == nil {
 		return ""
@@ -206,7 +207,12 @@ func customFieldCell(field map[string]any) string {
 	if ms, ok := field["value"].(float64); ok && field["$type"] == "DateIssueCustomField" {
 		return time.UnixMilli(int64(ms)).UTC().Format("2006-01-02")
 	}
-	return customFieldValue(field["value"])
+	if s := customFieldValue(field["value"]); s != "" {
+		return s
+	}
+	pcf, _ := field["projectCustomField"].(map[string]any)
+	empty, _ := pcf["emptyFieldText"].(string)
+	return empty
 }
 
 // customFieldValue converts a custom field value to a display string: text and period values show their text or
