@@ -74,7 +74,7 @@ gh attestation verify youtrack_<version>_<os>_<arch>.tar.gz --repo JetBrains/you
 
 `install.sh` runs this check automatically when the `gh` CLI is installed and stops if the check fails. For releases published before attestations existed, set `YOUTRACK_SKIP_ATTESTATION=1`.
 
-When `gpg` is installed, `install.sh` also verifies `checksums.txt.asc` against the pinned JetBrains signing key `B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501` and stops if the signature is not valid. It downloads the key from `keys.openpgp.org` and checks the fingerprint, so the key source does not need trust. Without `gh` and `gpg`, the script checks only that the archive matches `checksums.txt` from the same release, which does not protect against a replaced release. `curl` downloads accept only `https` with TLS 1.2 or later.
+When `gpg` is installed, `install.sh` also verifies `checksums.txt.asc` against the pinned JetBrains signing key `B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501` and stops if the signature is not valid. The public key is embedded in the script, so the check needs no key server, and the script also checks the fingerprint of the key that made the signature. A release built without signing has an empty `checksums.txt.asc`; with `gpg` installed, the script stops on it. Without `gh` and `gpg`, the script checks only that the archive matches `checksums.txt` from the same release, which does not protect against a replaced release. `curl` downloads, and `wget` downloads when GNU `wget` is used, accept only `https` with TLS 1.2 or later. BusyBox `wget` has no such option; the script prints a note and continues, so install `curl` where that matters.
 
 ## Read-Only Mode
 

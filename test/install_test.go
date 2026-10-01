@@ -86,6 +86,7 @@ func TestInstallScript(t *testing.T) {
 	require.NoError(t, err)
 	archiveChecksum := fmt.Sprintf("%x  %s\n", sha256.Sum256(archiveData), filepath.Base(archivePath))
 	servedChecksum := archiveChecksum
+	servedSignature := "unchecked: gpg is disabled below"
 
 	// Serve the archive at the exact path install.sh constructs.
 	expectedPath := fmt.Sprintf("/JetBrains/youtrack-cli/releases/download/v%s/youtrack_%s_%s_%s.tar.gz",
@@ -100,7 +101,7 @@ func TestInstallScript(t *testing.T) {
 		case fmt.Sprintf("/JetBrains/youtrack-cli/releases/download/v%s/checksums.txt", version):
 			_, _ = w.Write([]byte(servedChecksum))
 		case fmt.Sprintf("/JetBrains/youtrack-cli/releases/download/v%s/checksums.txt.asc", version):
-			_, _ = w.Write([]byte("unchecked: gpg is disabled below"))
+			_, _ = w.Write([]byte(servedSignature))
 		default:
 			http.NotFound(w, r)
 		}
@@ -134,6 +135,7 @@ func TestInstallScript(t *testing.T) {
 	require.Contains(t, patched, "curl --proto '=https' --tlsv1.2 ")
 	require.Contains(t, patched, "if ! command -v gpg >/dev/null 2>&1; then")
 	patched = strings.ReplaceAll(patched, "curl --proto '=https' --tlsv1.2 ", "curl ")
+	withGPG := patched
 	patched = strings.ReplaceAll(patched,
 		"if ! command -v gpg >/dev/null 2>&1; then",
 		"if true; then",
@@ -141,6 +143,8 @@ func TestInstallScript(t *testing.T) {
 
 	patchedScript := filepath.Join(t.TempDir(), "install.sh")
 	require.NoError(t, os.WriteFile(patchedScript, []byte(patched), 0755))
+	gpgScript := filepath.Join(t.TempDir(), "install.sh")
+	require.NoError(t, os.WriteFile(gpgScript, []byte(withGPG), 0755))
 
 	installDir := t.TempDir()
 
@@ -158,6 +162,24 @@ func TestInstallScript(t *testing.T) {
 	versionOut, err := exec.Command(installedBin, "--version").Output()
 	require.NoError(t, err, "--version failed on installed binary")
 	require.Contains(t, string(versionOut), "youtrack ", "unexpected --version output: %s", string(versionOut))
+
+	// With gpg, the embedded key must import and a signature it did not make must stop the install; an unsigned build's empty .asc too.
+	if _, err := exec.LookPath("gpg"); err == nil {
+		for _, c := range []struct{ signature, message string }{
+			{"-----BEGIN PGP SIGNATURE-----\nnot a signature\n-----END PGP SIGNATURE-----\n", "signature verification failed"},
+			{"", "this release is not signed"},
+		} {
+			servedSignature = c.signature
+			dir := t.TempDir()
+			out, err := exec.Command("bash", gpgScript, "v"+version, dir).CombinedOutput()
+			require.Error(t, err, "installer accepted an invalid checksums.txt signature:\n%s", string(out))
+			require.Contains(t, string(out), c.message)
+			require.NotContains(t, string(out), "failed to import the release signing key")
+			_, err = os.Stat(filepath.Join(dir, "youtrack"))
+			require.ErrorIs(t, err, os.ErrNotExist, "installer wrote a binary after signature verification failed")
+		}
+		servedSignature = "unchecked: gpg is disabled below"
+	}
 
 	// A checksum manifest that no longer matches the archive must be rejected.
 	servedChecksum = fmt.Sprintf("%064x  %s\n", 0, filepath.Base(archivePath))
