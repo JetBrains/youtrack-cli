@@ -110,6 +110,7 @@ paste-token flow.`,
 	cmd.Flags().Bool("save", true, "Save credentials to ~/.youtrack-cli-config.json")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().String("scope", "", "Comma-separated extra Hub service IDs to request in addition to the YouTrack service")
+	cmd.Flags().Bool("show-token", false, showTokenUsage)
 	cmd.Flags().Int("port", 0, "Fixed loopback port for the OAuth callback (default: pick a free port)")
 	cmd.Flags().String("client-id", defaultOAuthClientID, "OAuth 2.0 client ID registered in Hub")
 	cmd.Flags().Duration("timeout", browserflow.DefaultTimeout, "How long to wait for the browser callback")
@@ -128,6 +129,9 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 	if raw != "" {
 		if cfg, err := config.Load(); err == nil {
 			if inst, ok := cfg.Instances[raw]; ok {
+				if err := internal.RequireTokenURL(raw, &inst); err != nil {
+					return "", err
+				}
 				if !flagChanged(cmd, "alias") {
 					if err := cmd.Flags().Set("alias", raw); err != nil {
 						return "", err
@@ -294,11 +298,13 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 			time.Unix(expiresAt, 0).Format("15:04"))
 	}
 
+	// Every format masks the token unless --show-token is set, as writeTokenResult does for the permanent-token flows.
+	result.Token = revealToken(cmd, result.Token)
 	// "table" is the human mode; --json/--plain and non-TTY stdout resolve to a structured format that must go through output.Print for scripts.
 	if output.Format(cmd) == "table" {
 		w := cmd.OutOrStdout()
 		_, _ = fmt.Fprintf(w, "Signed in as %s (%s)\n", result.Name, result.Login)
-		_, _ = fmt.Fprintf(w, "  Token:  %s\n", maskToken(result.Token))
+		_, _ = fmt.Fprintf(w, "  Token:  %s\n", result.Token)
 		if result.ConfigFile != "" {
 			_, _ = fmt.Fprintf(w, "  Saved:  %s\n", result.ConfigFile)
 		}

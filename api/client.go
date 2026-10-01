@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"net/url"
 	"os"
 	"strings"
 	"time"
@@ -39,9 +40,48 @@ func NewClient(baseURL, token string) *Client {
 	return &Client{
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		Token:      token,
-		HTTPClient: &http.Client{Timeout: defaultTimeout},
+		HTTPClient: &http.Client{Timeout: defaultTimeout, CheckRedirect: sameOriginRedirect},
 		ctx:        context.Background(),
 	}
+}
+
+// sameOriginRedirect drops the Authorization header when a redirect leaves the origin (scheme, host, default-normalized port) of the first request.
+// net/http keeps it on a same-host http downgrade and on a redirect to a subdomain.
+// An http → https upgrade on the same hostname keeps it, as net/http does, so an http:// instance URL behind a TLS-redirecting proxy still works.
+func sameOriginRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if !redirectKeepsAuth(via[0].URL, req.URL) {
+		req.Header.Del("Authorization")
+	}
+	return nil
+}
+
+// redirectKeepsAuth reports whether a redirect from first to next may carry the Authorization header.
+func redirectKeepsAuth(first, next *url.URL) bool {
+	if !strings.EqualFold(first.Hostname(), next.Hostname()) {
+		return false
+	}
+	from, to := strings.ToLower(first.Scheme), strings.ToLower(next.Scheme)
+	if from == "http" && to == "https" {
+		return true
+	}
+	return from == to && defaultPort(first) == defaultPort(next)
+}
+
+// defaultPort returns the explicit port of u, or the default port of its scheme, so "https://x" and "https://x:443" compare equal.
+func defaultPort(u *url.URL) string {
+	if p := u.Port(); p != "" {
+		return p
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "https":
+		return "443"
+	case "http":
+		return "80"
+	}
+	return ""
 }
 
 // WithContext binds requests and polling waits to the caller's lifecycle.

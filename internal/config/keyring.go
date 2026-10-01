@@ -12,6 +12,10 @@ import (
 // keyringService is the OS keyring service name for instance tokens; the keyring user is the instance alias.
 const keyringService = "youtrack-cli"
 
+// keyringURLService holds, under the same alias, the instance URL a keyring token was saved for, so an edit of the config file cannot point the token at another host.
+// It is a separate entry so the token entry keeps the bare token that older CLI versions read.
+const keyringURLService = "youtrack-cli-url"
+
 // keyringTimeout guards against keyring backends that hang instead of failing (e.g. a locked keychain awaiting input).
 const keyringTimeout = 3 * time.Second
 
@@ -33,13 +37,13 @@ func (e *keyringTimeoutError) Error() string {
 	return fmt.Sprintf("keyring %s timed out after %v", e.op, keyringTimeout)
 }
 
-func keyringSet(alias, token string) error {
+func keyringSet(service, alias, secret string) error {
 	if keyringDisabled() {
 		return errKeyringDisabled
 	}
 	ch := make(chan error, 1)
 	go func() {
-		ch <- gokeyring.Set(keyringService, alias, token)
+		ch <- gokeyring.Set(service, alias, secret)
 	}()
 	select {
 	case err := <-ch:
@@ -49,7 +53,7 @@ func keyringSet(alias, token string) error {
 	}
 }
 
-func keyringGet(alias string) (string, error) {
+func keyringGet(service, alias string) (string, error) {
 	if keyringDisabled() {
 		return "", errKeyringDisabled
 	}
@@ -59,7 +63,7 @@ func keyringGet(alias string) (string, error) {
 	}
 	ch := make(chan result, 1)
 	go func() {
-		val, err := gokeyring.Get(keyringService, alias)
+		val, err := gokeyring.Get(service, alias)
 		ch <- result{val, err}
 	}()
 	select {
@@ -73,13 +77,13 @@ func keyringGet(alias string) (string, error) {
 	}
 }
 
-func keyringDelete(alias string) error {
+func keyringDelete(service, alias string) error {
 	if keyringDisabled() {
 		return errKeyringDisabled
 	}
 	ch := make(chan error, 1)
 	go func() {
-		ch <- gokeyring.Delete(keyringService, alias)
+		ch <- gokeyring.Delete(service, alias)
 	}()
 	select {
 	case err := <-ch:
