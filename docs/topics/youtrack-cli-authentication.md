@@ -68,10 +68,6 @@ The token in the command output is masked in every output format, including JSON
 youtrack auth login --base-url https://example.youtrack.cloud --save=false --json --show-token | jq -r .token
 ```
 
-> Earlier versions printed the full token in JSON output. Scripts that read `.token` from `auth login`, `auth refresh-token`, `instance add`, `instance refresh-token`, or `instance login` output must add `--show-token`.
->
-{style="note"}
-
 > `auth login` always prompts for the base URL even when `YOUTRACK_BASE_URL` is set, because it is used to set up new instances. Pass `--base-url` to skip the prompt in non-interactive setups.
 >
 {style="note"}
@@ -136,18 +132,6 @@ Comma-separated Hub service names for a basic-auth token. Defaults to `YouTrack`
 <td>
 
 Save credentials to `~/.youtrack-cli-config.json`. Enabled by default; pass `--save=false` to verify a token without storing it.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--show-token`
-
-</td>
-<td>
-
-Print the full token instead of the masked form. Without it, every output format, JSON included, shows the token with its secret part replaced by `****`.
 
 </td>
 </tr>
@@ -263,18 +247,6 @@ How long to wait for the browser callback before giving up.
 <td>
 
 Print the authorization URL instead of opening a browser automatically.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--show-token`
-
-</td>
-<td>
-
-Print the full token instead of the masked form. Without it, every output format, JSON included, shows the token with its secret part replaced by `****`.
 
 </td>
 </tr>
