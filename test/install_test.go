@@ -99,6 +99,8 @@ func TestInstallScript(t *testing.T) {
 			_, _ = w.Write(archiveData)
 		case fmt.Sprintf("/JetBrains/youtrack-cli/releases/download/v%s/checksums.txt", version):
 			_, _ = w.Write([]byte(servedChecksum))
+		case fmt.Sprintf("/JetBrains/youtrack-cli/releases/download/v%s/checksums.txt.asc", version):
+			_, _ = w.Write([]byte("unchecked: gpg is disabled below"))
 		default:
 			http.NotFound(w, r)
 		}
@@ -126,6 +128,15 @@ func TestInstallScript(t *testing.T) {
 	patched = strings.ReplaceAll(patched,
 		"if command -v gh >/dev/null 2>&1 &&",
 		"if false &&",
+	)
+
+	// The test server is plain http, and its checksums.txt is not signed with the pinned release key.
+	require.Contains(t, patched, "curl --proto '=https' --tlsv1.2 ")
+	require.Contains(t, patched, "if ! command -v gpg >/dev/null 2>&1; then")
+	patched = strings.ReplaceAll(patched, "curl --proto '=https' --tlsv1.2 ", "curl ")
+	patched = strings.ReplaceAll(patched,
+		"if ! command -v gpg >/dev/null 2>&1; then",
+		"if true; then",
 	)
 
 	patchedScript := filepath.Join(t.TempDir(), "install.sh")

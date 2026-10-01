@@ -15,6 +15,8 @@ set -Eeuo pipefail
 PROG="youtrack"
 REPO="JetBrains/youtrack-cli"
 CHECK_MARK=$'\033[1;32m✓\033[0m'
+# Fingerprint of the JetBrains key that signs checksums.txt (FINGERPRINT in .github/workflows/release.yml).
+SIGNING_KEY_FPR="B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501"
 TMP_DIR=""
 STAGED_BIN=""
 
@@ -66,7 +68,7 @@ detect_arch() {
 download_to_file() {
     local url="$1" destination="$2"
     if command -v curl >/dev/null 2>&1; then
-        curl --fail --location --silent --show-error "$url" --output "$destination"
+        curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error "$url" --output "$destination"
     elif command -v wget >/dev/null 2>&1; then
         wget -qO "$destination" "$url"
     else
@@ -87,6 +89,23 @@ verify_checksum() {
         fail "sha256sum or shasum is required to verify the download"
     fi
     [[ "$actual" == "$expected" ]] || fail "checksum verification failed for $archive"
+}
+
+# verify_signature checks checksums.txt.asc against the pinned signing key, so a replaced checksums.txt is rejected.
+verify_signature() {
+    local checksums="$1" gnupg_home
+    if ! command -v gpg >/dev/null 2>&1; then
+        printf 'Note: gpg not found, checksums.txt signature not checked.\n' >&2
+        return 0
+    fi
+    gnupg_home="$(mktemp -d "${TMP_DIR}/gnupg.XXXXXX")"
+    download_to_file "https://keys.openpgp.org/vks/v1/by-fingerprint/${SIGNING_KEY_FPR}" signing-key.asc
+    gpg --homedir "$gnupg_home" --batch --quiet --import signing-key.asc 2>/dev/null ||
+        fail "failed to import the release signing key ${SIGNING_KEY_FPR}"
+    # VALIDSIG lists the signing key fingerprint first and the primary key fingerprint last.
+    gpg --homedir "$gnupg_home" --batch --status-fd 1 --verify "${checksums}.asc" "$checksums" 2>/dev/null |
+        awk -v fpr="$SIGNING_KEY_FPR" '$2 == "VALIDSIG" && ($3 == fpr || $NF == fpr) { ok = 1 } END { exit !ok }' ||
+        fail "signature verification failed for $checksums (expected key ${SIGNING_KEY_FPR})"
 }
 
 # verify_attestation checks the GitHub build provenance of the archive, which a replaced release asset cannot fake.
@@ -171,13 +190,16 @@ install_youtrack() {
     local archive="${PROG}_${version}_${os}_${arch}.tar.gz" downloaded=""
     if command -v gh >/dev/null 2>&1 &&
         gh release download "${RELEASE}" --repo "${REPO}" --pattern "${archive}" --output "$archive" 2>/dev/null &&
-        gh release download "${RELEASE}" --repo "${REPO}" --pattern checksums.txt --output checksums.txt 2>/dev/null; then
+        gh release download "${RELEASE}" --repo "${REPO}" --pattern checksums.txt --output checksums.txt 2>/dev/null &&
+        gh release download "${RELEASE}" --repo "${REPO}" --pattern checksums.txt.asc --output checksums.txt.asc 2>/dev/null; then
         downloaded=yes
     fi
     if [[ -z "$downloaded" ]]; then
         download_to_file "${release_url}/${archive}" "$archive"
         download_to_file "${release_url}/checksums.txt" checksums.txt
+        download_to_file "${release_url}/checksums.txt.asc" checksums.txt.asc
     fi
+    verify_signature checksums.txt
     verify_checksum "$archive" checksums.txt
     verify_attestation "$archive"
     tar -xzf "$archive" || fail "failed to extract $archive"

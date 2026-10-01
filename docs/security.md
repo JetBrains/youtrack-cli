@@ -69,6 +69,8 @@ gh attestation verify youtrack_<version>_<os>_<arch>.tar.gz --repo JetBrains/you
 
 `install.sh` runs this check automatically when the `gh` CLI is installed and stops if the check fails. For releases published before attestations existed, set `YOUTRACK_SKIP_ATTESTATION=1`.
 
+When `gpg` is installed, `install.sh` also verifies `checksums.txt.asc` against the pinned JetBrains signing key `B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501` and stops if the signature is not valid. It downloads the key from `keys.openpgp.org` and checks the fingerprint, so the key source does not need trust. Without `gh` and `gpg`, the script checks only that the archive matches `checksums.txt` from the same release, which does not protect against a replaced release. `curl` downloads accept only `https` with TLS 1.2 or later.
+
 ## Read-Only Mode
 
 Set `YOUTRACK_RO=1` to prevent any write operations at the client level:
