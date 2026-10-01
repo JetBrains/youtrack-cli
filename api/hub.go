@@ -13,7 +13,7 @@ import (
 	"strings"
 )
 
-var hubHTTPClient = &http.Client{Timeout: defaultTimeout}
+var hubHTTPClient = &http.Client{Timeout: defaultTimeout, CheckRedirect: sameOriginRedirect}
 
 // hubVerboseOut, when non-nil, receives verbose Hub HTTP log lines (same role as Client.Verbose).
 var hubVerboseOut io.Writer

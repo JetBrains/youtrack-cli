@@ -39,9 +39,21 @@ func NewClient(baseURL, token string) *Client {
 	return &Client{
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		Token:      token,
-		HTTPClient: &http.Client{Timeout: defaultTimeout},
+		HTTPClient: &http.Client{Timeout: defaultTimeout, CheckRedirect: sameOriginRedirect},
 		ctx:        context.Background(),
 	}
+}
+
+// sameOriginRedirect drops the Authorization header when a redirect leaves the scheme, host and port of the first request.
+// net/http keeps it on a same-host http downgrade and on a redirect to a subdomain.
+func sameOriginRedirect(req *http.Request, via []*http.Request) error {
+	if len(via) >= 10 {
+		return errors.New("stopped after 10 redirects")
+	}
+	if first := via[0].URL; req.URL.Scheme != first.Scheme || !strings.EqualFold(req.URL.Host, first.Host) {
+		req.Header.Del("Authorization")
+	}
+	return nil
 }
 
 // WithContext binds requests and polling waits to the caller's lifecycle.

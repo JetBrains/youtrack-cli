@@ -1,6 +1,9 @@
 package api
 
-import "testing"
+import (
+	"net/http"
+	"testing"
+)
 
 func TestMergeFieldsParam(t *testing.T) {
 	cases := []struct {
@@ -62,6 +65,32 @@ func TestHeaderBreakEscaper(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := headerBreakEscaper.Replace(tt.in); got != tt.want {
 				t.Errorf("headerBreakEscaper.Replace(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestSameOriginRedirectAuthorization(t *testing.T) {
+	cases := []struct {
+		name, target string
+		keep         bool
+	}{
+		{"same origin keeps header", "https://yt.example.com/api/x", true},
+		{"host case is ignored", "https://YT.example.com/api/x", true},
+		{"http downgrade drops header", "http://yt.example.com/api/x", false},
+		{"subdomain drops header", "https://evil.yt.example.com/api/x", false},
+		{"other port drops header", "https://yt.example.com:8443/api/x", false},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			first, _ := http.NewRequest(http.MethodGet, "https://yt.example.com/api/me", nil)
+			next, _ := http.NewRequest(http.MethodGet, c.target, nil)
+			next.Header.Set("Authorization", "Bearer secret")
+			if err := sameOriginRedirect(next, []*http.Request{first}); err != nil {
+				t.Fatal(err)
+			}
+			if got := next.Header.Get("Authorization") != ""; got != c.keep {
+				t.Errorf("Authorization kept = %v, want %v", got, c.keep)
 			}
 		})
 	}
