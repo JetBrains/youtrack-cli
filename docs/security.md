@@ -39,7 +39,7 @@ export YOUTRACK_DISABLE_KEYRING=1
 
 A saved token is bound to the origin (scheme, host, and port) of the instance it was saved for. For a keyring token, the CLI compares against the URL in the keyring entry, not the URL in the config file, so a process that can edit only the config file cannot point the token at another host. When `--base-url`, `YOUTRACK_BASE_URL`, or the config file points at a different origin and no explicit token is supplied, the CLI refuses to run instead of sending the saved token to that host. A keyring entry saved without a URL gets the config-file URL the next time the config is written. A token in the config file (no keyring) is bound to the URL in the same file, so the file is the only protection.
 
-When the server answers with a redirect to a different scheme, host, or port, the CLI follows it without the `Authorization` header. This includes a redirect from `https` to `http` on the same host and a redirect to a subdomain.
+When the server answers with a redirect to a different scheme, host, or port, the CLI follows it without the `Authorization` header. This includes a redirect from `https` to `http` on the same host and a redirect to a subdomain. A redirect from `http` to `https` on the same host keeps the header, so an `http://` instance URL behind a proxy that redirects to `https` keeps working. Default ports count as equal to no port: `https://host` and `https://host:443` are the same origin.
 
 `auth login`, `auth refresh-token`, `instance add`, `instance refresh-token`, and `instance login` mask the token in all output formats, including the JSON that the CLI selects automatically when stdout is not a terminal. To print the full token in JSON output, pass `--show-token`.
 
