@@ -8,8 +8,8 @@ require (
 	github.com/spf13/cobra v1.10.2
 	github.com/tiulpin/instill v0.0.0-20260409102126-21f299ecb245
 	github.com/zalando/go-keyring v0.2.8
-	golang.org/x/sys v0.47.0
-	golang.org/x/term v0.45.0
+	golang.org/x/sys v0.48.0
+	golang.org/x/term v0.46.0
 )
 
 require (

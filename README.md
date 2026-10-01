@@ -83,11 +83,16 @@ youtrack instance login https://example.youtrack.cloud
 youtrack auth status      # auth method, expiry, refresh token present — never the token itself
 ```
 
+Auth commands mask the token in their output, JSON included. Pass `--show-token` when a script needs the full value, for example `youtrack auth login --save=false --json --show-token | jq -r .token`.
+
 Then:
 
 ```bash
 # your open issues
 youtrack issue list --query "assignee: me State: Open"
+
+# pick columns, mixing issue attributes and custom fields, like the issue list UI
+youtrack issue list --query "project: DEMO #Unresolved" --fields "idReadable,summary,Priority,State,Assignee"
 
 # create an issue
 youtrack issue create --project DEMO --summary "Login button unresponsive on Safari"

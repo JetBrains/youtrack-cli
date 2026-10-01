@@ -73,7 +73,7 @@ List or add the work item types used for time tracking, and view or set the work
 youtrack field workitem list
 youtrack field workitem add-type --name "Development" --auto-attach
 youtrack field worktime view
-youtrack field worktime set --minutes-a-day 480
+youtrack field worktime set --minutes-a-day 8h
 ```
 
 ## Managing workflows {id="workflows"}

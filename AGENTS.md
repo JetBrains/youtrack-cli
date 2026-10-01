@@ -77,7 +77,7 @@ Two narrow, deliberately scoped exceptions live outside the E2E flow. Neither us
 transport, and neither is a second product surface asserting client behavior:
 
 - **Pure-function unit tests** (`api/*_test.go`, `internal/*_test.go`) — table tests for pure, branchy
-  string helpers (`overrideFieldsParam`, `WrapUserValues`, `expandFields`, `splitFieldsInternal`) that
+  string helpers (`mergeFieldsParam`, `WrapUserValues`, `expandFields`, `SplitFields`) that
   E2E cannot exercise exhaustively. They touch no client, no transport, and no network, and live in the
   package under test. CI runs them via `go test ./api/ ./internal/...`. The OAuth helpers (PKCE, state and
   callback validation, token-response parsing, expiry) belong here too, as do the credential-store tests in
@@ -85,10 +85,6 @@ transport, and neither is a second product surface asserting client behavior:
 - **API drift detection** (`test/drift_test.go`, `TestAPIDrift`) — gated on `requireE2EEnv` and run
   inside the E2E job, it diffs our Go structs against the live server's OpenAPI spec to catch contract
   changes. It asserts no client behavior; it is a static schema-vs-struct guard, not a conformance suite.
-
-Two scoped exceptions complement the E2E suite: (1) pure-function unit tests in `api/*_test.go` and `internal/*_test.go`,
-run with `go test ./api/ ./internal/...`; (2) API drift detection in `test/drift_test.go` (`TestAPIDrift`), which diffs the
-Go structs against the live OpenAPI spec.
 
 Run the full suite with `make test`. It boots or reuses the local Dockerized YouTrack harness, bootstraps credentials,
 and runs the entire `./test` package against that live instance. Each test is self-contained: it creates all needed

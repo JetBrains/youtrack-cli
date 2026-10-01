@@ -12,7 +12,6 @@ import (
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 // NewRefreshTokenCmd constructs the "refresh-token" command. Exported so
@@ -53,6 +52,9 @@ Use --json for machine-readable output.`,
 			inst, ok := cfg.Instances[alias]
 			if !ok {
 				return fmt.Errorf("instance %q not found — run: youtrack instance list", alias)
+			}
+			if err := internal.RequireTokenURL(alias, &inst); err != nil {
+				return err
 			}
 
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Refreshing token for %q (%s)...\n", alias, inst.URL)
@@ -113,11 +115,7 @@ Use --json for machine-readable output.`,
 				ConfigFile: path,
 				Hint:       fmt.Sprintf("Token updated for %q.", alias),
 			}
-			if !jsonOutput(cmd) {
-				printTokenResult(cmd, res)
-				return nil
-			}
-			return output.Print(cmd, res)
+			return writeTokenResult(cmd, res)
 		},
 	}
 	cmd.Flags().String("login", "", "Hub login (basic auth; prompted interactively if omitted)")
@@ -125,6 +123,7 @@ Use --json for machine-readable output.`,
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
+	cmd.Flags().Bool("show-token", false, showTokenUsage)
 	return cmd
 }
 

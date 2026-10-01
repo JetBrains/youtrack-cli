@@ -141,7 +141,7 @@ const (
 	pathUserProfileArticles      = "/api/users/%s/profiles/articles"
 	pathUserProfileIssuesList    = "/api/users/%s/profiles/issuesList"
 	pathUserProfileTips          = "/api/users/%s/profiles/tips"
-	pathUserProfileTimeTracking  = "/api/users/%s/profiles/timeTracking"
+	pathUserProfileTimeTracking  = "/api/users/%s/profiles/timetracking"
 	pathUserProfileProperties    = "/api/users/%s/profiles/propertiesProfile/properties"
 	pathUserTags                 = "/api/users/%s/tags"
 	pathUserDrafts               = "/api/users/%s/drafts"

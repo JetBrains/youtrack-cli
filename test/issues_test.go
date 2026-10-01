@@ -1,8 +1,11 @@
 package api_test
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
@@ -100,6 +103,99 @@ func TestCmd_IssueFieldsProjection(t *testing.T) {
 		)
 		assert.Contains(t, out, "test description content")
 		assert.NotContains(t, out, "map[")
+	})
+}
+
+// issue list --fields mixes issue attributes and custom fields by name, like the visible columns of the issue list UI.
+func TestCmd_IssueListCustomFieldColumns(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	suffix := strconv.FormatInt(time.Now().UnixMilli(), 36)
+	notesName := "Notes " + suffix
+	dueName := "Due " + suffix
+	notes, err := c.AddCustomField(notesName, api.FieldTypeText)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteCustomField(notes.ID) })
+	due, err := c.AddCustomField(dueName, api.FieldTypeDate)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteCustomField(due.ID) })
+	require.NoError(t, c.AddProjectCustomField(proj.ShortName, notes.ID))
+	require.NoError(t, c.AddProjectCustomField(proj.ShortName, due.ID))
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "custom column test", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	require.NoError(t, c.SetCustomField(issue.IDReadable, "Priority", "Critical", ""))
+	runCmd(t, "issue", "assign", issue.IDReadable, me.Login)
+	// 2026-10-13 12:00 UTC — YouTrack stores date-only values at noon UTC.
+	require.NoError(t, c.Post("/api/issues/"+issue.IDReadable+"?fields=id", map[string]any{
+		"customFields": []map[string]any{
+			{"name": notesName, "$type": "TextIssueCustomField", "value": map[string]any{"text": "first note line\nsecond"}},
+			{"name": dueName, "$type": "DateIssueCustomField", "value": int64(1791892800000)},
+		},
+	}, nil))
+
+	stateField, err := c.GetCustomFieldValue(issue.IDReadable, "State")
+	require.NoError(t, err)
+	stateValue, _ := stateField.Value.(map[string]any)
+	state, _ := stateValue["name"].(string)
+	require.NotEmpty(t, state, "default project has no State value")
+
+	query := "project: " + proj.ShortName
+
+	t.Run("table shows attribute and custom field columns in requested order", func(t *testing.T) {
+		out := runCmd(t, "--format", "table", "issue", "list", "--query", query,
+			"--fields", "idReadable,summary,Priority,state,Assignee,"+notesName+","+dueName)
+		lines := strings.Split(strings.TrimSpace(out), "\n")
+		require.Len(t, lines, 2, "output: %s", out)
+		assert.Regexp(t, `^ID\s+SUMMARY\s+PRIORITY\s+STATE\s+ASSIGNEE\s+`+regexp.QuoteMeta(strings.ToUpper(notesName))+`\s+`+regexp.QuoteMeta(strings.ToUpper(dueName))+`$`, lines[0])
+		assert.Regexp(t, `^`+issue.IDReadable+`\s+custom column test\s+Critical\s+`+state+`\s+`+regexp.QuoteMeta(me.Login)+`\s+first note line\s+2026-10-13$`, lines[1])
+	})
+
+	t.Run("plain rows carry custom field values", func(t *testing.T) {
+		out := runCmd(t, "issue", "list", "--query", query, "--fields", "idReadable,Priority,State", "--plain")
+		assert.Equal(t, issue.IDReadable+"\tCritical\t"+state+"\n", out)
+	})
+
+	t.Run("attribute and custom field names are case-insensitive", func(t *testing.T) {
+		out := runCmd(t, "issue", "list", "--query", query, "--fields", "IdReadable,Summary,PRIORITY", "--plain")
+		assert.Equal(t, issue.IDReadable+"\tcustom column test\tCritical\n", out)
+	})
+
+	t.Run("json returns only the requested custom fields", func(t *testing.T) {
+		issues := runJSON[[]api.Issue](t, "issue", "list", "--query", query, "--fields", "idReadable,priority,State", "--json")
+		require.Len(t, issues, 1)
+		assert.Equal(t, issue.IDReadable, issues[0].IDReadable)
+		assert.Equal(t, "custom column test", issues[0].Summary, "default issue fields stay in JSON output")
+		names := make([]string, 0, len(issues[0].CustomFields))
+		for _, f := range issues[0].CustomFields {
+			names = append(names, f.Name)
+		}
+		assert.ElementsMatch(t, []string{"Priority", "State"}, names)
+	})
+
+	t.Run("non-custom names the server returns still resolve as attributes", func(t *testing.T) {
+		stdout, stderr, err := runCmdInDir(t, t.TempDir(), "issue", "list", "--query", query, "--fields", "idReadable,$type", "--plain")
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Equal(t, issue.IDReadable+"\tIssue\n", stdout)
+		assert.NotContains(t, stderr, "no custom field")
+	})
+
+	t.Run("unknown custom field warns on stderr and renders an empty column", func(t *testing.T) {
+		stdout, stderr, err := runCmdInDir(t, t.TempDir(), "issue", "list", "--query", query,
+			"--fields", "idReadable,NoSuchField"+suffix, "--plain")
+		require.NoError(t, err, "stderr: %s", stderr)
+		assert.Equal(t, issue.IDReadable+"\t\n", stdout)
+		assert.Contains(t, stderr, `no custom field named "NoSuchField`+suffix+`"`)
+
+		_, stderr, err = runCmdInDir(t, t.TempDir(), "--quiet", "issue", "list", "--query", query,
+			"--fields", "idReadable,NoSuchField"+suffix, "--plain")
+		require.NoError(t, err)
+		assert.Empty(t, stderr)
 	})
 }
 
@@ -287,6 +383,28 @@ func TestCmd_IssueUpdate(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "cmd update revised", got.Summary)
 	assert.Equal(t, "updated through cli", got.Description)
+}
+
+func TestCmd_IssueCommentList_MoreThanDefaultPage(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "comment paging test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	// Without $top the server stops at 42 entries.
+	const total = 45
+	for i := range total {
+		_, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "comment " + strconv.Itoa(i)})
+		require.NoError(t, err)
+	}
+
+	comments := runJSON[[]api.Comment](t, "issue", "comment", "list", issue.IDReadable, "--format", "json")
+	assert.Len(t, comments, total)
 }
 
 func TestCmd_IssueCommentCRUD(t *testing.T) {
@@ -764,6 +882,45 @@ func TestCmd_IssueFieldSet(t *testing.T) {
 	assert.Contains(t, out, "updated field Priority")
 }
 
+func TestCmd_IssueFieldSet_MultiValue(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	name := "Multi-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
+	field, err := c.AddCustomField(name, api.FieldTypeEnumMulti)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteCustomField(field.ID) })
+	require.NoError(t, c.AddProjectCustomField(proj.ShortName, field.ID))
+
+	var projectFields []struct {
+		Field  api.CustomField `json:"field"`
+		Bundle api.Bundle      `json:"bundle"`
+	}
+	require.NoError(t, c.Get("/api/admin/projects/"+proj.ID+"/customFields?fields=field(id),bundle(id)&$top=500", &projectFields))
+	var bundleID string
+	for _, pf := range projectFields {
+		if pf.Field.ID == field.ID {
+			bundleID = pf.Bundle.ID
+		}
+	}
+	require.NotEmpty(t, bundleID, "project field for %s has no bundle", name)
+	require.NoError(t, c.AddBundleValue("enum", bundleID, "Alpha"))
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "multi-value field set test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "field", "set", issue.IDReadable, name, "Alpha")
+	assert.Contains(t, out, "updated field "+name)
+
+	got, err := c.GetCustomFieldValue(issue.IDReadable, name)
+	require.NoError(t, err)
+	assert.Contains(t, fmt.Sprint(got.Value), "Alpha")
+}
+
 func TestCmd_IssueVisibility(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
@@ -869,4 +1026,115 @@ func TestCmd_IssueCommand(t *testing.T) {
 		}
 	}
 	assert.True(t, stateFound, "State field should show In Progress after command")
+}
+
+// Collections return at most 42 items without an explicit $top; comment list must not stop there.
+func TestCmd_IssueCommentList_BeyondDefaultPage(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "many comments", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	const total = 45
+	for i := range total {
+		_, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "comment " + strconv.Itoa(i)})
+		require.NoError(t, err)
+	}
+
+	comments := runJSON[[]api.Comment](t, "issue", "comment", "list", issue.IDReadable, "--format", "json")
+	assert.Len(t, comments, total)
+}
+
+// issue count and command suggest POST to endpoints that change nothing, so read-only mode must not block them.
+func TestCmd_ReadOnlyAllowsQueryEndpoints(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "read-only query test", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	roEnv := []string{"HOME=" + t.TempDir(), "YOUTRACK_RO=1"}
+
+	out := runCmdWithEnv(t, "", roEnv, "issue", "count", "--query", "project: "+proj.ShortName)
+	count, err := strconv.Atoi(strings.TrimSpace(out))
+	require.NoError(t, err, "output should be a plain integer, got: %q", out)
+	assert.GreaterOrEqual(t, count, 0)
+
+	out = runCmdWithEnv(t, "", roEnv, "issue", "command", "suggest", issue.IDReadable, "State ", "--format", "json")
+	assert.Contains(t, out, "commands")
+
+	cmd := exec.Command(binaryPath, "issue", "comment", "create", issue.IDReadable, "--text", "must not be posted")
+	cmd.Env = append(os.Environ(), roEnv...)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	require.Error(t, cmd.Run(), "writes must stay blocked in read-only mode")
+	assert.Contains(t, stderr.String(), "read-only mode is enabled")
+
+	comments, err := c.ListComments(issue.IDReadable)
+	require.NoError(t, err)
+	assert.Empty(t, comments)
+}
+
+// Readable IDs go to /api/commands as idReadable; database IDs are still resolved first.
+func TestCmd_IssueCommand_ByDatabaseIDAndUnknownID(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "command by db id", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	tag := "cmdtag" + strconv.FormatInt(time.Now().UnixNano()%1_000_000, 10)
+	t.Cleanup(func() {
+		tags, _ := c.ListTags()
+		for _, tg := range tags {
+			if tg.Name == tag {
+				_ = c.DeleteTag(tg.ID)
+			}
+		}
+	})
+
+	runCmd(t, "issue", "command", issue.ID, "tag "+tag)
+	tags, err := c.ListIssueTags(issue.IDReadable)
+	require.NoError(t, err)
+	var names []string
+	for _, tg := range tags {
+		names = append(names, tg.Name)
+	}
+	assert.Contains(t, names, tag, "command addressed by database ID should apply")
+
+	stderr := runCmdExpectError(t, "issue", "command", proj.ShortName+"-999999", "tag "+tag)
+	assert.NotEmpty(t, strings.TrimSpace(stderr), "unknown issue should produce an error message")
+}
+
+// File names with quotes and line breaks must reach YouTrack without corrupting the multipart part headers.
+func TestCmd_IssueAttachmentAdd_UnusualFileNames(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "quoted attachment name", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	for _, tc := range []struct{ name, file, want string }{
+		{"quote is preserved", `say "hi".txt`, `say "hi".txt`},
+		{"line breaks cannot end the part headers early", "a\r\n\r\nsmuggled.txt", "a%0D%0A%0D%0Asmuggled.txt"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tmpFile := filepath.Join(t.TempDir(), tc.file)
+			require.NoError(t, os.WriteFile(tmpFile, []byte("content"), 0o600))
+
+			attach := runJSON[api.IssueAttachment](t, "issue", "attachment", "add", issue.IDReadable, "--file", tmpFile, "--format", "json")
+			assert.Equal(t, tc.want, attach.Name)
+
+			// The stored size proves no header text leaked into the file content.
+			var stored struct {
+				Size int `json:"size"`
+			}
+			require.NoError(t, c.Get(fmt.Sprintf("/api/issues/%s/attachments/%s?fields=size", issue.IDReadable, attach.ID), &stored))
+			assert.Equal(t, len("content"), stored.Size)
+		})
+	}
 }

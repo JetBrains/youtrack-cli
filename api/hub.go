@@ -10,11 +10,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 )
 
-var hubHTTPClient = &http.Client{Timeout: defaultTimeout}
+var hubHTTPClient = &http.Client{Timeout: defaultTimeout, CheckRedirect: sameOriginRedirect}
 
 // hubVerboseOut, when non-nil, receives verbose Hub HTTP log lines (same role as Client.Verbose).
 var hubVerboseOut io.Writer
@@ -145,8 +144,8 @@ func hubBasicAuth(login, password string) string {
 
 func hubDo(ctx context.Context, method, baseURL, path, auth string, body any) ([]byte, error) {
 	// Hub calls bypass Client, so YOUTRACK_RO needs its own guard here (e.g. permanent-token creation).
-	if method != http.MethodGet && os.Getenv(envReadOnly) == "1" {
-		return nil, fmt.Errorf("read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked")
+	if method != http.MethodGet && readOnly() {
+		return nil, errReadOnly
 	}
 	var bodyReader io.Reader
 	contentType := ""

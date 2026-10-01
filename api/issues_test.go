@@ -27,3 +27,27 @@ func TestWrapUserValues(t *testing.T) {
 		})
 	}
 }
+
+func TestReadableIssueIDRe(t *testing.T) {
+	tests := []struct {
+		id   string
+		want bool
+	}{
+		{"FOO-42", true},
+		{"foo-1", true},
+		{"MY_PROJ2-7", true},
+		{"2-15", false},
+		{"FOO", false},
+		{"FOO-", false},
+		{"-42", false},
+		{"FOO-42-1", false},
+		{"FOO-4x", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.id, func(t *testing.T) {
+			if got := readableIssueIDRe.MatchString(tt.id); got != tt.want {
+				t.Errorf("readableIssueIDRe.MatchString(%q) = %t, want %t", tt.id, got, tt.want)
+			}
+		})
+	}
+}

@@ -12,6 +12,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+
+	"github.com/JetBrains/youtrack-cli/api"
+	"github.com/JetBrains/youtrack-cli/internal"
 )
 
 // Format resolves the effective output format for the command using a priority chain:
@@ -67,29 +70,6 @@ func printJSON(w io.Writer, data any) error {
 	return enc.Encode(data)
 }
 
-// splitFields splits a comma-separated field spec string while respecting
-// nested parentheses, so "id,comments(id,text),summary" yields three entries
-// rather than four.
-func splitFields(s string) []string {
-	var parts []string
-	depth, start := 0, 0
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '(':
-			depth++
-		case ')':
-			depth--
-		case ',':
-			if depth == 0 {
-				parts = append(parts, strings.TrimSpace(s[start:i]))
-				start = i + 1
-			}
-		}
-	}
-	parts = append(parts, strings.TrimSpace(s[start:]))
-	return parts
-}
-
 // parseFieldSpec splits a spec like "comments(id,text)" into outer key
 // "comments" and inner spec "id,text". Returns the spec unchanged as key
 // with empty innerSpec when no parentheses are present.
@@ -106,8 +86,20 @@ func parseFieldSpec(spec string) (key, innerSpec string) {
 // resolving dot-separated paths (e.g. "project.shortName") or sub-field
 // specs (e.g. "comments(id,text)").
 func printProjected(w io.Writer, data any, fields string, withHeader bool) error {
+	names := internal.SplitFields(fields)
+	return writeProjection(w, data, headerNames(names), withHeader, func(obj map[string]any) []string {
+		vals := make([]string, len(names))
+		for i, name := range names {
+			vals[i] = resolveField(obj, name)
+		}
+		return vals
+	})
+}
+
+// writeProjection JSON round-trips data (a slice or a single object) to maps and writes one tab-separated row per
+// object, with cells computed by row and an optional header line.
+func writeProjection(w io.Writer, data any, headers []string, withHeader bool, row func(map[string]any) []string) error {
 	w = safeWriter{w}
-	names := splitFields(fields)
 
 	b, err := json.Marshal(data)
 	if err != nil {
@@ -115,15 +107,13 @@ func printProjected(w io.Writer, data any, fields string, withHeader bool) error
 	}
 
 	writeRow := func(obj map[string]any) {
-		vals := make([]string, len(names))
-		for i, name := range names {
-			v := resolveField(obj, name)
-			if withHeader {
-				// Collapse newlines so the tab-separated row stays on one line,
-				// but do not truncate — callers control width via terminal/pager.
-				v = firstLine(v)
+		vals := row(obj)
+		if withHeader {
+			// Collapse newlines so the tab-separated row stays on one line,
+			// but do not truncate — callers control width via terminal/pager.
+			for i := range vals {
+				vals[i] = firstLine(vals[i])
 			}
-			vals[i] = v
 		}
 		_, _ = fmt.Fprintln(w, strings.Join(vals, "\t"))
 	}
@@ -131,7 +121,7 @@ func printProjected(w io.Writer, data any, fields string, withHeader bool) error
 	var arr []map[string]any
 	if json.Unmarshal(b, &arr) == nil {
 		if withHeader {
-			_, _ = fmt.Fprintln(w, strings.Join(headerNames(names), "\t"))
+			_, _ = fmt.Fprintln(w, strings.Join(headers, "\t"))
 		}
 		for _, item := range arr {
 			writeRow(item)
@@ -142,13 +132,117 @@ func printProjected(w io.Writer, data any, fields string, withHeader bool) error
 	var obj map[string]any
 	if json.Unmarshal(b, &obj) == nil {
 		if withHeader {
-			_, _ = fmt.Fprintln(w, strings.Join(headerNames(names), "\t"))
+			_, _ = fmt.Fprintln(w, strings.Join(headers, "\t"))
 		}
 		writeRow(obj)
 		return nil
 	}
 
 	return fmt.Errorf("cannot project fields on type %T", data)
+}
+
+// PrintIssueColumns renders issues with the columns chosen by `issue list --fields`: attribute columns resolve like
+// any --fields projection, custom-field columns show the value of the issue's custom field with that name.
+// JSON output is the issues unchanged, exactly as Print would emit them.
+func PrintIssueColumns(cmd *cobra.Command, issues []api.Issue, cols []internal.IssueColumn) error {
+	w := cmd.OutOrStdout()
+	format := Format(cmd)
+	if format == "json" {
+		return printJSON(w, issues)
+	}
+
+	specs := make([]string, len(cols))
+	for i, c := range cols {
+		specs[i] = c.Spec
+	}
+	headers := headerNames(specs)
+	for i, c := range cols {
+		if c.Custom {
+			headers[i] = strings.ToUpper(c.Spec)
+		}
+	}
+	row := func(obj map[string]any) []string {
+		vals := make([]string, len(cols))
+		for i, c := range cols {
+			if c.Custom {
+				if field := findCustomField(obj, c.Spec); field != nil {
+					vals[i] = customFieldCell(field)
+					continue
+				}
+			}
+			// Attributes, and custom names no custom field matched — those may be attributes the server returned.
+			vals[i] = resolveField(obj, c.Spec)
+		}
+		return vals
+	}
+
+	if format == "plain" {
+		return writeProjection(w, issues, headers, false, row)
+	}
+	tw := tabwriter.NewWriter(w, 0, 0, 2, ' ', 0)
+	err := writeProjection(tw, issues, headers, true, row)
+	_ = tw.Flush()
+	return err
+}
+
+// findCustomField returns the custom field named name (case-insensitive) from an issue's customFields, or nil.
+func findCustomField(issue map[string]any, name string) map[string]any {
+	fields, _ := issue["customFields"].([]any)
+	for _, f := range fields {
+		if m, ok := f.(map[string]any); ok {
+			if n, _ := m["name"].(string); strings.EqualFold(n, name) {
+				return m
+			}
+		}
+	}
+	return nil
+}
+
+// customFieldCell renders an issue custom field for a table cell; date-only fields drop the time of day, and unset
+// fields show the project's empty field text ("Unassigned"), like the issue list UI.
+func customFieldCell(field map[string]any) string {
+	if field == nil {
+		return ""
+	}
+	if ms, ok := field["value"].(float64); ok && field["$type"] == "DateIssueCustomField" {
+		return time.UnixMilli(int64(ms)).UTC().Format("2006-01-02")
+	}
+	if s := customFieldValue(field["value"]); s != "" {
+		return s
+	}
+	pcf, _ := field["projectCustomField"].(map[string]any)
+	empty, _ := pcf["emptyFieldText"].(string)
+	return empty
+}
+
+// customFieldValue converts a custom field value to a display string: text and period values show their text or
+// presentation, entity values (enum, state, user, version) their identifier, multi-value fields join with ", ",
+// and date fields render as timestamps.
+func customFieldValue(val any) string {
+	switch v := val.(type) {
+	case nil:
+		return ""
+	case map[string]any:
+		for _, key := range []string{"presentation", "text"} {
+			if s, ok := v[key].(string); ok && s != "" {
+				return s
+			}
+		}
+		if s := compactObject(v); s[0] != '{' {
+			return s
+		}
+		return ""
+	case []any:
+		parts := make([]string, 0, len(v))
+		for _, item := range v {
+			if s := customFieldValue(item); s != "" {
+				parts = append(parts, s)
+			}
+		}
+		return strings.Join(parts, ", ")
+	default:
+		return formatValue(v)
+	}
 }
 
 // resolveField resolves a field spec against a map. Supports:
@@ -175,7 +269,7 @@ func resolveField(m map[string]any, spec string) string {
 	}
 
 	// Sub-field spec: apply innerSpec to the resolved value.
-	subNames := splitFields(innerSpec)
+	subNames := internal.SplitFields(innerSpec)
 	switch v := val.(type) {
 	case []any:
 		parts := make([]string, 0, len(v))

@@ -6,11 +6,17 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 )
 
 const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
 const issueDetailFields = issueFields + ",customFields(name,value(name,login,text,presentation))"
+
+// issueCustomFieldValues fetches custom fields with the sub-fields that identify each value type: enum/state/version/build
+// (name), user (login, fullName), text (text), period (presentation); number and date values are scalars.
+// projectCustomField.emptyFieldText is what the UI shows for an unset value ("Unassigned", "No Fix versions").
+const issueCustomFieldValues = "customFields(name,value(name,login,fullName,text,presentation),projectCustomField(emptyFieldText))"
 const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,visibility"
 const draftFields = "id,summary,description,created,fields(id,name,$type)"
 
@@ -38,6 +44,39 @@ type AddCommentRequest struct {
 type ApplyCommandRequest struct {
 	Query  string  `json:"query"`
 	Issues []Issue `json:"issues"`
+}
+
+// readableIssueIDRe matches readable issue IDs such as FOO-42; database IDs such as 2-15 start with a digit.
+var readableIssueIDRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_]*-[0-9]+$`)
+
+// commandIssues builds the issues list for /api/commands and /api/commands/assist.
+// Both endpoints accept idReadable, so readable IDs are sent as-is instead of costing one lookup request each;
+// any other form is resolved to its database ID first, so a bad ID still fails before the command runs.
+func (c *Client) commandIssues(issueIDs []string) ([]Issue, error) {
+	issues := make([]Issue, len(issueIDs))
+	for i, id := range issueIDs {
+		if readableIssueIDRe.MatchString(id) {
+			issues[i] = Issue{IDReadable: id}
+			continue
+		}
+		dbID, err := c.issueDBID(id)
+		if err != nil {
+			return nil, fmt.Errorf("resolve issue %s: %w", id, err)
+		}
+		issues[i] = Issue{ID: dbID}
+	}
+	return issues, nil
+}
+
+// issueDBID resolves an issue ID in any form to its database ID, fetching nothing else.
+func (c *Client) issueDBID(id string) (string, error) {
+	var result struct {
+		ID string `json:"id"`
+	}
+	if err := c.Get(fmt.Sprintf(pathIssue+"?fields=id", url.PathEscape(id)), &result); err != nil {
+		return "", err
+	}
+	return result.ID, nil
 }
 
 var userValueRe = regexp.MustCompile(`(?i)\b(assignee|reporter)\s+(\S*[.\-@]\S+)`)
@@ -79,9 +118,24 @@ func (c *Client) ListIssues(query string, limit int) ([]Issue, error) {
 
 // ListIssuesPage returns one page of issues starting at offset.
 func (c *Client) ListIssuesPage(query string, limit, offset int) ([]Issue, error) {
+	return c.ListIssuesPageWithCustomFields(query, limit, offset, nil)
+}
+
+// ListIssuesPageWithCustomFields is ListIssuesPage that also returns the named custom fields of each issue.
+// Names go in the repeatable customFields= parameter, which the server matches case-insensitively and uses to
+// return only those fields; a name no matched project has is simply absent from customFields.
+func (c *Client) ListIssuesPageWithCustomFields(query string, limit, offset int, customFields []string) ([]Issue, error) {
 	var result []Issue
-	path := pathIssues + fmt.Sprintf("?query=%s&$top=%d&$skip=%d&fields=%s",
-		url.QueryEscape(query), limit, offset, issueFields)
+	fields := issueFields
+	var filter strings.Builder
+	if len(customFields) > 0 {
+		fields += "," + issueCustomFieldValues
+		for _, name := range customFields {
+			filter.WriteString("&customFields=" + url.QueryEscape(name))
+		}
+	}
+	path := pathIssues + fmt.Sprintf("?query=%s&$top=%d&$skip=%d&fields=%s%s",
+		url.QueryEscape(query), limit, offset, fields, filter.String())
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -103,11 +157,22 @@ func (c *Client) DeleteIssue(id string) error {
 	return c.Delete(fmt.Sprintf(pathIssue, url.PathEscape(id)))
 }
 
+// ListComments returns every comment on the issue, paging with $skip; without
+// $top the server returns at most 42 entries.
 func (c *Client) ListComments(issueID string) ([]Comment, error) {
+	const pageSize = 500
 	var result []Comment
-	path := fmt.Sprintf(pathIssueComments+"?fields=%s", url.PathEscape(issueID), commentFields)
-	err := c.Get(path, &result)
-	return result, err
+	for skip := 0; ; skip += pageSize {
+		var page []Comment
+		path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=%d&$skip=%d", url.PathEscape(issueID), commentFields, pageSize, skip)
+		if err := c.Get(path, &page); err != nil {
+			return nil, err
+		}
+		result = append(result, page...)
+		if len(page) < pageSize {
+			return result, nil
+		}
+	}
 }
 
 func (c *Client) AddComment(issueID string, req AddCommentRequest) (*Comment, error) {
@@ -131,7 +196,7 @@ func (c *Client) GetIssueCount(query string) (int, error) {
 		var result struct {
 			Count int `json:"count"`
 		}
-		if err := c.Post(pathIssuesGetterCount+"?fields=count",
+		if err := c.postQuery(pathIssuesGetterCount+"?fields=count",
 			map[string]any{"query": query}, &result); err != nil {
 			return 0, err
 		}
@@ -186,23 +251,25 @@ func (c *Client) GetLinkedIssues(issueID string) ([]IssueLink, error) {
 }
 
 func (c *Client) LinkIssues(issueID, targetID, linkTypeID string) error {
+	if linkTypeID == "" {
+		return fmt.Errorf("link type ID must not be empty")
+	}
 	// Body requires the opaque internal ID; URL path segment accepts the readable form.
-	target, err := c.GetIssue(targetID)
+	targetDBID, err := c.issueDBID(targetID)
 	if err != nil {
 		return fmt.Errorf("resolve target issue %s: %w", targetID, err)
 	}
 	// For directed link types, append 's' (OUTWARD) unless the caller already
 	// included a direction marker ('s' or 't'). Non-directed link types use the ID as-is.
 	linkID := linkTypeID
-	last := linkTypeID[len(linkTypeID)-1]
-	if last != 's' && last != 't' {
+	if last := linkTypeID[len(linkTypeID)-1]; last != 's' && last != 't' {
 		lt, err := c.GetIssueLinkType(linkTypeID)
 		if err == nil && lt.Directed {
 			linkID = linkTypeID + "s"
 		}
 	}
 	path := fmt.Sprintf(pathIssueLinkTypeIssues, url.PathEscape(issueID), url.PathEscape(linkID))
-	return c.Post(path, map[string]any{"id": target.ID}, nil)
+	return c.Post(path, map[string]any{"id": targetDBID}, nil)
 }
 
 // RemoveIssueLink removes all linked issues from the given link on issueID.
@@ -314,15 +381,19 @@ func (c *Client) GetCustomFieldValue(issueID, fieldName string) (*IssueField, er
 }
 
 func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string) error {
-	var fields []IssueField
-	path := fmt.Sprintf(pathIssueFields+"?fields=id,name&$top=500", url.PathEscape(issueID))
+	var fields []struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+		Type string `json:"$type"`
+	}
+	path := fmt.Sprintf(pathIssueFields+"?fields=id,name,$type&$top=500", url.PathEscape(issueID))
 	if err := c.Get(path, &fields); err != nil {
 		return err
 	}
-	var fieldID string
+	var fieldID, issueFieldType string
 	for _, f := range fields {
 		if f.Name == fieldName {
-			fieldID = f.ID
+			fieldID, issueFieldType = f.ID, f.Type
 			break
 		}
 	}
@@ -361,6 +432,10 @@ func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string
 		body = map[string]any{"value": fieldValue}
 	default:
 		body = map[string]any{"value": map[string]any{"name": fieldValue}}
+	}
+	if isMultiValueField(issueFieldType) {
+		// Multi-value fields (e.g. MultiEnumIssueCustomField) take an array; a single object is rejected with HTTP 500.
+		body["value"] = []any{body["value"]}
 	}
 	return c.Post(fmt.Sprintf(pathIssueField, url.PathEscape(issueID), url.PathEscape(fieldID)), body, nil)
 }
@@ -415,16 +490,12 @@ func (c *Client) UpdateIssueVisibility(issueID string, groupIDs, userIDs []strin
 }
 
 func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]any, error) {
-	issues := make([]map[string]any, len(issueIDs))
-	for i, id := range issueIDs {
-		issue, err := c.GetIssue(id)
-		if err != nil {
-			return nil, fmt.Errorf("resolve issue %s: %w", id, err)
-		}
-		issues[i] = map[string]any{"id": issue.ID}
+	issues, err := c.commandIssues(issueIDs)
+	if err != nil {
+		return nil, err
 	}
 	var result map[string]any
-	err := c.Post(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
+	err = c.postQuery(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
 		map[string]any{"query": query, "issues": issues}, &result)
 	return result, err
 }
@@ -492,13 +563,21 @@ func (c *Client) UpdateDraftField(draftID, fieldID, fieldType, valueName string)
 	body := map[string]any{
 		"$type": fieldType,
 	}
+	value := map[string]string{"name": valueName}
 	if valueType != "" {
-		body["value"] = map[string]string{"$type": valueType, "name": valueName}
-	} else {
-		body["value"] = map[string]string{"name": valueName}
+		value["$type"] = valueType
+	}
+	body["value"] = value
+	if isMultiValueField(fieldType) {
+		body["value"] = []map[string]string{value}
 	}
 	path := fmt.Sprintf(pathUserDraftField, "me", url.PathEscape(draftID), url.PathEscape(fieldID))
 	return c.Post(path, body, nil)
+}
+
+// isMultiValueField reports whether an issue custom field $type holds an array of values.
+func isMultiValueField(fieldType string) bool {
+	return strings.HasPrefix(fieldType, "Multi")
 }
 
 // draftFieldValueType maps a field $type to its value $type.
@@ -531,15 +610,11 @@ func (c *Client) SubmitDraft(draftID string) (*Issue, error) {
 	return &result, err
 }
 
-// ApplyCommand resolves each issue ID to its internal ID then POSTs to /api/commands.
+// ApplyCommand POSTs the command to /api/commands for the given issues.
 func (c *Client) ApplyCommand(query string, issueIDs []string) error {
-	issues := make([]Issue, len(issueIDs))
-	for i, id := range issueIDs {
-		issue, err := c.GetIssue(id)
-		if err != nil {
-			return fmt.Errorf("resolve issue %s: %w", id, err)
-		}
-		issues[i] = Issue{ID: issue.ID}
+	issues, err := c.commandIssues(issueIDs)
+	if err != nil {
+		return err
 	}
 	return c.Post(pathCommands, ApplyCommandRequest{
 		Query:  WrapUserValues(query),
@@ -561,47 +636,37 @@ func (c *Client) CreateIssueDraft(projectShortName, summary string) (*IssueDraft
 	return &result, err
 }
 
+// WatchIssue and the other watcher/voter methods pass the ID straight into the path,
+// which accepts the readable form, so no lookup request is needed first.
+// IssueWatchers exposes the current user's watch state as hasStar; YouTrack ignores unknown body fields, so a wrong name is a silent no-op.
 func (c *Client) WatchIssue(id string) error {
-	issue, err := c.GetIssue(id)
-	if err != nil {
-		return err
-	}
-	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasWatchedIssue": true}, nil)
+	return c.setWatching(id, true)
 }
 
 func (c *Client) UnwatchIssue(id string) error {
-	issue, err := c.GetIssue(id)
-	if err != nil {
-		return err
-	}
-	path := fmt.Sprintf(pathIssueWatchers, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasWatchedIssue": false}, nil)
+	return c.setWatching(id, false)
+}
+
+func (c *Client) setWatching(id string, watching bool) error {
+	return c.Post(fmt.Sprintf(pathIssueWatchers, url.PathEscape(id)), map[string]any{"hasStar": watching}, nil)
 }
 
 func (c *Client) VoteIssue(id string) error {
-	issue, err := c.GetIssue(id)
-	if err != nil {
-		return err
-	}
-	path := fmt.Sprintf(pathIssueVoters, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasVote": true}, nil)
+	return c.setVote(id, true)
 }
 
 func (c *Client) UnvoteIssue(id string) error {
-	issue, err := c.GetIssue(id)
-	if err != nil {
-		return err
-	}
-	path := fmt.Sprintf(pathIssueVoters, url.PathEscape(issue.ID))
-	return c.Post(path, map[string]any{"hasVote": false}, nil)
+	return c.setVote(id, false)
+}
+
+func (c *Client) setVote(id string, vote bool) error {
+	return c.Post(fmt.Sprintf(pathIssueVoters, url.PathEscape(id)), map[string]any{"hasVote": vote}, nil)
 }
 
 // ListRecentComments returns the last `top` comments; YouTrack serves them oldest-first, so fetch all and keep the tail.
 func (c *Client) ListRecentComments(issueID string, top int) ([]Comment, error) {
-	var result []Comment
-	path := fmt.Sprintf(pathIssueComments+"?fields=%s&$top=500", url.PathEscape(issueID), commentFields)
-	if err := c.Get(path, &result); err != nil {
+	result, err := c.ListComments(issueID)
+	if err != nil {
 		return nil, err
 	}
 	if top >= 0 && len(result) > top {

@@ -64,6 +64,12 @@ It asks for the base URL (unless you pass `--base-url`), then an alias to save t
 
 The CLI verifies the token against the API before saving it, then reports the authenticated user. By default the credentials are saved and the new instance becomes active.
 
+The token in the command output is masked in every output format, including JSON. Pass `--show-token` to print it in full, for example to hand a new token to a CI secret store:
+
+```Shell
+youtrack auth login --base-url https://example.youtrack.cloud --save=false --json --show-token | jq -r .token
+```
+
 > `auth login` always prompts for the base URL even when `YOUTRACK_BASE_URL` is set, because it is used to set up new instances. Pass `--base-url` to skip the prompt in non-interactive setups.
 >
 {style="note"}
@@ -396,7 +402,7 @@ Credentials saved by `auth login`, `instance add`, `instance login`, and `auth r
 - Windows Credential Manager
 - Linux Secret Service, including GNOME Keyring and KWallet
 
-The keyring service is `youtrack-cli`, keyed by instance alias. For an OAuth session, the refresh token is stored under the account `<alias>/refresh-token`. The config file at `~/.youtrack-cli-config.json` then contains the instance URL and non-secret metadata but no token. Removing an instance with `instance delete` or logging out with `auth logout` deletes its keyring entry as well.
+The keyring service is `youtrack-cli`, keyed by instance alias. For an OAuth session, the refresh token is stored under the account `<alias>/refresh-token`. A second entry under the service `youtrack-cli-url`, with the same alias, records the instance URL the token belongs to; the CLI sends the token only to that URL. The config file at `~/.youtrack-cli-config.json` then contains the instance URL and non-secret metadata but no token. Removing an instance with `instance delete` or logging out with `auth logout` deletes all its keyring entries as well.
 
 If the keyring is unavailable, for example in a headless container or with a locked keychain, the CLI falls back to writing the tokens to the config file with mode `0600` and prints a warning to stderr. Every write goes to a new temporary file that is renamed into place, so a crash can't leave a half-written file. If the file system can't restrict the file to its owner, the CLI refuses to write tokens there. Existing file-stored tokens migrate to the keyring on a later successful save. Set `YOUTRACK_DISABLE_KEYRING=1` to request file storage explicitly.
 

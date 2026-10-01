@@ -69,7 +69,7 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 		}
 		if token == "" {
 			token = inst.Token
-			savedTokenAlias, savedTokenURL = serverAlias, inst.URL
+			savedTokenAlias, savedTokenURL = serverAlias, inst.TokenURL()
 			if token != "" {
 				savedInst, src = &inst, CredentialSource{Kind: "profile", Alias: serverAlias}
 			}
@@ -101,7 +101,7 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 				}
 				if token == "" {
 					token = inst.Token
-					savedTokenAlias, savedTokenURL = alias, inst.URL
+					savedTokenAlias, savedTokenURL = alias, inst.TokenURL()
 					if token != "" {
 						savedInst, src = inst, CredentialSource{Kind: "profile", Alias: alias}
 					}
@@ -164,6 +164,19 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 	return c, src, nil
 }
 
+// RequireTokenURL refuses to sign in again for a saved profile whose config-file URL has another origin than the URL its keyring token is bound to.
+// Renewing would send the password or a browser sign-in to a host set by whoever edited the config file, and bind the new token to it.
+func RequireTokenURL(alias string, inst *config.Instance) error {
+	tokenURL := inst.TokenURL()
+	if tokenURL == inst.URL || sameOrigin(inst.URL, tokenURL) {
+		return nil
+	}
+	return fmt.Errorf(
+		"refusing to sign in for %q: the config file URL %s differs from %s, the URL its saved token was issued for — check ~/.youtrack-cli-config.json; to sign in to %s on purpose, run: youtrack instance delete %s, then youtrack instance add",
+		alias, inst.URL, tokenURL, inst.URL, alias,
+	)
+}
+
 // sameOrigin reports whether two instance URLs share scheme, host and port (default ports normalized); unparsable or host-less URLs never match.
 func sameOrigin(a, b string) bool {
 	ua, errA := url.Parse(strings.TrimSpace(a))
@@ -214,7 +227,7 @@ func expandFields(fields string) string {
 		"draftOwner": "draftOwner(id,login,fullName)",
 		"project":    "project(id,shortName,name)",
 	}
-	parts := splitFieldsInternal(fields)
+	parts := SplitFields(fields)
 	for i, p := range parts {
 		// Only expand bare names (no sub-field spec already present).
 		if expanded, ok := defaults[p]; ok {
@@ -224,9 +237,10 @@ func expandFields(fields string) string {
 	return strings.Join(parts, ",")
 }
 
-// splitFieldsInternal is a copy of the output package's splitFields kept here
-// to avoid a cross-package import cycle. Both must stay in sync.
-func splitFieldsInternal(s string) []string {
+// SplitFields splits a comma-separated field spec while respecting nested
+// parentheses, so "id,comments(id,text),summary" yields three entries rather than four.
+// It serves both the request side (expandFields) and the output projection.
+func SplitFields(s string) []string {
 	var parts []string
 	depth, start := 0, 0
 	for i := 0; i < len(s); i++ {

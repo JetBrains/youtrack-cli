@@ -29,6 +29,10 @@ type Instance struct {
 
 	// tokenInKeyring marks the token as keyring-stored so Save omits it from the file.
 	tokenInKeyring bool
+	// tokenURLMissing marks a keyring token that has no URL entry, because an older version saved it, so Save binds it to the current URL.
+	tokenURLMissing bool
+	// tokenURL is the instance URL stored for the token in the keyring; empty for file tokens and for keyring tokens without a readable URL entry.
+	tokenURL string
 	// AuthMethod records how the token was obtained ("oauth" for browser SSO; empty for permanent tokens).
 	AuthMethod string `json:"authMethod,omitempty"`
 	// TokenExpiresAt is the unix timestamp after which the token expires; zero means never (permanent token).
@@ -96,14 +100,21 @@ func Load() (*Config, error) {
 	for alias := range c.Instances {
 		inst := c.Instances[alias]
 		if inst.Token == "" {
-			if tok, err := keyringGet(alias); err == nil && tok != "" {
+			if tok, err := keyringGet(keyringService, alias); err == nil && tok != "" {
 				inst.Token = tok
 				inst.tokenInKeyring = true
+				// Only a confirmed missing URL entry is bound later; a failed read leaves the token bound to the file URL without rebinding it.
+				switch u, err := keyringGet(keyringURLService, alias); {
+				case err == nil && u != "":
+					inst.tokenURL = u
+				case err == nil || errors.Is(err, errKeyringNotFound):
+					inst.tokenURLMissing = true
+				}
 			}
 		}
 		// Only OAuth sessions have refresh tokens; skip the keyring round trip for permanent-token instances.
 		if inst.AuthMethod == AuthMethodOAuth && inst.RefreshToken == "" {
-			if tok, err := keyringGet(refreshKeyringUser(alias)); err == nil && tok != "" {
+			if tok, err := keyringGet(keyringService, refreshKeyringUser(alias)); err == nil && tok != "" {
 				inst.RefreshToken = tok
 				inst.refreshTokenInKeyring = true
 			}
@@ -123,10 +134,18 @@ func (c *Config) Save() error {
 	}
 	for alias := range c.Instances {
 		inst := c.Instances[alias]
-		if inst.Token != "" && !inst.tokenInKeyring && keyringSet(alias, inst.Token) == nil {
-			inst.tokenInKeyring = true
+		switch keyringWriteFor(&inst) {
+		case keyringWriteToken:
+			// The URL goes first, so the keyring never holds a new token without its URL; on any failure the token stays in the file.
+			if keyringSet(keyringURLService, alias, inst.URL) == nil && keyringSet(keyringService, alias, inst.Token) == nil {
+				inst.tokenInKeyring, inst.tokenURLMissing, inst.tokenURL = true, false, inst.URL
+			}
+		case keyringWriteURL:
+			if keyringSet(keyringURLService, alias, inst.URL) == nil {
+				inst.tokenURLMissing, inst.tokenURL = false, inst.URL
+			}
 		}
-		if inst.RefreshToken != "" && !inst.refreshTokenInKeyring && keyringSet(refreshKeyringUser(alias), inst.RefreshToken) == nil {
+		if inst.RefreshToken != "" && !inst.refreshTokenInKeyring && keyringSet(keyringService, refreshKeyringUser(alias), inst.RefreshToken) == nil {
 			inst.refreshTokenInKeyring = true
 		}
 		c.Instances[alias] = inst
@@ -191,6 +210,30 @@ func writeFileAtomic(path string, data []byte, secret bool) error {
 	return nil
 }
 
+// keyringWrite is what Save must write to the keyring for one instance.
+type keyringWrite int
+
+const (
+	keyringWriteNone  keyringWrite = iota
+	keyringWriteToken              // a file or newly added token: store the token and its URL
+	keyringWriteURL                // a keyring token saved by an older version: add its URL entry
+)
+
+// keyringWriteFor decides what Save writes for inst. A keyring token that already has a URL is never rewritten:
+// binding it to the URL in the config file again would trust an edited file.
+func keyringWriteFor(inst *Instance) keyringWrite {
+	switch {
+	case inst.Token == "":
+		return keyringWriteNone
+	case !inst.tokenInKeyring:
+		return keyringWriteToken
+	case inst.tokenURLMissing:
+		return keyringWriteURL
+	default:
+		return keyringWriteNone
+	}
+}
+
 // fileView returns a copy of the config with keyring-stored tokens omitted.
 func (c *Config) fileView() Config {
 	out := *c
@@ -221,6 +264,14 @@ func (c Config) holdsSecrets() bool {
 // RefreshTokenInKeyring reports whether the refresh token for alias is stored in the OS keyring.
 func (c *Config) RefreshTokenInKeyring(alias string) bool {
 	return c.Instances[alias].refreshTokenInKeyring
+}
+
+// TokenURL returns the URL the token is bound to: the URL saved for it in the keyring, else the URL from the config file.
+func (i *Instance) TokenURL() string {
+	if i.tokenURL != "" {
+		return i.tokenURL
+	}
+	return i.URL
 }
 
 // TokenInKeyring reports whether the token for alias is stored in the OS keyring.
@@ -292,7 +343,7 @@ func (c *Config) ClearOAuthTokens(alias string) {
 		return
 	}
 	inst.Token, inst.RefreshToken, inst.TokenExpiresAt = "", "", 0
-	inst.tokenInKeyring, inst.refreshTokenInKeyring = false, false
+	inst.tokenInKeyring, inst.refreshTokenInKeyring, inst.tokenURLMissing, inst.tokenURL = false, false, false, ""
 	c.Instances[alias] = inst
 }
 
@@ -324,16 +375,20 @@ func (c *Config) RemoveInstance(alias string) error {
 	return nil
 }
 
-// PurgeKeyringToken deletes the keyring entries (access and refresh token) for alias; call only after a successful Save().
+// PurgeKeyringToken deletes the keyring entries (access token, its URL, refresh token) for alias; call only after a successful Save().
 // A missing entry or a disabled keyring is not an error.
 func PurgeKeyringToken(alias string) error {
 	var errs []error
-	for _, user := range []string{alias, refreshKeyringUser(alias)} {
-		err := keyringDelete(user)
+	for _, e := range []struct{ service, user string }{
+		{keyringService, alias},
+		{keyringURLService, alias},
+		{keyringService, refreshKeyringUser(alias)},
+	} {
+		err := keyringDelete(e.service, e.user)
 		if err == nil || errors.Is(err, errKeyringDisabled) || errors.Is(err, errKeyringNotFound) {
 			continue
 		}
-		errs = append(errs, fmt.Errorf("could not remove the token for %q from the OS keyring: %w — remove the %q entry for service %q manually", alias, err, user, keyringService))
+		errs = append(errs, fmt.Errorf("could not remove the token for %q from the OS keyring: %w — remove the %q entry for service %q manually", alias, err, e.user, e.service))
 	}
 	return errors.Join(errs...)
 }
@@ -365,5 +420,5 @@ func DeriveAlias(rawURL string) string {
 
 // PurgeKeyringRefreshToken deletes only the refresh-token keyring entry for alias, e.g. after a re-login that yielded no refresh token.
 func PurgeKeyringRefreshToken(alias string) {
-	_ = keyringDelete(refreshKeyringUser(alias))
+	_ = keyringDelete(keyringService, refreshKeyringUser(alias))
 }
