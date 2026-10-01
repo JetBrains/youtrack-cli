@@ -23,7 +23,7 @@ Tokens saved via `auth login`, `instance add`, or `auth refresh-token` are store
 - **Windows** — Credential Manager
 - **Linux** — Secret Service (GNOME Keyring, KWallet, etc. via D-Bus)
 
-Each token is stored under the service name `youtrack-cli` with the instance alias as the account. The keyring entry holds the token together with the instance URL. The config file (`~/.youtrack-cli-config.json`) then contains only the instance URL — no secret.
+Each token is stored under the service name `youtrack-cli` with the instance alias as the account. A second entry, under the service name `youtrack-cli-url` with the same account, holds the instance URL that the token was saved for. The token entry keeps only the token, so older CLI versions can still read it after a downgrade. The config file (`~/.youtrack-cli-config.json`) then contains only the instance URL — no secret.
 
 The keyring does not protect the token from other processes that run as the same user. On macOS, the keyring library reads the Keychain through `/usr/bin/security`, so any process of your user can read the token without a prompt. An AI agent with shell access can read it too. Give an agent only the access that the token gives your account.
 
@@ -37,7 +37,7 @@ To opt out of keyring storage entirely (e.g. for deterministic CI setups), set:
 export YOUTRACK_DISABLE_KEYRING=1
 ```
 
-A saved token is bound to the origin (scheme, host, and port) of the instance it was saved for. For a keyring token, the CLI compares against the URL in the keyring entry, not the URL in the config file, so a process that can edit only the config file cannot point the token at another host. When `--base-url`, `YOUTRACK_BASE_URL`, or the config file points at a different origin and no explicit token is supplied, the CLI refuses to run instead of sending the saved token to that host. A keyring entry saved without a URL gets the config-file URL the next time the config is written. A token in the config file (no keyring) is bound to the URL in the same file, so the file is the only protection.
+A saved token is bound to the origin (scheme, host, and port) of the instance it was saved for. For a keyring token, the CLI compares against the URL in the `youtrack-cli-url` keyring entry, not the URL in the config file, so a process that can edit only the config file cannot point the token at another host. When `--base-url`, `YOUTRACK_BASE_URL`, or the config file points at a different origin and no explicit token is supplied, the CLI refuses to run instead of sending the saved token to that host. A keyring token saved by an older version, without a `youtrack-cli-url` entry, gets the config-file URL the next time the config is written. A token in the config file (no keyring) is bound to the URL in the same file, so the file is the only protection.
 
 When the server answers with a redirect to a different scheme, host, or port, the CLI follows it without the `Authorization` header. This includes a redirect from `https` to `http` on the same host and a redirect to a subdomain. A redirect from `http` to `https` on the same host keeps the header, so an `http://` instance URL behind a proxy that redirects to `https` keeps working. Default ports count as equal to no port: `https://host` and `https://host:443` are the same origin.
 

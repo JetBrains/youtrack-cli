@@ -359,7 +359,7 @@ Credentials saved by `auth login`, `instance add`, `instance login`, and `auth r
 - Windows Credential Manager
 - Linux Secret Service, including GNOME Keyring and KWallet
 
-The keyring service is `youtrack-cli`, keyed by instance alias. The config file at `~/.youtrack-cli-config.json` then contains the instance URL and non-secret metadata but no token. Removing an instance with `instance delete` or logging out with `auth logout` deletes its keyring entry as well.
+The keyring service is `youtrack-cli`, keyed by instance alias. A second entry under the service `youtrack-cli-url`, with the same alias, records the instance URL the token belongs to; the CLI sends the token only to that URL. The config file at `~/.youtrack-cli-config.json` then contains the instance URL and non-secret metadata but no token. Removing an instance with `instance delete` or logging out with `auth logout` deletes both keyring entries as well.
 
 If the keyring is unavailable, for example in a headless container or with a locked keychain, the CLI falls back to writing the token to the config file with mode `0600` and prints a warning to stderr. Existing file-stored tokens migrate to the keyring on a later successful save. Set `YOUTRACK_DISABLE_KEYRING=1` to request file storage explicitly.
 
