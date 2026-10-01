@@ -377,16 +377,17 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 func saveCredentials(cmd *cobra.Command, _ *bufio.Reader, baseURL, token string, res *getTokenResult) (string, error) {
 	alias, _ := cmd.Flags().GetString("alias")
 
-	cfg, err := config.Load()
+	var cfg *config.Config
+	var finalAlias string
+	err := config.Update(cmd.Context(), func(c *config.Config) error {
+		cfg = c
+		finalAlias = c.AddInstance(alias, baseURL, token)
+		if c.CurrentInstance == "" {
+			c.CurrentInstance = finalAlias
+		}
+		return nil
+	})
 	if err != nil {
-		return "", err
-	}
-
-	finalAlias := cfg.AddInstance(alias, baseURL, token)
-	if cfg.CurrentInstance == "" {
-		cfg.CurrentInstance = finalAlias
-	}
-	if err := cfg.Save(); err != nil {
 		return "", fmt.Errorf("saving config: %w", err)
 	}
 

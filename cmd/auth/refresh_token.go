@@ -91,9 +91,17 @@ Use --json for machine-readable output.`,
 				return fmt.Errorf("invalid choice %q: enter 1, 2, or 3", strings.TrimSpace(choiceRaw))
 			}
 
-			// Upsert in-place: same alias + same URL = token update, no alias collision.
-			cfg.AddInstance(alias, inst.URL, token)
-			if err := cfg.Save(); err != nil {
+			// Upsert in-place: same alias + same URL = token update, no alias collision. The prompts above run
+			// unlocked; the write re-reads the config under the lock so it cannot overwrite a concurrent change.
+			err = config.Update(cmd.Context(), func(fresh *config.Config) error {
+				cfg = fresh
+				if cur, ok := fresh.Instances[alias]; !ok || cur.URL != inst.URL {
+					return fmt.Errorf("instance %q was removed or changed by another youtrack process — re-run the command", alias)
+				}
+				fresh.AddInstance(alias, inst.URL, token)
+				return nil
+			})
+			if err != nil {
 				return fmt.Errorf("saving config: %w", err)
 			}
 			path, _ := config.ConfigPath()

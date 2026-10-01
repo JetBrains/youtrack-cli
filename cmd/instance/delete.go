@@ -29,14 +29,19 @@ func newDeleteCmd() *cobra.Command {
 			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete instance %q (%s)?", alias, inst.URL)); abort {
 				return err
 			}
-			wasActive := cfg.CurrentInstance == alias
-			if err := cfg.RemoveInstance(alias); err != nil {
-				return err
-			}
-			if wasActive {
-				cfg.CurrentInstance = ""
-			}
-			if err := cfg.Save(); err != nil {
+			// The prompt runs unlocked; the removal re-reads the config under the lock so it cannot drop a concurrent refresh.
+			wasActive := false
+			err = config.Update(cmd.Context(), func(cfg *config.Config) error {
+				wasActive = cfg.CurrentInstance == alias
+				if err := cfg.RemoveInstance(alias); err != nil {
+					return err
+				}
+				if wasActive {
+					cfg.CurrentInstance = ""
+				}
+				return nil
+			})
+			if err != nil {
 				return err
 			}
 			if err := config.PurgeKeyringToken(alias); err != nil {

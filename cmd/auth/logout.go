@@ -80,20 +80,30 @@ Use --json for machine-readable output.`,
 				}
 				return output.Print(cmd, res)
 			}
-			revoked := revokeOAuthSession(cmd, targetAlias, &inst)
-			wasActive := cfg.CurrentInstance == targetAlias
-			if err := cfg.RemoveInstance(targetAlias); err != nil {
-				return err
-			}
-			if wasActive {
-				cfg.CurrentInstance = ""
-			}
-			if err := cfg.Save(); err != nil {
+			// Remove under the config lock on a fresh load, so a concurrent refresh cannot resurrect the session
+			// and the tokens revoked below are the latest ones (a refresh may have rotated them since the prompt).
+			err = config.Update(cmd.Context(), func(fresh *config.Config) error {
+				cur, ok := fresh.Instances[targetAlias]
+				if !ok {
+					return fmt.Errorf("instance %q was removed by another youtrack process", targetAlias)
+				}
+				inst = cur
+				if err := fresh.RemoveInstance(targetAlias); err != nil {
+					return err
+				}
+				if fresh.CurrentInstance == targetAlias {
+					fresh.CurrentInstance = ""
+				}
+				return nil
+			})
+			if err != nil {
 				return err
 			}
 			if err := config.PurgeKeyringToken(targetAlias); err != nil {
 				output.PrintWarn(cmd, err.Error())
 			}
+			// Revocation runs outside the lock: it is a network call, and the credentials are already gone locally.
+			revoked := revokeOAuthSession(cmd, targetAlias, &inst)
 			res := LogoutResult{URL: inst.URL, Status: "logged out", Revoked: revoked}
 			if !jsonOutput(cmd) {
 				output.PrintSuccess(cmd, "logged out from "+inst.URL)
@@ -125,7 +135,7 @@ func revokeOAuthSession(cmd *cobra.Command, alias string, inst *config.Instance)
 			continue
 		}
 		if err := api.RevokeOAuthTokenContext(ctx, inst.RevocationEndpoint, inst.ClientID, t.token, t.hint); err != nil {
-			output.PrintWarn(cmd, fmt.Sprintf("could not revoke the %s for %q at Hub (%v) — removing it locally anyway", strings.ReplaceAll(t.hint, "_", " "), alias, err))
+			output.PrintWarn(cmd, fmt.Sprintf("could not revoke the %s for %q at Hub (%v) — it was removed locally", strings.ReplaceAll(t.hint, "_", " "), alias, err))
 			continue
 		}
 		if t.hint == "refresh_token" || inst.RefreshToken == "" {
