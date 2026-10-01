@@ -15,7 +15,8 @@ const issueDetailFields = issueFields + ",customFields(name,value(name,login,tex
 
 // issueCustomFieldValues fetches custom fields with the sub-fields that identify each value type: enum/state/version/build
 // (name), user (login, fullName), text (text), period (presentation); number and date values are scalars.
-const issueCustomFieldValues = "customFields(name,value(name,login,fullName,text,presentation))"
+// projectCustomField.emptyFieldText is what the UI shows for an unset value ("Unassigned", "No Fix versions").
+const issueCustomFieldValues = "customFields(name,value(name,login,fullName,text,presentation),projectCustomField(emptyFieldText))"
 const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,visibility"
 const draftFields = "id,summary,description,created,fields(id,name,$type)"
 

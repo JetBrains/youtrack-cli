@@ -10,6 +10,8 @@ func TestCustomFieldCell(t *testing.T) {
 	}{
 		{"missing field is empty", nil, ""},
 		{"unset value is empty", map[string]any{"value": nil}, ""},
+		{"unset value shows empty field text", map[string]any{"value": nil, "projectCustomField": map[string]any{"emptyFieldText": "Unassigned"}}, "Unassigned"},
+		{"empty multi-value shows empty field text", map[string]any{"value": []any{}, "projectCustomField": map[string]any{"emptyFieldText": "No Fix versions"}}, "No Fix versions"},
 		{"enum shows name", map[string]any{"value": map[string]any{"name": "Critical", "$type": "EnumBundleElement"}}, "Critical"},
 		{"user shows login", map[string]any{"value": map[string]any{"login": "jane", "fullName": "Jane Doe", "name": "Jane Doe"}}, "jane"},
 		{"text shows text", map[string]any{"value": map[string]any{"text": "notes", "$type": "TextFieldValue"}}, "notes"},
