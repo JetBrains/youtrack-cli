@@ -295,18 +295,19 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 			time.Unix(expiresAt, 0).Format("15:04"))
 	}
 
+	// Every format masks the token unless --show-token is set, as writeTokenResult does for the permanent-token flows.
+	result.Token = revealToken(cmd, result.Token)
 	// "table" is the human mode; --json/--plain and non-TTY stdout resolve to a structured format that must go through output.Print for scripts.
 	if output.Format(cmd) == "table" {
 		w := cmd.OutOrStdout()
 		_, _ = fmt.Fprintf(w, "Signed in as %s (%s)\n", result.Name, result.Login)
-		_, _ = fmt.Fprintf(w, "  Token:  %s\n", maskToken(result.Token))
+		_, _ = fmt.Fprintf(w, "  Token:  %s\n", result.Token)
 		if result.ConfigFile != "" {
 			_, _ = fmt.Fprintf(w, "  Saved:  %s\n", result.ConfigFile)
 		}
 		_, _ = fmt.Fprintf(w, "\n%s\n", result.Hint)
 		return nil
 	}
-	result.Token = revealToken(cmd, result.Token)
 	return output.Print(cmd, result)
 }
 

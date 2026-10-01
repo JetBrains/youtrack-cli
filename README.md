@@ -76,6 +76,8 @@ Authenticate once and the CLI remembers the instance:
 youtrack instance add
 ```
 
+Auth commands mask the token in their output, JSON included. Pass `--show-token` when a script needs the full value, for example `youtrack auth login --save=false --json --show-token | jq -r .token`.
+
 Then:
 
 ```bash

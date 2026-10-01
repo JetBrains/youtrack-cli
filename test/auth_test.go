@@ -305,6 +305,17 @@ func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
 	assert.Contains(t, out, "****")        // token is masked in human output
 	assert.NotContains(t, out, token)      // full token must not appear
 	assert.NotContains(t, out, `"token":`) // must not be JSON
+
+	// --show-token reveals the token in human output too, as it does in JSON.
+	out = runCmdWithInput(t, "3\n"+token+"\n",
+		"--plain",
+		"--base-url", baseURL,
+		"auth", "get-token",
+		"--show-token",
+		"--save=false",
+	)
+	assert.Contains(t, out, "  Token:  "+token+"\n")
+	assert.NotContains(t, out, "****")
 }
 
 func TestAuth_Logout_NotConfigured(t *testing.T) {

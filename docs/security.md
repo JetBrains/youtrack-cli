@@ -41,7 +41,7 @@ A saved token is bound to the origin (scheme, host, and port) of the instance it
 
 When the server answers with a redirect to a different scheme, host, or port, the CLI follows it without the `Authorization` header. This includes a redirect from `https` to `http` on the same host and a redirect to a subdomain. A redirect from `http` to `https` on the same host keeps the header, so an `http://` instance URL behind a proxy that redirects to `https` keeps working. Default ports count as equal to no port: `https://host` and `https://host:443` are the same origin.
 
-`auth login`, `auth refresh-token`, `instance add`, `instance refresh-token`, and `instance login` mask the token in all output formats, including the JSON that the CLI selects automatically when stdout is not a terminal. To print the full token in JSON output, pass `--show-token`.
+`auth login`, `auth refresh-token`, `instance add`, `instance refresh-token`, and `instance login` mask the token in every output format (table, plain, and JSON), including the JSON that the CLI selects automatically when stdout is not a terminal. To print the full token, pass `--show-token`; it works the same way in every format. Scripts that read the token from the output, for example `youtrack auth login --save=false --json | jq -r .token`, must add `--show-token`: without it they now get the masked value.
 
 When the instance URL uses plain `http` and the host is not a loopback address (`localhost`, `127.0.0.1`, `::1`), every command prints a warning to stderr: the token goes over the network unencrypted. Basic auth (`auth get-token`, `auth refresh-token`, `instance add`, `instance refresh-token`) refuses to send a password over such a URL unless you pass `--insecure`.
 

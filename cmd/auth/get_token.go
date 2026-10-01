@@ -17,7 +17,7 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
-const showTokenUsage = "Print the full token in JSON output (masked by default)"
+const showTokenUsage = "Print the full token instead of the masked form, in every output format"
 
 type getTokenResult struct {
 	*api.HubToken
@@ -275,16 +275,16 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 	return writeTokenResult(cmd, res)
 }
 
-// writeTokenResult prints res in the resolved output format; structured output masks the token unless --show-token is set, because it usually feeds scripts and agents whose logs must not keep the secret.
+// writeTokenResult prints res in the resolved output format. Every format masks the token unless --show-token is set, because the output usually feeds terminals, scripts, and agents whose logs must not keep the secret.
 func writeTokenResult(cmd *cobra.Command, res getTokenResult) error {
-	if !jsonOutput(cmd) {
-		printTokenResult(cmd, res)
-		return nil
-	}
 	if res.HubToken != nil {
 		tok := *res.HubToken
 		tok.Token = revealToken(cmd, tok.Token)
 		res.HubToken = &tok
+	}
+	if !jsonOutput(cmd) {
+		printTokenResult(cmd, res)
+		return nil
 	}
 	return output.Print(cmd, res)
 }
@@ -297,7 +297,7 @@ func revealToken(cmd *cobra.Command, token string) string {
 	return maskToken(token)
 }
 
-// printTokenResult writes a human-readable summary of a successful get-token result.
+// printTokenResult writes a human-readable summary of a successful get-token result; res.Token is already masked or revealed by writeTokenResult.
 func printTokenResult(cmd *cobra.Command, res getTokenResult) {
 	w := cmd.OutOrStdout()
 	name := "token"
@@ -306,7 +306,7 @@ func printTokenResult(cmd *cobra.Command, res getTokenResult) {
 	}
 	_, _ = fmt.Fprintf(w, "Token ready: %s\n", name)
 	if res.HubToken != nil && res.Token != "" {
-		_, _ = fmt.Fprintf(w, "  Token:  %s\n", maskToken(res.Token))
+		_, _ = fmt.Fprintf(w, "  Token:  %s\n", res.Token)
 	}
 	if res.ConfigFile != "" {
 		_, _ = fmt.Fprintf(w, "  Saved:  %s\n", res.ConfigFile)
