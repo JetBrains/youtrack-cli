@@ -131,7 +131,7 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 		// A saved OAuth session whose refresh failed has its tokens cleared; point at re-login rather than YOUTRACK_TOKEN.
 		if savedTokenAlias != "" {
 			if cfg, err := config.Load(); err == nil && cfg.Instances[savedTokenAlias].AuthMethod == config.AuthMethodOAuth {
-				return nil, src, sessionExpiredError(savedTokenAlias)
+				return nil, CredentialSource{Kind: "profile", Alias: savedTokenAlias}, sessionExpiredError(savedTokenAlias)
 			}
 		}
 		return nil, src, fmt.Errorf(

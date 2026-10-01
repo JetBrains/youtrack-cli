@@ -81,6 +81,8 @@ Use --json for machine-readable output.`,
 					URL:    baseURL,
 					Status: fmt.Sprintf("not configured: %s", err.Error()),
 				}
+				// A saved OAuth session whose tokens were cleared still names its profile.
+				describeSource(&s, src)
 				if !jsonOutput(cmd) {
 					printAuthStatus(cmd, &s)
 					return nil
@@ -93,6 +95,8 @@ Use --json for machine-readable output.`,
 					URL:    client.BaseURL,
 					Status: fmt.Sprintf("invalid token: %s", err.Error()),
 				}
+				// Keep the source and session metadata: a rejected refresh (invalid_grant) clears the tokens, not the profile.
+				describeSource(&s, src)
 				if !jsonOutput(cmd) {
 					printAuthStatus(cmd, &s)
 					return nil
@@ -116,7 +120,11 @@ Use --json for machine-readable output.`,
 }
 
 // describeSource fills the auth-method fields; for a saved profile the config is re-read so a refresh done by this very check is reflected.
+// An unknown source (no token was resolved) leaves them empty.
 func describeSource(s *AuthStatus, src internal.CredentialSource) {
+	if src.Kind == "" {
+		return
+	}
 	s.Source, s.Alias, s.AuthMethod = src.Kind, src.Alias, "token"
 	if src.Kind != "profile" {
 		return
@@ -159,6 +167,9 @@ func printAuthStatus(cmd *cobra.Command, s *AuthStatus) {
 	case strings.HasPrefix(s.Status, "invalid token"):
 		_, _ = fmt.Fprintf(w, "%s Token invalid\n", color.New(color.FgRed).Sprint("✗"))
 		_, _ = fmt.Fprintf(w, "  URL:   %s\n", s.URL)
+		if s.AuthMethod != "" {
+			_, _ = fmt.Fprintf(w, "  Auth:  %s\n", describeAuth(s.AuthMethod, s.Source, s.Alias, s.ExpiresAt, s.HasRefreshToken))
+		}
 		_, _ = fmt.Fprintf(w, "  Error: %s\n", output.Sanitize(strings.TrimPrefix(s.Status, "invalid token: ")))
 	default:
 		_, _ = fmt.Fprintf(w, "%s Not configured\n", color.New(color.FgYellow).Sprint("!"))

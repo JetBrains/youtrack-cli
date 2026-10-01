@@ -53,6 +53,7 @@ type fakeHub struct {
 	tokenDelay      time.Duration // slows the token endpoint to widen race windows
 	advertiseRevoke bool
 	revokeStatus    int
+	revokeFailHint  string // when set, revoking a token with this token_type_hint fails with HTTP 500
 }
 
 func newFakeHub(t *testing.T) *fakeHub {
@@ -107,8 +108,13 @@ func (h *fakeHub) serve(w http.ResponseWriter, r *http.Request) {
 	case "/hub/api/rest/oauth2/revoke":
 		_ = r.ParseForm()
 		h.mu.Lock()
-		h.revoked = append(h.revoked, r.PostForm.Get("token_type_hint"))
+		hint := r.PostForm.Get("token_type_hint")
+		h.revoked = append(h.revoked, hint)
 		h.mu.Unlock()
+		if h.revokeFailHint != "" && hint == h.revokeFailHint {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
 		w.WriteHeader(h.revokeStatus)
 	case "/api/users/me":
 		auth := r.Header.Get("Authorization")
@@ -710,6 +716,7 @@ func TestOAuthLogout_RevokesBestEffort(t *testing.T) {
 			var res map[string]any
 			require.NoError(t, json.Unmarshal(stdout.Bytes(), &res))
 			assert.Equal(t, "logged out", res["status"])
+			assert.Equal(t, status == http.StatusOK, res["revoked"] == true)
 			hub.mu.Lock()
 			assert.Equal(t, []string{"refresh_token", "access_token"}, hub.revoked)
 			hub.mu.Unlock()
@@ -735,4 +742,60 @@ func TestOAuthInstanceList_RefreshesExpiringSession(t *testing.T) {
 	require.Len(t, items, 1)
 	assert.Equal(t, "authenticated", items[0]["status"], "an expired OAuth session is refreshed, not reported unavailable")
 	assert.EqualValues(t, 1, hub.refreshCalls.Load())
+}
+
+func TestOAuthLogout_RevokedOnlyWhenRefreshTokenRevoked(t *testing.T) {
+	for _, tc := range []struct {
+		failHint    string
+		wantRevoked bool
+	}{
+		{failHint: "refresh_token", wantRevoked: false}, // the surviving refresh token could still mint access tokens
+		{failHint: "access_token", wantRevoked: true},   // revoking the refresh token ends the grant
+	} {
+		t.Run("fail "+tc.failHint, func(t *testing.T) {
+			hub := newFakeHub(t)
+			hub.revokeFailHint = tc.failHint
+			home := t.TempDir()
+			hub.seedSession(t, home, time.Now().Unix()+3600)
+
+			cmd := exec.Command(binaryPath, "--json", "auth", "logout", "--force")
+			cmd.Env = isolatedEnv(home)
+			var stdout, stderr bytes.Buffer
+			cmd.Stdout, cmd.Stderr = &stdout, &stderr
+			require.NoError(t, cmd.Run(), "stderr: %s", stderr.String())
+
+			var res map[string]any
+			require.NoError(t, json.Unmarshal(stdout.Bytes(), &res))
+			assert.Equal(t, tc.wantRevoked, res["revoked"] == true, "output: %s", stdout.String())
+			assert.Contains(t, stderr.String(), "could not revoke the "+strings.ReplaceAll(tc.failHint, "_", " "))
+			assert.Empty(t, readConfig(t, home)["instances"], "credentials removed")
+		})
+	}
+}
+
+func TestOAuthStatus_FailedCheckKeepsSessionMetadata(t *testing.T) {
+	hub := newFakeHub(t)
+	home := t.TempDir()
+	_, refresh := hub.seedSession(t, home, time.Now().Unix()-10)
+	hub.mu.Lock()
+	delete(hub.validRefresh, refresh) // revoked at Hub: the check's refresh gets invalid_grant
+	hub.mu.Unlock()
+
+	// First check: the refresh is rejected while checking. Second check: the cleared profile is reported as such.
+	for _, wantPrefix := range []string{"invalid token: ", "not configured: "} {
+		cmd := exec.Command(binaryPath, "--json", "--server", "fake", "auth", "status")
+		cmd.Env = isolatedEnv(home)
+		out, err := cmd.Output()
+		require.NoError(t, err)
+		var s map[string]any
+		require.NoError(t, json.Unmarshal(out, &s), "output: %s", out)
+		assert.True(t, strings.HasPrefix(s["status"].(string), wantPrefix), "status: %v", s["status"])
+		assert.Contains(t, s["status"], "youtrack instance login fake")
+		assert.Equal(t, "profile", s["source"])
+		assert.Equal(t, "fake", s["alias"])
+		assert.Equal(t, "oauth", s["authMethod"])
+		assert.Equal(t, false, s["hasRefreshToken"])
+		assert.NotContains(t, string(out), refresh)
+	}
+	assert.EqualValues(t, 1, hub.refreshCalls.Load(), "the dead grant is not retried")
 }
