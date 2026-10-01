@@ -12,7 +12,6 @@ import (
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
-	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
 // NewRefreshTokenCmd constructs the "refresh-token" command. Exported so
@@ -105,11 +104,7 @@ Use --json for machine-readable output.`,
 				ConfigFile: path,
 				Hint:       fmt.Sprintf("Token updated for %q.", alias),
 			}
-			if !jsonOutput(cmd) {
-				printTokenResult(cmd, res)
-				return nil
-			}
-			return output.Print(cmd, res)
+			return writeTokenResult(cmd, res)
 		},
 	}
 	cmd.Flags().String("login", "", "Hub login (basic auth; prompted interactively if omitted)")
@@ -117,6 +112,7 @@ Use --json for machine-readable output.`,
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
+	cmd.Flags().Bool("show-token", false, showTokenUsage)
 	return cmd
 }
 

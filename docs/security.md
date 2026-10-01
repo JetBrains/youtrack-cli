@@ -37,6 +37,8 @@ export YOUTRACK_DISABLE_KEYRING=1
 
 A saved token is bound to the origin (scheme, host, and port) of the instance it was saved for. When `--base-url` or `YOUTRACK_BASE_URL` points at a different origin and no explicit token is supplied, the CLI refuses to run instead of sending the saved token to that host — so a caller who can change only the URL cannot redirect a stored credential.
 
+`auth login`, `auth refresh-token`, `instance add`, `instance refresh-token`, and `instance login` mask the token in all output formats, including the JSON that the CLI selects automatically when stdout is not a terminal. To print the full token in JSON output, pass `--show-token`.
+
 When the instance URL uses plain `http` and the host is not a loopback address (`localhost`, `127.0.0.1`, `::1`), every command prints a warning to stderr: the token goes over the network unencrypted. Basic auth (`auth get-token`, `auth refresh-token`, `instance add`, `instance refresh-token`) refuses to send a password over such a URL unless you pass `--insecure`.
 
 Environment credentials (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored credentials entirely and are unaffected. Prefer an environment secret over a command-line token in automation, because command-line arguments can appear in shell history and process listings.

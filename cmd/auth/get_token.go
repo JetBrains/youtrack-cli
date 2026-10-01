@@ -17,6 +17,8 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
+const showTokenUsage = "Print the full token in JSON output (masked by default)"
+
 type getTokenResult struct {
 	*api.HubToken
 	ConfigFile string `json:"_configFile,omitempty"`
@@ -120,6 +122,7 @@ Use --json for machine-readable output.`,
 	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
 	cmd.Flags().Bool("save", true, "Save credentials to ~/.youtrack-cli-config.json")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
+	cmd.Flags().Bool("show-token", false, showTokenUsage)
 	return cmd
 }
 
@@ -203,11 +206,7 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 			return err
 		}
 	}
-	if !jsonOutput(cmd) {
-		printTokenResult(cmd, res)
-		return nil
-	}
-	return output.Print(cmd, res)
+	return writeTokenResult(cmd, res)
 }
 
 // runWebFlow handles the browser-based token creation flow.
@@ -273,11 +272,29 @@ func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error 
 			return err
 		}
 	}
+	return writeTokenResult(cmd, res)
+}
+
+// writeTokenResult prints res in the resolved output format; structured output masks the token unless --show-token is set, because it usually feeds scripts and agents whose logs must not keep the secret.
+func writeTokenResult(cmd *cobra.Command, res getTokenResult) error {
 	if !jsonOutput(cmd) {
 		printTokenResult(cmd, res)
 		return nil
 	}
+	if res.HubToken != nil {
+		tok := *res.HubToken
+		tok.Token = revealToken(cmd, tok.Token)
+		res.HubToken = &tok
+	}
 	return output.Print(cmd, res)
+}
+
+// revealToken returns the token in full only when --show-token is set; otherwise it returns the masked form.
+func revealToken(cmd *cobra.Command, token string) string {
+	if show, _ := cmd.Flags().GetBool("show-token"); show {
+		return token
+	}
+	return maskToken(token)
 }
 
 // printTokenResult writes a human-readable summary of a successful get-token result.
@@ -362,11 +379,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 			return err
 		}
 	}
-	if !jsonOutput(cmd) {
-		printTokenResult(cmd, res)
-		return nil
-	}
-	return output.Print(cmd, res)
+	return writeTokenResult(cmd, res)
 }
 
 // saveCredentials persists baseURL + token to ~/.youtrack-cli-config.json.

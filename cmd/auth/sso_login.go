@@ -110,6 +110,7 @@ paste-token flow.`,
 	cmd.Flags().Bool("save", true, "Save credentials to ~/.youtrack-cli-config.json")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().String("scope", "", "Comma-separated extra Hub service IDs to request in addition to the YouTrack service")
+	cmd.Flags().Bool("show-token", false, showTokenUsage)
 	cmd.Flags().Int("port", 0, "Fixed loopback port for the OAuth callback (default: pick a free port)")
 	cmd.Flags().String("client-id", defaultOAuthClientID, "OAuth 2.0 client ID registered in Hub")
 	cmd.Flags().Duration("timeout", browserflow.DefaultTimeout, "How long to wait for the browser callback")
@@ -305,6 +306,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 		_, _ = fmt.Fprintf(w, "\n%s\n", result.Hint)
 		return nil
 	}
+	result.Token = revealToken(cmd, result.Token)
 	return output.Print(cmd, result)
 }
 

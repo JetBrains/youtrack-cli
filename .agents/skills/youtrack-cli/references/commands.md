@@ -11,6 +11,7 @@ youtrack auth refresh-token [<alias>]
 
 Auth methods: (1) basic login+password, (2) web browser, (3) paste token, (4) browser SSO with OAuth 2.0 + PKCE.
 Saved tokens use the OS keyring with a mode-`0600` config fallback. Single-instance automation can use `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`.
+Auth commands mask the token in all output formats; `--show-token` prints it in full in JSON output.
 
 ```bash
 youtrack instance add [--alias <name>] [--save=false]

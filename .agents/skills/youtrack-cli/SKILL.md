@@ -25,6 +25,10 @@ youtrack issue command MYPROJ-1 "State Fixed"                 # update state
 2. **Credentials set?** Check the configured instances with `youtrack instance list` or use env vars `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`. If missing, run `youtrack instance add` (or `youtrack auth login`) for a permanent token. `youtrack instance login <url>` is the browser SSO option, but it yields a short-lived (~1 hour) session token that is not refreshed.
 3. **Connectivity OK?** `youtrack user current` — stop and report if it fails.
 
+## Safety
+
+- **Tokens are masked in output.** Do not pass `--show-token` unless the user asks for the full token.
+
 ## Core Commands
 
 Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still work as deprecated aliases — prefer the canonical form below).
