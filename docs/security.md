@@ -23,7 +23,7 @@ Tokens saved via `auth login`, `instance add`, or `auth refresh-token` are store
 - **Windows** — Credential Manager
 - **Linux** — Secret Service (GNOME Keyring, KWallet, etc. via D-Bus)
 
-Each token is stored under the service name `youtrack-cli` with the instance alias as the account. The config file (`~/.youtrack-cli-config.json`) then contains only the instance URL — no secret.
+Each token is stored under the service name `youtrack-cli` with the instance alias as the account. The keyring entry holds the token together with the instance URL. The config file (`~/.youtrack-cli-config.json`) then contains only the instance URL — no secret.
 
 When no keyring is available (headless Linux, CI containers, locked keychain), the CLI automatically falls back to storing the token in `~/.youtrack-cli-config.json` (mode 0600), exactly as before, and prints a one-line warning to stderr. Existing file-stored tokens are migrated to the keyring transparently the next time the config is written; the token is then removed from the file.
 
@@ -35,7 +35,7 @@ To opt out of keyring storage entirely (e.g. for deterministic CI setups), set:
 export YOUTRACK_DISABLE_KEYRING=1
 ```
 
-A saved token is bound to the origin (scheme, host, and port) of the instance it was saved for. When `--base-url` or `YOUTRACK_BASE_URL` points at a different origin and no explicit token is supplied, the CLI refuses to run instead of sending the saved token to that host — so a caller who can change only the URL cannot redirect a stored credential.
+A saved token is bound to the origin (scheme, host, and port) of the instance it was saved for. For a keyring token, the CLI compares against the URL in the keyring entry, not the URL in the config file, so a process that can edit only the config file cannot point the token at another host. When `--base-url`, `YOUTRACK_BASE_URL`, or the config file points at a different origin and no explicit token is supplied, the CLI refuses to run instead of sending the saved token to that host. A keyring entry saved without a URL gets the config-file URL the next time the config is written. A token in the config file (no keyring) is bound to the URL in the same file, so the file is the only protection.
 
 When the server answers with a redirect to a different scheme, host, or port, the CLI follows it without the `Authorization` header. This includes a redirect from `https` to `http` on the same host and a redirect to a subdomain.
 

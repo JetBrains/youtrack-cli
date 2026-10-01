@@ -25,6 +25,8 @@ type Instance struct {
 
 	// tokenInKeyring marks the token as keyring-stored so Save omits it from the file.
 	tokenInKeyring bool
+	// tokenURL is the instance URL stored with the token in the keyring; empty for file tokens and for keyring entries saved without a URL.
+	tokenURL string
 	// AuthMethod records how the token was obtained ("oauth" for browser SSO; empty for permanent tokens).
 	AuthMethod string `json:"authMethod,omitempty"`
 	// TokenExpiresAt is the unix timestamp after which the token expires; zero means never (permanent token).
@@ -65,8 +67,8 @@ func Load() (*Config, error) {
 		if inst.Token != "" {
 			continue
 		}
-		if tok, err := keyringGet(alias); err == nil && tok != "" {
-			inst.Token = tok
+		if raw, err := keyringGet(alias); err == nil && raw != "" {
+			inst.Token, inst.tokenURL = decodeKeyringSecret(raw)
 			inst.tokenInKeyring = true
 			c.Instances[alias] = inst
 		}
@@ -83,11 +85,13 @@ func (c *Config) Save() error {
 		return err
 	}
 	for alias, inst := range c.Instances {
-		if inst.Token == "" || inst.tokenInKeyring {
+		// A keyring entry that already holds its URL keeps it: rebinding to the file URL would trust an edited config file.
+		if inst.Token == "" || (inst.tokenInKeyring && inst.tokenURL != "") {
 			continue
 		}
-		if keyringSet(alias, inst.Token) == nil {
+		if keyringSet(alias, encodeKeyringSecret(inst.URL, inst.Token)) == nil {
 			inst.tokenInKeyring = true
+			inst.tokenURL = inst.URL
 			c.Instances[alias] = inst
 		}
 	}
@@ -120,6 +124,14 @@ func (c *Config) fileView() Config {
 	return out
 }
 
+// TokenURL returns the URL the token is bound to: the URL saved with it in the keyring, else the URL from the config file.
+func (i *Instance) TokenURL() string {
+	if i.tokenURL != "" {
+		return i.tokenURL
+	}
+	return i.URL
+}
+
 // TokenInKeyring reports whether the token for alias is stored in the OS keyring.
 func (c *Config) TokenInKeyring(alias string) bool {
 	return c.Instances[alias].tokenInKeyring
@@ -146,12 +158,12 @@ func (c *Config) ActiveInstance() (*Instance, string) {
 // On alias collision with a different URL, a numeric suffix is appended (work → work-2).
 // Returns the final alias used.
 func (c *Config) AddInstance(alias, rawURL, token string) string {
-	return c.upsertInstance(alias, rawURL, Instance{URL: rawURL, Token: token})
+	return c.upsertInstance(alias, rawURL, &Instance{URL: rawURL, Token: token})
 }
 
 // AddInstanceOAuth upserts an instance holding a short-lived OAuth access token that expires at the given unix timestamp.
 func (c *Config) AddInstanceOAuth(alias, rawURL, token string, expiresAt int64) string {
-	return c.upsertInstance(alias, rawURL, Instance{
+	return c.upsertInstance(alias, rawURL, &Instance{
 		URL:            rawURL,
 		Token:          token,
 		AuthMethod:     "oauth",
@@ -159,7 +171,7 @@ func (c *Config) AddInstanceOAuth(alias, rawURL, token string, expiresAt int64) 
 	})
 }
 
-func (c *Config) upsertInstance(alias, rawURL string, inst Instance) string {
+func (c *Config) upsertInstance(alias, rawURL string, inst *Instance) string {
 	if alias == "" {
 		alias = DeriveAlias(rawURL)
 	}
@@ -171,7 +183,7 @@ func (c *Config) upsertInstance(alias, rawURL string, inst Instance) string {
 		}
 		final = fmt.Sprintf("%s-%d", alias, i)
 	}
-	c.Instances[final] = inst
+	c.Instances[final] = *inst
 	return final
 }
 

@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -31,6 +32,26 @@ type keyringTimeoutError struct {
 
 func (e *keyringTimeoutError) Error() string {
 	return fmt.Sprintf("keyring %s timed out after %v", e.op, keyringTimeout)
+}
+
+// keyringSecret is the keyring value: the token together with the instance URL it was saved for, so an edit of the config file cannot point the token at another host.
+type keyringSecret struct {
+	URL   string `json:"url"`
+	Token string `json:"token"`
+}
+
+func encodeKeyringSecret(url, token string) string {
+	b, _ := json.Marshal(keyringSecret{URL: url, Token: token})
+	return string(b)
+}
+
+// decodeKeyringSecret returns the token and its URL; a value that is not a keyringSecret is a bare token with no URL.
+func decodeKeyringSecret(raw string) (token, url string) {
+	var s keyringSecret
+	if json.Unmarshal([]byte(raw), &s) == nil && s.Token != "" {
+		return s.Token, s.URL
+	}
+	return raw, ""
 }
 
 func keyringSet(alias, token string) error {

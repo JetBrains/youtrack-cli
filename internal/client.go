@@ -50,8 +50,8 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 		}
 		if token == "" {
 			token = inst.Token
-			savedTokenAlias, savedTokenURL = serverAlias, inst.URL
-			warnIfTokenExpired(cmd, serverAlias, inst)
+			savedTokenAlias, savedTokenURL = serverAlias, inst.TokenURL()
+			warnIfTokenExpired(cmd, serverAlias, &inst)
 		}
 	}
 
@@ -76,8 +76,8 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 				}
 				if token == "" {
 					token = inst.Token
-					savedTokenAlias, savedTokenURL = alias, inst.URL
-					warnIfTokenExpired(cmd, alias, *inst)
+					savedTokenAlias, savedTokenURL = alias, inst.TokenURL()
+					warnIfTokenExpired(cmd, alias, inst)
 				}
 			case alias != "": // currentInstance is set but the alias is missing from the map (stale pointer).
 				return nil, fmt.Errorf(
@@ -154,7 +154,7 @@ func originPort(u *url.URL) string {
 }
 
 // warnIfTokenExpired prints a stderr renewal hint when a stored token is past its expiry, before the follow-up request 401s.
-func warnIfTokenExpired(cmd *cobra.Command, alias string, inst config.Instance) {
+func warnIfTokenExpired(cmd *cobra.Command, alias string, inst *config.Instance) {
 	if inst.TokenExpiresAt == 0 || time.Now().Unix() < inst.TokenExpiresAt {
 		return
 	}
