@@ -43,12 +43,12 @@ Environment credentials (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored 
 
 ## Browser Sign-In (OAuth)
 
-`instance login` (and option 4 of `auth login`) uses the OAuth 2.0 authorization-code flow with PKCE, as a public client:
+`instance login` (and option 4 of `auth login`) uses the OAuth 2.0 authorization-code flow with PKCE, without a client secret:
 
 - **PKCE always, S256 only.** A new 256-bit verifier is generated for each attempt. If Hub advertises PKCE methods without `S256`, sign-in stops.
 - **State.** A random, single-use `state` is compared in constant time. A callback or pasted URL with a different `state` is rejected, and its code is never exchanged.
 - **Loopback only.** The redirect listener binds to `127.0.0.1` (never a wildcard address), serves only the path-less `/`, accepts exactly one valid callback, and then closes. Query strings are never logged. The browser page is static: it has no code or token, loads no remote resources (`Content-Security-Policy: default-src 'none'`), and sends `Referrer-Policy: no-referrer`.
-- **No client secret.** The CLI never sends client credentials. If Hub answers `invalid_client`, the OAuth client must be reconfigured as public with PKCE required.
+- **No client secret.** The CLI never sends client credentials. If Hub answers `invalid_client`, check that the OAuth client has **Authorization Code flow** and **Require PKCE** enabled and requires no **Client secret** (see [Registering an OAuth client](topics/youtrack-cli-authentication.md#oauth-client)).
 - **TLS.** The instance and Hub URLs must be `https`. `http` works only for `localhost`/`127.0.0.1` with `--insecure`, which prints a warning. Remote `http` is always refused. Certificate verification is never disabled. OAuth endpoints found through discovery must share the Hub's origin, and requests to them never follow redirects.
 - **URL building.** The authorization URL is built from validated parts with standard query encoding. The browser gets it as a single process argument, never through a shell.
 - **Tokens are never printed.** `instance login` shows at most a masked prefix, `auth status` shows only the method, expiry, and whether a refresh token exists, and `--verbose` logs only method, URL, and status. Headers and OAuth request bodies are never logged.

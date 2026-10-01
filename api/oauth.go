@@ -194,8 +194,8 @@ func (e *OAuthError) Error() string {
 	}
 	switch e.Code {
 	case "invalid_client", "unauthorized_client":
-		// A public client has no secret to send; Hub answers invalid_client when the client is registered as confidential.
-		msg += " — the OAuth client must be registered in YouTrack/Hub as a public client (no secret) with Authorization Code and PKCE enabled"
+		// The CLI has no secret to send; Hub answers invalid_client when the client requires one or lacks the flow.
+		msg += " — in YouTrack, open Administration > Access Management > OAuth Clients, select the client, and on its Authentication tab enable Authorization Code flow and Require PKCE with no Client secret (with an external Hub, configure the service there)"
 	}
 	return fmt.Sprintf("%s (HTTP %d)", msg, e.StatusCode)
 }

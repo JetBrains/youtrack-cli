@@ -144,7 +144,7 @@ The command:
 1. Discovers the instance's Hub and its OAuth endpoints.
 2. Starts a listener on `127.0.0.1` only, on a free port, for the redirect.
 3. Opens the Hub authorization page in your browser. The request uses the authorization-code flow with PKCE (`S256`) and asks for offline access, so Hub issues a refresh token.
-4. Checks the `state` of the single callback it accepts, closes the listener, and exchanges the code for tokens. The CLI is a public client and never sends a client secret.
+4. Checks the `state` of the single callback it accepts, closes the listener, and exchanges the code for tokens. The CLI never sends a client secret; the PKCE verifier proves that it started the sign-in.
 5. Fetches the current user to confirm that the token works, then prints the user and where the credentials are stored.
 
 The browser shows a static page that tells you to return to the terminal. Passing a URL signs in to a new instance, and passing an existing alias renews that instance's session in place. With no argument, the command prompts for the instance. Press `Ctrl+C` to cancel; the loopback port is released immediately.
@@ -163,14 +163,17 @@ youtrack instance login <alias>
 
 ### Registering an OAuth client {id="oauth-client"}
 
-`hub.jetbrains.com` provides a public client, `localhost-auth`. For YouTrack Server or a Cloud instance without such a client, an administrator registers one. Since YouTrack 2026.2, OAuth clients can be registered directly in YouTrack:
+`hub.jetbrains.com` provides a client for this flow, `localhost-auth`. For YouTrack Server or a Cloud instance without such a client, a system administrator registers one. Since YouTrack 2026.2, OAuth clients are managed directly in YouTrack (this needs the __Low-level Admin Write__ permission):
 
-1. Create an OAuth client, for example `youtrack-cli`.
-2. In its authentication settings, enable the __Authorization Code__ flow and __Require PKCE__. Do not give it a client secret: the CLI is a public client and cannot keep one.
-3. Add the redirect URI `http://127.0.0.1`. Hub accepts any loopback port for it, so the CLI can use a free port. If your policy requires fixed ports, register `http://127.0.0.1:<port>` and pass `--port <port>`.
-4. Give users the client ID to pass with `--client-id`.
+1. Open __Administration__ > __Access Management__ > __OAuth Clients__, click __New OAuth client__, enter a name such as `YouTrack CLI`, and click __Create__.
+2. On the __Authentication__ tab, enable __Authorization Code flow__ and __Require PKCE__. Leave the other flows disabled.
+3. Under __Redirect URIs__, add `http://127.0.0.1`. A registered loopback URI matches any port, so the CLI can use a free one. If your policy requires a fixed port, register `http://127.0.0.1:<port>` and pass `--port <port>`.
+4. Leave __Client secret__ unset. The CLI runs on users' machines and cannot keep a secret; PKCE protects the code exchange instead.
+5. Click __Save__, then give users the generated __Client ID__ to pass with `--client-id`.
 
-If the client is missing or rejects the loopback redirect, `instance login` says so and falls back to the permanent-token paste flow. If Hub reports `invalid_client` during the exchange, the client is set up as confidential and has to be reconfigured as a public client with PKCE required.
+If your YouTrack Server is connected to an external Hub, the __OAuth Clients__ page is not available in YouTrack: register the client as a service in that Hub, with the same flow, PKCE, and redirect URI settings, and pass `--hub-url`.
+
+If the client is missing or rejects the loopback redirect, `instance login` says so and falls back to the permanent-token paste flow. If Hub reports `invalid_client` or `unauthorized_client` during the exchange, check on the client's __Authentication__ tab that __Authorization Code flow__ and __Require PKCE__ are enabled and that no __Client secret__ is required.
 
 ### Signing in without a local browser {id="oauth-headless"}
 
@@ -229,7 +232,7 @@ Name to save the instance under. Derived from the URL hostname when omitted.
 </td>
 <td>
 
-Hub OAuth client ID. Defaults to `localhost-auth`, the public client that `hub.jetbrains.com` provides. Pass the ID of the client you registered.
+Hub OAuth client ID. Defaults to `localhost-auth`, the client that `hub.jetbrains.com` provides. Pass the ID of the client you registered.
 
 </td>
 </tr>

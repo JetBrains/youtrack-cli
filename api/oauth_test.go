@@ -139,7 +139,7 @@ func TestParseTokenResponse(t *testing.T) {
 		"no expiry":         {200, `{"access_token":"at"}`, "invalid expires_in"},
 		"not json":          {200, `<html>`, "not valid JSON"},
 		"invalid grant":     {400, `{"error":"invalid_grant","error_description":"Unknown refresh token"}`, "Unknown refresh token (HTTP 400)"},
-		"confidential only": {401, `{"error":"invalid_client"}`, "public client"},
+		"confidential only": {401, `{"error":"invalid_client"}`, "Require PKCE with no Client secret"},
 		"plain text error":  {502, `bad gateway`, "HTTP 502: bad gateway"},
 	} {
 		t.Run(name, func(t *testing.T) {

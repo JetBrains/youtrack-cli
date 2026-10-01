@@ -457,7 +457,7 @@ func TestOAuthLogin_TokenExchangeFailure(t *testing.T) {
 		code, want string
 	}{
 		{"invalid_grant", "exchange refused by test"},
-		{"invalid_client", "public client"},
+		{"invalid_client", "Require PKCE with no Client secret"},
 	} {
 		t.Run(tc.code, func(t *testing.T) {
 			hub := newFakeHub(t)
