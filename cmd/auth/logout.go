@@ -128,7 +128,9 @@ func revokeOAuthSession(cmd *cobra.Command, alias string, inst *config.Instance)
 			output.PrintWarn(cmd, fmt.Sprintf("could not revoke the %s for %q at Hub (%v) — removing it locally anyway", strings.ReplaceAll(t.hint, "_", " "), alias, err))
 			continue
 		}
-		revoked = true
+		if t.hint == "refresh_token" || inst.RefreshToken == "" {
+			revoked = true
+		}
 	}
 	return revoked
 }
