@@ -8,6 +8,8 @@ YouTrack CLI authenticates to the YouTrack REST API with either a permanent toke
 
 YouTrack CLI authenticates with a permanent token. A permanent token does not have an expiration date, which makes it suitable for scripts and CI/CD pipelines. A token carries a `perm:` prefix.
 
+For interactive use, prefer [browser SSO](#browser-sso). For scripts and automation, use a permanent token, ideally one that belongs to a dedicated account with only the permissions the automation needs, so a leaked token exposes as little as possible.
+
 Create a token in the YouTrack web interface:
 
 1. In YouTrack, open your profile and select the __Account Security__ tab.
@@ -55,7 +57,7 @@ youtrack auth login
 
 It asks for the base URL (unless you pass `--base-url`), then an alias to save the instance under, and finally an authentication method:
 
-- __Basic auth__ — enter your Hub login and password; the CLI creates a permanent token through the Hub API. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token. Over a plain `http` URL to a host other than `localhost`, basic auth stops before it asks for the password; use the `https` URL, or pass `--insecure` to send the password unencrypted.
+- __Basic auth__ (deprecated) — enter your Hub login and password; the CLI creates a permanent token through the Hub API. The password passes through the CLI, and the method does not work with SSO or two-factor authentication, so prefer __Browser SSO__ for interactive sign-in and a permanent token for automation. The CLI prints a deprecation warning when you choose it, and the option may be removed in a future release. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token. Over a plain `http` URL to a host other than `localhost`, basic auth stops before it asks for the password; use the `https` URL, or pass `--insecure` to send the password unencrypted.
 - __Web browser__ — the CLI opens the token page in your browser. Log in, click __New token__, copy the value, and paste it back into the terminal.
 - __Paste token__ — the CLI prints the token-management URL and prompts you to paste a token you created manually.
 - __Browser SSO__ — the CLI runs an OAuth 2.0 authorization-code flow with PKCE through JetBrains Hub and stores an OAuth session (a short-lived access token plus a refresh token) that renews itself automatically. This is the same flow as [`instance login`](#browser-sso), which offers more options. It requires a compatible Hub OAuth client; otherwise it falls back to the paste-token flow.

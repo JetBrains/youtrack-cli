@@ -574,6 +574,7 @@ func TestAuth_GetToken_RefusesBasicAuthOverRemoteHTTP(t *testing.T) {
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
 	assert.Contains(t, stderr.String(), "refusing to send your password over plain http")
+	assert.Contains(t, stderr.String(), "basic auth is deprecated", "choosing basic auth points at safer methods")
 
 	// --insecure lifts the guard; the request then fails on the unresolvable host instead.
 	cmd = exec.Command(binaryPath, append(args, "--insecure")...)

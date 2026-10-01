@@ -24,7 +24,7 @@ func NewRefreshTokenCmd() *cobra.Command {
 		Long: `Replaces the saved token for a configured instance using any available
 authentication method:
 
-  1) Basic auth   — login + password via Hub API
+  1) Basic auth   — login + password via Hub API (deprecated: no SSO/2FA)
   2) Web browser  — open the token page in a browser, then paste the token
   3) Paste token  — enter a token directly without opening a browser
 
@@ -60,7 +60,7 @@ Use --json for machine-readable output.`,
 			reader := bufio.NewReader(os.Stdin)
 
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
-				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\nSelect [1-3]: ")
+				"\nSelect authentication method:\n  1) Basic auth (login + password; deprecated)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\nSelect [1-3]: ")
 			choiceRaw, err := internal.ReadLineContext(cmd.Context(), reader)
 			if err != nil {
 				return fmt.Errorf("reading auth type: %w", err)
@@ -131,6 +131,7 @@ Use --json for machine-readable output.`,
 // acquireTokenViaBasicAuth authenticates with Hub login/password and creates a
 // new permanent token. Returns the full HubToken (includes ID for potential cleanup).
 func acquireTokenViaBasicAuth(cmd *cobra.Command, reader *bufio.Reader, baseURL string) (*api.HubToken, error) {
+	warnBasicAuthDeprecated(cmd)
 	if flagChanged(cmd, "verbose") {
 		api.SetHubVerbose(cmd.ErrOrStderr())
 		defer api.SetHubVerbose(nil)

@@ -33,7 +33,7 @@ func NewGetTokenCmd() *cobra.Command {
 		Long: `Prompts for the YouTrack URL (if not already configured) and lets you choose
 an authentication method:
 
-  1) Basic auth   — login + password via Hub API
+  1) Basic auth   — login + password via Hub API (deprecated: no SSO/2FA)
   2) Web browser  — open the token page in a browser, then paste the token
   3) Paste token  — enter a token directly without opening a browser
   4) Browser SSO  — OAuth 2.0 + PKCE sign-in (auto-refreshing session;
@@ -94,7 +94,7 @@ Use --json for machine-readable output.`,
 
 			// Auth-type selection.
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
-				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\n  4) Browser single sign-on (OAuth, auto-refreshing session)\nSelect [1-4]: ")
+				"\nSelect authentication method:\n  1) Basic auth (login + password; deprecated)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\n  4) Browser single sign-on (OAuth, auto-refreshing session)\nSelect [1-4]: ")
 			choiceRaw, err := internal.ReadLineContext(cmd.Context(), reader)
 			if err != nil {
 				return fmt.Errorf("reading auth type: %w", err)
@@ -134,8 +134,15 @@ func requireSecureBasicAuth(cmd *cobra.Command, baseURL string) error {
 	return fmt.Errorf("refusing to send your password over plain http to %s — use the https URL, choose another sign-in method, or pass --insecure", baseURL)
 }
 
+// warnBasicAuthDeprecated steers users off password sign-in, which bypasses SSO and two-factor authentication.
+func warnBasicAuthDeprecated(cmd *cobra.Command) {
+	output.PrintWarn(cmd, "basic auth is deprecated: it sends your password through the CLI and does not work with SSO or two-factor authentication — "+
+		"prefer browser sign-in (youtrack instance login) or a permanent token of a dedicated, least-privilege account for automation")
+}
+
 // runBasicAuthFlow handles the Hub login/password → permanent-token creation flow.
 func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error {
+	warnBasicAuthDeprecated(cmd)
 	if flagChanged(cmd, "verbose") {
 		api.SetHubVerbose(cmd.ErrOrStderr())
 		defer api.SetHubVerbose(nil)
