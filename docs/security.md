@@ -43,7 +43,7 @@ Environment credentials (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored 
 
 ## Browser Sign-In (OAuth)
 
-`instance login` (and option 4 of `auth login`) uses the OAuth 2.0 authorization-code flow with PKCE, without a client secret:
+`instance login` (and option 1 of `auth login`) uses the OAuth 2.0 authorization-code flow with PKCE, without a client secret:
 
 - **PKCE always, S256 only.** A new 256-bit verifier is generated for each attempt. If Hub advertises PKCE methods without `S256`, sign-in stops.
 - **State.** A random, single-use `state` is compared in constant time. A callback or pasted URL with a different `state` is rejected, and its code is never exchanged.

@@ -146,6 +146,14 @@ func validateOAuthEndpoint(hubURL, endpoint, name string) error {
 	return nil
 }
 
+// DefaultOAuthClientID returns the client ID the CLI signs in with when none is given: "localhost-auth" on hub.jetbrains.com, "youtrack-cli" on every other Hub.
+func DefaultOAuthClientID(hubURL string) string {
+	if u, err := url.Parse(hubURL); err == nil && strings.EqualFold(u.Hostname(), "hub.jetbrains.com") {
+		return "localhost-auth"
+	}
+	return "youtrack-cli"
+}
+
 // PreflightOAuthClientContext checks, without opening a browser, whether Hub accepts the client_id and redirect_uri in authorizeURL (303 to /auth/oauth/error means rejected).
 func PreflightOAuthClientContext(ctx context.Context, authorizeURL string) error {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, authorizeURL, nil)

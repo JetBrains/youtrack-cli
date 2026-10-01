@@ -157,9 +157,9 @@ func TestAuth_GetTokenViaBasicAuthCLI(t *testing.T) {
 		t.Skip("YOUTRACK_LOGIN, YOUTRACK_PASSWORD, and YOUTRACK_BASE_URL not set — skipping CLI basic auth test")
 	}
 
-	// Pipe "1\n" to select basic auth; login and password come from flags.
+	// Pipe "4\n" to select basic auth; login and password come from flags.
 	// Use --format json for machine-readable output.
-	out := runCmdWithInput(t, "1\n",
+	out := runCmdWithInput(t, "4\n",
 		"--base-url", baseURL,
 		"--format", "json",
 		"auth", "get-token",
@@ -569,7 +569,7 @@ func TestAuth_GetToken_RefusesBasicAuthOverRemoteHTTP(t *testing.T) {
 	args := []string{"--base-url", "http://youtrack.invalid", "auth", "get-token", "--save=false", "--login", "x", "--password", "y"}
 	cmd := exec.Command(binaryPath, args...)
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
-	cmd.Stdin = strings.NewReader("1\n")
+	cmd.Stdin = strings.NewReader("4\n")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
@@ -579,7 +579,7 @@ func TestAuth_GetToken_RefusesBasicAuthOverRemoteHTTP(t *testing.T) {
 	// --insecure lifts the guard; the request then fails on the unresolvable host instead.
 	cmd = exec.Command(binaryPath, append(args, "--insecure")...)
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
-	cmd.Stdin = strings.NewReader("1\n")
+	cmd.Stdin = strings.NewReader("4\n")
 	stderr.Reset()
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
@@ -597,7 +597,7 @@ func TestAuth_GetToken_ReadOnlyBlocksHubTokenCreation(t *testing.T) {
 	cmd := exec.Command(binaryPath, "--base-url", baseURL, "--format", "json", "auth", "get-token",
 		"--login", login, "--password", password, "--token-name", "e2e-ro-must-not-exist", "--save=false")
 	cmd.Env = append(os.Environ(), "HOME="+t.TempDir(), "YOUTRACK_RO=1")
-	cmd.Stdin = strings.NewReader("1\n")
+	cmd.Stdin = strings.NewReader("4\n")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

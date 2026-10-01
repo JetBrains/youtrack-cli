@@ -246,3 +246,19 @@ func TestResolveHubURL(t *testing.T) {
 		}
 	}
 }
+
+func TestDefaultOAuthClientID(t *testing.T) {
+	t.Parallel()
+
+	for hubURL, want := range map[string]string{
+		"https://hub.jetbrains.com":              "localhost-auth",
+		"https://HUB.JetBrains.com/":             "localhost-auth",
+		"https://example.youtrack.cloud/hub":     "youtrack-cli",
+		"https://hub.jetbrains.com.evil.example": "youtrack-cli",
+		"https://whitephoenix.eu.ngrok.io/hub":   "youtrack-cli",
+	} {
+		if got := DefaultOAuthClientID(hubURL); got != want {
+			t.Errorf("DefaultOAuthClientID(%q) = %q, want %q", hubURL, got, want)
+		}
+	}
+}

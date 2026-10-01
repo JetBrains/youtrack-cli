@@ -57,10 +57,10 @@ youtrack auth login
 
 It asks for the base URL (unless you pass `--base-url`), then an alias to save the instance under, and finally an authentication method:
 
-- __Basic auth__ (deprecated) — enter your Hub login and password; the CLI creates a permanent token through the Hub API. The password passes through the CLI, and the method does not work with SSO or two-factor authentication, so prefer __Browser SSO__ for interactive sign-in and a permanent token for automation. The CLI prints a deprecation warning when you choose it, and the option may be removed in a future release. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token. Over a plain `http` URL to a host other than `localhost`, basic auth stops before it asks for the password; use the `https` URL, or pass `--insecure` to send the password unencrypted.
+- __Browser SSO__ — the CLI runs an OAuth 2.0 authorization-code flow with PKCE through JetBrains Hub and stores an OAuth session (a short-lived access token plus a refresh token) that renews itself automatically. This is the same flow as [`instance login`](#browser-sso), which offers more options. It requires a compatible Hub OAuth client; otherwise it falls back to the paste-token flow.
 - __Web browser__ — the CLI opens the token page in your browser. Log in, click __New token__, copy the value, and paste it back into the terminal.
 - __Paste token__ — the CLI prints the token-management URL and prompts you to paste a token you created manually.
-- __Browser SSO__ — the CLI runs an OAuth 2.0 authorization-code flow with PKCE through JetBrains Hub and stores an OAuth session (a short-lived access token plus a refresh token) that renews itself automatically. This is the same flow as [`instance login`](#browser-sso), which offers more options. It requires a compatible Hub OAuth client; otherwise it falls back to the paste-token flow.
+- __Basic auth__ (deprecated) — enter your Hub login and password; the CLI creates a permanent token through the Hub API. The password passes through the CLI, and the method does not work with SSO or two-factor authentication, so prefer __Browser SSO__ for interactive sign-in and a permanent token for automation. The CLI prints a deprecation warning when you choose it, and the option may be removed in a future release. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token. Over a plain `http` URL to a host other than `localhost`, basic auth stops before it asks for the password; use the `https` URL, or pass `--insecure` to send the password unencrypted.
 
 The CLI verifies the token against the API before saving it, then reports the authenticated user. By default the credentials are saved and the new instance becomes active.
 
@@ -165,15 +165,17 @@ youtrack instance login <alias>
 
 ### Registering an OAuth client {id="oauth-client"}
 
-`hub.jetbrains.com` provides a client for this flow, `localhost-auth`. For YouTrack Server or a Cloud instance without such a client, a system administrator registers one. Since YouTrack 2026.2, OAuth clients are managed directly in YouTrack (this needs the __Low-level Admin Write__ permission):
+The CLI signs in as the OAuth client with the Client ID `youtrack-cli`. On `hub.jetbrains.com`, it uses the existing `localhost-auth` client instead. If the instance has no such client, a system administrator registers one. Since YouTrack 2026.2, OAuth clients are managed directly in YouTrack (this needs the __Low-level Admin Write__ permission):
 
-1. Open __Administration__ > __Access Management__ > __OAuth Clients__, click __New OAuth client__, enter a name such as `YouTrack CLI`, and click __Create__.
-2. On the __Authentication__ tab, enable __Authorization Code flow__ and __Require PKCE__. Leave the other flows disabled.
+1. Open __Administration__ > __Access Management__ > __OAuth Clients__, click __New OAuth client__, enter the name `YouTrack CLI`, and click __Create__.
+2. On the __Authentication__ tab, set __Client ID__ to `youtrack-cli`. Enable __Authorization Code flow__ and __Require PKCE__. Leave the other flows disabled.
 3. Under __Redirect URIs__, add `http://127.0.0.1`. A registered loopback URI matches any port, so the CLI can use a free one. If your policy requires a fixed port, register `http://127.0.0.1:<port>` and pass `--port <port>`.
 4. Leave __Client secret__ unset. The CLI runs on users' machines and cannot keep a secret; PKCE protects the code exchange instead.
-5. Click __Save__, then give users the generated __Client ID__ to pass with `--client-id`.
+5. Click __Save__. Users can now sign in without extra flags.
 
-If your YouTrack Server is connected to an external Hub, the __OAuth Clients__ page is not available in YouTrack: register the client as a service in that Hub, with the same flow, PKCE, and redirect URI settings, and pass `--hub-url`.
+If your YouTrack Server is connected to an external Hub, the __OAuth Clients__ page is not available in YouTrack: register the client as a service in that Hub, with the same Client ID, flow, PKCE, and redirect URI settings, and pass `--hub-url`.
+
+If your organization already has a client with another Client ID for this flow, pass that ID with `--client-id`.
 
 If the client is missing or rejects the loopback redirect, `instance login` says so and falls back to the permanent-token paste flow. If Hub reports `invalid_client` or `unauthorized_client` during the exchange, check on the client's __Authentication__ tab that __Authorization Code flow__ and __Require PKCE__ are enabled and that no __Client secret__ is required.
 
@@ -234,7 +236,7 @@ Name to save the instance under. Derived from the URL hostname when omitted.
 </td>
 <td>
 
-Hub OAuth client ID. Defaults to `localhost-auth`, the client that `hub.jetbrains.com` provides. Pass the ID of the client you registered.
+Hub OAuth client ID. Defaults to `localhost-auth` on `hub.jetbrains.com` and to `youtrack-cli` on every other Hub. Pass it only for a client with another ID.
 
 </td>
 </tr>

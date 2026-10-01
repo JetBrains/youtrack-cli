@@ -54,7 +54,7 @@ func TestOAuthDiscovery(t *testing.T) {
 	assert.NotEmpty(t, eps.TokenEndpoint)
 }
 
-// TestInstanceLogin_FallsBackWithoutOAuthClient checks that with no "localhost-auth" client, `instance login` pre-flight falls back to the paste-token flow (fed via stdin); the full browser flow can't run headlessly.
+// TestInstanceLogin_FallsBackWithoutOAuthClient checks that with no "youtrack-cli" client, `instance login` pre-flight falls back to the paste-token flow (fed via stdin); the full browser flow can't run headlessly.
 func TestInstanceLogin_FallsBackWithoutOAuthClient(t *testing.T) {
 	requireE2EEnv(t)
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")

@@ -22,11 +22,9 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
-const defaultOAuthClientID = "localhost-auth"
-
 // ssoOptions are the tunables of the browser SSO flow: plain defaults from the get-token menu, flag-filled by "instance login".
 type ssoOptions struct {
-	clientID    string
+	clientID    string // empty → api.DefaultOAuthClientID for the resolved Hub
 	extraScopes []string
 	port        int
 	timeout     time.Duration
@@ -36,7 +34,7 @@ type ssoOptions struct {
 }
 
 func defaultSSOOptions() ssoOptions {
-	return ssoOptions{clientID: defaultOAuthClientID, timeout: browserflow.DefaultTimeout}
+	return ssoOptions{timeout: browserflow.DefaultTimeout}
 }
 
 // ssoLoginResult is the output of a browser sign-in; it never contains the tokens themselves.
@@ -55,7 +53,7 @@ type ssoLoginResult struct {
 	Hint            string `json:"_hint,omitempty"`
 }
 
-// NewSSOLoginCmd constructs the browser single sign-on command (registered as "instance login"; also option 4 in the get-token menu).
+// NewSSOLoginCmd constructs the browser single sign-on command (registered as "instance login"; also option 1 in the get-token menu).
 func NewSSOLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login [url-or-alias]",
@@ -76,12 +74,13 @@ open the printed URL on any device, and paste the URL the browser ends up on
 (http://127.0.0.1:<port>/?code=...&state=...) back into the terminal.
 
 Pass a URL to sign in to a new instance, or an existing alias to renew its
-session. Hub needs an OAuth client with Authorization Code flow and Require
-PKCE enabled, redirect URI http://127.0.0.1, and no client secret;
-hub.jetbrains.com provides one as "localhost-auth". Administrators register
-one in YouTrack under Administration > Access Management > OAuth Clients.
-Use --client-id for that client and --hub-url for a standalone Hub. When the
-client is missing, the command falls back to the paste-token flow.`,
+session. Hub needs an OAuth client with Client ID "youtrack-cli" (on
+hub.jetbrains.com, the CLI uses its "localhost-auth" client),
+Authorization Code flow and Require PKCE enabled, redirect URI
+http://127.0.0.1, and no client secret. Administrators register it in
+YouTrack under Administration > Access Management > OAuth Clients. Use
+--client-id for a client with another ID and --hub-url for a standalone Hub.
+When the client is missing, the command falls back to the paste-token flow.`,
 		Args: cobra.MaximumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reader := bufio.NewReader(os.Stdin)
@@ -133,7 +132,7 @@ client is missing, the command falls back to the paste-token flow.`,
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().String("scope", "", "Comma-separated extra Hub service IDs to request in addition to the YouTrack service")
 	cmd.Flags().Int("port", 0, "Fixed loopback port for the OAuth callback (default: pick a free port)")
-	cmd.Flags().String("client-id", defaultOAuthClientID, "OAuth 2.0 client ID registered in Hub")
+	cmd.Flags().String("client-id", "", `OAuth 2.0 client ID registered in Hub (default: "localhost-auth" on hub.jetbrains.com, "youtrack-cli" elsewhere)`)
 	cmd.Flags().Duration("timeout", browserflow.DefaultTimeout, "How long to wait for the browser callback")
 	cmd.Flags().Bool("no-browser", false, "Print the authorization URL and accept the pasted redirect URL instead of opening a browser (SSH, WSL, headless)")
 	cmd.Flags().String("hub-url", "", "Hub base URL for a standalone Hub (default: discovered from the instance, e.g. <url>/hub)")
@@ -228,6 +227,9 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	if err != nil {
 		return err
 	}
+	if opts.clientID == "" {
+		opts.clientID = api.DefaultOAuthClientID(hubURL)
+	}
 
 	// PKCE is mandatory: a fresh 256-bit verifier per attempt, S256 challenge only (plain is never offered).
 	verifier, err := api.GeneratePKCEVerifier()
@@ -285,7 +287,8 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		}
 		_, _ = fmt.Fprintf(stderr, "Hub did not accept OAuth client %q with a loopback redirect (%v).\n"+
 			"Ask a YouTrack administrator to register a client under Administration > Access Management > OAuth Clients "+
-			"(Authentication tab: Authorization Code flow + Require PKCE, Redirect URI http://127.0.0.1, no Client secret), then pass its Client ID with --client-id; "+
+			"(Authentication tab: Client ID youtrack-cli, Authorization Code flow + Require PKCE, Redirect URI http://127.0.0.1, no Client secret), "+
+			"or pass the Client ID of an existing client with --client-id; "+
 			"falling back to the paste-token flow.\n\n",
 			opts.clientID, err)
 		return runDirectTokenFlow(cmd, reader, baseURL)
