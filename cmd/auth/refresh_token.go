@@ -53,6 +53,9 @@ Use --json for machine-readable output.`,
 			if !ok {
 				return fmt.Errorf("instance %q not found — run: youtrack instance list", alias)
 			}
+			if err := internal.RequireTokenURL(alias, &inst); err != nil {
+				return err
+			}
 
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Refreshing token for %q (%s)...\n", alias, inst.URL)
 

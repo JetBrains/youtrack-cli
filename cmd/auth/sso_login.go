@@ -129,6 +129,9 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 	if raw != "" {
 		if cfg, err := config.Load(); err == nil {
 			if inst, ok := cfg.Instances[raw]; ok {
+				if err := internal.RequireTokenURL(raw, &inst); err != nil {
+					return "", err
+				}
 				if !flagChanged(cmd, "alias") {
 					if err := cmd.Flags().Set("alias", raw); err != nil {
 						return "", err
