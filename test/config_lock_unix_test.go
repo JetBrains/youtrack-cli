@@ -26,7 +26,7 @@ func TestConfigWritersWaitForLock(t *testing.T) {
 		{args: []string{"instance", "use", "fake"}},
 		{args: []string{"instance", "delete", "fake", "--force"}},
 		{args: []string{"auth", "logout", "--force"}},
-		{args: []string{"auth", "refresh-token", "fake"}, stdin: "3\nperm:replacement\n", check: func(t *testing.T, home string) {
+		{args: []string{"auth", "refresh-token", "fake"}, stdin: "2\nperm:replacement\n", check: func(t *testing.T, home string) {
 			assert.Equal(t, "perm:replacement", savedInstance(t, home, "fake")["token"])
 		}},
 		{args: []string{"auth", "get-token", "--alias", "other"}, stdin: "{url}\n3\nperm:other\n", check: func(t *testing.T, home string) {

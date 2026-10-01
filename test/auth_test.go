@@ -315,8 +315,8 @@ func TestAuthRefreshToken_UpdatesConfig(t *testing.T) {
 }`
 	cfgPath := configFixture(t, tmpHome, cfg)
 
-	// Option 3 (paste), pipe the existing token so verification passes.
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	// Option 2 (paste), pipe the existing token so verification passes.
+	runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"auth", "refresh-token", "myinst",
 	)
@@ -352,7 +352,7 @@ func TestAuthRefreshToken_DefaultsToActive(t *testing.T) {
 	cfgPath := configFixture(t, tmpHome, cfg)
 
 	// No alias arg — should default to currentInstance ("myinst").
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"auth", "refresh-token",
 	)
@@ -409,7 +409,7 @@ func TestAuthRefreshToken_JSONOutput(t *testing.T) {
 }`
 	configFixture(t, tmpHome, cfg)
 
-	out := runCmdWithEnv(t, "3\n"+token+"\n",
+	out := runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"--format", "json", "auth", "refresh-token", "myinst",
 	)
@@ -435,7 +435,7 @@ func TestAuthRefreshToken_HumanReadableOutput(t *testing.T) {
 }`
 	configFixture(t, tmpHome, cfg)
 
-	out := runCmdWithEnv(t, "3\n"+token+"\n",
+	out := runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"--plain", "auth", "refresh-token", "myinst",
 	)
@@ -459,7 +459,7 @@ func TestInstanceRefreshToken_ByAlias(t *testing.T) {
 }`
 	cfgPath := configFixture(t, tmpHome, cfg)
 
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"instance", "refresh-token", "myinst",
 	)
