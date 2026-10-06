@@ -164,7 +164,6 @@ See [AI agent integration](docs/topics/youtrack-cli-ai-agent-integration.md) for
 - [Configuration](docs/topics/youtrack-cli-configuration.md) — config file, environment variables, global flags, update checks
 - [Scripting and automation](docs/topics/youtrack-cli-scripting.md) — JSON/plain output, field projection, exit codes, CI
 - [Security](docs/security.md) — token disclaimer, `YOUTRACK_RO`, keyring storage, command-mutability reference
-- [TeamCity CLI comparison](docs/teamcity-cli-feature-comparison.md) — evaluated feature candidates and proposed implementation order
 
 ## Contributing
 
