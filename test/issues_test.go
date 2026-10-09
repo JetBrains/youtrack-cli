@@ -1138,3 +1138,32 @@ func TestCmd_IssueAttachmentAdd_UnusualFileNames(t *testing.T) {
 		})
 	}
 }
+
+// Two children created with --parent must both end up as subtasks of the same parent.
+func TestCmd_IssueCreateWithParent(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	create := func(args ...string) string {
+		var iss api.Issue
+		out := runCmd(t, append([]string{"issue", "create", "--project", proj.ShortName, "--format", "json"}, args...)...)
+		require.NoError(t, json.Unmarshal([]byte(out), &iss), "output: %s", out)
+		t.Cleanup(func() { _ = c.DeleteIssue(iss.IDReadable) })
+		return iss.IDReadable
+	}
+	parent := create("--summary", "parent test")
+	first := create("--summary", "child one", "--parent", parent)
+	second := create("--summary", "child two", "--parent", parent)
+
+	links, err := c.GetLinkedIssues(parent)
+	require.NoError(t, err)
+	var children []string
+	for _, l := range links {
+		if l.LinkType != nil && l.LinkType.Name == "Subtask" && l.Direction == "OUTWARD" {
+			for _, iss := range l.Issues {
+				children = append(children, iss.IDReadable)
+			}
+		}
+	}
+	assert.ElementsMatch(t, []string{first, second}, children)
+}
