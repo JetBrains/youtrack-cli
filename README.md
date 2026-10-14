@@ -13,29 +13,9 @@ Full documentation — installation, authentication, configuration, and a comman
 
 ## Install
 
-<!-- Repo went internal-only after this section shipped as public-repo instructions in tag v0.3.0.
-When public again, swap the `gh release download` commands below for these:
-
-macOS & Linux:
-curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash
-
-Windows: download youtrack_<version>_windows_x86_64.zip from
-https://github.com/JetBrains/youtrack-cli/releases/latest, extract, add to PATH.
-
-Debian/Ubuntu:
-curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.deb
-sudo dpkg -i youtrack_linux_amd64.deb
-
-RHEL/Fedora:
-sudo rpm -i https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.rpm
-
-go install github.com/JetBrains/youtrack-cli@latest
--->
-> **The repository is currently internal.** The `curl`/direct-download URLs below 404 until it's public. Use [GitHub CLI](https://cli.github.com/), authenticated against this org (`gh auth login`), instead.
-
 **macOS & Linux (install script):**
 ```bash
-gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash
+curl -fsSL https://jb.gg/yt/install | bash
 ```
 
 New installs use `~/.local/bin` without sudo; rerunning the script updates an existing unmanaged installation in place. Missing Bash/Zsh PATH entries are added automatically. Restart your shell afterward, or use the printed PATH command. Package-managed installations should be updated through their package manager.
@@ -44,12 +24,12 @@ The installers verify the downloaded archive against `checksums.txt` and, when `
 
 **Windows (PowerShell):**
 ```powershell
-gh release download --repo JetBrains/youtrack-cli --pattern install.ps1 -O - | Out-String | Invoke-Expression
+irm https://jb.gg/yt/install.ps1 | iex
 ```
 
 **Windows (CMD):**
 ```cmd
-gh release download --repo JetBrains/youtrack-cli --pattern install.cmd --clobber && install.cmd
+curl -fsSL https://jb.gg/yt/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
 Windows installers use `%USERPROFILE%\.local\bin` and add it to the user PATH. Set `YOUTRACK_INSTALL_RELEASE` or `YOUTRACK_INSTALL_DIR` to choose a version or destination in PowerShell; CMD accepts `install.cmd [version] [directory]`.
@@ -61,21 +41,21 @@ Alternatively, download the matching `*windows_x86_64.zip` or `*windows_arm64.zi
 
 **Debian/Ubuntu:**
 ```bash
-gh release download --repo JetBrains/youtrack-cli --pattern '*linux_amd64.deb'
+curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.deb
 sudo dpkg -i youtrack_linux_amd64.deb
 ```
 
 **RHEL/Fedora:**
 ```bash
-gh release download --repo JetBrains/youtrack-cli --pattern '*linux_amd64.rpm'
+curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.rpm
 sudo rpm -i youtrack_linux_amd64.rpm
 ```
 
 Replace `amd64` with `arm64` on ARM machines.
 
-**Build from source** (requires [Go 1.26.9+](https://go.dev/dl/) and `git`/`gh` configured for private-module access):
+**Build from source** (requires [Go 1.26.9+](https://go.dev/dl/)):
 ```bash
-GOPRIVATE=github.com/JetBrains/youtrack-cli go install github.com/JetBrains/youtrack-cli@latest
+go install github.com/JetBrains/youtrack-cli@latest
 ```
 
 See the [getting started guide](docs/topics/youtrack-cli-get-started.md) for the full walkthrough.

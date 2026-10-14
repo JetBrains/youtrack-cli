@@ -8,15 +8,13 @@ YouTrack CLI lets you manage issues, projects, and users from the command line. 
 
 YouTrack CLI ships as a single binary for macOS, Linux, and Windows. Choose the channel that fits your platform.
 
-The repository is currently internal. Authenticate [GitHub CLI](https://cli.github.com/) with `gh auth login` using an account that has access to the JetBrains organization.
-
 <tabs>
 <tab title="macOS and Linux">
 
 Run the install script. It downloads the latest release and places the `youtrack` binary on your `PATH`:
 
 ```Shell
-gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash
+curl -fsSL https://jb.gg/yt/install | bash
 ```
 
 New installs use `~/.local/bin` without sudo. Rerunning the script updates an existing unmanaged installation in place. The script adds missing Bash/Zsh PATH entries automatically; restart your shell or run the printed PATH command. Update package-managed installations through their original package manager.
@@ -24,7 +22,7 @@ New installs use `~/.local/bin` without sudo. Rerunning the script updates an ex
 To choose a version and directory explicitly:
 
 ```Shell
-gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash -s -- v0.5.1 "$HOME/.local/bin"
+curl -fsSL https://jb.gg/yt/install | bash -s -- v0.5.1 "$HOME/.local/bin"
 ```
 
 <chapter title="Install from a .deb or .rpm package (advanced)" collapsible="true" default-state="collapsed">
@@ -32,14 +30,14 @@ gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | ba
 On Debian or Ubuntu, download and install the `.deb` package:
 
 ```Shell
-gh release download --repo JetBrains/youtrack-cli --pattern youtrack_linux_amd64.deb
+curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.deb
 sudo dpkg -i youtrack_linux_amd64.deb
 ```
 
 On RHEL or Fedora, install the `.rpm` package directly:
 
 ```Shell
-gh release download --repo JetBrains/youtrack-cli --pattern youtrack_linux_amd64.rpm
+curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/youtrack_linux_amd64.rpm
 sudo rpm -i youtrack_linux_amd64.rpm
 ```
 
@@ -53,13 +51,13 @@ Replace `amd64` with `arm64` for ARM machines.
 In PowerShell:
 
 ```PowerShell
-gh release download --repo JetBrains/youtrack-cli --pattern install.ps1 -O - | Out-String | Invoke-Expression
+irm https://jb.gg/yt/install.ps1 | iex
 ```
 
 In CMD:
 
 ```Shell
-gh release download --repo JetBrains/youtrack-cli --pattern install.cmd --clobber && install.cmd
+curl -fsSL https://jb.gg/yt/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
 The installers detect x86-64 or ARM64, install to `%USERPROFILE%\.local\bin`, and add the directory to your user PATH. Restart your terminal afterward. In PowerShell, set `YOUTRACK_INSTALL_RELEASE` and `YOUTRACK_INSTALL_DIR` to choose a version and destination. CMD accepts the same choices as positional arguments: `install.cmd [version] [directory]`.
@@ -74,7 +72,7 @@ Alternatively, download the matching `youtrack_<version>_windows_x86_64.zip` or 
 If you have a Go toolchain, install YouTrack CLI from source. This requires Go 1.26.9 or later:
 
 ```Shell
-GOPRIVATE=github.com/JetBrains/youtrack-cli go install github.com/JetBrains/youtrack-cli@latest
+go install github.com/JetBrains/youtrack-cli@latest
 ```
 
 The binary lands in `$(go env GOPATH)/bin`. Make sure that directory is on your `PATH`.

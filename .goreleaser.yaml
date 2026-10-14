@@ -236,18 +236,18 @@ release:
 
     **Install script (recommended):**
     ```bash
-    gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash
+    curl -fsSL https://jb.gg/yt/install | bash
     ```
 
     **Debian/Ubuntu:**
     ```bash
-    gh release download v{{ .Version }} --repo JetBrains/youtrack-cli --pattern youtrack_linux_amd64.deb
+    curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/download/v{{ .Version }}/youtrack_linux_amd64.deb
     sudo dpkg -i youtrack_linux_amd64.deb
     ```
 
     **RHEL/Fedora:**
     ```bash
-    gh release download v{{ .Version }} --repo JetBrains/youtrack-cli --pattern youtrack_linux_amd64.rpm
+    curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/download/v{{ .Version }}/youtrack_linux_amd64.rpm
     sudo rpm -i youtrack_linux_amd64.rpm
     ```
 
@@ -255,12 +255,12 @@ release:
 
     **PowerShell:**
     ```powershell
-    gh release download --repo JetBrains/youtrack-cli --pattern install.ps1 -O - | Out-String | Invoke-Expression
+    irm https://jb.gg/yt/install.ps1 | iex
     ```
 
     **CMD:**
     ```cmd
-    gh release download --repo JetBrains/youtrack-cli --pattern install.cmd --clobber && install.cmd
+    curl -fsSL https://jb.gg/yt/install.cmd -o install.cmd && install.cmd && del install.cmd
     ```
 
     **Manual:** Download `youtrack_{{ .Version }}_windows_x86_64.zip`, extract, and add to PATH.
@@ -268,7 +268,7 @@ release:
     ### Go Install
 
     ```bash
-    GOPRIVATE=github.com/JetBrains/youtrack-cli go install github.com/JetBrains/youtrack-cli@v{{ .Version }}
+    go install github.com/JetBrains/youtrack-cli@v{{ .Version }}
     ```
 
 report_sizes: true

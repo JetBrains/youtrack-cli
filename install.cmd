@@ -28,16 +28,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
     "try {" ^
     "  if (Get-Command gh -ErrorAction SilentlyContinue) {" ^
     "    try {" ^
-    "      $releaseArgs = @(); if ($env:YOUTRACK_INSTALL_RELEASE) { $releaseArgs = @($env:YOUTRACK_INSTALL_RELEASE) };" ^
-    "      & gh release download @releaseArgs --repo JetBrains/youtrack-cli --pattern install.ps1 --output $env:YOUTRACK_INSTALL_BOOTSTRAP --clobber;" ^
+    "      & gh release download --repo JetBrains/youtrack-cli --pattern install.ps1 --output $env:YOUTRACK_INSTALL_BOOTSTRAP --clobber;" ^
     "      if ($LASTEXITCODE -eq 0) { exit 0 };" ^
     "    } catch { Write-Verbose 'gh download failed; trying GitHub HTTPS.' };" ^
     "  };" ^
     "  [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12;" ^
-    "  if ($env:YOUTRACK_INSTALL_RELEASE) {" ^
-    "    if ($env:YOUTRACK_INSTALL_RELEASE -notmatch '^v?[0-9A-Za-z._-]+$') { throw 'invalid release' };" ^
-    "    $url = 'https://github.com/JetBrains/youtrack-cli/releases/download/' + $env:YOUTRACK_INSTALL_RELEASE + '/install.ps1';" ^
-    "  } else { $url = 'https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.ps1' };" ^
+    "  $url = 'https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.ps1';" ^
     "  Invoke-WebRequest -UseBasicParsing -Uri $url -OutFile $env:YOUTRACK_INSTALL_BOOTSTRAP;" ^
     "} catch { Write-Error $_; exit 1 }"
 if errorlevel 1 (
