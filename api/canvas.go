@@ -5,14 +5,16 @@ import (
 	"net/url"
 )
 
+const canvasFields = "id,settings(name),owner(id,login,fullName),pinned,$type"
+
 type AddCanvasRequest struct {
-	Name  string `json:"name"`
-	Owner *User  `json:"owner,omitempty"`
+	Settings CanvasSettings `json:"settings"`
+	Owner    *User          `json:"owner,omitempty"`
 }
 
 func (c *Client) ListCanvases() ([]Canvas, error) {
 	var result []Canvas
-	err := c.Get(pathPlanningCanvases+"?fields=id,name,owner(id,login,fullName),pinned,$type&$top=500", &result)
+	err := c.Get(pathPlanningCanvases+"?fields="+canvasFields+"&$top=500", &result)
 	return result, err
 }
 
@@ -30,13 +32,13 @@ func (c *Client) GetCanvasCard(canvasID, cardID string) (*CanvasNode, error) {
 
 func (c *Client) AddCanvas(req AddCanvasRequest) (*Canvas, error) {
 	var result Canvas
-	err := c.Post(pathPlanningCanvases+"?fields=id,name,owner(id,login,fullName),pinned,$type", req, &result)
+	err := c.Post(pathPlanningCanvases+"?fields="+canvasFields, req, &result)
 	return &result, err
 }
 
 func (c *Client) GetCanvas(id string) (*Canvas, error) {
 	var result Canvas
-	err := c.Get(fmt.Sprintf(pathPlanningCanvas+"?fields=id,name,owner(id,login,fullName),pinned,$type", url.PathEscape(id)), &result)
+	err := c.Get(fmt.Sprintf(pathPlanningCanvas+"?fields="+canvasFields, url.PathEscape(id)), &result)
 	return &result, err
 }
 

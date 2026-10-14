@@ -449,9 +449,22 @@ type App struct {
 }
 
 type Canvas struct {
-	ID    string `json:"id,omitempty"`
-	Name  string `json:"name,omitempty"`
-	Owner *User  `json:"owner,omitempty"`
+	ID       string          `json:"id,omitempty"`
+	Settings *CanvasSettings `json:"settings,omitempty"`
+	Owner    *User           `json:"owner,omitempty"`
+	Pinned   bool            `json:"pinned,omitempty"`
+}
+
+type CanvasSettings struct {
+	Name string `json:"name,omitempty"`
+}
+
+// Name returns settings.name, or "" when settings were not fetched.
+func (c Canvas) Name() string {
+	if c.Settings == nil {
+		return ""
+	}
+	return c.Settings.Name
 }
 
 type CanvasNode struct {
