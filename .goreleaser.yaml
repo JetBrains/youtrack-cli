@@ -236,30 +236,31 @@ release:
 
     **Install script (recommended):**
     ```bash
-    curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash
+    gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash
     ```
 
     **Debian/Ubuntu:**
     ```bash
-    curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/download/v{{ .Version }}/youtrack_linux_amd64.deb
+    gh release download v{{ .Version }} --repo JetBrains/youtrack-cli --pattern youtrack_linux_amd64.deb
     sudo dpkg -i youtrack_linux_amd64.deb
     ```
 
     **RHEL/Fedora:**
     ```bash
-    sudo rpm -i https://github.com/JetBrains/youtrack-cli/releases/download/v{{ .Version }}/youtrack_linux_amd64.rpm
+    gh release download v{{ .Version }} --repo JetBrains/youtrack-cli --pattern youtrack_linux_amd64.rpm
+    sudo rpm -i youtrack_linux_amd64.rpm
     ```
 
     ### Windows
 
     **PowerShell:**
     ```powershell
-    irm https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.ps1 | iex
+    gh release download --repo JetBrains/youtrack-cli --pattern install.ps1 -O - | Out-String | Invoke-Expression
     ```
 
     **CMD:**
     ```cmd
-    curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.cmd -o install.cmd && install.cmd && del install.cmd
+    gh release download --repo JetBrains/youtrack-cli --pattern install.cmd --clobber && install.cmd
     ```
 
     **Manual:** Download `youtrack_{{ .Version }}_windows_x86_64.zip`, extract, and add to PATH.
@@ -267,7 +268,7 @@ release:
     ### Go Install
 
     ```bash
-    go install github.com/JetBrains/youtrack-cli@v{{ .Version }}
+    GOPRIVATE=github.com/JetBrains/youtrack-cli go install github.com/JetBrains/youtrack-cli@v{{ .Version }}
     ```
 
 report_sizes: true
