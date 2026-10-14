@@ -15,7 +15,7 @@ Full documentation — installation, authentication, configuration, and a comman
 
 **macOS & Linux (install script):**
 ```bash
-curl -fsSL https://jb.gg/yt/install | bash
+curl -fsSL https://jb.gg/youtrack-cli/install | bash
 ```
 
 New installs use `~/.local/bin` without sudo; rerunning the script updates an existing unmanaged installation in place. Missing Bash/Zsh PATH entries are added automatically. Restart your shell afterward, or use the printed PATH command. Package-managed installations should be updated through their package manager.
@@ -24,12 +24,12 @@ The installers verify the downloaded archive against `checksums.txt` and, when `
 
 **Windows (PowerShell):**
 ```powershell
-irm https://jb.gg/yt/install.ps1 | iex
+irm https://jb.gg/youtrack-cli/install.ps1 | iex
 ```
 
 **Windows (CMD):**
 ```cmd
-curl -fsSL https://jb.gg/yt/install.cmd -o install.cmd && install.cmd && del install.cmd
+curl -fsSL https://jb.gg/youtrack-cli/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
 Windows installers use `%USERPROFILE%\.local\bin` and add it to the user PATH. Set `YOUTRACK_INSTALL_RELEASE` or `YOUTRACK_INSTALL_DIR` to choose a version or destination in PowerShell; CMD accepts `install.cmd [version] [directory]`.

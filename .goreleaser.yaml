@@ -236,7 +236,7 @@ release:
 
     **Install script (recommended):**
     ```bash
-    curl -fsSL https://jb.gg/yt/install | bash
+    curl -fsSL https://jb.gg/youtrack-cli/install | bash
     ```
 
     **Debian/Ubuntu:**
@@ -255,12 +255,12 @@ release:
 
     **PowerShell:**
     ```powershell
-    irm https://jb.gg/yt/install.ps1 | iex
+    irm https://jb.gg/youtrack-cli/install.ps1 | iex
     ```
 
     **CMD:**
     ```cmd
-    curl -fsSL https://jb.gg/yt/install.cmd -o install.cmd && install.cmd && del install.cmd
+    curl -fsSL https://jb.gg/youtrack-cli/install.cmd -o install.cmd && install.cmd && del install.cmd
     ```
 
     **Manual:** Download `youtrack_{{ .Version }}_windows_x86_64.zip`, extract, and add to PATH.

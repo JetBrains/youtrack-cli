@@ -376,7 +376,7 @@ LOGO
 
 printf 'This script installs \033[1myoutrack\033[0m to %s.\n' "$OUT_DIR"
 printf 'New installs use ~/.local/bin without sudo; existing unmanaged installs are updated in place.\n'
-printf 'Install to a different directory:  \033[0;90mcurl -fsSL https://jb.gg/yt/install | bash -s -- "" ~/.local/bin\033[0m\n'
-printf 'Install a specific version:        \033[0;90mcurl -fsSL https://jb.gg/yt/install | bash -s -- v0.5.1\033[0m\n\n'
+printf 'Install to a different directory:  \033[0;90mcurl -fsSL https://jb.gg/youtrack-cli/install | bash -s -- "" ~/.local/bin\033[0m\n'
+printf 'Install a specific version:        \033[0;90mcurl -fsSL https://jb.gg/youtrack-cli/install | bash -s -- v0.5.1\033[0m\n\n'
 
 install_youtrack

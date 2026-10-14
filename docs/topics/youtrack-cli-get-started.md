@@ -14,7 +14,7 @@ YouTrack CLI ships as a single binary for macOS, Linux, and Windows. Choose the 
 Run the install script. It downloads the latest release and places the `youtrack` binary on your `PATH`:
 
 ```Shell
-curl -fsSL https://jb.gg/yt/install | bash
+curl -fsSL https://jb.gg/youtrack-cli/install | bash
 ```
 
 New installs use `~/.local/bin` without sudo. Rerunning the script updates an existing unmanaged installation in place. The script adds missing Bash/Zsh PATH entries automatically; restart your shell or run the printed PATH command. Update package-managed installations through their original package manager.
@@ -22,7 +22,7 @@ New installs use `~/.local/bin` without sudo. Rerunning the script updates an ex
 To choose a version and directory explicitly:
 
 ```Shell
-curl -fsSL https://jb.gg/yt/install | bash -s -- v0.5.1 "$HOME/.local/bin"
+curl -fsSL https://jb.gg/youtrack-cli/install | bash -s -- v0.5.1 "$HOME/.local/bin"
 ```
 
 <chapter title="Install from a .deb or .rpm package (advanced)" collapsible="true" default-state="collapsed">
@@ -51,13 +51,13 @@ Replace `amd64` with `arm64` for ARM machines.
 In PowerShell:
 
 ```PowerShell
-irm https://jb.gg/yt/install.ps1 | iex
+irm https://jb.gg/youtrack-cli/install.ps1 | iex
 ```
 
 In CMD:
 
 ```Shell
-curl -fsSL https://jb.gg/yt/install.cmd -o install.cmd && install.cmd && del install.cmd
+curl -fsSL https://jb.gg/youtrack-cli/install.cmd -o install.cmd && install.cmd && del install.cmd
 ```
 
 The installers detect x86-64 or ARM64, install to `%USERPROFILE%\.local\bin`, and add the directory to your user PATH. Restart your terminal afterward. In PowerShell, set `YOUTRACK_INSTALL_RELEASE` and `YOUTRACK_INSTALL_DIR` to choose a version and destination. CMD accepts the same choices as positional arguments: `install.cmd [version] [directory]`.
