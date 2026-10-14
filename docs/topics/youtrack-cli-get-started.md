@@ -48,7 +48,7 @@ Download `youtrack_<version>_windows_x86_64.zip` from the [Releases](https://git
 
 ### Installing with go install
 
-If you have a Go toolchain, install YouTrack CLI from source. This requires Go 1.26.5 or later:
+If you have a Go toolchain, install YouTrack CLI from source. This requires Go 1.26.9 or later:
 
 ```Shell
 go install github.com/JetBrains/youtrack-cli@latest
