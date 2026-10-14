@@ -15,7 +15,7 @@ set -Eeuo pipefail
 PROG="youtrack"
 REPO="JetBrains/youtrack-cli"
 CHECK_MARK=$'\033[1;32m✓\033[0m'
-# Fingerprint of the JetBrains key that signs checksums.txt (FINGERPRINT in .github/workflows/release.yml).
+# Fingerprint of the JetBrains key that signs checksums.txt (env.FINGERPRINT in .teamcity.yml).
 SIGNING_KEY_FPR="B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501"
 TMP_DIR=""
 STAGED_BIN=""
@@ -27,8 +27,7 @@ for _arg in "$@"; do
     esac
 done
 RELEASE="${_POSITIONAL[0]:-}"
-OUT_DIR="${_POSITIONAL[1]:-/usr/local/bin}"
-USER_SET_OUT_DIR="${_POSITIONAL[1]:+yes}"
+OUT_DIR="${_POSITIONAL[1]:-}"
 unset _arg _POSITIONAL
 
 cleanup() {
@@ -47,6 +46,59 @@ fail() {
 
 need_cmd() {
     command -v "$1" >/dev/null 2>&1 || fail "'$1' is required but not installed"
+}
+
+choose_install_dir() {
+    [[ -z "$OUT_DIR" ]] || return 0
+    local existing
+    existing="$(type -P "$PROG" || true)"
+    if [[ -n "$existing" ]]; then
+        if [[ -L "$existing" ]]; then
+            fail "existing $PROG is a symlink ($existing); update through its original install method or specify a destination explicitly"
+        fi
+        case "$existing" in
+            */Cellar/*|*/homebrew/*|*/node_modules/*|*/go/bin/*|/usr/bin/*|/bin/*)
+                fail "existing $PROG appears package-managed ($existing); update through its original install method or specify a destination explicitly" ;;
+        esac
+        OUT_DIR="$(dirname "$existing")"
+    else
+        OUT_DIR="$HOME/.local/bin"
+    fi
+}
+
+configure_path() {
+    case ":$PATH:" in
+        *":$OUT_DIR:"*) return 0 ;;
+    esac
+
+    local path_line profile
+    local profiles=()
+    # Keep $PATH literal in the shell startup file.
+    # shellcheck disable=SC2016
+    printf -v path_line 'export PATH=%q:"$PATH"' "$OUT_DIR"
+    case "${SHELL:-}" in
+        */zsh) profiles=("${ZDOTDIR:-$HOME}/.zshrc") ;;
+        */bash)
+            profiles=("$HOME/.bashrc")
+            if [[ -f "$HOME/.bash_profile" ]]; then
+                profiles+=("$HOME/.bash_profile")
+            elif [[ -f "$HOME/.bash_login" ]]; then
+                profiles+=("$HOME/.bash_login")
+            else
+                profiles+=("$HOME/.profile")
+            fi ;;
+        *) printf '\nAdd %s to your shell PATH to run %s.\n' "$OUT_DIR" "$PROG"; return 0 ;;
+    esac
+    for profile in "${profiles[@]}"; do
+        if ! grep -Fqx -- "$path_line" "$profile" 2>/dev/null; then
+            if mkdir -p "$(dirname "$profile")" && printf '\n%s\n' "$path_line" >> "$profile"; then
+                printf 'Added %s to PATH in %s\n' "$OUT_DIR" "$profile"
+            else
+                printf 'Could not update %s; add the PATH entry manually.\n' "$profile" >&2
+            fi
+        fi
+    done
+    printf '\nRestart your shell, or update PATH in your current shell:\n  %s\n\n' "$path_line"
 }
 
 detect_os() {
@@ -70,7 +122,7 @@ download_to_file() {
     if command -v curl >/dev/null 2>&1; then
         curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error "$url" --output "$destination"
     elif command -v wget >/dev/null 2>&1; then
-        # GNU wget can refuse non-https redirects and old TLS; BusyBox wget has no such options, and the checksum, signature, and provenance checks still apply.
+        # GNU wget can refuse non-https redirects and old TLS; BusyBox wget has no such options, and the checksum and signature checks still apply.
         if [[ "$(wget --help 2>&1 || true)" == *--https-only* ]]; then
             wget --https-only --secure-protocol=TLSv1_2 -qO "$destination" "$url"
         else
@@ -207,18 +259,6 @@ verify_signature() {
         fail "signature verification failed for $checksums (expected key ${SIGNING_KEY_FPR})"
 }
 
-# verify_attestation checks the GitHub build provenance of the archive, which a replaced release asset cannot fake.
-verify_attestation() {
-    local archive="$1"
-    [[ "${YOUTRACK_SKIP_ATTESTATION:-}" == "1" ]] && return 0
-    if command -v gh >/dev/null 2>&1; then
-        gh attestation verify "$archive" --repo "$REPO" >/dev/null 2>&1 ||
-            fail "build provenance check failed for $archive (gh attestation verify --repo $REPO). Releases published before provenance attestations: set YOUTRACK_SKIP_ATTESTATION=1"
-    else
-        printf 'Note: gh CLI not found, build provenance not checked (checksum verified).\n' >&2
-    fi
-}
-
 resolve_latest() {
     # Prefer gh CLI — works with private/internal repos
     if command -v gh >/dev/null 2>&1; then
@@ -249,6 +289,8 @@ install_youtrack() {
     [[ -n "${BASH_VERSION:-}" ]] || fail "please run with bash"
 
     need_cmd tar
+    need_cmd find
+    need_cmd cp
     need_cmd chmod
     need_cmd mv
     need_cmd mkdir
@@ -270,18 +312,11 @@ install_youtrack() {
 
     printf '\033[0;90mInstalling %s %s for %s/%s...\033[0m\n\n' "$PROG" "$RELEASE" "$os" "$arch"
 
-    # Fall back to ~/.local/bin if the default dir is not writable and user didn't set a dir.
-    if [[ -z "$USER_SET_OUT_DIR" ]] && ! { mkdir -p "$OUT_DIR" 2>/dev/null && [[ -w "$OUT_DIR" ]]; }; then
-        OUT_DIR="${HOME}/.local/bin"
-        target="${OUT_DIR}/${PROG}"
-        printf '\033[33mNote:\033[0m /usr/local/bin is not writable, installing to %s instead.\n' "$OUT_DIR"
-        printf '      Add it to your PATH if needed: export PATH="%s:$PATH"\n\n' "$OUT_DIR"
-    fi
-
     mkdir -p "$OUT_DIR" || fail "failed to create $OUT_DIR"
-    [[ -w "$OUT_DIR" ]] || fail "$OUT_DIR is not writable
-  Run with sudo:       gh release download --repo ${REPO} --pattern install.sh -O - | sudo bash
-  Use writable dir:    gh release download --repo ${REPO} --pattern install.sh -O - | bash -s -- \"\" ~/.local/bin"
+    [[ -d "$OUT_DIR" ]] || fail "output path is not a directory: $OUT_DIR"
+    [[ -w "$OUT_DIR" ]] || fail "$OUT_DIR is not writable; choose a writable directory such as ~/.local/bin"
+    OUT_DIR="$(cd "$OUT_DIR" && pwd -L)"
+    target="${OUT_DIR}/${PROG}"
 
     TMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/${PROG}.XXXXXX")"
     cd "$TMP_DIR"
@@ -300,7 +335,6 @@ install_youtrack() {
     fi
     verify_signature checksums.txt
     verify_checksum "$archive" checksums.txt
-    verify_attestation "$archive"
     tar -xzf "$archive" || fail "failed to extract $archive"
 
     local tmp_bin
@@ -314,7 +348,9 @@ install_youtrack() {
     STAGED_BIN=""
 
     printf '%s Installed %s at %s\n\n' "$CHECK_MARK" "$PROG" "$target"
-    "$target" --version
+    "$target" --version || fail "installed binary failed to run"
+
+    configure_path
 
     printf '\n\033[1mNext steps:\033[0m\n\n'
     printf '  Authenticate with your YouTrack instance:\n'
@@ -326,6 +362,8 @@ install_youtrack() {
 trap cleanup EXIT
 trap 'fail "interrupted"' INT TERM
 
+choose_install_dir
+
 cat << 'LOGO'
 
  __   __         _____               _
@@ -336,8 +374,9 @@ cat << 'LOGO'
 
 LOGO
 
-printf 'This script installs \033[1myoutrack\033[0m to your PATH.\n'
+printf 'This script installs \033[1myoutrack\033[0m to %s.\n' "$OUT_DIR"
+printf 'New installs use ~/.local/bin without sudo; existing unmanaged installs are updated in place.\n'
 printf 'Install to a different directory:  \033[0;90mgh release download ... -O - | bash -s -- "" ~/.local/bin\033[0m\n'
-printf 'Install a specific version:        \033[0;90mgh release download v1.0.0 ... -O - | bash\033[0m\n\n'
+printf 'Install a specific version:        \033[0;90mgh release download v0.5.1 --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash -s -- v0.5.1\033[0m\n\n'
 
 install_youtrack

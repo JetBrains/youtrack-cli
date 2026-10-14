@@ -147,8 +147,11 @@ func TestInstallScript(t *testing.T) {
 	require.NoError(t, os.WriteFile(gpgScript, []byte(withGPG), 0755))
 
 	installDir := t.TempDir()
+	profileDir := t.TempDir()
+	installerEnv := append(os.Environ(), "SHELL=/bin/zsh", "ZDOTDIR="+profileDir)
 
 	cmd := exec.Command("bash", patchedScript, "v"+version, installDir)
+	cmd.Env = installerEnv
 	out, err := cmd.CombinedOutput()
 	require.NoError(t, err, "install.sh failed:\n%s", string(out))
 
@@ -163,6 +166,42 @@ func TestInstallScript(t *testing.T) {
 	require.NoError(t, err, "--version failed on installed binary")
 	require.Contains(t, string(versionOut), "youtrack ", "unexpected --version output: %s", string(versionOut))
 
+	// Updating an unmanaged install follows PATH; it must not replace a symlink
+	// owned by a package manager. Relative destinations must survive the download's chdir.
+	t.Run("existing unmanaged install", func(t *testing.T) {
+		command := exec.Command("bash", patchedScript, "v"+version)
+		command.Env = append(installerEnv, "PATH="+installDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+		output, err := command.CombinedOutput()
+		require.NoError(t, err, string(output))
+		require.Contains(t, string(output), "Installed youtrack at "+installedBin)
+	})
+	t.Run("relative destination", func(t *testing.T) {
+		workingDir := t.TempDir()
+		command := exec.Command("bash", patchedScript, "v"+version, "relative bin")
+		command.Dir = workingDir
+		command.Env = installerEnv
+		output, err := command.CombinedOutput()
+		require.NoError(t, err, string(output))
+		_, err = os.Stat(filepath.Join(workingDir, "relative bin", "youtrack"))
+		require.NoError(t, err)
+	})
+	t.Run("package managed symlink", func(t *testing.T) {
+		directory := t.TempDir()
+		link := filepath.Join(directory, "youtrack")
+		require.NoError(t, os.Symlink(installedBin, link))
+		command := exec.Command("bash", patchedScript, "v"+version)
+		command.Env = append(installerEnv, "PATH="+directory+string(os.PathListSeparator)+os.Getenv("PATH"))
+		output, err := command.CombinedOutput()
+		require.Error(t, err, string(output))
+		require.Contains(t, string(output), "existing youtrack is a symlink")
+		target, err := os.Readlink(link)
+		require.NoError(t, err)
+		require.Equal(t, installedBin, target)
+	})
+	profile, err := os.ReadFile(filepath.Join(profileDir, ".zshrc"))
+	require.NoError(t, err)
+	require.Equal(t, 1, strings.Count(string(profile), "export PATH="+installDir+":"))
+
 	// With gpg, the embedded key must import and a signature it did not make must stop the install; an unsigned build's empty .asc too.
 	if _, err := exec.LookPath("gpg"); err == nil {
 		for _, c := range []struct{ signature, message string }{
@@ -171,7 +210,9 @@ func TestInstallScript(t *testing.T) {
 		} {
 			servedSignature = c.signature
 			dir := t.TempDir()
-			out, err := exec.Command("bash", gpgScript, "v"+version, dir).CombinedOutput()
+			command := exec.Command("bash", gpgScript, "v"+version, dir)
+			command.Env = installerEnv
+			out, err := command.CombinedOutput()
 			require.Error(t, err, "installer accepted an invalid checksums.txt signature:\n%s", string(out))
 			require.Contains(t, string(out), c.message)
 			require.NotContains(t, string(out), "failed to import the release signing key")
@@ -185,6 +226,7 @@ func TestInstallScript(t *testing.T) {
 	servedChecksum = fmt.Sprintf("%064x  %s\n", 0, filepath.Base(archivePath))
 	tamperedInstallDir := t.TempDir()
 	tamperedCmd := exec.Command("bash", patchedScript, "v"+version, tamperedInstallDir)
+	tamperedCmd.Env = installerEnv
 	tamperedOut, err := tamperedCmd.CombinedOutput()
 	require.Error(t, err, "installer accepted a tampered checksum manifest:\n%s", string(tamperedOut))
 	require.Contains(t, string(tamperedOut), "checksum verification failed")

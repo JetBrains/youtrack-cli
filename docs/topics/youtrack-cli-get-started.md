@@ -17,7 +17,13 @@ Run the install script. It downloads the latest release and places the `youtrack
 curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash
 ```
 
-By default the binary installs to `/usr/local/bin`. If that directory is not writable, the script falls back to `~/.local/bin` and prints the `export PATH` line to add.
+New installs use `~/.local/bin` without sudo. Rerunning the script updates an existing unmanaged installation in place. The script adds missing Bash/Zsh PATH entries automatically; restart your shell or run the printed PATH command. Update package-managed installations through their original package manager.
+
+To choose a version and directory explicitly:
+
+```Shell
+curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash -s -- v0.5.1 "$HOME/.local/bin"
+```
 
 <chapter title="Install from a .deb or .rpm package (advanced)" collapsible="true" default-state="collapsed">
 
@@ -41,7 +47,21 @@ Replace `amd64` with `arm64` for ARM machines.
 </tab>
 <tab title="Windows">
 
-Download `youtrack_<version>_windows_x86_64.zip` from the [Releases](https://github.com/JetBrains/youtrack-cli/releases/latest) page, extract it, and add the folder that contains `youtrack.exe` to your `PATH`.
+In PowerShell:
+
+```PowerShell
+irm https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.ps1 | iex
+```
+
+In CMD:
+
+```Shell
+curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.cmd -o install.cmd && install.cmd && del install.cmd
+```
+
+The installers detect x86-64 or ARM64, install to `%USERPROFILE%\.local\bin`, and add the directory to your user PATH. Restart your terminal afterward. In PowerShell, set `YOUTRACK_INSTALL_RELEASE` and `YOUTRACK_INSTALL_DIR` to choose a version and destination. CMD accepts the same choices as positional arguments: `install.cmd [version] [directory]`.
+
+Alternatively, download the matching `youtrack_<version>_windows_x86_64.zip` or `youtrack_<version>_windows_arm64.zip` from the [Releases](https://github.com/JetBrains/youtrack-cli/releases/latest) page, extract it, and add the folder that contains `youtrack.exe` to your `PATH`.
 
 </tab>
 </tabs>

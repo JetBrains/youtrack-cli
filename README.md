@@ -38,9 +38,23 @@ go install github.com/JetBrains/youtrack-cli@latest
 gh release download --repo JetBrains/youtrack-cli --pattern install.sh -O - | bash
 ```
 
-The installer verifies the downloaded archive against `checksums.txt`.
+New installs use `~/.local/bin` without sudo; rerunning the script updates an existing unmanaged installation in place. Missing Bash/Zsh PATH entries are added automatically. Restart your shell afterward, or use the printed PATH command. Package-managed installations should be updated through their package manager.
 
-**Windows:** `gh release download --repo JetBrains/youtrack-cli --pattern '*windows_x86_64.zip'`, extract the archive, and add the folder to your `PATH`.
+The installers verify the downloaded archive against `checksums.txt` and, when `gpg` is installed, verify its signature against the pinned JetBrains key.
+
+**Windows (PowerShell):**
+```powershell
+gh release download --repo JetBrains/youtrack-cli --pattern install.ps1 -O - | Out-String | Invoke-Expression
+```
+
+**Windows (CMD):**
+```cmd
+gh release download --repo JetBrains/youtrack-cli --pattern install.cmd --clobber && install.cmd
+```
+
+Windows installers use `%USERPROFILE%\.local\bin` and add it to the user PATH. Set `YOUTRACK_INSTALL_RELEASE` or `YOUTRACK_INSTALL_DIR` to choose a version or destination in PowerShell; CMD accepts `install.cmd [version] [directory]`.
+
+Alternatively, download the matching `*windows_x86_64.zip` or `*windows_arm64.zip` release archive, extract it, and add the folder to your `PATH`.
 
 <details>
 <summary>More installation methods (deb, rpm, go install)</summary>

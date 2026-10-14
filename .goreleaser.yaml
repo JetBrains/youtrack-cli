@@ -227,6 +227,8 @@ release:
   mode: replace
   extra_files:
     - glob: install.sh
+    - glob: install.ps1
+    - glob: install.cmd
   footer: |
     ## Installation
 
@@ -249,6 +251,16 @@ release:
     ```
 
     ### Windows
+
+    **PowerShell:**
+    ```powershell
+    irm https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.ps1 | iex
+    ```
+
+    **CMD:**
+    ```cmd
+    curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.cmd -o install.cmd && install.cmd && del install.cmd
+    ```
 
     **Manual:** Download `youtrack_{{ .Version }}_windows_x86_64.zip`, extract, and add to PATH.
 
