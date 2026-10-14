@@ -1,0 +1,49 @@
+version: 1
+parameters:
+  env.SIGN: 'true'
+  env.FINGERPRINT: B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
+  env.CODESIGN_SHA256_AMD64: b25957d0a5038419d916b5f07cd12d78a05666931a0e2e9c977e0d76284bf39c
+  env.CODESIGN_SHA256_ARM64: d34ac6dc446a7490939b1b4d90bd67af04004627053e0f5298985755c9d71e6e
+jobs:
+  goreleaser:
+    name: GoReleaser
+    allow-reuse: false
+    runs-on:
+      self-hosted:
+        - requirement: equals
+          name: Linux Docker engine
+          parameter: container.engine.osType
+          value: linux
+    files-publication:
+      - path: dist/**
+        publish-artifact: true
+        share-with-jobs: false
+    steps:
+      - type: script
+        name: Sign and publish GitHub, Homebrew, and Scoop
+        docker-image: goreleaser/goreleaser-pro:v2.17.0
+        docker-run-parameters: --user 0
+        script-content: |-
+          set -eu
+          : "${GITHUB_TOKEN:?Add the env.GITHUB_TOKEN pipeline secret}"
+          : "${GORELEASER_KEY:?Add the env.GORELEASER_KEY pipeline secret}"
+          : "${SERVICE_ACCOUNT_NAME:?Add the env.SERVICE_ACCOUNT_NAME pipeline secret}"
+          : "${SERVICE_ACCOUNT_TOKEN:?Add the env.SERVICE_ACCOUNT_TOKEN pipeline secret}"
+          apk add --no-cache curl coreutils
+          git config --global --add safe.directory "$(pwd)"
+          case "$(uname -m)" in
+            x86_64) arch=amd64; hash="$CODESIGN_SHA256_AMD64" ;;
+            aarch64|arm64) arch=arm64; hash="$CODESIGN_SHA256_ARM64" ;;
+            *) echo "unsupported arch $(uname -m)" >&2; exit 1 ;;
+          esac
+          mkdir -p "$HOME/.local/bin"
+          curl -fsSL "https://codesign-distribution.labs.jb.gg/codesign-client-linux-$arch" -o "$HOME/.local/bin/codesign-client"
+          echo "$hash  $HOME/.local/bin/codesign-client" | sha256sum --check --strict
+          chmod +x "$HOME/.local/bin/codesign-client"
+          export PATH="$HOME/.local/bin:$PATH"
+          export HOMEBREW_TAP_GITHUB_TOKEN="$GITHUB_TOKEN"
+          export SCOOP_GITHUB_TOKEN="$GITHUB_TOKEN"
+          goreleaser release --clean --skip=aur,winget,chocolatey,npm
+secrets:
+  env.GORELEASER_KEY: credentialsJSON:3d85f71e-e2f5-4878-8741-cd5867b7e170
+  env.GITHUB_TOKEN: credentialsJSON:75dd8a3d-e893-4104-b457-548bccfbcde1
