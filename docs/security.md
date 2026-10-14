@@ -66,15 +66,11 @@ For AI agents this means that text in YouTrack (an issue description, a comment)
 
 ## Release Verification
 
-Every release archive has a SHA-256 entry in `checksums.txt`, and `checksums.txt` is GPG-signed (`checksums.txt.asc`). Each release also has a GitHub build provenance attestation, which proves that the file was built by this repository's release workflow. Verify a downloaded file with:
+Release archives have SHA-256 entries in `checksums.txt`, and signed releases include its GPG signature (`checksums.txt.asc`). Windows and macOS binaries are also code-signed. Releases are built and published by the [TeamCity release pipeline](https://buildserver.labs.intellij.net/pipeline/YouTrack_CLI_Release).
 
-```bash
-gh attestation verify youtrack_<version>_<os>_<arch>.tar.gz --repo JetBrains/youtrack-cli
-```
+The installers (`install.sh` and `install.ps1`, also used by `install.cmd`) check the archive against `checksums.txt` before extraction. When `gpg` is installed, they first verify `checksums.txt.asc` against the pinned JetBrains signing key `B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501` and stop if the signature is not valid. The public key is embedded in the scripts, so verification needs no key server, and the scripts also check the fingerprint of the key that made the signature. A release built without signing has an empty `checksums.txt.asc`; with `gpg` installed, the installers stop on it.
 
-`install.sh` runs this check automatically when the `gh` CLI is installed and stops if the check fails. For releases published before attestations existed, set `YOUTRACK_SKIP_ATTESTATION=1`.
-
-When `gpg` is installed, `install.sh` also verifies `checksums.txt.asc` against the pinned JetBrains signing key `B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501` and stops if the signature is not valid. The public key is embedded in the script, so the check needs no key server, and the script also checks the fingerprint of the key that made the signature. A release built without signing has an empty `checksums.txt.asc`; with `gpg` installed, the script stops on it. Without `gh` and `gpg`, the script checks only that the archive matches `checksums.txt` from the same release, which does not protect against a replaced release. `curl` downloads, and `wget` downloads when GNU `wget` is used, accept only `https` with TLS 1.2 or later. BusyBox `wget` has no such option; the script prints a note and continues, so install `curl` where that matters.
+Without `gpg`, the installers check only that the archive matches `checksums.txt` from the same release, which does not protect against a replaced release. Install `gpg` for signature verification. The installers use authenticated `gh` downloads when available, with a fallback to GitHub HTTPS downloads. Unix `curl` downloads, and `wget` downloads when GNU `wget` is used, accept only `https` with TLS 1.2 or later. BusyBox `wget` has no such option; the script prints a note and continues, so install `curl` where that matters.
 
 ## Read-Only Mode
 
