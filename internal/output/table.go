@@ -245,11 +245,11 @@ func PrintTable(out io.Writer, data any) error {
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%d\t%d\n", v.ID, v.Label, v.X, v.Y)
 	case *api.Canvas:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
-		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Name)
+		_, _ = fmt.Fprintf(w, "%s\t%s\n", v.ID, v.Name())
 	case []api.Canvas:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
 		for _, c := range v {
-			_, _ = fmt.Fprintf(w, "%s\t%s\n", c.ID, c.Name)
+			_, _ = fmt.Fprintf(w, "%s\t%s\n", c.ID, c.Name())
 		}
 	case []api.GanttChart:
 		_, _ = fmt.Fprintln(w, "ID\tNAME")
@@ -502,10 +502,10 @@ func PrintPlain(out io.Writer, data any) error {
 	case *api.CanvasNode:
 		write(v.ID, v.Label, fmt.Sprint(v.X), fmt.Sprint(v.Y))
 	case *api.Canvas:
-		write(v.ID, v.Name)
+		write(v.ID, v.Name())
 	case []api.Canvas:
 		for _, canvas := range v {
-			write(canvas.ID, canvas.Name)
+			write(canvas.ID, canvas.Name())
 		}
 	case *api.GanttChart:
 		write(v.ID, v.Name)

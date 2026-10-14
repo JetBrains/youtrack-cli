@@ -20,11 +20,10 @@ func createTestWhiteboard(t *testing.T, c *api.Client) string {
 	name := fmt.Sprintf("test-whiteboard-%d", time.Now().UnixMilli()%100000)
 
 	out := runCmd(t, "whiteboard", "create", "--name", name, "--owner", me.Login, "--format", "json")
-	var wb struct {
-		ID string `json:"id"`
-	}
+	var wb api.Canvas
 	require.NoError(t, json.Unmarshal([]byte(out), &wb))
 	require.NotEmpty(t, wb.ID)
+	require.Equal(t, name, wb.Name(), "whiteboard name not applied")
 	t.Cleanup(func() { _ = c.DeleteCanvas(wb.ID) })
 	return wb.ID
 }
@@ -53,7 +52,7 @@ func TestCmd_WhiteboardDeletePrintsSuccess(t *testing.T) {
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
 
-	wb, err := c.AddCanvas(api.AddCanvasRequest{Name: "delete-test", Owner: &api.User{ID: me.ID}})
+	wb, err := c.AddCanvas(api.AddCanvasRequest{Settings: api.CanvasSettings{Name: "delete-test"}, Owner: &api.User{ID: me.ID, RingID: me.RingID}})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteCanvas(wb.ID) })
 

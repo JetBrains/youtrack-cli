@@ -61,7 +61,7 @@ func newWhiteboardCreateCmd() *cobra.Command {
 				return err
 			}
 
-			req := api.AddCanvasRequest{Name: name}
+			req := api.AddCanvasRequest{Settings: api.CanvasSettings{Name: name}}
 			ownerTarget := ownerLogin
 			if ownerTarget == "" {
 				me, err := client.GetCurrentUser()
@@ -74,7 +74,7 @@ func newWhiteboardCreateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			req.Owner = &api.User{ID: u.ID}
+			req.Owner = &api.User{ID: u.ID, RingID: u.RingID}
 
 			canvas, err := client.AddCanvas(req)
 			if err != nil {
