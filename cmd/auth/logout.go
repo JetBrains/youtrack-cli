@@ -126,6 +126,10 @@ func revokeOAuthSession(cmd *cobra.Command, alias string, inst *config.Instance)
 		output.PrintWarn(cmd, fmt.Sprintf("Hub advertises no token revocation endpoint — the refresh token for %q stays valid at Hub; to revoke it, remove the application's access in your Hub profile", alias))
 		return false
 	}
+	if !inst.OAuthEndpointsTrusted() {
+		output.PrintWarn(cmd, fmt.Sprintf("skipped revoking the tokens for %q at Hub: the revocation endpoint %s is not the one saved with them in the OS keyring — they were removed locally", alias, inst.RevocationEndpoint))
+		return false
+	}
 	ctx, cancel := context.WithTimeout(cmd.Context(), revokeTimeout)
 	defer cancel()
 	revoked := false

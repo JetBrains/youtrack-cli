@@ -43,13 +43,15 @@ func TestOAuthDiscovery(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, ring.ServiceID, "ring.serviceId must be discoverable unauthenticated")
 
-	hubURL := strings.TrimRight(ring.URL, "/")
+	// A server with a context path reports a root-relative Hub that already includes it (e.g. "/test/hub").
+	hubURL := strings.TrimRight(api.ResolveHubURL(baseURL, ring.URL), "/")
 	if hubURL == "" {
 		hubURL = strings.TrimRight(baseURL, "/") + "/hub"
 	}
 
 	eps, err := api.DiscoverOAuthEndpointsContext(t.Context(), hubURL)
 	require.NoError(t, err)
+	assert.NotEmpty(t, eps.Issuer, "the Hub's openid-configuration must be reachable, not the conventional-path fallback")
 	assert.NotEmpty(t, eps.AuthorizationEndpoint)
 	assert.NotEmpty(t, eps.TokenEndpoint)
 }

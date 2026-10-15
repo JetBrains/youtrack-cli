@@ -252,7 +252,7 @@ func savedInstance(t *testing.T, home, alias string) map[string]any {
 
 // isolatedEnv is a minimal environment: no inherited YOUTRACK_* credentials, file-only token storage.
 func isolatedEnv(home string, extra ...string) []string {
-	return append([]string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "YOUTRACK_DISABLE_KEYRING=1", "YOUTRACK_NO_UPDATE=1"}, extra...)
+	return append([]string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "USERPROFILE=" + home, "YOUTRACK_DISABLE_KEYRING=1", "YOUTRACK_NO_UPDATE=1"}, extra...)
 }
 
 // loginProc is a running `instance login`; the test drives it through stderr (the printed URL) and stdin (a pasted URL).

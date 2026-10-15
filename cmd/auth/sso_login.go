@@ -388,9 +388,6 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		if cfg, err := config.Load(); err == nil {
 			inKeyring = cfg.TokenInKeyring(finalAlias)
 		}
-		if !result.HasRefreshToken {
-			config.PurgeKeyringRefreshToken(finalAlias) // drop a refresh token left over from an earlier sign-in
-		}
 		path, _ := config.ConfigPath()
 		result.Alias = finalAlias
 		result.ConfigFile = path

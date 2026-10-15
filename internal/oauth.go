@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
@@ -68,6 +69,9 @@ func (s *oauthSession) Token(ctx context.Context) (string, error) {
 	if !canRefresh(&cur) {
 		return "", sessionExpiredError(s.alias)
 	}
+	if !cur.OAuthEndpointsTrusted() {
+		return "", fmt.Errorf("refusing to send the refresh token for %q to %s: the endpoint is not the one saved with the token in the OS keyring — sign in again: youtrack instance login %s", s.alias, cur.TokenEndpoint, s.alias)
+	}
 
 	requestedAt := s.now()
 	if s.verbose != nil {
@@ -87,10 +91,11 @@ func (s *oauthSession) Token(ctx context.Context) (string, error) {
 		if api.IsInvalidGrant(err) {
 			// The refresh token is dead (expired, revoked, or rotated away); drop the stale credentials so they are not retried.
 			cfg.ClearOAuthTokens(s.alias)
-			if saveErr := cfg.Save(); saveErr == nil {
-				_ = config.PurgeKeyringToken(s.alias)
+			cleanupErr := cfg.Save()
+			if cleanupErr == nil {
+				cleanupErr = config.PurgeKeyringToken(s.alias)
 			}
-			return "", sessionExpiredError(s.alias)
+			return "", errors.Join(sessionExpiredError(s.alias), cleanupErr)
 		}
 		return "", fmt.Errorf("refreshing the OAuth session for %q: %w", s.alias, err)
 	}

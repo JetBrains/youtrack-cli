@@ -16,9 +16,15 @@ const keyringService = "youtrack-cli"
 // It is a separate entry so the token entry keeps the bare token that older CLI versions read.
 const keyringURLService = "youtrack-cli-url"
 
-// refreshKeyringUser is the keyring account holding an instance's OAuth refresh token, kept apart from the access token so older CLI versions still read the access token under the bare alias.
-func refreshKeyringUser(alias string) string {
-	return alias + "/refresh-token"
+// keyringOAuthService holds, under the alias, an OAuth session's refresh token together with the Hub endpoints it may be sent to (an oauthSecret),
+// so an edit of the config file cannot redirect the keyring tokens to another host. A separate service keeps it from colliding with any alias.
+const keyringOAuthService = "youtrack-cli-oauth"
+
+// oauthSecret is the JSON value of a keyringOAuthService entry.
+type oauthSecret struct {
+	RefreshToken       string `json:"refreshToken,omitempty"`
+	TokenEndpoint      string `json:"tokenEndpoint,omitempty"`
+	RevocationEndpoint string `json:"revocationEndpoint,omitempty"`
 }
 
 // keyringTimeout guards against keyring backends that hang instead of failing (e.g. a locked keychain awaiting input).

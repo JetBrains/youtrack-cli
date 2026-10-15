@@ -235,7 +235,8 @@ func TestResolveHubURL(t *testing.T) {
 
 	for _, tc := range []struct{ base, ref, want string }{
 		{"http://127.0.0.1:8080", "/hub", "http://127.0.0.1:8080/hub"},
-		{"https://yt.example.com/youtrack", "/hub", "https://yt.example.com/youtrack/hub"},
+		{"https://yt.example.com/youtrack", "/hub", "https://yt.example.com/hub"},
+		{"https://yt.example.com/youtrack", "hub", "https://yt.example.com/youtrack/hub"},
 		{"https://yt.example.com/youtrack/", "/youtrack/hub", "https://yt.example.com/youtrack/hub"},
 		{"https://x.youtrack.cloud", "https://x.youtrack.cloud/hub", "https://x.youtrack.cloud/hub"},
 		{"https://yt.example.com", "https://hub.example.com", "https://hub.example.com"},

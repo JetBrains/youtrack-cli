@@ -345,7 +345,12 @@ func openSystemBrowser(targetURL string) error {
 	case "windows":
 		return exec.Command("rundll32", "url.dll,FileProtocolHandler", targetURL).Start()
 	default:
-		for _, opener := range []string{"xdg-open", "wslview"} {
+		openers := []string{"xdg-open", "wslview"}
+		if os.Getenv("WSL_DISTRO_NAME") != "" {
+			// On WSL xdg-open often exists without a handler and fails after Start returns; wslview reaches the Windows browser directly.
+			openers = []string{"wslview", "xdg-open"}
+		}
+		for _, opener := range openers {
 			if path, err := exec.LookPath(opener); err == nil {
 				return exec.Command(path, targetURL).Start()
 			}

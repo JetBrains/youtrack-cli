@@ -99,7 +99,8 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 				if baseURL == "" {
 					baseURL = inst.URL
 				}
-				if token == "" {
+				// A profile picked with --server never borrows the active profile's token: that may be another account on the same origin.
+				if token == "" && serverAlias == "" {
 					token = inst.Token
 					savedTokenAlias, savedTokenURL = alias, inst.TokenURL()
 					if token != "" {

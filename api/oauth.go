@@ -417,7 +417,8 @@ func PKCEChallengeS256(verifier string) string {
 	return base64.RawURLEncoding.EncodeToString(sum[:])
 }
 
-// ResolveHubURL resolves a possibly relative URL (YouTrack Server reports its built-in Hub as "/hub") against baseURL.
+// ResolveHubURL resolves a possibly relative URL against baseURL. YouTrack Server reports its built-in Hub root-relative,
+// with the context path already included (https://host/youtrack reports "/youtrack/hub").
 func ResolveHubURL(baseURL, ref string) string {
 	if ref == "" {
 		return ""
@@ -429,13 +430,6 @@ func ResolveHubURL(baseURL, ref string) string {
 	r, err := url.Parse(ref)
 	if err != nil {
 		return ref
-	}
-	if r.IsAbs() {
-		return ref
-	}
-	// A root-relative "/hub" keeps the instance's path prefix (e.g. https://host/youtrack + /hub → https://host/youtrack/hub) only when the prefix is not already part of it.
-	if strings.HasPrefix(r.Path, "/") && base.Path != "/" && !strings.HasPrefix(r.Path, base.Path) {
-		r.Path = strings.TrimSuffix(base.Path, "/") + r.Path
 	}
 	return base.ResolveReference(r).String()
 }
