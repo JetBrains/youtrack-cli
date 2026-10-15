@@ -26,18 +26,18 @@ func TestConfigWritersWaitForLock(t *testing.T) {
 		{args: []string{"instance", "use", "fake"}},
 		{args: []string{"instance", "delete", "fake", "--force"}},
 		{args: []string{"auth", "logout", "--force"}},
-		{args: []string{"auth", "refresh-token", "fake"}, stdin: "2\nperm:replacement\n", check: func(t *testing.T, home string) {
-			assert.Equal(t, "perm:replacement", savedInstance(t, home, "fake")["token"])
+		{args: []string{"auth", "refresh-token", "fake"}, stdin: "2\n{token}\n", check: func(t *testing.T, home string) {
+			assert.Equal(t, os.Getenv("YOUTRACK_TOKEN"), savedInstance(t, home, "fake")["token"])
 		}},
-		{args: []string{"auth", "get-token", "--alias", "other"}, stdin: "{url}\n3\nperm:other\n", check: func(t *testing.T, home string) {
-			assert.Equal(t, "perm:other", savedInstance(t, home, "other")["token"])
+		{args: []string{"auth", "get-token", "--alias", "other"}, stdin: "{url}\n3\n{token}\n", check: func(t *testing.T, home string) {
+			assert.Equal(t, os.Getenv("YOUTRACK_TOKEN"), savedInstance(t, home, "other")["token"])
 		}},
 	} {
 		args := tc.args
 		t.Run(args[0]+" "+args[1], func(t *testing.T) {
-			hub := newFakeHub(t)
+			hub := newOAuthHub(t, true)
 			home := t.TempDir()
-			hub.seedSession(t, home, time.Now().Unix()+3600)
+			hub.login(t, home, "fake")
 
 			lock, err := os.OpenFile(filepath.Join(home, ".youtrack-cli-config.json.lock"), os.O_RDWR|os.O_CREATE, 0600)
 			require.NoError(t, err)
@@ -46,7 +46,7 @@ func TestConfigWritersWaitForLock(t *testing.T) {
 
 			cmd := exec.Command(binaryPath, args...)
 			cmd.Env = isolatedEnv(home)
-			cmd.Stdin = strings.NewReader(strings.ReplaceAll(tc.stdin, "{url}", hub.srv.URL))
+			cmd.Stdin = strings.NewReader(strings.NewReplacer("{url}", hub.baseURL, "{token}", os.Getenv("YOUTRACK_TOKEN")).Replace(tc.stdin))
 			require.NoError(t, cmd.Start())
 			done := make(chan error, 1)
 			go func() { done <- cmd.Wait() }()

@@ -200,9 +200,9 @@ func (e *OAuthError) Error() string {
 	if msg == "" {
 		msg = "token request failed"
 	}
-	switch e.Code {
-	case "invalid_client", "unauthorized_client":
-		// The CLI has no secret to send; Hub answers invalid_client when the client requires one or lacks the flow.
+	// The CLI has no secret to send. Hub answers invalid_client when the client lacks the flow, and invalid_grant
+	// "Invalid service secret" when the client requires a secret.
+	if e.Code == "invalid_client" || e.Code == "unauthorized_client" || (e.Code == "invalid_grant" && strings.Contains(e.Description, "service secret")) {
 		msg += " — in YouTrack, open Administration > Access Management > OAuth Clients, select the client, and on its Authentication tab enable Authorization Code flow and Require PKCE with no Client secret (with an external Hub, configure the service there)"
 	}
 	return fmt.Sprintf("%s (HTTP %d)", msg, e.StatusCode)
