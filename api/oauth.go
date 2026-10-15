@@ -68,7 +68,6 @@ type OAuthEndpoints struct {
 	Issuer                string   `json:"issuer"`
 	AuthorizationEndpoint string   `json:"authorization_endpoint"`
 	TokenEndpoint         string   `json:"token_endpoint"`
-	RevocationEndpoint    string   `json:"revocation_endpoint"`
 	CodeChallengeMethods  []string `json:"code_challenge_methods_supported"`
 }
 
@@ -104,9 +103,8 @@ func DiscoverOAuthEndpointsContext(ctx context.Context, hubURL string) (*OAuthEn
 		"issuer":                 eps.Issuer,
 		"authorization_endpoint": eps.AuthorizationEndpoint,
 		"token_endpoint":         eps.TokenEndpoint,
-		"revocation_endpoint":    eps.RevocationEndpoint,
 	} {
-		if endpoint == "" && (name == "issuer" || name == "revocation_endpoint") {
+		if endpoint == "" && name == "issuer" {
 			continue
 		}
 		if err := validateOAuthEndpoint(hubURL, endpoint, name); err != nil {
@@ -235,26 +233,6 @@ func RefreshOAuthTokenContext(ctx context.Context, tokenEndpoint, clientID, refr
 		form.Set("scope", scope)
 	}
 	return postTokenForm(ctx, tokenEndpoint, form)
-}
-
-// RevokeOAuthTokenContext asks the revocation endpoint (RFC 7009) to invalidate token; callers treat failures as best-effort.
-func RevokeOAuthTokenContext(ctx context.Context, revocationEndpoint, clientID, token, tokenTypeHint string) error {
-	form := url.Values{}
-	form.Set("token", token)
-	form.Set("client_id", clientID)
-	if tokenTypeHint != "" {
-		form.Set("token_type_hint", tokenTypeHint)
-	}
-	resp, err := postForm(ctx, revocationEndpoint, form)
-	if err != nil {
-		return fmt.Errorf("revocation request: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, maxOAuthResponseBodySize))
-	if resp.StatusCode >= 300 {
-		return fmt.Errorf("revocation endpoint returned HTTP %d", resp.StatusCode)
-	}
-	return nil
 }
 
 // postForm sends an OAuth form POST over noRedirectClient (never forwarding the body to another origin).

@@ -346,15 +346,14 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		scope = strings.Join(scopes, " ")
 	}
 	sess := config.OAuthSession{
-		AccessToken:        tok.AccessToken,
-		RefreshToken:       tok.RefreshToken,
-		ExpiresAt:          api.TokenExpiry(requestedAt, tok.ExpiresIn),
-		TokenType:          cmp.Or(tok.TokenType, "Bearer"),
-		Scope:              scope,
-		HubURL:             hubURL,
-		ClientID:           opts.clientID,
-		TokenEndpoint:      endpoints.TokenEndpoint,
-		RevocationEndpoint: endpoints.RevocationEndpoint,
+		AccessToken:   tok.AccessToken,
+		RefreshToken:  tok.RefreshToken,
+		ExpiresAt:     api.TokenExpiry(requestedAt, tok.ExpiresIn),
+		TokenType:     cmp.Or(tok.TokenType, "Bearer"),
+		Scope:         scope,
+		HubURL:        hubURL,
+		ClientID:      opts.clientID,
+		TokenEndpoint: endpoints.TokenEndpoint,
 	}
 	result := ssoLoginResult{
 		Login:           user.Login,

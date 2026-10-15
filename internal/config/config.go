@@ -42,13 +42,12 @@ type Instance struct {
 	RefreshToken string `json:"refreshToken,omitempty"`
 	// oauthInKeyring marks the OAuth session as bound in the keyring (refresh token and endpoints, see oauthSecret), so Save omits the refresh token from the file.
 	oauthInKeyring bool
-	// OAuth session metadata recorded at sign-in so the access token can be refreshed and revoked without re-discovery.
-	TokenType          string `json:"tokenType,omitempty"`
-	Scope              string `json:"scope,omitempty"`
-	HubURL             string `json:"hubUrl,omitempty"`
-	ClientID           string `json:"clientId,omitempty"`
-	TokenEndpoint      string `json:"tokenEndpoint,omitempty"`
-	RevocationEndpoint string `json:"revocationEndpoint,omitempty"`
+	// OAuth session metadata recorded at sign-in so the access token can be refreshed without re-discovery.
+	TokenType     string `json:"tokenType,omitempty"`
+	Scope         string `json:"scope,omitempty"`
+	HubURL        string `json:"hubUrl,omitempty"`
+	ClientID      string `json:"clientId,omitempty"`
+	TokenEndpoint string `json:"tokenEndpoint,omitempty"`
 }
 
 // AuthMethodOAuth marks an instance whose token came from the browser OAuth flow.
@@ -56,15 +55,14 @@ const AuthMethodOAuth = "oauth"
 
 // OAuthSession is everything a browser sign-in yields that must be persisted for refresh and logout.
 type OAuthSession struct {
-	AccessToken        string
-	RefreshToken       string
-	ExpiresAt          int64
-	TokenType          string
-	Scope              string
-	HubURL             string
-	ClientID           string
-	TokenEndpoint      string
-	RevocationEndpoint string
+	AccessToken   string
+	RefreshToken  string
+	ExpiresAt     int64
+	TokenType     string
+	Scope         string
+	HubURL        string
+	ClientID      string
+	TokenEndpoint string
 }
 
 // ConfigPath returns the absolute path to ~/.youtrack-cli-config.json.
@@ -117,7 +115,7 @@ func Load() (*Config, error) {
 			var s oauthSecret
 			if raw, err := keyringGet(keyringOAuthService, alias); err == nil && json.Unmarshal([]byte(raw), &s) == nil {
 				// The keyring endpoints win over the file; a refresh token left in the file (keyring was down at the last Save) is newer.
-				inst.TokenEndpoint, inst.RevocationEndpoint = s.TokenEndpoint, s.RevocationEndpoint
+				inst.TokenEndpoint = s.TokenEndpoint
 				if inst.RefreshToken == "" || inst.RefreshToken == s.RefreshToken {
 					inst.RefreshToken = s.RefreshToken
 					inst.oauthInKeyring = true
@@ -154,7 +152,7 @@ func (c *Config) Save() error {
 		}
 		if bindOAuth {
 			// The entry is written even without a refresh token, so one left from an earlier sign-in is replaced.
-			s, _ := json.Marshal(oauthSecret{RefreshToken: inst.RefreshToken, TokenEndpoint: inst.TokenEndpoint, RevocationEndpoint: inst.RevocationEndpoint})
+			s, _ := json.Marshal(oauthSecret{RefreshToken: inst.RefreshToken, TokenEndpoint: inst.TokenEndpoint})
 			if keyringSet(keyringOAuthService, alias, string(s)) == nil {
 				inst.oauthInKeyring = true
 			}
@@ -278,7 +276,7 @@ func (c *Config) RefreshTokenInKeyring(alias string) bool {
 	return inst.oauthInKeyring && inst.RefreshToken != ""
 }
 
-// OAuthEndpointsTrusted reports whether TokenEndpoint and RevocationEndpoint may receive this instance's tokens:
+// OAuthEndpointsTrusted reports whether TokenEndpoint may receive this instance's refresh token:
 // they come from the keyring entry bound at sign-in, or no token lives in the keyring (so the file holds both and an edit redirects nothing new).
 func (i *Instance) OAuthEndpointsTrusted() bool {
 	return i.oauthInKeyring || !i.tokenInKeyring
@@ -324,17 +322,16 @@ func (c *Config) AddInstance(alias, rawURL, token string) string {
 // AddInstanceOAuth upserts an instance holding an OAuth session: a short-lived access token plus, when Hub issued one, a refresh token.
 func (c *Config) AddInstanceOAuth(alias, rawURL string, sess *OAuthSession) string {
 	return c.upsertInstance(alias, rawURL, &Instance{
-		URL:                rawURL,
-		Token:              sess.AccessToken,
-		AuthMethod:         AuthMethodOAuth,
-		TokenExpiresAt:     sess.ExpiresAt,
-		RefreshToken:       sess.RefreshToken,
-		TokenType:          sess.TokenType,
-		Scope:              sess.Scope,
-		HubURL:             sess.HubURL,
-		ClientID:           sess.ClientID,
-		TokenEndpoint:      sess.TokenEndpoint,
-		RevocationEndpoint: sess.RevocationEndpoint,
+		URL:            rawURL,
+		Token:          sess.AccessToken,
+		AuthMethod:     AuthMethodOAuth,
+		TokenExpiresAt: sess.ExpiresAt,
+		RefreshToken:   sess.RefreshToken,
+		TokenType:      sess.TokenType,
+		Scope:          sess.Scope,
+		HubURL:         sess.HubURL,
+		ClientID:       sess.ClientID,
+		TokenEndpoint:  sess.TokenEndpoint,
 	})
 }
 

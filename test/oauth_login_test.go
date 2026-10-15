@@ -304,7 +304,6 @@ func TestOAuthLogin_LoopbackFlow(t *testing.T) {
 	assert.Equal(t, "Bearer", inst["tokenType"])
 	assert.Equal(t, hub.serviceID, inst["scope"])
 	assert.Equal(t, hub.hubURL+"/api/rest/oauth2/token", inst["tokenEndpoint"])
-	assert.Empty(t, inst["revocationEndpoint"], "Hub advertises no revocation endpoint")
 	assert.NotEmpty(t, inst["refreshToken"])
 	assert.NotEmpty(t, inst["token"])
 	expiresAt, _ := inst["tokenExpiresAt"].(float64)
@@ -609,7 +608,7 @@ func TestOAuthStatus_ShowsSessionWithoutTokens(t *testing.T) {
 	assert.NotContains(t, out, access)
 }
 
-func TestOAuthLogout_WithoutRevocationEndpoint(t *testing.T) {
+func TestOAuthLogout_WarnsRefreshTokenStaysValid(t *testing.T) {
 	hub := newOAuthHub(t, true)
 	home := t.TempDir()
 	hub.login(t, home, "e2e")
@@ -619,8 +618,7 @@ func TestOAuthLogout_WithoutRevocationEndpoint(t *testing.T) {
 	var res map[string]any
 	require.NoError(t, json.Unmarshal([]byte(stdout), &res))
 	assert.Equal(t, "logged out", res["status"])
-	assert.NotEqual(t, true, res["revoked"], "nothing is revoked when Hub advertises no revocation endpoint")
-	assert.Contains(t, stderr, "advertises no token revocation endpoint")
+	assert.Contains(t, stderr, "stays valid at Hub until it expires")
 	assert.Empty(t, readConfig(t, home)["instances"], "credentials removed")
 }
 
