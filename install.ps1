@@ -225,8 +225,21 @@ try {
     if (-not $exePath) { throw "could not find $binName in the downloaded archive" }
     $stagedBin = Join-Path $OutDir ".youtrack_staged_$([guid]::NewGuid().ToString('N')).exe"
     Copy-Item -LiteralPath $exePath.FullName -Destination $stagedBin
-    Move-Item -LiteralPath $stagedBin -Destination (Join-Path $OutDir $binName) -Force
+    $target = Join-Path $OutDir $binName
+    $oldBin = "$target.old"
+    Remove-Item -LiteralPath $oldBin -Force -ErrorAction SilentlyContinue
+    # Windows locks a running executable against overwrite but allows a rename, so move the
+    # current binary aside first. This lets 'youtrack update' replace the running youtrack.exe.
+    if (Test-Path -LiteralPath $target) { Move-Item -LiteralPath $target -Destination $oldBin -Force }
+    try {
+        Move-Item -LiteralPath $stagedBin -Destination $target -Force
+    } catch {
+        if (Test-Path -LiteralPath $oldBin) { Move-Item -LiteralPath $oldBin -Destination $target -Force }
+        throw
+    }
     $stagedBin = $null
+    # Fails while the old binary still runs; the next install removes it.
+    Remove-Item -LiteralPath $oldBin -Force -ErrorAction SilentlyContinue
 
     Write-Host "`nInstalled at $OutDir\$binName`n"
     & (Join-Path $OutDir $binName) --version

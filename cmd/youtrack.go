@@ -45,6 +45,7 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 	}
 
 	rootCmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, _ []string) { maybePromptForUpdate(cmd) }
 
 	f := rootCmd.PersistentFlags()
 	f.String("format", "table", "Output format: table, json, or plain (deprecated: use --json or --plain)")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"time"
@@ -74,6 +75,10 @@ func detectFromPathContext(ctx context.Context, exe string) InstallMethod {
 	}
 
 	if exeLower == "/usr/local/bin/youtrack" || strings.HasSuffix(exeLower, "/.local/bin/youtrack") {
+		return InstallScript
+	}
+	if home, err := os.UserHomeDir(); err == nil && runtime.GOOS == "windows" &&
+		exeLower == strings.ToLower(filepath.Join(home, ".local", "bin", "youtrack.exe")) {
 		return InstallScript
 	}
 
@@ -158,7 +163,10 @@ func (m InstallMethod) UpgradeCommand() string {
 	case InstallGoInstall:
 		return "go install github.com/JetBrains/youtrack-cli@latest"
 	case InstallScript:
-		return "curl -fsSL " + releasesURL + "/download/install.sh | bash"
+		if runtime.GOOS == "windows" {
+			return "irm " + installScriptPSURL + " | iex"
+		}
+		return "curl -fsSL " + installScriptURL + " | bash"
 	default:
 		return "visit " + releasesURL
 	}

@@ -70,6 +70,8 @@ Release archives have SHA-256 entries in `checksums.txt`, and signed releases in
 
 The installers (`install.sh` and `install.ps1`, also used by `install.cmd`) check the archive against `checksums.txt` before extraction. When `gpg` is installed, they first verify `checksums.txt.asc` against the pinned JetBrains signing key `B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501` and stop if the signature is not valid. The public key is embedded in the scripts, so verification needs no key server, and the scripts also check the fingerprint of the key that made the signature. A release built without signing has an empty `checksums.txt.asc`; with `gpg` installed, the installers stop on it.
 
+`youtrack update` upgrades an install-script install by running the same installer again (`install.sh`, or `install.ps1` on Windows), so the same checks apply. The startup update prompt uses the same upgrade.
+
 Without `gpg`, the installers check only that the archive matches `checksums.txt` from the same release, which does not protect against a replaced release. Install `gpg` for signature verification. The installers use authenticated `gh` downloads when available, with a fallback to GitHub HTTPS downloads. Unix `curl` downloads, and `wget` downloads when GNU `wget` is used, accept only `https` with TLS 1.2 or later. BusyBox `wget` has no such option; the script prints a note and continues, so install `curl` where that matters.
 
 ## Read-Only Mode
