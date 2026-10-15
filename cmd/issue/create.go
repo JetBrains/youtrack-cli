@@ -98,7 +98,7 @@ func newIssueCreateCmd() *cobra.Command {
 				}
 			}
 			if applyErr == nil && parent != "" {
-				if err := client.ApplyCommand("parent for "+parent, []string{issue.IDReadable}); err != nil {
+				if err := client.ApplyCommand("subtask of "+parent, []string{issue.IDReadable}); err != nil {
 					applyErr = fmt.Errorf("set parent: %w", err)
 				}
 			}

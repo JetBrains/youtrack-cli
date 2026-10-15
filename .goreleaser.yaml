@@ -227,6 +227,8 @@ release:
   mode: replace
   extra_files:
     - glob: install.sh
+    - glob: install.ps1
+    - glob: install.cmd
   footer: |
     ## Installation
 
@@ -234,7 +236,7 @@ release:
 
     **Install script (recommended):**
     ```bash
-    curl -fsSL https://github.com/JetBrains/youtrack-cli/releases/latest/download/install.sh | bash
+    curl -fsSL https://jb.gg/youtrack-cli/install | bash
     ```
 
     **Debian/Ubuntu:**
@@ -245,10 +247,21 @@ release:
 
     **RHEL/Fedora:**
     ```bash
-    sudo rpm -i https://github.com/JetBrains/youtrack-cli/releases/download/v{{ .Version }}/youtrack_linux_amd64.rpm
+    curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/download/v{{ .Version }}/youtrack_linux_amd64.rpm
+    sudo rpm -i youtrack_linux_amd64.rpm
     ```
 
     ### Windows
+
+    **PowerShell:**
+    ```powershell
+    irm https://jb.gg/youtrack-cli/install.ps1 | iex
+    ```
+
+    **CMD:**
+    ```cmd
+    curl -fsSL https://jb.gg/youtrack-cli/install.cmd -o install.cmd && install.cmd && del install.cmd
+    ```
 
     **Manual:** Download `youtrack_{{ .Version }}_windows_x86_64.zip`, extract, and add to PATH.
 

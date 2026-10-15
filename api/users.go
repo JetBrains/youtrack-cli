@@ -11,7 +11,7 @@ import (
 const userFields = "id,login,fullName,email,guest,online,banned,avatarUrl,ringId,userType(id,name),tags(id,name),savedQueries(id,name)"
 
 const (
-	entityDeleteSyncTimeout  = 5 * time.Second
+	entityDeleteSyncTimeout  = 30 * time.Second
 	entityDeletePollInterval = 100 * time.Millisecond
 	hubSyncTimeout           = 5 * time.Second
 	hubSyncPollInterval      = 200 * time.Millisecond
