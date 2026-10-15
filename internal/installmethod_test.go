@@ -42,7 +42,7 @@ func TestAutoUpgradeCommand(t *testing.T) {
 		{"apt has no in-place upgrade", InstallApt, false},
 		{"rpm has no in-place upgrade", InstallRPM, false},
 		{"AUR helper would sync the whole system", InstallArch, false},
-		{"script install is handled separately", InstallScript, false},
+		{"script install re-runs the installer", InstallScript, true},
 		{"unknown install has no upgrade path", InstallUnknown, false},
 	}
 	for _, c := range cases {

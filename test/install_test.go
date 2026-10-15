@@ -175,6 +175,15 @@ func TestInstallScript(t *testing.T) {
 		require.NoError(t, err, string(output))
 		require.Contains(t, string(output), "Installed youtrack at "+installedBin)
 	})
+	t.Run("update mode", func(t *testing.T) {
+		command := exec.Command("bash", patchedScript, "v"+version, installDir)
+		command.Env = append(installerEnv, "YOUTRACK_INSTALL_UPDATE=1")
+		output, err := command.CombinedOutput()
+		require.NoError(t, err, string(output))
+		require.Contains(t, string(output), "Installed youtrack at "+installedBin)
+		require.NotContains(t, string(output), "This script installs")
+		require.NotContains(t, string(output), "Next steps")
+	})
 	t.Run("relative destination", func(t *testing.T) {
 		workingDir := t.TempDir()
 		command := exec.Command("bash", patchedScript, "v"+version, "relative bin")

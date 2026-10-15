@@ -59,6 +59,17 @@ func saveUpdateCheckTimestamp(now int64) {
 	_ = cfg.Save()
 }
 
+// saveLatestVersion re-loads the config and records the newest release seen, for the
+// startup update prompt.
+func saveLatestVersion(version string) {
+	cfg, err := config.Load()
+	if err != nil || cfg.LatestVersion == version {
+		return
+	}
+	cfg.LatestVersion = version
+	_ = cfg.Save()
+}
+
 // CheckForUpdateAsync decides synchronously whether a check is due and, if so, persists
 // the throttle timestamp up front so it survives an immediate exit (e.g. --quiet, or a
 // wait shorter than the network round trip). The network fetch runs in the background.
@@ -97,8 +108,8 @@ func updateCheckDue(currentVersion string) bool {
 }
 
 // fetchLatestRelease queries for the latest published release via the public,
-// unauthenticated API first. If that fails (e.g. the repo is private/internal),
-// it falls back to the gh CLI, which carries the caller's own GitHub auth.
+// unauthenticated API first. If that fails (e.g. the unauthenticated rate limit is
+// exhausted), it falls back to the gh CLI, which carries the caller's own GitHub auth.
 func fetchLatestRelease(ctx context.Context) (*ReleaseInfo, error) {
 	release, apiErr := fetchLatestReleaseViaAPI(ctx)
 	if apiErr == nil {
@@ -106,7 +117,7 @@ func fetchLatestRelease(ctx context.Context) (*ReleaseInfo, error) {
 	}
 	if !cmdExists("gh") {
 		return nil, fmt.Errorf(
-			"%w (install the gh CLI and run 'gh auth login' to check while the repository is private: https://cli.github.com/)",
+			"%w (to retry with your GitHub account, install the gh CLI and run 'gh auth login': https://cli.github.com/)",
 			apiErr,
 		)
 	}
@@ -180,6 +191,7 @@ func checkForUpdate(currentVersion string) string {
 	if err != nil {
 		return ""
 	}
+	saveLatestVersion(release.Version)
 	current := strings.TrimPrefix(currentVersion, "v")
 	if !IsNewerVersion(current, release.Version) {
 		return ""
@@ -199,6 +211,7 @@ func CheckNowContext(ctx context.Context, currentVersion string) (*UpdateStatus,
 		return nil, err
 	}
 	saveUpdateCheckTimestamp(time.Now().Unix())
+	saveLatestVersion(release.Version)
 
 	current := strings.TrimPrefix(currentVersion, "v")
 	status := &UpdateStatus{

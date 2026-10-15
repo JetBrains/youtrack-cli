@@ -185,9 +185,13 @@ function Verify-Checksum {
     }
 }
 
-Write-Host "`nYouTrack CLI (installer)`n"
-Write-Host "This script installs YouTrack CLI to $OutDir\$binName`n"
-Write-Host "To install a specific version, set YOUTRACK_INSTALL_RELEASE; to choose a directory, set YOUTRACK_INSTALL_DIR.`n"
+# 'youtrack update' sets YOUTRACK_INSTALL_UPDATE: the user already knows the installer and the next steps.
+$isUpdate = [bool]$env:YOUTRACK_INSTALL_UPDATE
+if (-not $isUpdate) {
+    Write-Host "`nYouTrack CLI (installer)`n"
+    Write-Host "This script installs YouTrack CLI to $OutDir\$binName`n"
+    Write-Host "To install a specific version, set YOUTRACK_INSTALL_RELEASE; to choose a directory, set YOUTRACK_INSTALL_DIR.`n"
+}
 
 try {
     if (-not $Release) { $Release = Resolve-LatestRelease }
@@ -225,8 +229,21 @@ try {
     if (-not $exePath) { throw "could not find $binName in the downloaded archive" }
     $stagedBin = Join-Path $OutDir ".youtrack_staged_$([guid]::NewGuid().ToString('N')).exe"
     Copy-Item -LiteralPath $exePath.FullName -Destination $stagedBin
-    Move-Item -LiteralPath $stagedBin -Destination (Join-Path $OutDir $binName) -Force
+    $target = Join-Path $OutDir $binName
+    $oldBin = "$target.old"
+    Remove-Item -LiteralPath $oldBin -Force -ErrorAction SilentlyContinue
+    # Windows locks a running executable against overwrite but allows a rename, so move the
+    # current binary aside first. This lets 'youtrack update' replace the running youtrack.exe.
+    if (Test-Path -LiteralPath $target) { Move-Item -LiteralPath $target -Destination $oldBin -Force }
+    try {
+        Move-Item -LiteralPath $stagedBin -Destination $target -Force
+    } catch {
+        if (Test-Path -LiteralPath $oldBin) { Move-Item -LiteralPath $oldBin -Destination $target -Force }
+        throw
+    }
     $stagedBin = $null
+    # Fails while the old binary still runs; the next install removes it.
+    Remove-Item -LiteralPath $oldBin -Force -ErrorAction SilentlyContinue
 
     Write-Host "`nInstalled at $OutDir\$binName`n"
     & (Join-Path $OutDir $binName) --version
@@ -240,10 +257,12 @@ try {
     if (@($env:Path -split ';' | ForEach-Object { $_.TrimEnd('\') }) -notcontains $OutDir.TrimEnd('\')) {
         $env:Path += ";$OutDir"
     }
-    Write-Host "`nNext steps:"
-    Write-Host "  youtrack instance add"
-    Write-Host "  youtrack user current"
-    Write-Host "  youtrack --help`n"
+    if (-not $isUpdate) {
+        Write-Host "`nNext steps:"
+        Write-Host "  youtrack instance add"
+        Write-Host "  youtrack user current"
+        Write-Host "  youtrack --help`n"
+    }
 } catch {
     Write-Error "Error: $($_.Exception.Message)" -ErrorAction Continue
     exit 1
