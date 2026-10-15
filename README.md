@@ -22,6 +22,19 @@ New installs use `~/.local/bin` without sudo; rerunning the script updates an ex
 
 The installers verify the downloaded archive against `checksums.txt` and, when `gpg` is installed, verify its signature against the pinned JetBrains key.
 
+**Homebrew (macOS & Linux):**
+```bash
+brew install jetbrains/utils/youtrack
+```
+
+**Scoop (Windows):**
+```powershell
+scoop bucket add jetbrains https://github.com/JetBrains/scoop-utils
+scoop install youtrack
+```
+
+`youtrack update` upgrades the CLI through the method that installed it. In a terminal, the CLI also offers the update before a command runs when a newer release is out. Set `YOUTRACK_NO_UPDATE=1` to turn off update checks.
+
 **Windows (PowerShell):**
 ```powershell
 irm https://jb.gg/youtrack-cli/install.ps1 | iex
