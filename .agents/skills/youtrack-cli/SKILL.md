@@ -22,7 +22,7 @@ youtrack issue command MYPROJ-1 "State Fixed"                 # update state
 ## Setup
 
 1. **CLI available?** `which youtrack` — if not found, run `make build && cp youtrack /usr/local/bin/` from the repo root.
-2. **Credentials set?** Check the configured instances with `youtrack instance list` or use env vars `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`. If missing, run `youtrack instance add` (or `youtrack auth login`) for a permanent token. `youtrack instance login <url>` is the browser SSO option, but it yields a short-lived (~1 hour) session token that is not refreshed.
+2. **Credentials set?** Check the configured instances with `youtrack instance list` or use env vars `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`. If missing, run `youtrack instance add` (or `youtrack auth login`) for a permanent token. `youtrack instance login <url>` is the browser SSO option: it saves an OAuth session that refreshes itself automatically (needs a human at a browser; `--no-browser` prints a URL and accepts the pasted redirect URL).
 3. **Connectivity OK?** `youtrack user current` — stop and report if it fails.
 
 ## Safety
@@ -77,7 +77,7 @@ pages and accepts `--page-size`.
 
 ## Quick Workflows
 
-- **Browser sign-in**: `youtrack instance login <url>` → OAuth 2.0 + PKCE against JetBrains Hub, saves a ~1-hour session token (re-run to renew, or pass an existing alias); falls back to paste-token when the Hub has no public loopback client. Needs an interactive terminal.
+- **Browser sign-in**: `youtrack instance login <url>` → OAuth 2.0 + PKCE against JetBrains Hub; saves an access + refresh token and every command refreshes transparently. `--client-id` for a client registered in YouTrack (Administration → Access Management → OAuth Clients: Authorization Code + Require PKCE, redirect URI `http://127.0.0.1`, no client secret), `--hub-url` for a standalone Hub, `--no-browser` for SSH/headless (paste the final `http://127.0.0.1:<port>/?code=…` URL). If a command reports "OAuth session … expired or was revoked", re-run `youtrack instance login <alias>`. `--token`/`YOUTRACK_TOKEN` always win over a saved session. Falls back to paste-token when Hub has no such client.
 - **Verify auth**: `youtrack auth status` → check `status` field per instance
 - **Create issue**: `youtrack issue create --project P --summary S` → `issue command <id> "assignee me"`
 - **Bulk update**: `youtrack issue list --query Q --json | jq '.[].id'` → loop `issue command`

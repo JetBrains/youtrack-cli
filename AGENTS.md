@@ -79,7 +79,9 @@ transport, and neither is a second product surface asserting client behavior:
 - **Pure-function unit tests** (`api/*_test.go`, `internal/*_test.go`) — table tests for pure, branchy
   string helpers (`mergeFieldsParam`, `WrapUserValues`, `expandFields`, `SplitFields`) that
   E2E cannot exercise exhaustively. They touch no client, no transport, and no network, and live in the
-  package under test. CI runs them via `go test ./api/ ./internal/...`.
+  package under test. CI runs them via `go test ./api/ ./internal/...`. The OAuth helpers (PKCE, state and
+  callback validation, token-response parsing, expiry) belong here too, as do the credential-store tests in
+  `internal/config`, which only use a temp `HOME` with `YOUTRACK_DISABLE_KEYRING=1`.
 - **API drift detection** (`test/drift_test.go`, `TestAPIDrift`) — gated on `requireE2EEnv` and run
   inside the E2E job, it diffs our Go structs against the live server's OpenAPI spec to catch contract
   changes. It asserts no client behavior; it is a static schema-vs-struct guard, not a conformance suite.

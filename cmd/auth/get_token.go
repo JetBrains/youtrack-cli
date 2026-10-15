@@ -35,10 +35,11 @@ func NewGetTokenCmd() *cobra.Command {
 		Long: `Prompts for the YouTrack URL (if not already configured) and lets you choose
 an authentication method:
 
-  1) Basic auth   — login + password via Hub API
+  1) Browser SSO  — OAuth 2.0 + PKCE sign-in (auto-refreshing session;
+                    same as "youtrack instance login", which has more options)
   2) Web browser  — open the token page in a browser, then paste the token
   3) Paste token  — enter a token directly without opening a browser
-  4) Browser SSO  — OAuth 2.0 + PKCE sign-in (~1-hour session token)
+  4) Basic auth   — login + password via Hub API (deprecated: no SSO/2FA)
 
 If basic auth is unavailable (e.g. cloud or SSO-only instances), the CLI
 falls back to option 3 automatically.
@@ -95,20 +96,22 @@ Use --json for machine-readable output.`,
 
 			// Auth-type selection.
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
-				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\n  4) Browser single sign-on (1-hour session token)\nSelect [1-4]: ")
+				"\nSelect authentication method:\n  1) Browser single sign-on (OAuth, auto-refreshing session)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\n  4) Basic auth (login + password; deprecated)\nSelect [1-4]: ")
 			choiceRaw, err := internal.ReadLineContext(cmd.Context(), reader)
 			if err != nil {
 				return fmt.Errorf("reading auth type: %w", err)
 			}
 			switch strings.TrimSpace(choiceRaw) {
 			case "1":
-				return runBasicAuthFlow(cmd, reader, baseURL)
+				opts := defaultSSOOptions()
+				opts.insecure, _ = cmd.Flags().GetBool("insecure")
+				return runSSOFlow(cmd, reader, baseURL, &opts)
 			case "2":
 				return runWebFlow(cmd, reader, baseURL)
 			case "3":
 				return runDirectTokenFlow(cmd, reader, baseURL)
 			case "4":
-				return runSSOFlow(cmd, reader, baseURL, defaultSSOOptions())
+				return runBasicAuthFlow(cmd, reader, baseURL)
 			default:
 				return fmt.Errorf("invalid choice %q: enter 1, 2, 3, or 4", strings.TrimSpace(choiceRaw))
 			}
@@ -134,8 +137,15 @@ func requireSecureBasicAuth(cmd *cobra.Command, baseURL string) error {
 	return fmt.Errorf("refusing to send your password over plain http to %s — use the https URL, choose another sign-in method, or pass --insecure", baseURL)
 }
 
+// warnBasicAuthDeprecated steers users off password sign-in, which bypasses SSO and two-factor authentication.
+func warnBasicAuthDeprecated(cmd *cobra.Command) {
+	output.PrintWarn(cmd, "basic auth is deprecated: it sends your password through the CLI and does not work with SSO or two-factor authentication — "+
+		"prefer browser sign-in (youtrack instance login) or a permanent token of a dedicated, least-privilege account for automation")
+}
+
 // runBasicAuthFlow handles the Hub login/password → permanent-token creation flow.
 func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error {
+	warnBasicAuthDeprecated(cmd)
 	if flagChanged(cmd, "verbose") {
 		api.SetHubVerbose(cmd.ErrOrStderr())
 		defer api.SetHubVerbose(nil)
@@ -387,16 +397,17 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 func saveCredentials(cmd *cobra.Command, _ *bufio.Reader, baseURL, token string, res *getTokenResult) (string, error) {
 	alias, _ := cmd.Flags().GetString("alias")
 
-	cfg, err := config.Load()
+	var cfg *config.Config
+	var finalAlias string
+	err := config.Update(cmd.Context(), func(c *config.Config) error {
+		cfg = c
+		finalAlias = c.AddInstance(alias, baseURL, token)
+		if c.CurrentInstance == "" {
+			c.CurrentInstance = finalAlias
+		}
+		return nil
+	})
 	if err != nil {
-		return "", err
-	}
-
-	finalAlias := cfg.AddInstance(alias, baseURL, token)
-	if cfg.CurrentInstance == "" {
-		cfg.CurrentInstance = finalAlias
-	}
-	if err := cfg.Save(); err != nil {
 		return "", fmt.Errorf("saving config: %w", err)
 	}
 

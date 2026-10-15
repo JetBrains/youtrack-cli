@@ -43,18 +43,20 @@ func TestOAuthDiscovery(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, ring.ServiceID, "ring.serviceId must be discoverable unauthenticated")
 
-	hubURL := strings.TrimRight(ring.URL, "/")
+	// A server with a context path reports a root-relative Hub that already includes it (e.g. "/test/hub").
+	hubURL := strings.TrimRight(api.ResolveHubURL(baseURL, ring.URL), "/")
 	if hubURL == "" {
 		hubURL = strings.TrimRight(baseURL, "/") + "/hub"
 	}
 
 	eps, err := api.DiscoverOAuthEndpointsContext(t.Context(), hubURL)
 	require.NoError(t, err)
+	assert.NotEmpty(t, eps.Issuer, "the Hub's openid-configuration must be reachable, not the conventional-path fallback")
 	assert.NotEmpty(t, eps.AuthorizationEndpoint)
 	assert.NotEmpty(t, eps.TokenEndpoint)
 }
 
-// TestInstanceLogin_FallsBackWithoutOAuthClient checks that with no "localhost-auth" client, `instance login` pre-flight falls back to the paste-token flow (fed via stdin); the full browser flow can't run headlessly.
+// TestInstanceLogin_FallsBackWithoutOAuthClient checks that with no "youtrack-cli" client, `instance login` pre-flight falls back to the paste-token flow (fed via stdin); the full browser flow can't run headlessly.
 func TestInstanceLogin_FallsBackWithoutOAuthClient(t *testing.T) {
 	requireE2EEnv(t)
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
@@ -66,6 +68,7 @@ func TestInstanceLogin_FallsBackWithoutOAuthClient(t *testing.T) {
 		"--plain", "instance", "login", baseURL,
 		"--alias", "ssotest",
 		"--no-browser",
+		"--insecure", // the E2E harness serves plain http on loopback
 		"--timeout", "10s",
 	)
 

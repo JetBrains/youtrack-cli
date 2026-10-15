@@ -157,9 +157,9 @@ func TestAuth_GetTokenViaBasicAuthCLI(t *testing.T) {
 		t.Skip("YOUTRACK_LOGIN, YOUTRACK_PASSWORD, and YOUTRACK_BASE_URL not set — skipping CLI basic auth test")
 	}
 
-	// Pipe "1\n" to select basic auth; login and password come from flags.
+	// Pipe "4\n" to select basic auth; login and password come from flags.
 	// Use --format json for machine-readable output.
-	out := runCmdWithInput(t, "1\n",
+	out := runCmdWithInput(t, "4\n",
 		"--base-url", baseURL,
 		"--format", "json",
 		"auth", "get-token",
@@ -341,8 +341,8 @@ func TestAuthRefreshToken_UpdatesConfig(t *testing.T) {
 }`
 	cfgPath := configFixture(t, tmpHome, cfg)
 
-	// Option 3 (paste), pipe the existing token so verification passes.
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	// Option 2 (paste), pipe the existing token so verification passes.
+	runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"auth", "refresh-token", "myinst",
 	)
@@ -378,7 +378,7 @@ func TestAuthRefreshToken_DefaultsToActive(t *testing.T) {
 	cfgPath := configFixture(t, tmpHome, cfg)
 
 	// No alias arg — should default to currentInstance ("myinst").
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"auth", "refresh-token",
 	)
@@ -435,7 +435,7 @@ func TestAuthRefreshToken_JSONOutput(t *testing.T) {
 }`
 	configFixture(t, tmpHome, cfg)
 
-	out := runCmdWithEnv(t, "3\n"+token+"\n",
+	out := runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"--format", "json", "auth", "refresh-token", "myinst", "--show-token",
 	)
@@ -461,7 +461,7 @@ func TestAuthRefreshToken_HumanReadableOutput(t *testing.T) {
 }`
 	configFixture(t, tmpHome, cfg)
 
-	out := runCmdWithEnv(t, "3\n"+token+"\n",
+	out := runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"--plain", "auth", "refresh-token", "myinst",
 	)
@@ -485,7 +485,7 @@ func TestInstanceRefreshToken_ByAlias(t *testing.T) {
 }`
 	cfgPath := configFixture(t, tmpHome, cfg)
 
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"instance", "refresh-token", "myinst",
 	)
@@ -579,7 +579,7 @@ func TestInstanceLogin_RejectsUnsafeHubURL(t *testing.T) {
 	hubURL = strings.Replace(srv.URL, "://", "://decoy.example@", 1)
 
 	cmd := exec.Command(binaryPath, "--plain", "instance", "login", srv.URL,
-		"--alias", "unsafehub", "--no-browser", "--timeout", "2s")
+		"--alias", "unsafehub", "--no-browser", "--insecure", "--timeout", "2s")
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
 	cmd.Stdin = strings.NewReader("perm:not-a-real-token\n")
 	var stderr bytes.Buffer
@@ -595,16 +595,17 @@ func TestAuth_GetToken_RefusesBasicAuthOverRemoteHTTP(t *testing.T) {
 	args := []string{"--base-url", "http://youtrack.invalid", "auth", "get-token", "--save=false", "--login", "x", "--password", "y"}
 	cmd := exec.Command(binaryPath, args...)
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
-	cmd.Stdin = strings.NewReader("1\n")
+	cmd.Stdin = strings.NewReader("4\n")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
 	assert.Contains(t, stderr.String(), "refusing to send your password over plain http")
+	assert.Contains(t, stderr.String(), "basic auth is deprecated", "choosing basic auth points at safer methods")
 
 	// --insecure lifts the guard; the request then fails on the unresolvable host instead.
 	cmd = exec.Command(binaryPath, append(args, "--insecure")...)
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
-	cmd.Stdin = strings.NewReader("1\n")
+	cmd.Stdin = strings.NewReader("4\n")
 	stderr.Reset()
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
@@ -622,7 +623,7 @@ func TestAuth_GetToken_ReadOnlyBlocksHubTokenCreation(t *testing.T) {
 	cmd := exec.Command(binaryPath, "--base-url", baseURL, "--format", "json", "auth", "get-token",
 		"--login", login, "--password", password, "--token-name", "e2e-ro-must-not-exist", "--save=false")
 	cmd.Env = append(os.Environ(), "HOME="+t.TempDir(), "YOUTRACK_RO=1")
-	cmd.Stdin = strings.NewReader("1\n")
+	cmd.Stdin = strings.NewReader("4\n")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
