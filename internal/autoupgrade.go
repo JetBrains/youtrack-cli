@@ -77,6 +77,10 @@ func RunAutoUpgradeContext(parent context.Context, method InstallMethod, _ strin
 	ctx, cancel := context.WithTimeout(parent, upgradeTimeout)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
+	if method == InstallScript {
+		// The installers then skip the banner and the first-run "Next steps".
+		cmd.Env = append(os.Environ(), "YOUTRACK_INSTALL_UPDATE=1")
+	}
 	cmd.Stdout = out
 	cmd.Stderr = errOut
 	return true, cmd.Run()
