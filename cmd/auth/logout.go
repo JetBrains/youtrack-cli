@@ -72,6 +72,7 @@ Use --json for machine-readable output.`,
 			}
 			// Remove under the config lock on a fresh load, so a concurrent refresh cannot resurrect the session
 			// and the session reported below is the latest one (a refresh may have changed it since the prompt).
+			var purgeErr error
 			err = config.Update(cmd.Context(), func(fresh *config.Config) error {
 				cur, ok := fresh.Instances[targetAlias]
 				if !ok {
@@ -84,13 +85,15 @@ Use --json for machine-readable output.`,
 				if fresh.CurrentInstance == targetAlias {
 					fresh.CurrentInstance = ""
 				}
+				// Purged before the lock is released, so a concurrent login that recreates targetAlias keeps its new credentials.
+				purgeErr = config.PurgeKeyringToken(targetAlias)
 				return nil
 			})
 			if err != nil {
 				return err
 			}
-			if err := config.PurgeKeyringToken(targetAlias); err != nil {
-				output.PrintWarn(cmd, err.Error())
+			if purgeErr != nil {
+				output.PrintWarn(cmd, purgeErr.Error())
 			}
 			warnRefreshTokenStaysValid(cmd, targetAlias, &inst)
 			res := LogoutResult{URL: inst.URL, Status: "logged out"}

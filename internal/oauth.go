@@ -59,7 +59,7 @@ func (s *oauthSession) Token(ctx context.Context) (string, error) {
 		return "", err
 	}
 	cur, ok := cfg.Instances[s.alias]
-	if !ok || !sameOrigin(cur.URL, s.inst.URL) || cur.AuthMethod != config.AuthMethodOAuth {
+	if !ok || !sameOrigin(cur.URL, s.inst.URL) || !sameOrigin(cur.TokenURL(), s.inst.URL) || cur.AuthMethod != config.AuthMethodOAuth {
 		return "", fmt.Errorf("the saved session for %q was removed or replaced by another youtrack process — re-run the command", s.alias)
 	}
 	if cur.Token != "" && !api.TokenNeedsRefresh(cur.TokenExpiresAt, s.now(), refreshSkew) {
@@ -121,12 +121,16 @@ func sessionExpiredError(alias string) error {
 }
 
 // NewSavedInstanceClient builds a client for a saved instance, refreshing its token on demand when it is an OAuth session.
-func NewSavedInstanceClient(cmd *cobra.Command, alias string, inst *config.Instance) *api.Client {
+// It refuses an instance whose config-file URL has another origin than the URL its keyring credentials are bound to.
+func NewSavedInstanceClient(cmd *cobra.Command, alias string, inst *config.Instance) (*api.Client, error) {
+	if !sameOrigin(inst.URL, inst.TokenURL()) {
+		return nil, fmt.Errorf("refusing to send the saved token for %q (%s) to %s — sign in again: youtrack instance login %s", alias, inst.TokenURL(), inst.URL, alias)
+	}
 	c := api.NewClient(inst.URL, inst.Token).WithContext(cmd.Context())
 	if canRefresh(inst) {
 		c.TokenSource = newOAuthSession(alias, inst, verboseWriter(cmd)).Token
 	}
-	return c
+	return c, nil
 }
 
 func verboseWriter(cmd *cobra.Command) io.Writer {

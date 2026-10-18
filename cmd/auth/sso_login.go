@@ -385,7 +385,8 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 			return fmt.Errorf("saving config: %w", err)
 		}
 		if cfg, err := config.Load(); err == nil {
-			inKeyring = cfg.TokenInKeyring(finalAlias)
+			// The two keyring writes can fail independently; claim keyring storage only when both credentials made it.
+			inKeyring = cfg.TokenInKeyring(finalAlias) && (sess.RefreshToken == "" || cfg.RefreshTokenInKeyring(finalAlias))
 		}
 		path, _ := config.ConfigPath()
 		result.Alias = finalAlias

@@ -7,6 +7,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
@@ -39,7 +40,11 @@ func newListCmd() *cobra.Command {
 				inst := cfg.Instances[alias]
 				item := instanceListItem{Alias: alias, URL: inst.URL, Active: alias == cfg.CurrentInstance}
 				// OAuth sessions refresh on demand, so a session near expiry is not misreported as unavailable.
-				user, err := internal.NewSavedInstanceClient(cmd, alias, &inst).GetCurrentUser()
+				client, err := internal.NewSavedInstanceClient(cmd, alias, &inst)
+				var user *api.User
+				if err == nil {
+					user, err = client.GetCurrentUser()
+				}
 				if err != nil {
 					if contextErr := cmd.Context().Err(); contextErr != nil {
 						return contextErr

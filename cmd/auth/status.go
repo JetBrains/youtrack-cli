@@ -9,6 +9,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
@@ -230,7 +231,11 @@ func runMultiInstanceStatus(cmd *cobra.Command, cfg *config.Config) error {
 			statuses = append(statuses, s)
 			continue
 		}
-		user, err := internal.NewSavedInstanceClient(cmd, alias, &inst).GetCurrentUser()
+		client, err := internal.NewSavedInstanceClient(cmd, alias, &inst)
+		var user *api.User
+		if err == nil {
+			user, err = client.GetCurrentUser()
+		}
 		if err != nil {
 			if contextErr := cmd.Context().Err(); contextErr != nil {
 				return contextErr
