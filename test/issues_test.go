@@ -485,6 +485,46 @@ func TestCmd_IssueCommentCRUD(t *testing.T) {
 			})
 		}
 	}
+
+	activeText := "active comment stays visible"
+	active, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: activeText})
+	require.NoError(t, err)
+	// Include deleted comments in pinnedComments so the narrow pinned projection
+	// has the same deletion authority requirement as the comments collection.
+	require.NoError(t, c.PinComment(issue.IDReadable, comment.ID, true))
+
+	const commentProjection = "comments(id,deleted,text,textPreview)"
+	var server struct {
+		Comments json.RawMessage `json:"comments"`
+	}
+	require.NoError(t, c.Get("/api/issues/"+issue.IDReadable+"?fields="+commentProjection, &server))
+	fromCLI := runJSON[struct {
+		Comments json.RawMessage `json:"comments"`
+	}](t, "issue", "view", issue.IDReadable, "--fields", commentProjection, "--json")
+	assert.JSONEq(t, string(server.Comments), string(fromCLI.Comments), "JSON must preserve the server's actual comment data")
+
+	for _, format := range []string{"table", "plain"} {
+		for _, action := range []string{"view", "list"} {
+			for _, projection := range []string{commentProjection, "comments(text)", "pinnedComments(text)"} {
+				t.Run("nested deleted comment "+action+" "+format+" "+projection, func(t *testing.T) {
+					args := []string{"issue", action}
+					if action == "view" {
+						args = append(args, issue.IDReadable)
+					} else {
+						args = append(args, "--query", "project: "+proj.ShortName)
+					}
+					out := runCmd(t, append(args, "--fields", projection, "--format", format)...)
+					assert.Contains(t, out, "[deleted]")
+					assert.NotContains(t, out, "updated from cli")
+					if projection == commentProjection {
+						assert.Contains(t, out, comment.ID)
+						assert.Contains(t, out, active.ID)
+						assert.Contains(t, out, activeText)
+					}
+				})
+			}
+		}
+	}
 }
 
 func TestCmd_IssueWorkitemCreate(t *testing.T) {
