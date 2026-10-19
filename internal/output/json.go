@@ -88,6 +88,13 @@ func parseFieldSpec(spec string) (key, innerSpec string) {
 func printProjected(w io.Writer, data any, fields string, withHeader bool) error {
 	names := internal.SplitFields(fields)
 	return writeProjection(w, data, headerNames(names), withHeader, func(obj map[string]any) []string {
+		switch data.(type) {
+		case []api.Comment, *api.Comment:
+			if deleted, _ := obj["deleted"].(bool); deleted {
+				obj["text"] = "[deleted]"
+				obj["textPreview"] = "[deleted]"
+			}
+		}
 		vals := make([]string, len(names))
 		for i, name := range names {
 			vals[i] = resolveField(obj, name)

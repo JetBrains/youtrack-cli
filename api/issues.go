@@ -1,7 +1,9 @@
 package api
 
 import (
+	"errors"
 	"fmt"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -183,8 +185,15 @@ func (c *Client) AddComment(issueID string, req AddCommentRequest) (*Comment, er
 }
 
 func (c *Client) DeleteComment(issueID, commentID string) error {
-	return c.Delete(fmt.Sprintf(pathIssueComment,
-		url.PathEscape(issueID), url.PathEscape(commentID)))
+	// DELETE permanently removes a comment and needs a stronger permission than
+	// the recoverable deletion offered by the web UI.
+	err := c.Post(fmt.Sprintf(pathIssueComment,
+		url.PathEscape(issueID), url.PathEscape(commentID)), map[string]bool{"deleted": true}, nil)
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("%w; check Delete Issue Comment for your own comments or Delete Not Own and Permanent Comment Delete for other users' comments", err)
+	}
+	return err
 }
 
 func (c *Client) GetIssueCount(query string) (int, error) {
