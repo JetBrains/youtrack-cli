@@ -12,6 +12,13 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal"
 )
 
+func commentText(comment *api.Comment) string {
+	if comment.Deleted {
+		return "[deleted]"
+	}
+	return comment.Text
+}
+
 // PrintTable renders data as a human-readable table. Falls back to JSON for unknown types.
 func PrintTable(out io.Writer, data any) error {
 	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
@@ -50,8 +57,15 @@ func PrintTable(out io.Writer, data any) error {
 			if c.Author != nil {
 				author = c.Author.Login
 			}
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, author, truncate(c.Text, 60))
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, author, truncate(commentText(&c), 60))
 		}
+	case *api.Comment:
+		_, _ = fmt.Fprintln(w, "ID\tAUTHOR\tTEXT")
+		author := ""
+		if v.Author != nil {
+			author = v.Author.Login
+		}
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.ID, author, truncate(commentText(v), 60))
 	case *api.Article:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.IDReadable, truncate(v.Summary, 72), projectKey(v.Project))
@@ -319,14 +333,14 @@ func PrintPlain(out io.Writer, data any) error {
 			if c.Author != nil {
 				author = c.Author.Login
 			}
-			write(c.ID, author, c.Text)
+			write(c.ID, author, commentText(&c))
 		}
 	case *api.Comment:
 		author := ""
 		if v.Author != nil {
 			author = v.Author.Login
 		}
-		write(v.ID, author, v.Text)
+		write(v.ID, author, commentText(v))
 	case *api.Article:
 		write(v.IDReadable, v.Summary, projectKey(v.Project))
 	case []api.Article:

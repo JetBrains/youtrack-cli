@@ -6,6 +6,7 @@
 - **`project create` requires `--leader`** — the YouTrack API rejects creation without it. Use `user current` to get the current login if none is specified.
 - **`issue command` logins** — the CLI auto-wraps logins with `.`, `-`, or `@` in braces. Write the login as-is.
 - **Output format** — table on TTY, JSON when piped. Use `--json` / `--plain` to override.
+- **Issue comment deletion is recoverable** — `issue comment delete --force` marks the comment deleted, matching the web UI. Comment JSON includes `deleted`; table/plain output marks deleted comments as `[deleted]` because the API may still return their text.
 
 ## Known defaults
 

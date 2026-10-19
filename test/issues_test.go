@@ -425,11 +425,14 @@ func TestCmd_IssueCommentCRUD(t *testing.T) {
 	assert.Contains(t, out, "hello from cli")
 
 	var comment struct {
-		ID   string `json:"id"`
-		Text string `json:"text"`
+		ID      string `json:"id"`
+		Text    string `json:"text"`
+		Deleted *bool  `json:"deleted"`
 	}
 	require.NoError(t, json.Unmarshal([]byte(out), &comment))
 	require.NotEmpty(t, comment.ID)
+	require.NotNil(t, comment.Deleted, "comment JSON must include deleted=false")
+	assert.False(t, *comment.Deleted)
 
 	out = runCmd(t, "issue", "comment", "list", issue.IDReadable, "--format", "json")
 	assert.Contains(t, out, comment.ID)
@@ -449,9 +452,35 @@ func TestCmd_IssueCommentCRUD(t *testing.T) {
 	out = runCmd(t, "issue", "comment", "delete", issue.IDReadable, comment.ID, "--force")
 	assert.Contains(t, out, "deleted comment "+comment.ID)
 
-	comments, err = c.ListComments(issue.IDReadable)
-	require.NoError(t, err)
-	assert.Empty(t, comments)
+	// UI-style deletion retains a recoverable comment. JSON must make its state
+	// visible even when the server still returns the original comment text.
+	deleted := runJSON[[]map[string]any](t, "issue", "comment", "list", issue.IDReadable, "--json")
+	require.Len(t, deleted, 1)
+	assert.Equal(t, comment.ID, deleted[0]["id"])
+	assert.Equal(t, true, deleted[0]["deleted"])
+	assert.Equal(t, "IssueComment", deleted[0]["$type"], "preserve API fields beyond the typed comment model")
+
+	viewed := runJSON[api.Comment](t, "issue", "comment", "view", issue.IDReadable, comment.ID, "--json")
+	assert.True(t, viewed.Deleted)
+
+	for _, format := range []string{"table", "plain"} {
+		for _, action := range []string{"list", "view"} {
+			t.Run("deleted comment "+action+" "+format, func(t *testing.T) {
+				args := []string{"issue", "comment", action, issue.IDReadable}
+				if action == "view" {
+					args = append(args, comment.ID)
+				}
+				args = append(args, "--format", format)
+				out := runCmd(t, args...)
+				assert.Contains(t, out, "[deleted]")
+				assert.NotContains(t, out, "updated from cli")
+
+				out = runCmd(t, append(args, "--fields", "id,deleted,text")...)
+				assert.Contains(t, out, "[deleted]")
+				assert.NotContains(t, out, "updated from cli")
+			})
+		}
+	}
 }
 
 func TestCmd_IssueWorkitemCreate(t *testing.T) {
