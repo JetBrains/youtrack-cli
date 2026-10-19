@@ -23,7 +23,9 @@ const defaultTimeout = 30 * time.Second
 // maxErrorBodySize caps error-body reads so a misbehaving server can't balloon client memory.
 const maxErrorBodySize = 1 << 20 // 1 MiB
 
-// UserAgent is sent on every request; internal.GetClient sets it to the build version.
+// UserAgent is the default copied into each new Client.
+//
+// Deprecated: set Client.UserAgent to customize individual clients.
 var UserAgent = "youtrack-cli"
 
 // Client sends authenticated requests to a YouTrack instance.
@@ -31,6 +33,7 @@ type Client struct {
 	BaseURL    string
 	Token      string
 	HTTPClient *http.Client
+	UserAgent  string
 	Verbose    bool
 	Fields     string // when non-empty, extends the fields= query param on GET requests
 	ctx        context.Context
@@ -41,6 +44,7 @@ func NewClient(baseURL, token string) *Client {
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		Token:      token,
 		HTTPClient: &http.Client{Timeout: defaultTimeout, CheckRedirect: sameOriginRedirect},
+		UserAgent:  UserAgent,
 		ctx:        context.Background(),
 	}
 }
@@ -122,7 +126,7 @@ func (c *Client) doRequest(method, path string, body io.Reader, contentType stri
 	}
 	req.Header.Set("Authorization", "Bearer "+c.Token)
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", UserAgent)
+	req.Header.Set("User-Agent", c.UserAgent)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
