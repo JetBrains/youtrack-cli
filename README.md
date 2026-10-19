@@ -87,6 +87,9 @@ youtrack issue create --project DEMO --summary "Login button unresponsive on Saf
 # move it along
 youtrack issue command DEMO-42 "State In Progress"
 
+# list selectable state values in this issue's context
+youtrack issue field values DEMO-42 State --limit 50
+
 # view an issue with its five most recent comments
 youtrack issue view DEMO-42 --comments 5
 
@@ -111,7 +114,7 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 
 | Group | Commands |
 |---|---|
-| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field`, `reaction`, `draft`, `workitem`, `activity`, `vcs` |
+| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field` (`view`, `set`, `values`), `reaction`, `draft`, `workitem`, `activity`, `vcs` |
 | **project** | `list`, `view`, `create`, `update`, `delete`, `archive`, `team`, `field`, `template`, `timetrack`, `workflow` |
 | **article** | `list`, `view`, `create`, `update`, `delete`, `comment`, `attachment`, `tag` |
 | **board** | `list`, `view`, `create`, `update`, `delete`, `sprint` |

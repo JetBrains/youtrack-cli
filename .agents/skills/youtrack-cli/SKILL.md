@@ -44,7 +44,7 @@ Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still
 | Comments | `issue comment list`, `create` (`add`), `update`, `delete`, `pin`, `visibility` |
 | Links | `issue link list`, `add`, `remove`, `type list/create` (`add`) |
 | Attachments | `issue attachment list`, `add`, `delete` |
-| Custom fields | `issue field view` (`get`), `set` |
+| Custom fields | `issue field view` (`get`), `values`, `set` |
 | Work items | `issue workitem list`, `view`, `create` (`add`), `update`, `delete` |
 | VCS changes | `issue vcs list`, `view`, `attach`, `detach` (`delete`) |
 | Projects | `project list`, `view` (`get`), `create` (`add`), `update`, `delete`, `archive` |
@@ -80,6 +80,7 @@ pages and accepts `--page-size`.
 - **Browser sign-in**: `youtrack instance login <url>` → OAuth 2.0 + PKCE against JetBrains Hub, saves a ~1-hour session token (re-run to renew, or pass an existing alias); falls back to paste-token when the Hub has no public loopback client. Needs an interactive terminal.
 - **Verify auth**: `youtrack auth status` → check `status` field per instance
 - **Create issue**: `youtrack issue create --project P --summary S` → `issue command <id> "assignee me"`
+- **Choose a field value**: `youtrack issue field values <issueId> State --limit 50` lists values visible in this issue's context; page with `--offset` before setting a value. Requires issue-field `possibleValues` support; scalar fields and state-machine transitions are not supported.
 - **Bulk update**: `youtrack issue list --query Q --json | jq '.[].id'` → loop `issue command`
 - **Link a commit to an issue**: `youtrack issue vcs attach <id> <commitHash>` → `issue vcs list <id>` to confirm. The commit must be one a VCS integration on the project can see; YouTrack answers 404 otherwise. `detach` (alias `delete`) unlinks it, picking the mechanism YouTrack allows for that change: a hand-attached commit is deleted, an integration-attached one is detached.
 - **Add user to project**: `youtrack user view <login> --json | jq .id` → `youtrack project team add-user <proj> <userId>`
