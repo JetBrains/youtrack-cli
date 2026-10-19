@@ -9,6 +9,8 @@ Command-line client for [YouTrack](https://www.jetbrains.com/youtrack/), coverin
 
 Full documentation — installation, authentication, configuration, and a command reference — lives under [docs/](docs/topics/youtrack-cli.md).
 
+Go applications can [embed the command tree](docs/embedding.md) with their own API client and reuse the CLI's output and error formats.
+
 > **Security notice:** YouTrack does not support granular token scopes; any token grants full account access. See [docs/security.md](docs/security.md) before using `youtrack` in pipelines or with AI agents.
 
 ## Install

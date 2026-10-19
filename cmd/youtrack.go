@@ -99,7 +99,7 @@ func Execute(fs embed.FS) error {
 	defer stop()
 	execErr := root.ExecuteContext(ctx)
 	quiet, _ := root.PersistentFlags().GetBool("quiet")
-	jsonMode := output.Format(root) == "json"
+	jsonMode := OutputFormat(root) == "json"
 	if execErr != nil {
 		// A user-initiated Ctrl+C during an interactive prompt cancels the root
 		// context; that's not a failure worth an "✗ Error" — print a plain
@@ -110,7 +110,7 @@ func Execute(fs embed.FS) error {
 				_, _ = fmt.Fprintln(root.ErrOrStderr(), "Canceled.")
 			}
 		} else {
-			output.RenderError(root.ErrOrStderr(), execErr, jsonMode, quiet)
+			RenderError(root, execErr)
 		}
 	}
 	// Suppress the plain-text update notice when a JSON error envelope was written to stderr, so that stream stays parseable.
