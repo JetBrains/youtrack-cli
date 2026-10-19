@@ -15,6 +15,7 @@ import (
 func TestCmd_IssueFieldValues(t *testing.T) {
 	c := newTestClient(t)
 	project := createTempProject(t, c)
+	attachDefaultProjectFields(t, c, project, "State")
 	name := "Choices-" + fmt.Sprint(time.Now().UnixNano())
 	field, err := c.AddCustomField(name, api.FieldTypeEnumSingle)
 	require.NoError(t, err)
@@ -51,6 +52,7 @@ func TestCmd_IssueFieldValues(t *testing.T) {
 	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "field choices test", Project: &api.Project{ID: project.ID}})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	awaitIssueFields(t, c, issue.IDReadable, name, textName, "State")
 	issueField, err := c.GetCustomFieldValue(issue.IDReadable, name)
 	require.NoError(t, err)
 
