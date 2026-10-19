@@ -7,6 +7,7 @@
 - **`issue command` logins** — the CLI auto-wraps logins with `.`, `-`, or `@` in braces. Write the login as-is.
 - **Output format** — table on TTY, JSON when piped. Use `--json` / `--plain` to override.
 - **Issue comment deletion is recoverable** — `issue comment delete --force` marks the comment deleted, matching the web UI. Comment JSON includes `deleted`; table/plain output marks deleted comments as `[deleted]` because the API may still return their text.
+- **Field choices depend on the issue** — use `issue field values <issueId> <field>` to discover selectable values, with `--limit`/`--offset` for paging. This needs the instance's issue-field `possibleValues` endpoint; it does not query administrative bundles or infer state-machine transitions. HTTP 400 errors from named field writes include a bounded choices hint when discovery succeeds.
 
 ## Known defaults
 
