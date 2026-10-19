@@ -133,6 +133,7 @@ func TestCmd_IssueListCustomFieldColumns(t *testing.T) {
 	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "custom column test", Project: &api.Project{ID: proj.ID}})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	awaitIssueFields(t, c, issue.IDReadable, priority.Name, "State", "Assignee", notesName, dueName)
 	require.NoError(t, c.SetCustomField(issue.IDReadable, priority.Name, "Critical", ""))
 	runCmd(t, "issue", "assign", issue.IDReadable, me.Login)
 	// 2026-10-13 12:00 UTC — YouTrack stores date-only values at noon UTC.
@@ -936,6 +937,7 @@ func TestCmd_IssueFieldView(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	awaitIssueFields(t, c, issue.IDReadable, field.Name)
 	require.NoError(t, c.SetCustomField(issue.IDReadable, field.Name, "Normal", ""))
 
 	got := runJSON[api.IssueField](t, "issue", "field", "view", issue.IDReadable, field.Name, "--json")
@@ -956,6 +958,7 @@ func TestCmd_IssueFieldSet(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	awaitIssueFields(t, c, issue.IDReadable, field.Name)
 	require.NoError(t, c.SetCustomField(issue.IDReadable, field.Name, "Normal", ""))
 
 	out := runCmd(t, "issue", "field", "set", issue.IDReadable, field.Name, "Critical")
@@ -1024,6 +1027,7 @@ func TestCmd_IssueFieldSet_MultiValue(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	awaitIssueFields(t, c, issue.IDReadable, field.Name)
 
 	out := runCmd(t, "issue", "field", "set", issue.IDReadable, field.Name, "Alpha")
 	assert.Contains(t, out, "updated field "+field.Name)
@@ -1036,6 +1040,26 @@ func TestCmd_IssueFieldSet_MultiValue(t *testing.T) {
 	value, ok := values[0].(map[string]any)
 	require.True(t, ok, "multi-value field element returned %T", values[0])
 	assert.Equal(t, "Alpha", value["name"])
+}
+
+// Newly attached project fields can reach the issue projection after creation.
+// Observe fixture readiness before seeding values or exercising a CLI write.
+func awaitIssueFields(t *testing.T, c *api.Client, issueID string, names ...string) {
+	t.Helper()
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		var fields []api.IssueField
+		err := c.Get("/api/issues/"+url.PathEscape(issueID)+"/customFields?fields=id,name&$top=500", &fields)
+		if !assert.NoError(collect, err, "reading issue %s fixture fields", issueID) {
+			return
+		}
+		byName := make(map[string]string, len(fields))
+		for _, field := range fields {
+			byName[field.Name] = field.ID
+		}
+		for _, name := range names {
+			assert.NotEmpty(collect, byName[name], "issue %s fixture field %q is not ready; visible fields: %v", issueID, name, byName)
+		}
+	}, 10*time.Second, 20*time.Millisecond, "issue %s fixture fields did not become ready", issueID)
 }
 
 // Field command tests own their field and bundle instead of depending on the
