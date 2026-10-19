@@ -3,7 +3,9 @@ package api_test
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -110,6 +112,8 @@ func TestCmd_IssueFieldsProjection(t *testing.T) {
 func TestCmd_IssueListCustomFieldColumns(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
+	priority := createProjectEnumField(t, c, proj, api.FieldTypeEnumSingle, "Critical")
+	attachDefaultProjectFields(t, c, proj, "State", "Assignee")
 
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
@@ -129,7 +133,7 @@ func TestCmd_IssueListCustomFieldColumns(t *testing.T) {
 	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "custom column test", Project: &api.Project{ID: proj.ID}})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
-	require.NoError(t, c.SetCustomField(issue.IDReadable, "Priority", "Critical", ""))
+	require.NoError(t, c.SetCustomField(issue.IDReadable, priority.Name, "Critical", ""))
 	runCmd(t, "issue", "assign", issue.IDReadable, me.Login)
 	// 2026-10-13 12:00 UTC — YouTrack stores date-only values at noon UTC.
 	require.NoError(t, c.Post("/api/issues/"+issue.IDReadable+"?fields=id", map[string]any{
@@ -149,25 +153,25 @@ func TestCmd_IssueListCustomFieldColumns(t *testing.T) {
 
 	t.Run("table shows attribute and custom field columns in requested order", func(t *testing.T) {
 		out := runCmd(t, "--format", "table", "issue", "list", "--query", query,
-			"--fields", "idReadable,summary,Priority,state,Assignee,"+notesName+","+dueName)
+			"--fields", "idReadable,summary,"+priority.Name+",state,Assignee,"+notesName+","+dueName)
 		lines := strings.Split(strings.TrimSpace(out), "\n")
 		require.Len(t, lines, 2, "output: %s", out)
-		assert.Regexp(t, `^ID\s+SUMMARY\s+PRIORITY\s+STATE\s+ASSIGNEE\s+`+regexp.QuoteMeta(strings.ToUpper(notesName))+`\s+`+regexp.QuoteMeta(strings.ToUpper(dueName))+`$`, lines[0])
+		assert.Regexp(t, `^ID\s+SUMMARY\s+`+regexp.QuoteMeta(strings.ToUpper(priority.Name))+`\s+STATE\s+ASSIGNEE\s+`+regexp.QuoteMeta(strings.ToUpper(notesName))+`\s+`+regexp.QuoteMeta(strings.ToUpper(dueName))+`$`, lines[0])
 		assert.Regexp(t, `^`+issue.IDReadable+`\s+custom column test\s+Critical\s+`+state+`\s+`+regexp.QuoteMeta(me.Login)+`\s+first note line\s+2026-10-13$`, lines[1])
 	})
 
 	t.Run("plain rows carry custom field values", func(t *testing.T) {
-		out := runCmd(t, "issue", "list", "--query", query, "--fields", "idReadable,Priority,State", "--plain")
+		out := runCmd(t, "issue", "list", "--query", query, "--fields", "idReadable,"+priority.Name+",State", "--plain")
 		assert.Equal(t, issue.IDReadable+"\tCritical\t"+state+"\n", out)
 	})
 
 	t.Run("attribute and custom field names are case-insensitive", func(t *testing.T) {
-		out := runCmd(t, "issue", "list", "--query", query, "--fields", "IdReadable,Summary,PRIORITY", "--plain")
+		out := runCmd(t, "issue", "list", "--query", query, "--fields", "IdReadable,Summary,"+strings.ToUpper(priority.Name), "--plain")
 		assert.Equal(t, issue.IDReadable+"\tcustom column test\tCritical\n", out)
 	})
 
 	t.Run("json returns only the requested custom fields", func(t *testing.T) {
-		issues := runJSON[[]api.Issue](t, "issue", "list", "--query", query, "--fields", "idReadable,priority,State", "--json")
+		issues := runJSON[[]api.Issue](t, "issue", "list", "--query", query, "--fields", "idReadable,"+strings.ToLower(priority.Name)+",State", "--json")
 		require.Len(t, issues, 1)
 		assert.Equal(t, issue.IDReadable, issues[0].IDReadable)
 		assert.Equal(t, "custom column test", issues[0].Summary, "default issue fields stay in JSON output")
@@ -175,7 +179,7 @@ func TestCmd_IssueListCustomFieldColumns(t *testing.T) {
 		for _, f := range issues[0].CustomFields {
 			names = append(names, f.Name)
 		}
-		assert.ElementsMatch(t, []string{"Priority", "State"}, names)
+		assert.ElementsMatch(t, []string{priority.Name, "State"}, names)
 	})
 
 	t.Run("non-custom names the server returns still resolve as attributes", func(t *testing.T) {
@@ -479,6 +483,46 @@ func TestCmd_IssueCommentCRUD(t *testing.T) {
 				assert.Contains(t, out, "[deleted]")
 				assert.NotContains(t, out, "updated from cli")
 			})
+		}
+	}
+
+	activeText := "active comment stays visible"
+	active, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: activeText})
+	require.NoError(t, err)
+	// Include deleted comments in pinnedComments so the narrow pinned projection
+	// has the same deletion authority requirement as the comments collection.
+	require.NoError(t, c.PinComment(issue.IDReadable, comment.ID, true))
+
+	const commentProjection = "comments(id,deleted,text,textPreview)"
+	var server struct {
+		Comments json.RawMessage `json:"comments"`
+	}
+	require.NoError(t, c.Get("/api/issues/"+issue.IDReadable+"?fields="+commentProjection, &server))
+	fromCLI := runJSON[struct {
+		Comments json.RawMessage `json:"comments"`
+	}](t, "issue", "view", issue.IDReadable, "--fields", commentProjection, "--json")
+	assert.JSONEq(t, string(server.Comments), string(fromCLI.Comments), "JSON must preserve the server's actual comment data")
+
+	for _, format := range []string{"table", "plain"} {
+		for _, action := range []string{"view", "list"} {
+			for _, projection := range []string{commentProjection, "comments(text)", "pinnedComments(text)"} {
+				t.Run("nested deleted comment "+action+" "+format+" "+projection, func(t *testing.T) {
+					args := []string{"issue", action}
+					if action == "view" {
+						args = append(args, issue.IDReadable)
+					} else {
+						args = append(args, "--query", "project: "+proj.ShortName)
+					}
+					out := runCmd(t, append(args, "--fields", projection, "--format", format)...)
+					assert.Contains(t, out, "[deleted]")
+					assert.NotContains(t, out, "updated from cli")
+					if projection == commentProjection {
+						assert.Contains(t, out, comment.ID)
+						assert.Contains(t, out, active.ID)
+						assert.Contains(t, out, activeText)
+					}
+				})
+			}
 		}
 	}
 }
@@ -884,6 +928,7 @@ func TestCmd_IssueTag(t *testing.T) {
 func TestCmd_IssueFieldView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
+	field := createProjectEnumField(t, c, proj, api.FieldTypeEnumSingle, "Normal")
 
 	issue, err := c.AddIssue(api.AddIssueRequest{
 		Summary: "field get test",
@@ -891,14 +936,19 @@ func TestCmd_IssueFieldView(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	require.NoError(t, c.SetCustomField(issue.IDReadable, field.Name, "Normal", ""))
 
-	out := runCmd(t, "issue", "field", "view", issue.IDReadable, "Priority", "--format", "json")
-	assert.Contains(t, out, "Priority")
+	got := runJSON[api.IssueField](t, "issue", "field", "view", issue.IDReadable, field.Name, "--json")
+	assert.Equal(t, field.Name, got.Name)
+	value, ok := got.Value.(map[string]any)
+	require.True(t, ok, "single-value field returned %T", got.Value)
+	assert.Equal(t, "Normal", value["name"])
 }
 
 func TestCmd_IssueFieldSet(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
+	field := createProjectEnumField(t, c, proj, api.FieldTypeEnumSingle, "Normal", "Critical")
 
 	issue, err := c.AddIssue(api.AddIssueRequest{
 		Summary: "field set test",
@@ -906,34 +956,22 @@ func TestCmd_IssueFieldSet(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	require.NoError(t, c.SetCustomField(issue.IDReadable, field.Name, "Normal", ""))
 
-	out := runCmd(t, "issue", "field", "set", issue.IDReadable, "Priority", "Critical")
-	assert.Contains(t, out, "updated field Priority")
+	out := runCmd(t, "issue", "field", "set", issue.IDReadable, field.Name, "Critical")
+	assert.Contains(t, out, "updated field "+field.Name)
+
+	got, err := c.GetCustomFieldValue(issue.IDReadable, field.Name)
+	require.NoError(t, err)
+	value, ok := got.Value.(map[string]any)
+	require.True(t, ok, "single-value field returned %T", got.Value)
+	assert.Equal(t, "Critical", value["name"])
 }
 
 func TestCmd_IssueFieldSet_MultiValue(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
-
-	name := "Multi-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
-	field, err := c.AddCustomField(name, api.FieldTypeEnumMulti)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = c.DeleteCustomField(field.ID) })
-	require.NoError(t, c.AddProjectCustomField(proj.ShortName, field.ID))
-
-	var projectFields []struct {
-		Field  api.CustomField `json:"field"`
-		Bundle api.Bundle      `json:"bundle"`
-	}
-	require.NoError(t, c.Get("/api/admin/projects/"+proj.ID+"/customFields?fields=field(id),bundle(id)&$top=500", &projectFields))
-	var bundleID string
-	for _, pf := range projectFields {
-		if pf.Field.ID == field.ID {
-			bundleID = pf.Bundle.ID
-		}
-	}
-	require.NotEmpty(t, bundleID, "project field for %s has no bundle", name)
-	require.NoError(t, c.AddBundleValue("enum", bundleID, "Alpha"))
+	field := createProjectEnumField(t, c, proj, api.FieldTypeEnumMulti, "Alpha")
 
 	issue, err := c.AddIssue(api.AddIssueRequest{
 		Summary: "multi-value field set test",
@@ -942,12 +980,104 @@ func TestCmd_IssueFieldSet_MultiValue(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
-	out := runCmd(t, "issue", "field", "set", issue.IDReadable, name, "Alpha")
-	assert.Contains(t, out, "updated field "+name)
+	out := runCmd(t, "issue", "field", "set", issue.IDReadable, field.Name, "Alpha")
+	assert.Contains(t, out, "updated field "+field.Name)
 
-	got, err := c.GetCustomFieldValue(issue.IDReadable, name)
+	got, err := c.GetCustomFieldValue(issue.IDReadable, field.Name)
 	require.NoError(t, err)
-	assert.Contains(t, fmt.Sprint(got.Value), "Alpha")
+	values, ok := got.Value.([]any)
+	require.True(t, ok, "multi-value field returned %T", got.Value)
+	require.Len(t, values, 1)
+	value, ok := values[0].(map[string]any)
+	require.True(t, ok, "multi-value field element returned %T", values[0])
+	assert.Equal(t, "Alpha", value["name"])
+}
+
+// Field command tests own their field and bundle instead of depending on the
+// server's default project template to attach Priority and its allowed values.
+func createProjectEnumField(t *testing.T, c *api.Client, project *api.Project, fieldType string, values ...string) *api.CustomField {
+	t.Helper()
+	name := "FixtureEnum-" + project.ShortName
+	bundle, err := c.CreateBundle("enum", name)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		// Removing the final project field can also remove its unused bundle.
+		// A confirmed 404 is already clean; every other delete error is a failure.
+		err := c.DeleteBundle("enum", bundle.ID)
+		var apiErr *api.APIError
+		if err != nil && (!errors.As(err, &apiErr) || apiErr.StatusCode != 404) {
+			require.NoError(t, err)
+		}
+		err = c.Get("/api/admin/customFieldSettings/bundles/enum/"+url.PathEscape(bundle.ID)+"?fields=id", nil)
+		require.ErrorAs(t, err, &apiErr, "fixture bundle %s still exists", bundle.ID)
+		require.Equal(t, 404, apiErr.StatusCode, "reading deleted fixture bundle: %v", err)
+	})
+	for _, value := range values {
+		require.NoError(t, c.AddBundleValue("enum", bundle.ID, value))
+	}
+
+	field, err := c.AddCustomField(name, fieldType)
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, c.DeleteCustomField(field.ID)) })
+	var attached struct {
+		ID string `json:"id"`
+	}
+	require.NoError(t, c.Post("/api/admin/projects/"+url.PathEscape(project.ID)+"/customFields?fields=id", map[string]any{
+		"$type":      "EnumProjectCustomField",
+		"field":      map[string]any{"id": field.ID},
+		"bundle":     map[string]any{"id": bundle.ID, "$type": "EnumBundle"},
+		"canBeEmpty": true,
+		"isPublic":   true,
+	}, &attached))
+	require.NotEmpty(t, attached.ID)
+	t.Cleanup(func() {
+		require.NoError(t, c.RemoveProjectCustomField(project.ShortName, attached.ID))
+		// Field removal schedules a server job. Wait for the field to be gone
+		// before the later cleanup deletes the field prototype and its bundle.
+		require.EventuallyWithT(t, func(collect *assert.CollectT) {
+			var status struct {
+				HasRunningJob bool `json:"hasRunningJob"`
+			}
+			err := c.Get("/api/admin/projects/"+url.PathEscape(project.ID)+"/customFields/"+url.PathEscape(attached.ID)+"?fields=hasRunningJob", &status)
+			if err == nil {
+				assert.Fail(collect, fmt.Sprintf("project field %s still exists (hasRunningJob=%t)", attached.ID, status.HasRunningJob))
+				return
+			}
+			var apiErr *api.APIError
+			if assert.True(collect, errors.As(err, &apiErr), "reading deleted project field: %v", err) {
+				assert.Equal(collect, 404, apiErr.StatusCode, "reading deleted project field: %v", err)
+			}
+		}, 10*time.Second, 20*time.Millisecond, "project field %s deletion did not finish", attached.ID)
+	})
+	return field
+}
+
+func attachDefaultProjectFields(t *testing.T, c *api.Client, project *api.Project, names ...string) {
+	t.Helper()
+	prototypes, err := c.ListCustomFields()
+	require.NoError(t, err)
+	attached, err := c.GetProjectCustomFields(project.ShortName)
+	require.NoError(t, err)
+	for _, name := range names {
+		var fieldID string
+		for _, prototype := range prototypes {
+			if prototype.Name == name {
+				fieldID = prototype.ID
+				break
+			}
+		}
+		require.NotEmpty(t, fieldID, "missing default custom-field prototype %q", name)
+		var exists bool
+		for _, field := range attached {
+			if field.Field != nil && field.Field.ID == fieldID {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			require.NoError(t, c.AddProjectCustomField(project.ShortName, fieldID))
+		}
+	}
 }
 
 func TestCmd_IssueVisibility(t *testing.T) {

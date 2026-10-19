@@ -88,19 +88,35 @@ func parseFieldSpec(spec string) (key, innerSpec string) {
 func printProjected(w io.Writer, data any, fields string, withHeader bool) error {
 	names := internal.SplitFields(fields)
 	return writeProjection(w, data, headerNames(names), withHeader, func(obj map[string]any) []string {
-		switch data.(type) {
-		case []api.Comment, *api.Comment:
-			if deleted, _ := obj["deleted"].(bool); deleted {
-				obj["text"] = "[deleted]"
-				obj["textPreview"] = "[deleted]"
-			}
-		}
 		vals := make([]string, len(names))
 		for i, name := range names {
 			vals[i] = resolveField(obj, name)
 		}
 		return vals
 	})
+}
+
+// maskDeletedCommentText only changes decoded copies used for human output.
+// Type discriminators identify nested comments without changing unrelated
+// objects that happen to expose deleted and text attributes.
+func maskDeletedCommentText(value any, comment bool) {
+	switch node := value.(type) {
+	case map[string]any:
+		entityType, _ := node["$type"].(string)
+		if comment || entityType == "IssueComment" || entityType == "ArticleComment" {
+			if deleted, _ := node["deleted"].(bool); deleted {
+				node["text"] = "[deleted]"
+				node["textPreview"] = "[deleted]"
+			}
+		}
+		for _, child := range node {
+			maskDeletedCommentText(child, false)
+		}
+	case []any:
+		for _, child := range node {
+			maskDeletedCommentText(child, comment)
+		}
+	}
 }
 
 // writeProjection JSON round-trips data (a slice or a single object) to maps and writes one tab-separated row per
@@ -112,8 +128,14 @@ func writeProjection(w io.Writer, data any, headers []string, withHeader bool, r
 	if err != nil {
 		return err
 	}
+	commentRows := false
+	switch data.(type) {
+	case []api.Comment, *api.Comment:
+		commentRows = true
+	}
 
 	writeRow := func(obj map[string]any) {
+		maskDeletedCommentText(obj, commentRows)
 		vals := row(obj)
 		if withHeader {
 			// Collapse newlines so the tab-separated row stays on one line,
