@@ -401,3 +401,30 @@ func TestCmd_UpdatePrompt_NotShownWithoutTerminal(t *testing.T) {
 	require.NoError(t, err, "output: %s", out)
 	require.NotContains(t, string(out), "Update available!")
 }
+
+func TestCmd_Update_AutoUpgrade_HomebrewThroughSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("pty-based TTY simulation is POSIX-only")
+	}
+	// Homebrew on Intel Macs runs youtrack through a /usr/local/bin symlink into its Cellar. A ~/.local/bin
+	// symlink stands in for it: detection used to match that unresolved path as an install-script install.
+	// On Linux os.Executable already resolves symlinks, so this guards the macOS behavior.
+	cellarBinary := copyBinaryToFakeInstallPath(t, "Cellar/youtrack/1.0.0/bin")
+	linkDir := filepath.Join(t.TempDir(), ".local", "bin")
+	require.NoError(t, os.MkdirAll(linkDir, 0o755))
+	link := filepath.Join(linkDir, "youtrack")
+	require.NoError(t, os.Symlink(cellarBinary, link))
+
+	stubDir := t.TempDir()
+	record := filepath.Join(stubDir, "record.txt")
+	writeE2EStubExecutable(t, stubDir, "brew", record)
+
+	// Only the stub is on PATH: a regression to the install-script upgrade finds no bash and fails instead of running the real installer.
+	output, err := runViaPTY(t, link, []string{"PATH=" + stubDir}, "update", "--format", "table")
+	skipIfUpdateCheckUnreachable(t, output, output, err)
+	require.NoError(t, err, "output: %s", output)
+
+	got, readErr := os.ReadFile(record)
+	require.NoError(t, readErr, "stub brew was never invoked; output: %s", output)
+	require.Equal(t, "upgrade youtrack\n", string(got))
+}

@@ -47,12 +47,9 @@ func (m InstallMethod) AutoUpgradeCommand() (name string, args []string, ok bool
 			return "powershell", []string{"-NoProfile", "-ExecutionPolicy", "Bypass", "-Command",
 				"irm " + installScriptPSURL + " | iex"}, true
 		}
-		exe, err := os.Executable()
+		exe, err := runningExecutable()
 		if err != nil {
 			return "", nil, false
-		}
-		if resolved, err := filepath.EvalSymlinks(exe); err == nil {
-			exe = resolved
 		}
 		// $0 and $1 carry the URL and directory, so the path is never parsed as shell code.
 		return "bash", []string{"-c", `curl -fsSL "$0" | bash -s -- "" "$1"`, installScriptURL, filepath.Dir(exe)}, true

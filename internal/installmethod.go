@@ -33,11 +33,23 @@ const (
 // DetectInstallMethodContext inspects the running executable's path (and, on Linux, the
 // system package database) to guess which install method put it there.
 func DetectInstallMethodContext(ctx context.Context) InstallMethod {
-	exe, err := os.Executable()
+	exe, err := runningExecutable()
 	if err != nil {
 		return InstallUnknown
 	}
 	return detectFromPathContext(ctx, exe)
+}
+
+// runningExecutable returns the running binary with symlinks resolved, so detection and the upgrade see the same file: Homebrew on Intel Macs runs youtrack through a /usr/local/bin symlink into its Cellar.
+func runningExecutable() (string, error) {
+	exe, err := os.Executable()
+	if err != nil {
+		return "", err
+	}
+	if resolved, err := filepath.EvalSymlinks(exe); err == nil {
+		exe = resolved
+	}
+	return exe, nil
 }
 
 func detectFromPathContext(ctx context.Context, exe string) InstallMethod {
