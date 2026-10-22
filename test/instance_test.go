@@ -98,6 +98,18 @@ func TestInstance_List_XDGConfigHome(t *testing.T) {
 	assert.NoDirExists(t, filepath.Join(tmpHome, ".config"))
 }
 
+func TestInstance_List_IgnoresRelativeXDGConfigHome(t *testing.T) {
+	tmpHome := t.TempDir()
+	configFixture(t, tmpHome, twoInstanceConfig)
+
+	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome, "XDG_CONFIG_HOME=relative"}, "instance", "list")
+	var items []struct {
+		Alias string `json:"alias"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &items))
+	require.Len(t, items, 2)
+}
+
 func TestInstance_List_Empty(t *testing.T) {
 	tmpHome := t.TempDir()
 

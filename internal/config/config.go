@@ -36,9 +36,10 @@ type Instance struct {
 }
 
 // ConfigDir returns the youtrack-cli config directory ($XDG_CONFIG_HOME/youtrack or ~/.config/youtrack).
+// A relative XDG_CONFIG_HOME is ignored, as the XDG spec requires.
 func ConfigDir() (string, error) {
 	configHome := os.Getenv("XDG_CONFIG_HOME")
-	if configHome == "" {
+	if !filepath.IsAbs(configHome) {
 		home, err := os.UserHomeDir()
 		if err != nil {
 			return "", fmt.Errorf("resolving home dir: %w", err)
@@ -157,7 +158,8 @@ func (c *Config) Save() error {
 }
 
 // migrateLegacy moves a legacy config to path when path does not exist yet and returns the file Load should read.
-// If the move fails, it returns the legacy path, so the next Save writes path and removes the legacy file.
+// If the move fails and no other process has migrated it meanwhile, it returns the legacy path,
+// so the next Save writes path and removes the legacy file.
 func migrateLegacy(path string) string {
 	legacy, err := legacyConfigPath()
 	if err != nil {
@@ -169,10 +171,13 @@ func migrateLegacy(path string) string {
 	if _, err := os.Stat(legacy); err != nil {
 		return path
 	}
-	if os.MkdirAll(filepath.Dir(path), 0700) != nil || os.Rename(legacy, path) != nil {
-		return legacy
+	if os.MkdirAll(filepath.Dir(path), 0700) == nil && os.Rename(legacy, path) == nil {
+		return path
 	}
-	return path
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	return legacy
 }
 
 // keyringWrite is what Save must write to the keyring for one instance.
