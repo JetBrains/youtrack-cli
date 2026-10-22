@@ -66,6 +66,8 @@ youtrack issue create --project DEMO --summary "Crash on startup" --custom-field
 
 `--project` and `--summary` are required. The other flags are optional: `--description` and `--description-file` set the body (mutually exclusive); `--custom-fields` and `--custom-fields-file` take a JSON object of field values; `--parent` nests the issue under another issue ID; and `--asUser` creates it as another login.
 
+Custom fields must be one complete JSON object with string values. Malformed JSON, trailing content, and non-string values (including `null`) are rejected before an issue is created.
+
 > Use `youtrack project list` to look up a project's short name.
 >
 {style="tip"}
