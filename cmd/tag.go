@@ -32,6 +32,9 @@ func newTagIssueCmd() *cobra.Command {
 		Short: "List issues tagged with a specific tag",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 0 {
+				return fmt.Errorf("--limit must not be negative, got %d", limit)
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -43,7 +46,7 @@ func newTagIssueCmd() *cobra.Command {
 			return output.Print(cmd, issues)
 		},
 	}
-	list.Flags().IntVar(&limit, "limit", 100, "Maximum number of issues to return")
+	list.Flags().IntVar(&limit, "limit", 100, "Maximum number of issues to return (non-negative; 0 returns none)")
 	cmd.AddCommand(list)
 	return cmd
 }
