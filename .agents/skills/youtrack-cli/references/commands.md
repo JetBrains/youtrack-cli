@@ -42,6 +42,7 @@ projects/queries instead of pulling every record.
 
 Destructive commands (deletes, `user ban`, `project archive`, `settings feature`, link/reaction
 removals, etc.) prompt for confirmation and accept `--force` to skip the prompt.
+Declining a destructive-action confirmation exits `0` and reports `{"status":"canceled","message":"Canceled."}` in JSON mode; table/plain output remains `Canceled.`.
 
 ## issue
 
