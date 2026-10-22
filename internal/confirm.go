@@ -2,32 +2,29 @@ package internal
 
 import (
 	"bufio"
+	"context"
+	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/JetBrains/youtrack-cli/internal/prompt"
 )
 
-// Confirm prompts the user with "<msg> [y/N]: " on cmd's stderr and reads from stdin.
-// Returns true if the user typed "y" or "yes" (case-insensitive).
+// Confirm asks "<msg>" as a yes/no question on cmd's stderr (a huh field in a terminal, "[y/N]" on piped stdin), defaulting to no.
 // Skips the prompt and returns true immediately if --force is set on cmd.
 func Confirm(cmd *cobra.Command, msg string) (bool, error) {
 	if force, _ := cmd.Flags().GetBool("force"); force {
 		return true, nil
 	}
-	if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "%s [y/N]: ", msg); err != nil {
-		return false, err
-	}
-	reader := bufio.NewReader(cmd.InOrStdin())
-	answer, err := ReadLineContext(cmd.Context(), reader)
-	if err != nil {
-		if cmd.Context().Err() != nil {
-			return false, err
+	confirmed := false
+	if err := prompt.New(cmd.Context(), bufio.NewReader(cmd.InOrStdin()), cmd.ErrOrStderr()).Confirm(msg, &confirmed); err != nil {
+		if cmd.Context().Err() != nil || errors.Is(err, context.Canceled) {
+			return false, context.Canceled
 		}
 		return false, fmt.Errorf("confirmation requires interactive input; use --force to skip")
 	}
-	answer = strings.ToLower(strings.TrimSpace(answer))
-	return answer == "y" || answer == "yes", nil
+	return confirmed, nil
 }
 
 // ConfirmOrAbort wraps Confirm for the common "confirm before destructive action" pattern.

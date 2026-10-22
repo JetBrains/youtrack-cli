@@ -8,7 +8,7 @@ import (
 
 func newAddCmd() *cobra.Command {
 	cmd := auth.NewGetTokenCmd()
-	cmd.Use = "add"
-	cmd.Short = "Add a new instance (authenticate and save credentials)"
+	cmd.Use = "add [url-or-alias]"
+	cmd.Short = "Add a new instance (same as auth login)"
 	return cmd
 }

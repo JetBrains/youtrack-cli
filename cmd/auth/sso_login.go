@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -22,13 +23,12 @@ import (
 
 const defaultOAuthClientID = "localhost-auth"
 
-// ssoOptions are the tunables of the browser SSO flow: plain defaults from the get-token menu, flag-filled by "instance login".
+// ssoOptions are the tunables of the browser sign-in flow, filled from the flags of "auth login".
 type ssoOptions struct {
 	clientID    string
 	extraScopes []string
 	port        int
 	timeout     time.Duration
-	noBrowser   bool
 }
 
 func defaultSSOOptions() ssoOptions {
@@ -45,77 +45,45 @@ type ssoLoginResult struct {
 	Hint       string `json:"_hint,omitempty"`
 }
 
-// NewSSOLoginCmd constructs the browser single sign-on command (registered as "instance login"; also option 4 in the get-token menu).
-func NewSSOLoginCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "login [url-or-alias]",
-		Short: "Sign in through the browser (OAuth 2.0 + PKCE, ~1-hour session token)",
-		Long: `Signs in to a YouTrack instance through the browser using OAuth 2.0 with
-PKCE against the instance's JetBrains Hub. No password or token paste needed —
-the browser session (including SSO) does the authentication.
+// ssoOnlyFlags take effect only in browser sign-in.
+var ssoOnlyFlags = []string{"client-id", "port", "timeout"}
 
-The resulting access token is short-lived (~1 hour) and is not refreshed;
-re-run this command to renew it, or use "youtrack auth login" to create a
-permanent token instead.
-
-Pass a URL to sign in to a new instance, or an existing alias to renew its
-token. The Hub must have a public loopback OAuth client registered
-(hub.jetbrains.com has one); when it does not, the command falls back to the
-paste-token flow.`,
-		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reader := bufio.NewReader(os.Stdin)
-
-			baseURL, err := resolveSSOBaseURL(cmd, reader, args)
-			if err != nil {
-				return err
-			}
-
-			// Prompt for the alias like get-token does, only when saving and not preset.
-			save, _ := cmd.Flags().GetBool("save")
-			if save && !flagChanged(cmd, "alias") && term.IsTerminal(int(os.Stdin.Fd())) {
-				derived := config.DeriveAlias(baseURL)
-				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Instance alias [%s]: ", derived); err != nil {
-					return err
-				}
-				raw, err := internal.ReadLineContext(cmd.Context(), reader)
-				if err != nil {
-					return fmt.Errorf("reading alias: %w", err)
-				}
-				alias := strings.TrimSpace(raw)
-				if alias == "" {
-					alias = derived
-				}
-				if err := cmd.Flags().Set("alias", alias); err != nil {
-					return err
-				}
-			}
-
-			opts := defaultSSOOptions()
-			opts.clientID, _ = cmd.Flags().GetString("client-id")
-			opts.port, _ = cmd.Flags().GetInt("port")
-			opts.timeout, _ = cmd.Flags().GetDuration("timeout")
-			opts.noBrowser, _ = cmd.Flags().GetBool("no-browser")
-			if scope, _ := cmd.Flags().GetString("scope"); scope != "" {
-				for _, s := range strings.Split(scope, ",") {
-					if s = strings.TrimSpace(s); s != "" {
-						opts.extraScopes = append(opts.extraScopes, s)
-					}
-				}
-			}
-			return runSSOFlow(cmd, reader, baseURL, opts)
-		},
-	}
-
-	cmd.Flags().Bool("save", true, "Save credentials to the config file (~/.config/youtrack/config.json)")
-	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
-	cmd.Flags().String("scope", "", "Comma-separated extra Hub service IDs to request in addition to the YouTrack service")
-	cmd.Flags().Bool("show-token", false, showTokenUsage)
+// addSSOFlags registers the browser sign-in flags of "auth login".
+func addSSOFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("port", 0, "Fixed loopback port for the OAuth callback (default: pick a free port)")
 	cmd.Flags().String("client-id", defaultOAuthClientID, "OAuth 2.0 client ID registered in Hub")
 	cmd.Flags().Duration("timeout", browserflow.DefaultTimeout, "How long to wait for the browser callback")
-	cmd.Flags().Bool("no-browser", false, "Print the authorization URL instead of opening a browser")
-	return cmd
+}
+
+// ssoOptionsFromFlags reads the flags registered by addSSOFlags.
+func ssoOptionsFromFlags(cmd *cobra.Command) ssoOptions {
+	opts := defaultSSOOptions()
+	opts.clientID, _ = cmd.Flags().GetString("client-id")
+	opts.port, _ = cmd.Flags().GetInt("port")
+	opts.timeout, _ = cmd.Flags().GetDuration("timeout")
+	if scope, _ := cmd.Flags().GetString("scope"); scope != "" {
+		for _, s := range strings.Split(scope, ",") {
+			if s = strings.TrimSpace(s); s != "" {
+				opts.extraScopes = append(opts.extraScopes, s)
+			}
+		}
+	}
+	return opts
+}
+
+// requireNoSSOFlags rejects browser sign-in flags (plus extra) on a path that never opens the browser, so a flag like --client-id is not silently ignored.
+func requireNoSSOFlags(cmd *cobra.Command, reason string, extra ...string) error {
+	return rejectFlags(cmd, reason, append(slices.Clone(ssoOnlyFlags), extra...)...)
+}
+
+// rejectFlags fails on the first of names that was set, because on the chosen path it would be silently ignored.
+func rejectFlags(cmd *cobra.Command, reason string, names ...string) error {
+	for _, name := range names {
+		if flagChanged(cmd, name) {
+			return fmt.Errorf("--%s has no effect %s", name, reason)
+		}
+	}
+	return nil
 }
 
 // resolveSSOBaseURL resolves the target instance URL: positional arg (URL or configured alias) → --base-url flag → interactive prompt.
@@ -146,14 +114,11 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 		raw, _ = cmd.Root().PersistentFlags().GetString("base-url")
 	}
 	if raw == "" {
-		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "YouTrack base URL: "); err != nil {
+		url, err := promptBaseURL(cmd, reader)
+		if err != nil {
 			return "", err
 		}
-		line, err := internal.ReadLineContext(cmd.Context(), reader)
-		if err != nil {
-			return "", fmt.Errorf("reading URL: %w", err)
-		}
-		raw = strings.TrimSpace(line)
+		raw = url
 	}
 	raw = strings.TrimRight(raw, "/")
 	if raw != "" && !strings.HasPrefix(raw, "http://") && !strings.HasPrefix(raw, "https://") {
@@ -166,12 +131,12 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 }
 
 // runSSOFlow runs the full browser OAuth 2.0 + PKCE flow against the Hub serving baseURL and saves the short-lived access token.
-func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts ssoOptions) error {
+func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *ssoOptions) error {
 	stderr := cmd.ErrOrStderr()
 	interactive := term.IsTerminal(int(os.Stdin.Fd()))
 
-	if !interactive && !opts.noBrowser {
-		return fmt.Errorf("browser login needs an interactive terminal — use `youtrack auth login` (paste token) or set YOUTRACK_TOKEN\nnote: the OAuth callback goes to this machine's loopback, so the flow cannot work over plain SSH unless you forward the callback port")
+	if !interactive {
+		return fmt.Errorf("browser login needs an interactive terminal — pass --no-browser to paste a token, or set YOUTRACK_TOKEN\nnote: the OAuth callback goes to this machine's loopback, so the flow cannot work over plain SSH unless you forward the callback port")
 	}
 
 	_, _ = fmt.Fprintf(stderr, "Discovering Hub configuration for %s...\n", baseURL)
@@ -180,12 +145,13 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 		return err
 	}
 	if ytServiceID == "" {
-		return fmt.Errorf("could not discover the YouTrack service ID from %s — this instance may be too old for browser login; use `youtrack auth login` instead", baseURL)
+		_, _ = fmt.Fprintf(stderr, "Could not discover the YouTrack service ID from %s (this instance may be too old for browser sign-in); falling back to the paste-token flow.\n\n", baseURL)
+		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 	// Never hand an unvalidated server-advertised Hub URL to the browser; take the same paste-token fallback as a failed pre-flight.
 	if err := api.ValidateHubURL(baseURL, hubURL); err != nil {
 		_, _ = fmt.Fprintf(stderr, "Hub URL is not usable for browser sign-in (%v); falling back to the paste-token flow.\n\n", err)
-		return runDirectTokenFlow(cmd, reader, baseURL)
+		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 
 	endpoints, err := api.DiscoverOAuthEndpointsContext(cmd.Context(), hubURL)
@@ -228,20 +194,15 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 			return contextErr
 		}
 		_, _ = fmt.Fprintf(stderr, "This Hub has no public CLI OAuth client (%q); falling back to the paste-token flow.\n\n", opts.clientID)
-		return runDirectTokenFlow(cmd, reader, baseURL)
+		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 
-	if opts.noBrowser {
-		_, _ = fmt.Fprintf(stderr, "Open this URL in your browser to sign in:\n  %s\n\nWaiting for the callback on %s ...\n", hyperlink(authorizeURL), redirectURI)
-	} else {
-		_, _ = fmt.Fprintf(stderr, "Opening your browser to complete sign-in...\nIf it does not open, use this URL:\n  %s\n", hyperlink(authorizeURL))
-	}
+	_, _ = fmt.Fprintf(stderr, "Opening your browser to complete sign-in...\nIf it does not open, use this URL:\n  %s\n", hyperlink(authorizeURL))
 
 	res, err := browserflow.Run(cmd.Context(), browserflow.Options{
 		Listener: listener,
 		State:    state,
 		OpenURL:  authorizeURL,
-		NoOpen:   opts.noBrowser,
 		Timeout:  opts.timeout,
 		Warn: func(format string, args ...any) {
 			_, _ = fmt.Fprintf(stderr, format+"\n", args...)
@@ -266,42 +227,42 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 		return fmt.Errorf("token verification failed: %w", err)
 	}
 
-	expiresAt := time.Now().Unix() + tok.ExpiresIn - 60 // 60s clock skew margin
 	result := ssoLoginResult{
 		Login:     user.Login,
 		Name:      user.FullName,
 		Token:     tok.AccessToken,
-		ExpiresAt: expiresAt,
+		ExpiresAt: time.Now().Unix() + tok.ExpiresIn - 60, // 60s clock skew margin
 		Scope:     tok.Scope,
 	}
 
-	if save, _ := cmd.Flags().GetBool("save"); save {
-		alias, _ := cmd.Flags().GetString("alias")
+	save, _ := cmd.Flags().GetBool("save")
+	alias := ""
+	if save {
+		alias, _ = cmd.Flags().GetString("alias")
 		cfg, err := config.Load()
 		if err != nil {
 			return err
 		}
-		finalAlias := cfg.AddInstanceOAuth(alias, baseURL, tok.AccessToken, expiresAt)
+		alias = cfg.AddInstanceOAuth(alias, baseURL, result.Token, result.ExpiresAt)
 		if cfg.CurrentInstance == "" {
-			cfg.CurrentInstance = finalAlias
+			cfg.CurrentInstance = alias
 		}
 		if err := cfg.Save(); err != nil {
 			return fmt.Errorf("saving config: %w", err)
 		}
-		path, _ := config.ConfigPath()
-		result.ConfigFile = path
-		result.Hint = fmt.Sprintf(
-			"Session token saved as %q — expires at %s (~1 hour, no refresh; re-run `youtrack instance login %s` to renew).\nFor a permanent token, use `youtrack auth login` instead.",
-			finalAlias, time.Unix(expiresAt, 0).Format("15:04"), finalAlias)
+		result.ConfigFile, _ = config.ConfigPath()
+	}
+	if save {
+		result.Hint = fmt.Sprintf("Session token saved as %q — expires at %s (~1 hour, no refresh; re-run `youtrack auth login %s` to renew).",
+			alias, time.Unix(result.ExpiresAt, 0).Format("15:04"), alias)
 	} else {
-		result.Hint = fmt.Sprintf("Session token expires at %s (~1 hour, no refresh). For a permanent token, use `youtrack auth login`.",
-			time.Unix(expiresAt, 0).Format("15:04"))
+		result.Hint = fmt.Sprintf("Session token expires at %s (~1 hour, no refresh).", time.Unix(result.ExpiresAt, 0).Format("15:04"))
 	}
 
 	// Every format masks the token unless --show-token is set, as writeTokenResult does for the permanent-token flows.
 	result.Token = revealToken(cmd, result.Token)
-	// "table" is the human mode; --json/--plain and non-TTY stdout resolve to a structured format that must go through output.Print for scripts.
-	if output.Format(cmd) == "table" {
+	// Like writeTokenResult: JSON (explicit, or the default for non-TTY stdout) goes through output.Print for scripts; table and --plain print the summary, which plain output cannot render as a struct.
+	if !jsonOutput(cmd) {
 		w := cmd.OutOrStdout()
 		_, _ = fmt.Fprintf(w, "Signed in as %s (%s)\n", result.Name, result.Login)
 		_, _ = fmt.Fprintf(w, "  Token:  %s\n", result.Token)
@@ -317,7 +278,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 // discoverHub resolves the Hub base URL and YouTrack service ID (OAuth scope): /api/config ring(...) primary, MCP oauth-protected-resource fallback.
 func discoverHub(ctx context.Context, baseURL string) (hubURL, ytServiceID string) {
 	if ring, err := api.GetRingConfigContext(ctx, baseURL); err == nil {
-		hubURL = strings.TrimRight(ring.URL, "/")
+		hubURL = strings.TrimRight(api.ResolveHubURL(baseURL, ring.URL), "/")
 		ytServiceID = ring.ServiceID
 	}
 	if hubURL == "" || ytServiceID == "" {

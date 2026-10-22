@@ -8,14 +8,17 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
+	"github.com/JetBrains/youtrack-cli/internal/prompt"
 )
+
+const defaultBaseURL = "https://youtrack.jetbrains.com"
 
 const showTokenUsage = "Print the full token instead of the masked form, in every output format"
 
@@ -25,104 +28,88 @@ type getTokenResult struct {
 	Hint       string `json:"_hint,omitempty"`
 }
 
-// NewGetTokenCmd constructs the interactive authentication command. Registered
-// as "auth login" (alias "get-token") and reused by cmd/instance as "instance add";
-// both override Use and Short.
+// NewGetTokenCmd constructs the sign-in command. Registered as "auth login" (alias "get-token") and, identically, as "instance login" and "instance add"; callers override Use and Short.
 func NewGetTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get-token",
-		Short: "Authenticate interactively and save a permanent token",
-		Long: `Prompts for the YouTrack URL (if not already configured) and lets you choose
-an authentication method:
+		Use:   "get-token [url-or-alias]",
+		Short: "Authenticate interactively and save the token",
+		Long: `Signs in to a YouTrack instance and saves the token. The instance is the URL
+or configured alias given as the argument, then --base-url; otherwise the CLI
+asks for the URL, pre-filled with the active instance's URL (or
+` + defaultBaseURL + `). Passing an existing alias renews its token in place.
 
-  1) Basic auth   — login + password via Hub API
-  2) Web browser  — open the token page in a browser, then paste the token
-  3) Paste token  — enter a token directly without opening a browser
-  4) Browser SSO  — OAuth 2.0 + PKCE sign-in (~1-hour session token)
+By default the CLI signs you in through the browser (OAuth 2.0 + PKCE against
+the instance's Hub) and saves the resulting access token. It lasts about one
+hour and is not refreshed; run the command again to renew it.
 
-If basic auth is unavailable (e.g. cloud or SSO-only instances), the CLI
-falls back to option 3 automatically.
+When the Hub has no OAuth client for the CLI, with --no-browser, or when stdin
+is not a terminal, the CLI prints the token page link and asks you to paste a
+permanent token. With --login and --password it creates the token through Hub
+basic auth instead (deprecated: the password passes through the CLI and SSO/2FA
+accounts cannot use it).
+
+"auth login", "instance login", and "instance add" are the same command.
 
 Use --json for machine-readable output.`,
+		Args: cobra.MaximumNArgs(1),
+		Example: `  # Sign in through the browser
+  youtrack auth login
+
+  # Sign in to another instance, or renew the token of a configured alias
+  youtrack auth login https://example.youtrack.cloud
+  youtrack auth login work
+
+  # Paste a token instead of signing in through the browser
+  youtrack auth login --base-url https://example.youtrack.cloud --no-browser
+
+  # Sign in with a custom OAuth client on a fixed callback port
+  youtrack auth login --client-id my-client --port 8765`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reader := bufio.NewReader(os.Stdin)
 
-			// Resolve base URL — flag → interactive prompt.
-			// YOUTRACK_BASE_URL is intentionally ignored here: get-token is used to
-			// set up credentials (possibly for a new instance), so the URL should
-			// always be confirmed. Use --base-url to skip the prompt in scripts.
-			baseURL, _ := cmd.Root().PersistentFlags().GetString("base-url")
-			if baseURL == "" {
-				if _, err := fmt.Fprint(cmd.ErrOrStderr(), "YouTrack base URL: "); err != nil {
-					return err
-				}
-				raw, err := internal.ReadLineContext(cmd.Context(), reader)
-				if err != nil {
-					return fmt.Errorf("reading URL: %w", err)
-				}
-				baseURL = strings.TrimSpace(raw)
-			}
-			baseURL = strings.TrimRight(baseURL, "/")
-			// Add https:// if the user omitted the scheme.
-			if baseURL != "" && !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
-				baseURL = "https://" + baseURL
-			}
-			if baseURL == "" {
-				return fmt.Errorf("base URL is required")
-			}
-
-			// Resolve alias — flag → interactive prompt with derived default.
-			// Only prompt when saving: alias is meaningless without a config entry.
-			// Skip prompt when --alias was explicitly provided or --save=false.
-			save, _ := cmd.Flags().GetBool("save")
-			if save && !flagChanged(cmd, "alias") {
-				derived := config.DeriveAlias(baseURL)
-				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Instance alias [%s]: ", derived); err != nil {
-					return err
-				}
-				raw, err := internal.ReadLineContext(cmd.Context(), reader)
-				if err != nil {
-					return fmt.Errorf("reading alias: %w", err)
-				}
-				alias := strings.TrimSpace(raw)
-				if alias == "" {
-					alias = derived
-				}
-				if err := cmd.Flags().Set("alias", alias); err != nil {
-					return err
-				}
-			}
-
-			// Auth-type selection.
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
-				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\n  4) Browser single sign-on (1-hour session token)\nSelect [1-4]: ")
-			choiceRaw, err := internal.ReadLineContext(cmd.Context(), reader)
+			// YOUTRACK_BASE_URL is intentionally ignored: login sets up credentials, possibly for a new instance, so the URL is always confirmed.
+			baseURL, err := resolveSSOBaseURL(cmd, reader, args)
 			if err != nil {
-				return fmt.Errorf("reading auth type: %w", err)
+				return err
 			}
-			switch strings.TrimSpace(choiceRaw) {
-			case "1":
+
+			noBrowser, _ := cmd.Flags().GetBool("no-browser")
+			switch {
+			case flagChanged(cmd, "login") || flagChanged(cmd, "password"):
+				if err := requireNoSSOFlags(cmd, "with --login or --password", "no-browser"); err != nil {
+					return err
+				}
 				return runBasicAuthFlow(cmd, reader, baseURL)
-			case "2":
-				return runWebFlow(cmd, reader, baseURL)
-			case "3":
-				return runDirectTokenFlow(cmd, reader, baseURL)
-			case "4":
-				return runSSOFlow(cmd, reader, baseURL, defaultSSOOptions())
+			case noBrowser:
+				if err := requireNoSSOFlags(cmd, "with --no-browser", "scope", "token-name", "insecure"); err != nil {
+					return err
+				}
+				return runPasteTokenFlow(cmd, reader, baseURL)
+			case !term.IsTerminal(int(os.Stdin.Fd())):
+				if err := requireNoSSOFlags(cmd, "when stdin is not a terminal (a pasted token is read instead)", "scope", "token-name", "insecure"); err != nil {
+					return err
+				}
+				return runPasteTokenFlow(cmd, reader, baseURL)
 			default:
-				return fmt.Errorf("invalid choice %q: enter 1, 2, 3, or 4", strings.TrimSpace(choiceRaw))
+				if err := rejectFlags(cmd, "with browser sign-in; it applies to basic auth (--login)", "token-name", "insecure"); err != nil {
+					return err
+				}
+				opts := ssoOptionsFromFlags(cmd)
+				return runSSOFlow(cmd, reader, baseURL, &opts)
 			}
 		},
 	}
 
 	cmd.Flags().String("login", "", "Hub login (basic auth; prompted interactively if omitted)")
 	cmd.Flags().String("password", "", "Password (basic auth; prompted interactively if omitted — avoid in scripts)")
-	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
-	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
+	cmd.Flags().String("token-name", "", `Name for the permanent token (basic auth only; default "cli-token")`)
+	cmd.Flags().String("scope", "", "Comma-separated Hub services to include in the token besides YouTrack: service IDs, or names with --login (basic auth default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
 	cmd.Flags().Bool("save", true, "Save credentials to the config file (~/.config/youtrack/config.json)")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().Bool("show-token", false, showTokenUsage)
+	cmd.Flags().Bool("no-browser", false, "Paste a permanent token instead of signing in through the browser")
+	addSSOFlags(cmd)
 	return cmd
 }
 
@@ -144,6 +131,9 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 	login, _ := cmd.Flags().GetString("login")
 	password, _ := cmd.Flags().GetString("password")
 	tokenName, _ := cmd.Flags().GetString("token-name")
+	if tokenName == "" {
+		tokenName = "cli-token"
+	}
 	scope, _ := cmd.Flags().GetString("scope")
 	save, _ := cmd.Flags().GetBool("save")
 
@@ -151,36 +141,23 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 		return err
 	}
 
+	ask := newPrompter(cmd, reader)
 	if login == "" {
-		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Login: "); err != nil {
-			return err
-		}
-		raw, err := internal.ReadLineContext(cmd.Context(), reader)
-		if err != nil {
+		if err := ask.Input("Hub login", &login); err != nil {
 			return fmt.Errorf("reading login: %w", err)
 		}
-		login = strings.TrimSpace(raw)
 	}
-
 	if password == "" {
-		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Password: "); err != nil {
-			return err
-		}
-		raw, err := internal.ReadPasswordContext(cmd.Context(), int(os.Stdin.Fd()))
-		if _, printErr := fmt.Fprintln(cmd.ErrOrStderr()); printErr != nil {
-			return printErr
-		}
-		if err != nil {
+		if err := ask.Secret("Password", &password); err != nil {
 			return fmt.Errorf("reading password: %w", err)
 		}
-		password = string(raw)
 	}
 
 	me, err := api.GetHubMeContext(cmd.Context(), baseURL, login, password)
 	if err != nil {
 		if strings.Contains(err.Error(), "basic auth is not available") {
 			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "\nBasic auth is not available for this instance.\nFalling back to direct token input.\n\n")
-			return runDirectTokenFlow(cmd, reader, baseURL)
+			return runPasteTokenFlow(cmd, reader, baseURL)
 		}
 		return err
 	}
@@ -203,72 +180,6 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 	res := getTokenResult{HubToken: tok}
 	if save {
 		if _, err := saveCredentials(cmd, reader, baseURL, tok.Token, &res); err != nil {
-			return err
-		}
-	}
-	return writeTokenResult(cmd, res)
-}
-
-// runWebFlow handles the browser-based token creation flow.
-// It detects whether Hub is internal or external, opens the appropriate token
-// management page, then prompts the user to paste the token they created.
-func runWebFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error {
-	if flagChanged(cmd, "verbose") {
-		api.SetHubVerbose(cmd.ErrOrStderr())
-		defer api.SetHubVerbose(nil)
-	}
-
-	save, _ := cmd.Flags().GetBool("save")
-
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Detecting Hub configuration for %s...\n", baseURL)
-	hubURL, isInternal, err := api.DetectHubURLContext(cmd.Context(), baseURL)
-	if err != nil {
-		return fmt.Errorf("detecting Hub: %w", err)
-	}
-
-	var tokenPageURL string
-	if isInternal {
-		tokenPageURL = baseURL + "/users/me?tab=account-security"
-	} else {
-		tokenPageURL = hubURL + "/users/me?tab=authentication"
-	}
-
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Token page:\n  %s\n\n", hyperlink(tokenPageURL))
-	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Steps:")
-	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "  1. Log in if prompted")
-	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "  2. Click 'New token' (or 'Generate new token')")
-	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "  3. Copy the token value and return here")
-
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		if err := openBrowser(tokenPageURL); err != nil {
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  (Could not open browser: %v)\n", err)
-		}
-	}
-
-	if _, err := fmt.Fprint(cmd.ErrOrStderr(), "\nPaste your token: "); err != nil {
-		return err
-	}
-	tokenRaw, err := internal.ReadLineContext(cmd.Context(), reader)
-	if err != nil {
-		return fmt.Errorf("reading token: %w", err)
-	}
-	token := strings.TrimSpace(tokenRaw)
-	if token == "" {
-		return fmt.Errorf("token cannot be empty")
-	}
-
-	// Verify before saving — do not persist an invalid token.
-	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Verifying token...")
-	verifyClient := api.NewClient(baseURL, token).WithContext(cmd.Context())
-	user, err := verifyClient.GetCurrentUser()
-	if err != nil {
-		return fmt.Errorf("token verification failed: %w\nRe-run and paste the token again", err)
-	}
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Authenticated as %s (%s)\n", user.FullName, user.Login)
-
-	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
-	if save {
-		if _, err := saveCredentials(cmd, reader, baseURL, token, &res); err != nil {
 			return err
 		}
 	}
@@ -334,44 +245,69 @@ func maskToken(token string) string {
 	return "****"
 }
 
-// runDirectTokenFlow prompts the user to paste a token directly, without opening a browser.
-// It detects the correct token-management page URL and prints it for the user to open manually.
-func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error {
+// promptBaseURL asks for the instance URL, pre-filled with the active instance's URL or defaultBaseURL.
+func promptBaseURL(cmd *cobra.Command, reader *bufio.Reader) (string, error) {
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		output.PrintTip(cmd, "Press Ctrl+C at any time to cancel")
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr())
+	}
+	baseURL := defaultBaseURL
+	if cfg, err := config.Load(); err == nil {
+		if inst, ok := cfg.Instances[cfg.CurrentInstance]; ok && inst.URL != "" {
+			baseURL = inst.URL
+		}
+	}
+	if err := newPrompter(cmd, reader).Input("YouTrack URL", &baseURL); err != nil {
+		return "", fmt.Errorf("reading URL: %w", err)
+	}
+	return strings.TrimSpace(baseURL), nil
+}
+
+// newPrompter asks on cmd's stderr; piped answers come from reader, which the caller shares across all prompts of the command.
+func newPrompter(cmd *cobra.Command, reader *bufio.Reader) *prompt.Prompter {
+	return prompt.New(cmd.Context(), reader, cmd.ErrOrStderr())
+}
+
+// runPasteTokenFlow points the user at the token page (offering to open it in a terminal), then reads and verifies a pasted permanent token.
+func runPasteTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error {
+	stderr := cmd.ErrOrStderr()
 	save, _ := cmd.Flags().GetBool("save")
 
-	// Determine the token page URL using Hub discovery (best-effort; fall back to YouTrack profile).
+	// Best-effort Hub discovery; an unusable Hub falls back to the instance's own profile page, never to the advertised URL.
 	tokenPageURL := baseURL + "/users/me?tab=account-security"
-	if hubURL, isInternal, err := api.DetectHubURLContext(cmd.Context(), baseURL); err == nil {
-		if !isInternal {
-			tokenPageURL = hubURL + "/users/me?tab=authentication"
-		}
+	if hubURL, isInternal, err := api.DetectHubURLContext(cmd.Context(), baseURL); err == nil && !isInternal {
+		tokenPageURL = hubURL + "/users/me?tab=authentication"
 	}
 	if err := cmd.Context().Err(); err != nil {
 		return err
 	}
 
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Create a permanent token at:\n  %s\n\n", hyperlink(tokenPageURL))
+	ask := newPrompter(cmd, reader)
+	_, _ = fmt.Fprintf(stderr, "%s To authenticate, you need a permanent token.\n  Create one at: %s\n\n", color.YellowString("!"), hyperlink(tokenPageURL))
+	if noBrowser, _ := cmd.Flags().GetBool("no-browser"); !noBrowser && ask.Interactive() {
+		open := true
+		if err := ask.Confirm("Open browser to create a token?", &open); err != nil {
+			return err
+		}
+		if open {
+			if err := openBrowser(tokenPageURL); err != nil {
+				_, _ = fmt.Fprintf(stderr, "  Could not open the browser: %v\n", err)
+			}
+		}
+	}
 
-	if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Paste your token: "); err != nil {
-		return err
-	}
-	tokenRaw, err := internal.ReadLineContext(cmd.Context(), reader)
-	if err != nil {
+	var token string
+	if err := ask.Secret("Paste your token", &token); err != nil {
 		return fmt.Errorf("reading token: %w", err)
-	}
-	token := strings.TrimSpace(tokenRaw)
-	if token == "" {
-		return fmt.Errorf("token cannot be empty")
 	}
 
 	// Verify before saving — do not persist an invalid token.
-	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Verifying token...")
-	verifyClient := api.NewClient(baseURL, token).WithContext(cmd.Context())
-	user, err := verifyClient.GetCurrentUser()
+	_, _ = fmt.Fprintln(stderr, "Verifying token...")
+	user, err := api.NewClient(baseURL, token).WithContext(cmd.Context()).GetCurrentUser()
 	if err != nil {
 		return fmt.Errorf("token verification failed: %w\nRe-run and paste the token again", err)
 	}
-	_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "Authenticated as %s (%s)\n", user.FullName, user.Login)
+	_, _ = fmt.Fprintf(stderr, "Authenticated as %s (%s)\n", user.FullName, user.Login)
 
 	res := getTokenResult{HubToken: &api.HubToken{Token: token}}
 	if save {
