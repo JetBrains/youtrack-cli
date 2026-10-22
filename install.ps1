@@ -230,8 +230,12 @@ try {
     $stagedBin = Join-Path $OutDir ".youtrack_staged_$([guid]::NewGuid().ToString('N')).exe"
     Copy-Item -LiteralPath $exePath.FullName -Destination $stagedBin
     $target = Join-Path $OutDir $binName
+    # Earlier updates may have left old binaries behind; remove the ones no longer running.
+    Get-ChildItem -LiteralPath $OutDir -Filter "$binName.old*" -File -ErrorAction SilentlyContinue |
+        Remove-Item -Force -ErrorAction SilentlyContinue
     $oldBin = "$target.old"
-    Remove-Item -LiteralPath $oldBin -Force -ErrorAction SilentlyContinue
+    # A youtrack.exe.old still locked by a running process can't be replaced, so set this binary aside under a fresh name.
+    if (Test-Path -LiteralPath $oldBin) { $oldBin = "$target.old-$([guid]::NewGuid().ToString('N'))" }
     # Windows locks a running executable against overwrite but allows a rename, so move the
     # current binary aside first. This lets 'youtrack update' replace the running youtrack.exe.
     if (Test-Path -LiteralPath $target) { Move-Item -LiteralPath $target -Destination $oldBin -Force }
