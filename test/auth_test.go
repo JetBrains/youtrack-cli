@@ -592,3 +592,26 @@ func TestAuth_GetToken_ReadOnlyBlocksHubTokenCreation(t *testing.T) {
 	assert.Contains(t, stderr.String(), "read-only mode is enabled")
 	assert.NotContains(t, stdout.String(), `"token"`)
 }
+
+func TestAuthLogin_BrowserFlagsRejectedOnPathsWithoutBrowser(t *testing.T) {
+	// Piped stdin never opens the browser, so a browser-only flag must fail loudly instead of being ignored.
+	for _, flag := range [][]string{{"--session"}, {"--client-id", "x"}, {"--port", "8765"}, {"--timeout", "1m"}} {
+		t.Run(flag[0], func(t *testing.T) {
+			args := append([]string{"--base-url", "https://youtrack.invalid", "auth", "login", "--save=false"}, flag...)
+			cmd := exec.Command(binaryPath, args...)
+			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
+			cmd.Stdin = strings.NewReader("")
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+			require.Error(t, cmd.Run())
+			assert.Contains(t, stderr.String(), flag[0]+" applies to browser sign-in only")
+		})
+	}
+
+	cmd := exec.Command(binaryPath, "--base-url", "https://youtrack.invalid", "auth", "login", "--save=false", "--no-browser", "--session")
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	require.Error(t, cmd.Run())
+	assert.Contains(t, stderr.String(), "--session applies to browser sign-in only and cannot be used with --no-browser")
+}

@@ -49,7 +49,10 @@ Use --json for machine-readable output.`,
   youtrack auth login
 
   # Paste a token instead of signing in through the browser
-  youtrack auth login --base-url https://example.youtrack.cloud --no-browser`,
+  youtrack auth login --base-url https://example.youtrack.cloud --no-browser
+
+  # Sign in with a custom OAuth client on a fixed callback port
+  youtrack auth login --client-id my-client --port 8765`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reader := bufio.NewReader(os.Stdin)
 
@@ -77,11 +80,25 @@ Use --json for machine-readable output.`,
 			noBrowser, _ := cmd.Flags().GetBool("no-browser")
 			switch {
 			case flagChanged(cmd, "login") || flagChanged(cmd, "password"):
+				if err := requireNoSSOFlags(cmd, "with --login or --password"); err != nil {
+					return err
+				}
 				return runBasicAuthFlow(cmd, reader, baseURL)
-			case noBrowser || !term.IsTerminal(int(os.Stdin.Fd())):
+			case noBrowser:
+				if err := requireNoSSOFlags(cmd, "with --no-browser"); err != nil {
+					return err
+				}
+				return runPasteTokenFlow(cmd, reader, baseURL)
+			case !term.IsTerminal(int(os.Stdin.Fd())):
+				if err := requireNoSSOFlags(cmd, "when stdin is not a terminal"); err != nil {
+					return err
+				}
 				return runPasteTokenFlow(cmd, reader, baseURL)
 			default:
-				opts := defaultSSOOptions()
+				opts := ssoOptionsFromFlags(cmd)
+				if name, _ := cmd.Flags().GetString("token-name"); name != "" {
+					opts.tokenName = name
+				}
 				return runSSOFlow(cmd, reader, baseURL, &opts)
 			}
 		},
@@ -89,13 +106,14 @@ Use --json for machine-readable output.`,
 
 	cmd.Flags().String("login", "", "Hub login (basic auth; prompted interactively if omitted)")
 	cmd.Flags().String("password", "", "Password (basic auth; prompted interactively if omitted — avoid in scripts)")
-	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
+	cmd.Flags().String("token-name", "", `Name for the permanent token (default: "youtrack-cli" for browser sign-in, "cli-token" for basic auth)`)
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
 	cmd.Flags().Bool("save", true, "Save credentials to ~/.youtrack-cli-config.json")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().Bool("show-token", false, showTokenUsage)
 	cmd.Flags().Bool("no-browser", false, "Paste a permanent token instead of signing in through the browser")
+	addSSOFlags(cmd)
 	return cmd
 }
 
@@ -117,6 +135,9 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 	login, _ := cmd.Flags().GetString("login")
 	password, _ := cmd.Flags().GetString("password")
 	tokenName, _ := cmd.Flags().GetString("token-name")
+	if tokenName == "" {
+		tokenName = "cli-token"
+	}
 	scope, _ := cmd.Flags().GetString("scope")
 	save, _ := cmd.Flags().GetBool("save")
 

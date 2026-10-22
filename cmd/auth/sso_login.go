@@ -91,12 +91,8 @@ paste-token flow.`,
 				}
 			}
 
-			opts := defaultSSOOptions()
-			opts.clientID, _ = cmd.Flags().GetString("client-id")
-			opts.port, _ = cmd.Flags().GetInt("port")
-			opts.timeout, _ = cmd.Flags().GetDuration("timeout")
+			opts := ssoOptionsFromFlags(cmd)
 			opts.noBrowser, _ = cmd.Flags().GetBool("no-browser")
-			opts.session, _ = cmd.Flags().GetBool("session")
 			opts.tokenName, _ = cmd.Flags().GetString("token-name")
 			if scope, _ := cmd.Flags().GetString("scope"); scope != "" {
 				for _, s := range strings.Split(scope, ",") {
@@ -113,13 +109,40 @@ paste-token flow.`,
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().String("scope", "", "Comma-separated extra Hub service IDs to request in addition to the YouTrack service")
 	cmd.Flags().Bool("show-token", false, showTokenUsage)
+	cmd.Flags().Bool("no-browser", false, "Print the authorization URL instead of opening a browser")
+	cmd.Flags().String("token-name", defaultSSOTokenName, "Name for the permanent token created in Hub")
+	addSSOFlags(cmd)
+	return cmd
+}
+
+var ssoOnlyFlags = []string{"client-id", "port", "timeout", "session"}
+
+// addSSOFlags registers the browser sign-in flags shared by "auth login" and "instance login".
+func addSSOFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("port", 0, "Fixed loopback port for the OAuth callback (default: pick a free port)")
 	cmd.Flags().String("client-id", defaultOAuthClientID, "OAuth 2.0 client ID registered in Hub")
 	cmd.Flags().Duration("timeout", browserflow.DefaultTimeout, "How long to wait for the browser callback")
-	cmd.Flags().Bool("no-browser", false, "Print the authorization URL instead of opening a browser")
 	cmd.Flags().Bool("session", false, "Save the ~1-hour OAuth access token instead of creating a permanent token")
-	cmd.Flags().String("token-name", defaultSSOTokenName, "Name for the permanent token created in Hub")
-	return cmd
+}
+
+// ssoOptionsFromFlags reads the flags registered by addSSOFlags.
+func ssoOptionsFromFlags(cmd *cobra.Command) ssoOptions {
+	opts := defaultSSOOptions()
+	opts.clientID, _ = cmd.Flags().GetString("client-id")
+	opts.port, _ = cmd.Flags().GetInt("port")
+	opts.timeout, _ = cmd.Flags().GetDuration("timeout")
+	opts.session, _ = cmd.Flags().GetBool("session")
+	return opts
+}
+
+// requireNoSSOFlags rejects browser sign-in flags on a path that never opens the browser, so a flag like --client-id is not silently ignored.
+func requireNoSSOFlags(cmd *cobra.Command, reason string) error {
+	for _, name := range ssoOnlyFlags {
+		if flagChanged(cmd, name) {
+			return fmt.Errorf("--%s applies to browser sign-in only and cannot be used %s", name, reason)
+		}
+	}
+	return nil
 }
 
 // resolveSSOBaseURL resolves the target instance URL: positional arg (URL or configured alias) → --base-url flag → interactive prompt.
