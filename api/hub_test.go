@@ -66,3 +66,28 @@ func TestIsInsecureRemoteHTTP(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveHubURL(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		baseURL string
+		ref     string
+		want    string
+	}{
+		{name: "root-relative built-in hub", baseURL: "http://127.0.0.1:8080", ref: "/hub", want: "http://127.0.0.1:8080/hub"},
+		{name: "context path included", baseURL: "https://host/youtrack", ref: "/youtrack/hub", want: "https://host/youtrack/hub"},
+		{name: "trailing slash on base", baseURL: "https://host/youtrack/", ref: "/youtrack/hub", want: "https://host/youtrack/hub"},
+		{name: "absolute hub kept", baseURL: "https://youtrack.jetbrains.com", ref: "https://hub.jetbrains.com", want: "https://hub.jetbrains.com"},
+		{name: "empty", baseURL: "https://host", ref: "", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ResolveHubURL(tt.baseURL, tt.ref); got != tt.want {
+				t.Fatalf("ResolveHubURL(%q, %q) = %q, want %q", tt.baseURL, tt.ref, got, tt.want)
+			}
+		})
+	}
+}

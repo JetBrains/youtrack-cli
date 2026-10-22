@@ -278,7 +278,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 // discoverHub resolves the Hub base URL and YouTrack service ID (OAuth scope): /api/config ring(...) primary, MCP oauth-protected-resource fallback.
 func discoverHub(ctx context.Context, baseURL string) (hubURL, ytServiceID string) {
 	if ring, err := api.GetRingConfigContext(ctx, baseURL); err == nil {
-		hubURL = strings.TrimRight(ring.URL, "/")
+		hubURL = strings.TrimRight(api.ResolveHubURL(baseURL, ring.URL), "/")
 		ytServiceID = ring.ServiceID
 	}
 	if hubURL == "" || ytServiceID == "" {

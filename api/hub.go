@@ -104,6 +104,22 @@ func DetectHubURLContext(ctx context.Context, baseURL string) (hubURL string, is
 	return hubURL, isInternal, nil
 }
 
+// ResolveHubURL resolves a possibly relative Hub URL against baseURL. YouTrack Server reports its built-in Hub root-relative, with any context path included (https://host/youtrack reports "/youtrack/hub").
+func ResolveHubURL(baseURL, ref string) string {
+	if ref == "" {
+		return ""
+	}
+	base, err := url.Parse(strings.TrimRight(baseURL, "/") + "/")
+	if err != nil {
+		return ref
+	}
+	r, err := url.Parse(ref)
+	if err != nil {
+		return ref
+	}
+	return base.ResolveReference(r).String()
+}
+
 // ValidateHubURL rejects a server-advertised Hub URL before it reaches the browser or a terminal hyperlink:
 // it must be https (http only when the instance itself is http), have a host, and carry no userinfo.
 func ValidateHubURL(baseURL, hubURL string) error {
