@@ -189,7 +189,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 
 	scopes := append([]string{ytServiceID}, opts.extraScopes...)
 	requested := scopes
-	if !opts.session {
+	if !opts.session && !slices.Contains(scopes, api.HubServiceID) {
 		requested = append(slices.Clone(scopes), api.HubServiceID)
 	}
 	q := url.Values{}
