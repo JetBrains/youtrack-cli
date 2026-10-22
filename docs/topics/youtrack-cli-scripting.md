@@ -135,6 +135,8 @@ one combined JSON array. `--page-size` defaults to 100:
 youtrack raw /api/issues --fields "idReadable,summary" --paginate --page-size 100
 ```
 
+All list commands with `--limit` (`issue list`, `article list`, `user list`, and `tag issue list`) require non-negative values; `0` returns an empty list. Use `raw --paginate` to fetch every page. The `issue list --offset` value must also be non-negative.
+
 <table>
 <tr>
 <td>

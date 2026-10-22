@@ -20,6 +20,8 @@ By default the command returns up to 100 issues. Use `--limit` to change that an
 youtrack issue list --query "project: DEMO" --limit 20 -f idReadable,summary,project.shortName
 ```
 
+Use `--offset` to skip issues when paging. Both `--limit` and `--offset` must be non-negative; `--limit 0` returns no issues.
+
 Custom fields work as columns too, like the visible columns of the issue list in the web interface. Any `--fields` entry that is not an issue attribute (`idReadable`, `summary`, `reporter`, `created`, `project.shortName`, and so on) is read as the name of a custom field in the issue's project. Names are case-insensitive, and a name with spaces needs quoting:
 
 ```Shell

@@ -35,6 +35,9 @@ func newArticleListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "list", Short: "List articles",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 0 {
+				return fmt.Errorf("--limit must not be negative, got %d", limit)
+			}
 			query, _ := cmd.Flags().GetString("query")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -51,7 +54,7 @@ func newArticleListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("query", "", "Filter query")
-	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of articles to return")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of articles to return (non-negative; 0 returns none)")
 	return cmd
 }
 
