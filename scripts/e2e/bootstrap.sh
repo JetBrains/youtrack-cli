@@ -40,15 +40,7 @@ if ! token_is_valid "${token}"; then
   exit 1
 fi
 
-# Apply the configured license to the running service; configure's JVM properties do not persist it.
-curl -fsS \
-  -H "Authorization: Bearer ${token}" \
-  -H "Content-Type: application/json" \
-  -X POST \
-  -d "$(jq -n --arg username "${LICENSE_NAME}" --arg license "${LICENSE_KEY}" '{username: $username, license: $license}')" \
-  "${BASE_URL}/api/admin/globalSettings/license?fields=error" \
-  | jq -e 'if .error then error(.error) else true end' >/dev/null
-
+apply_license "${token}"
 write_env_file "${token}"
 
 copy_logs
