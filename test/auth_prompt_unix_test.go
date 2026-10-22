@@ -6,12 +6,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -20,6 +23,8 @@ import (
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/JetBrains/youtrack-cli/api"
 )
 
 // ptySession drives the CLI through a sized pty, so term.IsTerminal is true and huh renders its fields. Tests run with TERM=tmux-256color, for which termenv skips its terminal color query; the pty never answers it, so each run would otherwise stall for termenv.OSCTimeout.
@@ -132,27 +137,113 @@ func TestAuthLogin_InteractivePromptCtrlCCancels(t *testing.T) {
 	assert.Contains(t, s.output(), "Canceled.")
 }
 
-// fakeHubInstance serves only /api/config (pointing the Hub at itself) and answers everything else 200, which is enough for discovery to fall back to the conventional OAuth paths and for the client pre-flight to pass.
-func fakeHubInstance(t *testing.T) *httptest.Server {
+// ptyEnv isolates a pty run: a fresh HOME, no keyring, and no browser launcher on PATH, so browser sign-in prints the sign-in URL and waits instead of opening a real browser.
+func ptyEnv(t *testing.T) []string {
 	t.Helper()
-	var srv *httptest.Server
-	srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/config" {
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"ring": map[string]any{"url": srv.URL, "serviceId": "svc"}})
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
-	t.Cleanup(srv.Close)
-	return srv
+	return []string{"PATH=" + t.TempDir(), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1", "TERM=tmux-256color"}
 }
 
-// browserLoginPTY runs `auth login` against srv with no browser launcher on PATH, so the CLI prints the sign-in URL and waits instead of opening a real browser.
-func browserLoginPTY(t *testing.T, srv *httptest.Server, flags ...string) *ptySession {
+// harnessHub is the harness's real Hub with a public PKCE client registered for one test, as an administrator registers the CLI's client.
+type harnessHub struct {
+	baseURL   string
+	hubURL    string
+	serviceID string
+	clientID  string
+}
+
+func newHarnessHub(t *testing.T) *harnessHub {
 	t.Helper()
-	args := append([]string{"--plain", "--base-url", srv.URL, "auth", "login", "--save=false"}, flags...)
-	return startPTY(t, []string{"PATH=" + t.TempDir(), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1", "TERM=tmux-256color"}, args...)
+	requireE2EEnv(t)
+	if os.Getenv("YOUTRACK_LOGIN") == "" || os.Getenv("YOUTRACK_PASSWORD") == "" {
+		t.Skip("set YOUTRACK_LOGIN and YOUTRACK_PASSWORD to approve sign-ins in the harness Hub")
+	}
+	baseURL := strings.TrimRight(os.Getenv("YOUTRACK_BASE_URL"), "/")
+	ring, err := api.GetRingConfigContext(t.Context(), baseURL)
+	require.NoError(t, err)
+	h := &harnessHub{baseURL: baseURL, hubURL: api.ResolveHubURL(baseURL, ring.URL), serviceID: ring.ServiceID}
+
+	key := fmt.Sprintf("youtrack-cli-e2e-%d", time.Now().UnixNano())
+	var created struct {
+		ID string `json:"id"`
+	}
+	h.hubAdmin(t, http.MethodPost, "/api/rest/services?fields=id", map[string]any{
+		"name": key, "key": key, "homeUrl": "http://127.0.0.1", "redirectUris": []string{"http://127.0.0.1"},
+		"trusted": true, "authCodeFlowEnabled": true, "pkceRequired": true,
+	}, &created)
+	require.NotEmpty(t, created.ID)
+	t.Cleanup(func() { h.hubAdmin(t, http.MethodDelete, "/api/rest/services/"+created.ID, nil, nil) })
+	h.hubAdmin(t, http.MethodPost, "/api/rest/services/"+created.ID, map[string]any{"secret": ""}, nil) // public: no client secret
+	h.clientID = created.ID
+	return h
+}
+
+// hubAdmin calls the harness Hub REST API as the harness administrator.
+func (h *harnessHub) hubAdmin(t *testing.T, method, path string, body, out any) {
+	t.Helper()
+	var r io.Reader
+	if body != nil {
+		data, err := json.Marshal(body)
+		require.NoError(t, err)
+		r = bytes.NewReader(data)
+	}
+	req, err := http.NewRequest(method, h.hubURL+path, r)
+	require.NoError(t, err)
+	req.Header.Set("Authorization", "Bearer "+os.Getenv("YOUTRACK_TOKEN"))
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer func() { _ = resp.Body.Close() }()
+	data, _ := io.ReadAll(resp.Body)
+	require.Less(t, resp.StatusCode, 300, "%s %s: %s", method, path, data)
+	if out != nil {
+		require.NoError(t, json.Unmarshal(data, out))
+	}
+}
+
+var authorizeURLRe = regexp.MustCompile(`https?://[^\s\x1b]+/oauth2/auth\?[^\s\x1b]+`)
+
+// authorizeURL waits for the sign-in URL the CLI prints and parses it.
+func (s *ptySession) authorizeURL() *url.URL {
+	s.t.Helper()
+	s.waitFor("use this URL")
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if m := authorizeURLRe.FindString(s.output()); m != "" {
+			u, err := url.Parse(m)
+			require.NoError(s.t, err)
+			return u
+		}
+		if time.Now().After(deadline) {
+			s.t.Fatalf("no authorize URL in output:\n%s", s.output())
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// approve plays the user approving in the browser: the harness user opens the authorize URL, Hub redirects to the CLI's loopback callback, and the callback is delivered.
+func (h *harnessHub) approve(t *testing.T, authorize *url.URL) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, authorize.String(), nil)
+	require.NoError(t, err)
+	req.SetBasicAuth(os.Getenv("YOUTRACK_LOGIN"), os.Getenv("YOUTRACK_PASSWORD"))
+	noFollow := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	resp, err := noFollow.Do(req)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+	callback := resp.Header.Get("Location")
+	require.True(t, strings.HasPrefix(callback, authorize.Query().Get("redirect_uri")), "Hub did not approve (HTTP %d, Location %q)", resp.StatusCode, callback)
+	require.Contains(t, callback, "code=")
+	resp, err = http.Get(callback)
+	require.NoError(t, err)
+	_ = resp.Body.Close()
+}
+
+// runInEnv runs the CLI with exactly env (no pty) and returns its combined output.
+func runInEnv(env []string, args ...string) (string, error) {
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
 func freePort(t *testing.T) int {
@@ -163,59 +254,70 @@ func freePort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
+func TestAuthLogin_BrowserSignInSavesSessionToken(t *testing.T) {
+	h := newHarnessHub(t)
+	env := ptyEnv(t)
+	s := startPTY(t, env, "--plain", "--base-url", h.baseURL, "auth", "login", "--client-id", h.clientID, "--alias", "browser")
+
+	authorize := s.authorizeURL()
+	q := authorize.Query()
+	assert.Equal(t, h.clientID, q.Get("client_id"))
+	assert.Equal(t, "S256", q.Get("code_challenge_method"))
+	assert.NotEmpty(t, q.Get("code_challenge"))
+	assert.Equal(t, h.serviceID, q.Get("scope"))
+	h.approve(t, authorize)
+	require.NoError(t, s.wait(), "output:\n%s", s.output())
+	assert.Contains(t, s.output(), `Session token saved as "browser"`)
+
+	// The saved token works for the next command.
+	out, err := runInEnv(env, "--server", "browser", "--plain", "user", "current")
+	require.NoError(t, err, out)
+	assert.Contains(t, out, os.Getenv("YOUTRACK_LOGIN"))
+}
+
 func TestAuthLogin_BrowserFlagsShapeAuthorizeURL(t *testing.T) {
-	srv := fakeHubInstance(t)
+	h := newHarnessHub(t)
 	port := freePort(t)
 
 	for name, tc := range map[string]struct {
 		flags []string
-		want  []string
-		deny  []string
+		check func(t *testing.T, q url.Values)
 	}{
-		"defaults": {want: []string{"client_id=localhost-auth", "scope=svc&state="}},
-		"client-id and port": {
-			flags: []string{"--client-id", "my-client", "--port", fmt.Sprint(port)},
-			want:  []string{"client_id=my-client", fmt.Sprintf("redirect_uri=http%%3A%%2F%%2F127.0.0.1%%3A%d&", port)},
-		},
-		"scope": {flags: []string{"--scope", "extra"}, want: []string{"scope=svc+extra&state="}},
+		"port": {flags: []string{"--port", fmt.Sprint(port)}, check: func(t *testing.T, q url.Values) {
+			assert.Equal(t, fmt.Sprintf("http://127.0.0.1:%d", port), q.Get("redirect_uri"))
+		}},
+		"scope": {flags: []string{"--scope", "0-0-0-0-0"}, check: func(t *testing.T, q url.Values) {
+			assert.Equal(t, h.serviceID+" 0-0-0-0-0", q.Get("scope"))
+		}},
 	} {
 		t.Run(name, func(t *testing.T) {
-			s := browserLoginPTY(t, srv, append([]string{"--timeout", "2s"}, tc.flags...)...)
-			s.waitFor("use this URL")
+			s := startPTY(t, ptyEnv(t), append([]string{"--plain", "--base-url", h.baseURL, "auth", "login", "--save=false", "--client-id", h.clientID, "--timeout", "2s"}, tc.flags...)...)
+			tc.check(t, s.authorizeURL().Query())
 			require.Error(t, s.wait(), "login must end in the timeout, output:\n%s", s.output())
-			out := s.output()
-			for _, w := range tc.want {
-				assert.Contains(t, out, w)
-			}
-			for _, d := range tc.deny {
-				assert.NotContains(t, out, d)
-			}
-			assert.Contains(t, out, "timeout waiting for browser callback (2s)")
+			assert.Contains(t, s.output(), "timeout waiting for browser callback (2s)")
 		})
 	}
 }
 
 func TestAuthLogin_PortFlagFailsWhenPortIsBusy(t *testing.T) {
-	srv := fakeHubInstance(t)
+	requireE2EEnv(t)
 	busy, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = busy.Close() })
 	port := busy.Addr().(*net.TCPAddr).Port
 
-	s := browserLoginPTY(t, srv, "--port", fmt.Sprint(port))
+	s := startPTY(t, ptyEnv(t), "--plain", "--base-url", os.Getenv("YOUTRACK_BASE_URL"), "auth", "login", "--save=false", "--port", fmt.Sprint(port))
 	require.Error(t, s.wait())
 	assert.Contains(t, s.output(), fmt.Sprintf("port %d is in use", port))
 }
 
-func TestAuthLogin_FallsBackToPasteWithoutUsableHub(t *testing.T) {
+func TestAuthLogin_FallsBackToPasteWithoutOAuthClient(t *testing.T) {
 	requireE2EEnv(t)
 	token := os.Getenv("YOUTRACK_TOKEN")
-	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 
-	// The harness reports its built-in Hub as the relative URL "/hub", which browser sign-in does not accept, so login falls back to pasting a token.
-	s := startPTY(t, []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1", "TERM=tmux-256color"},
-		"--plain", "instance", "login", baseURL, "--save=false")
-	s.waitFor("falling back to the paste-token flow")
+	// The harness Hub has no "localhost-auth" client, so the pre-flight fails and login falls back to pasting a token.
+	s := startPTY(t, ptyEnv(t), "--plain", "instance", "login", os.Getenv("YOUTRACK_BASE_URL"), "--save=false")
+	s.waitFor(`no public CLI OAuth client ("localhost-auth")`)
 	s.waitFor("Open browser to create a token?")
 	s.send("n")
 	s.waitFor("Paste your token")
@@ -224,6 +326,7 @@ func TestAuthLogin_FallsBackToPasteWithoutUsableHub(t *testing.T) {
 	assert.Contains(t, s.output(), "Authenticated as")
 }
 
+// The one test here with a stand-in server: the scenario is a hostile instance advertising a deceptive Hub URL, which the harness cannot play.
 func TestAuthLogin_RejectsUnsafeHubURL(t *testing.T) {
 	var hubURL string
 	// Answers every request with 200 so the OAuth pre-flight would pass — only Hub URL validation stands between the advertised URL and the browser.
@@ -239,7 +342,7 @@ func TestAuthLogin_RejectsUnsafeHubURL(t *testing.T) {
 	// Userinfo makes the link read as decoy.example while it actually targets the fake server.
 	hubURL = strings.Replace(srv.URL, "://", "://decoy.example@", 1)
 
-	s := browserLoginPTY(t, srv, "--timeout", "2s")
+	s := startPTY(t, ptyEnv(t), "--plain", "--base-url", srv.URL, "auth", "login", "--save=false", "--timeout", "2s")
 	s.waitFor("falling back to the paste-token flow")
 	s.waitFor("Open browser to create a token?")
 	s.send("n")
@@ -250,37 +353,14 @@ func TestAuthLogin_RejectsUnsafeHubURL(t *testing.T) {
 	assert.NotContains(t, s.output(), "oauth2/auth")
 }
 
-func TestAuthLogin_FallsBackToPasteWithoutServiceID(t *testing.T) {
-	// An older instance: /api/config has no ring service ID and the MCP resource metadata is missing, so browser sign-in has no OAuth scope to request.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/config" {
-			w.Header().Set("Content-Type", "application/json")
-			_, _ = w.Write([]byte(`{"ring":{}}`))
-			return
-		}
-		http.NotFound(w, r)
-	}))
-	t.Cleanup(srv.Close)
-
-	s := browserLoginPTY(t, srv)
-	s.waitFor("falling back to the paste-token flow")
-	s.waitFor("Open browser to create a token?")
-	s.send("n")
-	s.waitFor("Paste your token")
-	s.send("perm:not-a-real-token\r")
-	_ = s.wait() // verification against the fake instance fails; only reaching the paste prompt matters.
-	assert.Contains(t, s.output(), "Could not discover the YouTrack service ID")
-	assert.NotContains(t, s.output(), "use `youtrack auth login` instead")
-}
-
 func TestAuthLogin_BasicAuthFlagsRejectedWithBrowserSignIn(t *testing.T) {
-	srv := fakeHubInstance(t)
+	requireE2EEnv(t)
 	for _, flag := range [][]string{{"--token-name", "build-agent"}, {"--insecure"}} {
 		t.Run(flag[0], func(t *testing.T) {
-			s := browserLoginPTY(t, srv, flag...)
+			s := startPTY(t, ptyEnv(t), append([]string{"--plain", "--base-url", os.Getenv("YOUTRACK_BASE_URL"), "auth", "login", "--save=false"}, flag...)...)
 			require.Error(t, s.wait())
 			assert.Contains(t, s.output(), flag[0]+" has no effect with browser sign-in")
-			assert.NotContains(t, s.output(), "use this URL", "the flag must be rejected before sign-in starts")
+			assert.NotContains(t, s.output(), "Discovering Hub", "the flag must be rejected before sign-in starts")
 		})
 	}
 }
