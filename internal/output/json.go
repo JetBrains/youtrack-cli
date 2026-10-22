@@ -4,41 +4,20 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
-	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 )
 
-// Format resolves the effective output format for the command using a priority chain:
-//  1. --json flag → "json"
-//  2. --plain flag → "plain"
-//  3. --format explicitly set by user → that value
-//  4. stdout is not a TTY → "json" (auto-detect pipes/redirects)
-//  5. default → "table"
+// Format resolves the effective output format, shared with confirmation output.
 func Format(cmd *cobra.Command) string {
-	flags := cmd.Root().PersistentFlags()
-	if jsonFlag, _ := flags.GetBool("json"); jsonFlag {
-		return "json"
-	}
-	if plainFlag, _ := flags.GetBool("plain"); plainFlag {
-		return "plain"
-	}
-	if flags.Changed("format") {
-		format, _ := flags.GetString("format")
-		return format
-	}
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
-		return "json"
-	}
-	return "table"
+	return internal.OutputFormat(cmd)
 }
 
 // Print writes data using the resolved output format.
