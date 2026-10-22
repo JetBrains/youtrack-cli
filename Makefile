@@ -30,7 +30,10 @@ fmt-check:
 lint:
 	$(GOLANGCI_LINT) run ./...
 
-check: fmt-check lint build test
+check: fmt-check lint build unit test
+
+unit:
+	$(GO) test ./api/ ./internal/... -count=1
 
 test:
 	$(E2E_SCRIPT)
@@ -51,4 +54,4 @@ clean:
 	rm -f $(BINARY)
 	rm -rf dist/
 
-.PHONY: build fmt fmt-check lint check test e2e-up e2e-down e2e-logs snapshot clean
+.PHONY: build fmt fmt-check lint check unit test e2e-up e2e-down e2e-logs snapshot clean
