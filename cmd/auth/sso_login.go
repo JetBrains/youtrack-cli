@@ -287,7 +287,9 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 			return revokeUnsavedToken(cmd, hubURL, tok.AccessToken, newTokenID, opts.tokenName, fmt.Errorf("saving config: %w", err))
 		}
 		result.ConfigFile, _ = config.ConfigPath()
-		if !opts.session {
+		if opts.session {
+			warnReplacedPermanentToken(cmd, user.Login, alias, previous[alias].Token)
+		} else {
 			revokeReplacedToken(cmd, hubURL, tok.AccessToken, user.Login, opts.tokenName, previous[alias].Token, result.Token)
 		}
 	}
@@ -328,6 +330,13 @@ func revokeUnsavedToken(cmd *cobra.Command, hubURL, accessToken, tokenID, tokenN
 		return fmt.Errorf("%w\nthe permanent token %q created for this sign-in could not be revoked (%w); revoke it in your Hub profile under Authentication", saveErr, tokenName, err)
 	}
 	return saveErr
+}
+
+// warnReplacedPermanentToken reports a permanent token of the signed-in user that a --session sign-in just replaced; the session token lacks Hub's scope, so the CLI cannot revoke it.
+func warnReplacedPermanentToken(cmd *cobra.Command, login, alias, oldToken string) {
+	if owner, _, ok := api.ParsePermanentToken(oldToken); ok && owner == login {
+		output.PrintWarn(cmd, fmt.Sprintf("the permanent token previously saved for %q is still valid in Hub; revoke it in your Hub profile under Authentication if nothing else uses it", alias))
+	}
 }
 
 // revokeReplacedToken deletes the permanent token a re-login just replaced, so signing in again does not leave a working token behind in Hub. Only tokens of the signed-in user that carry the CLI's token name are deleted; any other token is kept and reported.

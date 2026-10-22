@@ -96,6 +96,11 @@ Use --json for machine-readable output.`,
 				if err := rejectFlags(cmd, "with browser sign-in; it applies to basic auth (--login)", "insecure"); err != nil {
 					return err
 				}
+				if session, _ := cmd.Flags().GetBool("session"); session {
+					if err := rejectFlags(cmd, "with --session, which saves the access token instead of creating a permanent token", "token-name"); err != nil {
+						return err
+					}
+				}
 				opts := ssoOptionsFromFlags(cmd)
 				return runSSOFlow(cmd, reader, baseURL, &opts)
 			}
