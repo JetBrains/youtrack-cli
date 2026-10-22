@@ -3,7 +3,7 @@
 ## Auth
 
 ```bash
-youtrack auth login [--alias <name>]    # interactive auth (4-method menu)
+youtrack auth login [--alias <name>] [--no-browser] [--login <l> --password <p>]   # browser sign-in → permanent token; paste fallback
 youtrack auth status                        # check credentials for all instances
 youtrack auth logout [--instance <alias>]
 youtrack auth refresh-token [<alias>]

@@ -157,9 +157,8 @@ func TestAuth_GetTokenViaBasicAuthCLI(t *testing.T) {
 		t.Skip("YOUTRACK_LOGIN, YOUTRACK_PASSWORD, and YOUTRACK_BASE_URL not set — skipping CLI basic auth test")
 	}
 
-	// Pipe "1\n" to select basic auth; login and password come from flags.
-	// Use --format json for machine-readable output.
-	out := runCmdWithInput(t, "1\n",
+	// --login and --password select basic auth.
+	out := runCmdWithInput(t, "",
 		"--base-url", baseURL,
 		"--format", "json",
 		"auth", "get-token",
@@ -191,9 +190,9 @@ func TestAuth_GetTokenDirectFlowCLI(t *testing.T) {
 	token := os.Getenv("YOUTRACK_TOKEN")
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 
-	// Pipe "3\n<token>\n" to select direct token input (option 3).
+	// Non-terminal stdin skips browser sign-in and reads a pasted token.
 	// Uses the existing YOUTRACK_TOKEN — no new token is created on the server.
-	out := runCmdWithInput(t, "3\n"+token+"\n",
+	out := runCmdWithInput(t, token+"\n",
 		"--base-url", baseURL,
 		"--format", "json",
 		"auth", "get-token",
@@ -207,7 +206,7 @@ func TestAuth_GetTokenDirectFlowCLI(t *testing.T) {
 	assert.Contains(t, result.Token, "****") // JSON output masks the token without --show-token
 	assert.NotContains(t, out, token)
 
-	out = runCmdWithInput(t, "3\n"+token+"\n",
+	out = runCmdWithInput(t, token+"\n",
 		"--base-url", baseURL,
 		"--format", "json",
 		"auth", "get-token",
@@ -235,7 +234,7 @@ func TestAuth_GetTokenURLNormalization(t *testing.T) {
 
 	// Trailing-slash stripping works for both HTTP and HTTPS.
 	t.Run("trailing-slash", func(t *testing.T) {
-		out := runCmdWithInput(t, "3\n"+token+"\n",
+		out := runCmdWithInput(t, token+"\n",
 			"--base-url", strings.TrimRight(baseURL, "/")+"/",
 			"--format", "json",
 			"auth", "get-token",
@@ -251,7 +250,7 @@ func TestAuth_GetTokenURLNormalization(t *testing.T) {
 			t.Skip("schemeless normalization test requires an HTTPS endpoint")
 		}
 		schemeless := strings.TrimPrefix(baseURL, "https://")
-		out := runCmdWithInput(t, "3\n"+token+"\n",
+		out := runCmdWithInput(t, token+"\n",
 			"--base-url", schemeless,
 			"--format", "json",
 			"auth", "get-token",
@@ -262,30 +261,6 @@ func TestAuth_GetTokenURLNormalization(t *testing.T) {
 	})
 }
 
-func TestAuth_GetTokenWebFlowCLI(t *testing.T) {
-	requireE2EEnv(t)
-
-	token := os.Getenv("YOUTRACK_TOKEN")
-	baseURL := os.Getenv("YOUTRACK_BASE_URL")
-
-	// Pipe "2\n<token>\n" to select web browser flow and paste the token.
-	// openBrowser may open the browser as a side effect on macOS; that is harmless.
-	// In headless environments it fails gracefully (prints the URL), then reads from stdin.
-	out := runCmdWithInput(t, "2\n"+token+"\n",
-		"--base-url", baseURL,
-		"--format", "json",
-		"auth", "get-token",
-		"--show-token",
-		"--save=false",
-	)
-
-	var result struct {
-		Token string `json:"token"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(out), &result), "output was: %s", out)
-	assert.Equal(t, token, result.Token)
-}
-
 func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
 	requireE2EEnv(t)
 
@@ -293,8 +268,8 @@ func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 
 	// --plain forces human-readable output (piped stdout would auto-select JSON).
-	// Uses option 3 (direct paste) so no new token is created on the server.
-	out := runCmdWithInput(t, "3\n"+token+"\n",
+	// Pastes the existing token so no new token is created on the server.
+	out := runCmdWithInput(t, token+"\n",
 		"--plain",
 		"--base-url", baseURL,
 		"auth", "get-token",
@@ -307,7 +282,7 @@ func TestAuth_GetTokenHumanReadableOutput(t *testing.T) {
 	assert.NotContains(t, out, `"token":`) // must not be JSON
 
 	// --show-token reveals the token in human output too, as it does in JSON.
-	out = runCmdWithInput(t, "3\n"+token+"\n",
+	out = runCmdWithInput(t, token+"\n",
 		"--plain",
 		"--base-url", baseURL,
 		"auth", "get-token",
@@ -540,25 +515,15 @@ func TestAuth_GetToken_RejectsUnsafeHubURL(t *testing.T) {
 		t.Run(hubURL, func(t *testing.T) {
 			srv := maliciousHubInstance(t, hubURL)
 
-			// Option 3 (paste): the token page must fall back to the instance itself, never the advertised Hub.
+			// The token page must fall back to the instance itself, never the advertised Hub.
 			cmd := exec.Command(binaryPath, "--plain", "--base-url", srv.URL, "auth", "get-token", "--save=false")
 			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
-			cmd.Stdin = strings.NewReader("3\nperm:not-a-real-token\n")
+			cmd.Stdin = strings.NewReader("perm:not-a-real-token\n")
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
 			_ = cmd.Run() // token validation against the fake instance fails; only the displayed link matters.
 			assert.Contains(t, stderr.String(), srv.URL+"/users/me?tab=account-security")
 			assert.NotContains(t, stderr.String(), "evil.example")
-
-			// Option 2 (browser): refuse before offering a link or opening a browser.
-			cmd = exec.Command(binaryPath, "--plain", "--base-url", srv.URL, "auth", "get-token", "--save=false")
-			cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
-			cmd.Stdin = strings.NewReader("2\n")
-			stderr.Reset()
-			cmd.Stderr = &stderr
-			require.Error(t, cmd.Run())
-			assert.Contains(t, stderr.String(), "detecting Hub: ")
-			assert.NotContains(t, stderr.String(), "Token page:")
 		})
 	}
 }
@@ -595,7 +560,6 @@ func TestAuth_GetToken_RefusesBasicAuthOverRemoteHTTP(t *testing.T) {
 	args := []string{"--base-url", "http://youtrack.invalid", "auth", "get-token", "--save=false", "--login", "x", "--password", "y"}
 	cmd := exec.Command(binaryPath, args...)
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
-	cmd.Stdin = strings.NewReader("1\n")
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
@@ -604,7 +568,6 @@ func TestAuth_GetToken_RefusesBasicAuthOverRemoteHTTP(t *testing.T) {
 	// --insecure lifts the guard; the request then fails on the unresolvable host instead.
 	cmd = exec.Command(binaryPath, append(args, "--insecure")...)
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
-	cmd.Stdin = strings.NewReader("1\n")
 	stderr.Reset()
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
@@ -622,7 +585,6 @@ func TestAuth_GetToken_ReadOnlyBlocksHubTokenCreation(t *testing.T) {
 	cmd := exec.Command(binaryPath, "--base-url", baseURL, "--format", "json", "auth", "get-token",
 		"--login", login, "--password", password, "--token-name", "e2e-ro-must-not-exist", "--save=false")
 	cmd.Env = append(os.Environ(), "HOME="+t.TempDir(), "YOUTRACK_RO=1")
-	cmd.Stdin = strings.NewReader("1\n")
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

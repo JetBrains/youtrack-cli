@@ -97,12 +97,9 @@ Run the setup command and follow the prompts:
 youtrack instance add
 ```
 
-The command asks for your base URL (for example, `https://example.youtrack.cloud`), an alias for the instance, and an authentication method:
+The command asks for your YouTrack URL; press Enter to accept the default, `https://youtrack.jetbrains.com`. It then opens your browser to sign in through Hub, creates a permanent token, and saves it.
 
-- __Basic auth__ — sign in with your login and password; the CLI creates a permanent token for you.
-- __Web browser__ — the CLI opens the token page so you can create a token and paste it back.
-- __Paste token__ — enter an existing permanent token directly.
-- __Browser SSO__ — authenticate through Hub with OAuth 2.0 + PKCE; the CLI creates and saves a permanent token. On compatible instances you can also run `youtrack instance login <url>` directly.
+If the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it, and asks you to paste a permanent token you created there.
 
 Saved tokens use the OS keyring when available; the config file at `~/.youtrack-cli-config.json` stores the instance metadata. To manage several instances, register each under its own alias and switch between them with `youtrack instance use <alias>`. See [Configuration](youtrack-cli-configuration.md) for the full precedence and storage rules.
 

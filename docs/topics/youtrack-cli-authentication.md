@@ -47,18 +47,17 @@ Verify that the credentials work with `youtrack auth status`.
 
 ## Authenticating interactively {id="interactive-login"}
 
-The `auth login` command walks you through creating and saving a token. Run it with no arguments:
+The `auth login` command signs you in and saves a permanent token. Run it with no arguments:
 
 ```Shell
 youtrack auth login
 ```
 
-It asks for the base URL (unless you pass `--base-url`), then an alias to save the instance under, and finally an authentication method:
+It asks for the YouTrack URL (unless you pass `--base-url`); press Enter to accept the default, `https://youtrack.jetbrains.com`. The alias is derived from the URL; pass `--alias` to choose another. Then:
 
-- __Basic auth__ — enter your Hub login and password; the CLI creates a permanent token through the Hub API. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token. Over a plain `http` URL to a host other than `localhost`, basic auth stops before it asks for the password; use the `https` URL, or pass `--insecure` to send the password unencrypted.
-- __Web browser__ — the CLI opens the token page in your browser. Log in, click __New token__, copy the value, and paste it back into the terminal.
-- __Paste token__ — the CLI prints the token-management URL and prompts you to paste a token you created manually.
-- __Browser SSO__ — the CLI runs an OAuth 2.0 authorization-code flow with PKCE through JetBrains Hub and stores a short-lived token that lasts about one hour and is not refreshed. This option requires a compatible Hub OAuth client; otherwise it falls back to the paste-token flow.
+- By default, the CLI signs you in through the browser, as [`instance login`](#browser-sso) does, and saves a permanent token created through Hub.
+- When the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it in your browser, and asks you to paste a permanent token you created there. The same happens when stdin is not a terminal, so scripts can pipe a token in.
+- With `--login` and `--password`, the CLI creates the token through Hub basic auth instead. Basic auth is deprecated: the password passes through the CLI and it does not work with SSO or two-factor authentication. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token. Over a plain `http` URL to a host other than `localhost`, basic auth stops before it sends the password; use the `https` URL, or pass `--insecure` to send the password unencrypted.
 
 The CLI verifies the token against the API before saving it, then reports the authenticated user. By default the credentials are saved and the new instance becomes active.
 

@@ -238,8 +238,8 @@ func TestAuthGetToken_SavesToConfig(t *testing.T) {
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 	tmpHome := t.TempDir()
 
-	// Option 3 (direct paste), --alias mywork, default --save=true.
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	// Pasted token, --alias mywork, default --save=true.
+	runCmdWithEnv(t, token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"--base-url", baseURL, "auth", "get-token",
 		"--alias", "mywork",

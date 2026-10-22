@@ -26,7 +26,7 @@ const (
 	defaultSSOTokenName  = "youtrack-cli"
 )
 
-// ssoOptions are the tunables of the browser SSO flow: plain defaults from the get-token menu, flag-filled by "instance login".
+// ssoOptions are the tunables of the browser SSO flow: plain defaults from "auth login", flag-filled by "instance login".
 type ssoOptions struct {
 	clientID    string
 	extraScopes []string
@@ -51,7 +51,7 @@ type ssoLoginResult struct {
 	Hint       string `json:"_hint,omitempty"`
 }
 
-// NewSSOLoginCmd constructs the browser single sign-on command (registered as "instance login"; also option 4 in the get-token menu).
+// NewSSOLoginCmd constructs the browser single sign-on command (registered as "instance login"; also the default path of "auth login").
 func NewSSOLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login [url-or-alias]",
@@ -196,7 +196,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	// Never hand an unvalidated server-advertised Hub URL to the browser; take the same paste-token fallback as a failed pre-flight.
 	if err := api.ValidateHubURL(baseURL, hubURL); err != nil {
 		_, _ = fmt.Fprintf(stderr, "Hub URL is not usable for browser sign-in (%v); falling back to the paste-token flow.\n\n", err)
-		return runDirectTokenFlow(cmd, reader, baseURL)
+		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 
 	endpoints, err := api.DiscoverOAuthEndpointsContext(cmd.Context(), hubURL)
@@ -243,7 +243,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 			return contextErr
 		}
 		_, _ = fmt.Fprintf(stderr, "This Hub has no public CLI OAuth client (%q); falling back to the paste-token flow.\n\n", opts.clientID)
-		return runDirectTokenFlow(cmd, reader, baseURL)
+		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 
 	if opts.noBrowser {
