@@ -53,7 +53,7 @@ The `auth login` command signs you in and saves a permanent token. Run it with n
 youtrack auth login
 ```
 
-It asks for the YouTrack URL (unless you pass `--base-url`); press Enter to accept the default, `https://youtrack.jetbrains.com`. The alias is derived from the URL; pass `--alias` to choose another. Then:
+It asks for the YouTrack URL (unless you pass `--base-url`). The field is pre-filled with the URL of the active instance, or `https://youtrack.jetbrains.com` when none is configured; edit it or press Enter to accept it. The alias is derived from the URL; pass `--alias` to choose another. Then:
 
 - By default, the CLI signs you in through the browser, as [`instance login`](#browser-sso) does, and saves a permanent token created through Hub.
 - When the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it in your browser, and asks you to paste a permanent token you created there. The same happens when stdin is not a terminal, so scripts can pipe a token in.

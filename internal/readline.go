@@ -3,6 +3,10 @@ package internal
 import (
 	"bufio"
 	"context"
+	"errors"
+	"io"
+	"os"
+	"strings"
 
 	"golang.org/x/term"
 )
@@ -46,5 +50,41 @@ func ReadPasswordContext(ctx context.Context, fd int) ([]byte, error) {
 		return nil, ctx.Err()
 	case r := <-ch:
 		return r.pw, r.err
+	}
+}
+
+// ReadLineWithDefault prompts on the terminal stdin with value pre-filled and editable, like a form field; Ctrl+C or Ctrl+D returns context.Canceled.
+func ReadLineWithDefault(ctx context.Context, prompt, value string) (string, error) {
+	fd := int(os.Stdin.Fd())
+	state, err := term.MakeRaw(fd)
+	if err != nil {
+		return "", err
+	}
+	defer func() { _ = term.Restore(fd, state) }()
+
+	// The pre-filled value is fed in as typed input, so the line editor echoes it and lets the user edit it.
+	t := term.NewTerminal(struct {
+		io.Reader
+		io.Writer
+	}{io.MultiReader(strings.NewReader(value), os.Stdin), os.Stderr}, prompt)
+
+	type result struct {
+		line string
+		err  error
+	}
+	ch := make(chan result, 1)
+	go func() {
+		line, err := t.ReadLine()
+		ch <- result{line, err}
+	}()
+	select {
+	case <-ctx.Done():
+		return "", ctx.Err()
+	case r := <-ch:
+		if errors.Is(r.err, io.EOF) {
+			_, _ = os.Stderr.WriteString("\r\n")
+			return "", context.Canceled
+		}
+		return r.line, r.err
 	}
 }

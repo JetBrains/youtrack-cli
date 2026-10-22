@@ -34,8 +34,9 @@ func NewGetTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-token",
 		Short: "Authenticate interactively and save a permanent token",
-		Long: `Prompts for the YouTrack URL (default ` + defaultBaseURL + `) and signs in
-through the browser: the CLI creates a permanent token through Hub and saves it.
+		Long: `Prompts for the YouTrack URL, pre-filled with the active instance's URL
+(or ` + defaultBaseURL + `), and signs in through the browser: the CLI
+creates a permanent token through Hub and saves it.
 
 When the instance's Hub has no OAuth client for the CLI, or with --no-browser,
 the CLI prints the token page link and asks you to paste a permanent token.
@@ -54,16 +55,11 @@ Use --json for machine-readable output.`,
 			// YOUTRACK_BASE_URL is intentionally ignored: login sets up credentials, possibly for a new instance, so the URL is always confirmed.
 			baseURL, _ := cmd.Root().PersistentFlags().GetString("base-url")
 			if baseURL == "" {
-				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "YouTrack URL [%s]: ", defaultBaseURL); err != nil {
+				url, err := promptBaseURL(cmd, reader)
+				if err != nil {
 					return err
 				}
-				raw, err := internal.ReadLineContext(cmd.Context(), reader)
-				if err != nil {
-					return fmt.Errorf("reading URL: %w", err)
-				}
-				if baseURL = strings.TrimSpace(raw); baseURL == "" {
-					baseURL = defaultBaseURL
-				}
+				baseURL = url
 			}
 			baseURL = strings.TrimRight(baseURL, "/")
 			if baseURL != "" && !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
@@ -238,6 +234,34 @@ func maskToken(token string) string {
 		return token[:4] + "****"
 	}
 	return "****"
+}
+
+// promptBaseURL asks for the instance URL, pre-filled with the active instance's URL or defaultBaseURL: editable in a terminal, accepted with Enter on piped stdin.
+func promptBaseURL(cmd *cobra.Command, reader *bufio.Reader) (string, error) {
+	suggested := defaultBaseURL
+	if cfg, err := config.Load(); err == nil {
+		if inst, ok := cfg.Instances[cfg.CurrentInstance]; ok && inst.URL != "" {
+			suggested = inst.URL
+		}
+	}
+
+	var raw string
+	var err error
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		raw, err = internal.ReadLineWithDefault(cmd.Context(), "YouTrack URL: ", suggested)
+	} else {
+		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "YouTrack URL [%s]: ", suggested); err != nil {
+			return "", err
+		}
+		raw, err = internal.ReadLineContext(cmd.Context(), reader)
+	}
+	if err != nil {
+		return "", fmt.Errorf("reading URL: %w", err)
+	}
+	if raw = strings.TrimSpace(raw); raw == "" {
+		return suggested, nil
+	}
+	return raw, nil
 }
 
 // runPasteTokenFlow points the user at the token page (offering to open it in a terminal), then reads and verifies a pasted permanent token.

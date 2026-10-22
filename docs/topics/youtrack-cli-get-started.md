@@ -97,7 +97,7 @@ Run the setup command and follow the prompts:
 youtrack instance add
 ```
 
-The command asks for your YouTrack URL; press Enter to accept the default, `https://youtrack.jetbrains.com`. It then opens your browser to sign in through Hub, creates a permanent token, and saves it.
+The command asks for your YouTrack URL, pre-filled with `https://youtrack.jetbrains.com` (or the active instance's URL); edit it or press Enter to accept it. It then opens your browser to sign in through Hub, creates a permanent token, and saves it.
 
 If the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it, and asks you to paste a permanent token you created there.
 
