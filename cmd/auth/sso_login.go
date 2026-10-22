@@ -82,19 +82,11 @@ paste-token flow.`,
 			// Prompt for the alias like get-token does, only when saving and not preset.
 			save, _ := cmd.Flags().GetBool("save")
 			if save && !flagChanged(cmd, "alias") && term.IsTerminal(int(os.Stdin.Fd())) {
-				derived := config.DeriveAlias(baseURL)
-				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Instance alias [%s]: ", derived); err != nil {
-					return err
-				}
-				raw, err := internal.ReadLineContext(cmd.Context(), reader)
-				if err != nil {
+				alias := config.DeriveAlias(baseURL)
+				if err := newPrompter(cmd, reader).Input("Instance alias", &alias); err != nil {
 					return fmt.Errorf("reading alias: %w", err)
 				}
-				alias := strings.TrimSpace(raw)
-				if alias == "" {
-					alias = derived
-				}
-				if err := cmd.Flags().Set("alias", alias); err != nil {
+				if err := cmd.Flags().Set("alias", strings.TrimSpace(alias)); err != nil {
 					return err
 				}
 			}
@@ -158,14 +150,11 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 		raw, _ = cmd.Root().PersistentFlags().GetString("base-url")
 	}
 	if raw == "" {
-		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "YouTrack base URL: "); err != nil {
+		url, err := promptBaseURL(cmd, reader)
+		if err != nil {
 			return "", err
 		}
-		line, err := internal.ReadLineContext(cmd.Context(), reader)
-		if err != nil {
-			return "", fmt.Errorf("reading URL: %w", err)
-		}
-		raw = strings.TrimSpace(line)
+		raw = url
 	}
 	raw = strings.TrimRight(raw, "/")
 	if raw != "" && !strings.HasPrefix(raw, "http://") && !strings.HasPrefix(raw, "https://") {
