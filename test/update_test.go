@@ -294,10 +294,8 @@ func buildVersionedBinaryAt(t *testing.T, relDir, version string) string {
 // check timestamp, so the startup prompt fires and no network check runs.
 func writePromptConfig(t *testing.T, home, latestVersion string) string {
 	t.Helper()
-	path := filepath.Join(home, ".youtrack-cli-config.json")
 	body := fmt.Sprintf(`{"latestVersion":%q,"lastUpdateCheck":%d}`, latestVersion, time.Now().Unix())
-	require.NoError(t, os.WriteFile(path, []byte(body), 0o600))
-	return path
+	return configFixture(t, home, body)
 }
 
 // promptEnv clears the variables that disable the update prompt and points HOME at home.
@@ -436,8 +434,7 @@ func TestCmd_UpdatePrompt_NoNoticeAfterPrompt(t *testing.T) {
 	binary := buildVersionedBinaryAt(t, "Cellar/youtrack/0.0.1/bin", "0.0.1")
 	home := t.TempDir()
 	// lastUpdateCheck 0 makes this run's background check fire, so a post-command notice would follow the prompt.
-	cfgPath := filepath.Join(home, ".youtrack-cli-config.json")
-	require.NoError(t, os.WriteFile(cfgPath, []byte(`{"latestVersion":"9.9.9","lastUpdateCheck":0}`), 0o600))
+	cfgPath := configFixture(t, home, `{"latestVersion":"9.9.9","lastUpdateCheck":0}`)
 
 	out, err := runViaPTYAnswering(t, binary, promptEnv(home), "2", "instance", "list")
 	require.NoError(t, err, "output: %s", out)
