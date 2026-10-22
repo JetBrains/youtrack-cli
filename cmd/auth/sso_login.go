@@ -242,12 +242,22 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return fmt.Errorf("token verification failed: %w", err)
 	}
 
+	// Load before creating a permanent token, so a broken config fails before anything exists in Hub.
+	save, _ := cmd.Flags().GetBool("save")
+	var cfg *config.Config
+	if save {
+		if cfg, err = config.Load(); err != nil {
+			return err
+		}
+	}
+
 	result := ssoLoginResult{
 		Login: user.Login,
 		Name:  user.FullName,
 		Token: tok.AccessToken,
 		Scope: tok.Scope,
 	}
+	newTokenID := ""
 	if opts.session {
 		result.ExpiresAt = time.Now().Unix() + tok.ExpiresIn - 60 // 60s clock skew margin
 	} else {
@@ -258,16 +268,12 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		}
 		result.Token = perm.Token
 		result.Scope = ""
+		newTokenID = perm.ID
 	}
 
-	save, _ := cmd.Flags().GetBool("save")
 	alias := ""
 	if save {
 		alias, _ = cmd.Flags().GetString("alias")
-		cfg, err := config.Load()
-		if err != nil {
-			return err
-		}
 		previous := maps.Clone(cfg.Instances)
 		if opts.session {
 			alias = cfg.AddInstanceOAuth(alias, baseURL, result.Token, result.ExpiresAt)
@@ -278,7 +284,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 			cfg.CurrentInstance = alias
 		}
 		if err := cfg.Save(); err != nil {
-			return fmt.Errorf("saving config: %w", err)
+			return revokeUnsavedToken(cmd, hubURL, tok.AccessToken, newTokenID, opts.tokenName, fmt.Errorf("saving config: %w", err))
 		}
 		result.ConfigFile, _ = config.ConfigPath()
 		if !opts.session {
@@ -291,7 +297,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	case !opts.session:
 		result.Hint = fmt.Sprintf("Permanent token %q created. Revoke it in your Hub profile under Authentication.", opts.tokenName)
 	case save:
-		result.Hint = fmt.Sprintf("Session token saved as %q — expires at %s (~1 hour, no refresh; re-run `youtrack instance login %s` to renew).",
+		result.Hint = fmt.Sprintf("Session token saved as %q — expires at %s (~1 hour, no refresh; re-run `youtrack auth login %s` to renew).",
 			alias, time.Unix(result.ExpiresAt, 0).Format("15:04"), alias)
 	default:
 		result.Hint = fmt.Sprintf("Session token expires at %s (~1 hour, no refresh).", time.Unix(result.ExpiresAt, 0).Format("15:04"))
@@ -311,6 +317,17 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return nil
 	}
 	return output.Print(cmd, result)
+}
+
+// revokeUnsavedToken deletes a permanent token that was created but could not be saved, so a failed save does not leave a working token nobody can see; it returns saveErr, noting when the token is still live.
+func revokeUnsavedToken(cmd *cobra.Command, hubURL, accessToken, tokenID, tokenName string, saveErr error) error {
+	if tokenID == "" {
+		return saveErr
+	}
+	if err := api.DeleteHubTokenWithAccessTokenContext(cmd.Context(), hubURL, accessToken, tokenID); err != nil {
+		return fmt.Errorf("%w\nthe permanent token %q created for this sign-in could not be revoked (%w); revoke it in your Hub profile under Authentication", saveErr, tokenName, err)
+	}
+	return saveErr
 }
 
 // revokeReplacedToken deletes the permanent token a re-login just replaced, so signing in again does not leave a working token behind in Hub. Only tokens of the signed-in user that carry the CLI's token name are deleted; any other token is kept and reported.
