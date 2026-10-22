@@ -882,6 +882,51 @@ func TestCmd_IssueFieldSet(t *testing.T) {
 	assert.Contains(t, out, "updated field Priority")
 }
 
+func TestCmd_IssueFieldSet_UserBeyondFirstTen(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	// All eleven users match the assignee's login through their full names.
+	assigneeLogin := fmt.Sprintf("field-user-%s-10", proj.ShortName)
+	var users []api.User
+	for i := range 11 {
+		login := fmt.Sprintf("field-user-%s-%02d", proj.ShortName, i)
+		user, err := c.AddUser(&api.AddUserRequest{
+			Login: login, FullName: fmt.Sprintf("Field user %02d %s", i, assigneeLogin),
+			Email: login + "@example.com", Password: "Test1234!",
+		})
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = c.DeleteUser(user.ID, me.ID) })
+		users = append(users, *user)
+	}
+	assignee := users[len(users)-1]
+	firstPage := runJSON[[]api.User](t, "user", "list", "--query", assignee.Login, "--limit", "10", "--json")
+	require.Len(t, firstPage, 10)
+	for _, user := range firstPage {
+		require.NotEqual(t, assignee.ID, user.ID, "fixture assignee must be outside the first ten search results")
+	}
+	_, err = c.AddUserToProjectTeam(proj.ShortName, assignee.ID)
+	require.NoError(t, err)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "user field lookup test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "field", "set", issue.IDReadable, "Assignee", assignee.Login, "--type", "user")
+	assert.Contains(t, out, "updated field Assignee")
+	assertIssueAssignee(t, c, issue.IDReadable, assignee.Login)
+
+	missingLogin := "field-user-" + proj.ShortName
+	errOutput := runCmdExpectError(t, "issue", "field", "set", issue.IDReadable, "Assignee", missingLogin, "--type", "user")
+	assert.Contains(t, errOutput, "user '"+missingLogin+"' not found")
+	assertIssueAssignee(t, c, issue.IDReadable, assignee.Login)
+}
+
 func TestCmd_IssueFieldSet_MultiValue(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)

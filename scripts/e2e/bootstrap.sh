@@ -35,12 +35,21 @@ if [[ -z "${token}" || "${token}" == "null" ]]; then
   exit 1
 fi
 
-write_env_file "${token}"
-
 if ! token_is_valid "${token}"; then
   echo "generated token is not accepted by YouTrack" >&2
   exit 1
 fi
+
+# Apply the configured license to the running service; configure's JVM properties do not persist it.
+curl -fsS \
+  -H "Authorization: Bearer ${token}" \
+  -H "Content-Type: application/json" \
+  -X POST \
+  -d "$(jq -n --arg username "${LICENSE_NAME}" --arg license "${LICENSE_KEY}" '{username: $username, license: $license}')" \
+  "${BASE_URL}/api/admin/globalSettings/license?fields=error" \
+  | jq -e 'if .error then error(.error) else true end' >/dev/null
+
+write_env_file "${token}"
 
 copy_logs
 echo "prepared YouTrack E2E instance at ${BASE_URL}"
