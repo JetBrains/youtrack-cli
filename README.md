@@ -53,7 +53,7 @@ sudo rpm -i youtrack_linux_amd64.rpm
 
 Replace `amd64` with `arm64` on ARM machines.
 
-**Build from source** (requires [Go 1.26.9+](https://go.dev/dl/)):
+**Build from source** (requires [Go 1.26+](https://go.dev/dl/)):
 ```bash
 go install github.com/JetBrains/youtrack-cli@latest
 ```

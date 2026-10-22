@@ -1,6 +1,5 @@
 version: 1
 parameters:
-  env.GOTOOLCHAIN: auto
   env.SIGN: 'true'
   env.FINGERPRINT: B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
   env.CODESIGN_SHA256_AMD64: ce5c7b8432e2009af2eb3b7c26cdaeac2204f66960c67708f9d848bf8b88b2b8
@@ -25,7 +24,7 @@ jobs:
     steps:
       - type: script
         name: Sign and publish GitHub, Homebrew, Scoop, Chocolatey, and WinGet
-        docker-image: goreleaser/goreleaser-pro:v2.17.0
+        docker-image: goreleaser/goreleaser-pro:latest
         docker-run-parameters: --user 0
         script-content: |-
           set -eu
