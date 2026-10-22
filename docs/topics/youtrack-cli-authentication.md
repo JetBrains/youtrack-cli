@@ -291,11 +291,13 @@ Add an instance the same way you log in the first time:
 youtrack auth login
 ```
 
-List configured instances and confirm each token is valid. The active instance is marked:
+Check every configured instance and confirm each token is valid. The active instance is marked:
 
 ```Shell
-youtrack instance list
+youtrack auth status
 ```
+
+`youtrack instance list` prints the same instances as one row each, which suits scripts.
 
 Switch the active instance by alias:
 
