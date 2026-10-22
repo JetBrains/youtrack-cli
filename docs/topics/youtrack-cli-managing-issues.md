@@ -79,7 +79,10 @@ Update the summary or description of an existing issue:
 ```Shell
 youtrack issue update DEMO-42 --summary "Login button overlaps header"
 youtrack issue update DEMO-42 --description "Reproduced on iOS Safari."
+youtrack issue update DEMO-42 --description ""  # clear the description
 ```
+
+Only fields whose flags are passed are changed. An explicit empty `--description` clears the description; omitting the flag preserves it.
 
 To change fields such as State, Priority, or Assignee, apply a command (see [Applying a command](#command)) or set a field value directly (see [Setting custom fields](#fields)).
 
