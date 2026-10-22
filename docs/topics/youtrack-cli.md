@@ -135,7 +135,7 @@ Tools for tracking and visualizing work. See [Planning Tools](youtrack-cli-plann
 Authenticate and switch between configured instances. See [Authentication](youtrack-cli-authentication.md) and [Configuration](youtrack-cli-configuration.md).
 
 - `auth` — authenticate with an instance, check status, and manage credentials.
-- `instance` — add, list, and switch between configured YouTrack instances; `instance login` signs in through the browser and `instance version` shows the active instance's YouTrack version.
+- `instance` — list, switch between, and delete configured YouTrack instances; `instance version` shows the active instance's YouTrack version.
 
 ### Utilities
 

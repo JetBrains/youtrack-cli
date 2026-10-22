@@ -55,7 +55,7 @@ youtrack auth login
 
 It asks for the YouTrack URL (unless you pass `--base-url`). The field is pre-filled with the URL of the active instance, or `https://youtrack.jetbrains.com` when none is configured; edit it or press Enter to accept it. The alias is derived from the URL; pass `--alias` to choose another. Then:
 
-- By default, the CLI signs you in through the browser, as [`instance login`](#browser-sso) does, and saves a permanent token created through Hub.
+- By default, the CLI signs you in through the browser, as described in [Signing in with the browser](#browser-sso), and saves a permanent token created through Hub.
 - When the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it in your browser, and asks you to paste a permanent token you created there. The same happens when stdin is not a terminal, so scripts can pipe a token in.
 - With `--login` and `--password`, the CLI creates the token through Hub basic auth instead. Basic auth is deprecated: the password passes through the CLI and it does not work with SSO or two-factor authentication. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token. Over a plain `http` URL to a host other than `localhost`, basic auth stops before it sends the password; use the `https` URL, or pass `--insecure` to send the password unencrypted.
 
@@ -136,23 +136,25 @@ Save credentials to `~/.youtrack-cli-config.json`. Enabled by default; pass `--s
 </tr>
 </table>
 
-## Signing in with browser SSO {id="browser-sso"}
+## Signing in with the browser {id="browser-sso"}
 
-Use `instance login` to authenticate through your existing browser session without entering a password or pasting a token:
+`auth login` authenticates through your existing browser session without entering a password or pasting a token:
 
 ```Shell
-youtrack instance login https://example.youtrack.cloud
+youtrack auth login --base-url https://example.youtrack.cloud
 ```
+
+`instance login` runs the same flow and adds flags for custom OAuth clients, fixed ports, headless machines, and session tokens. Use it when you need one of the flags in the table below; for everything else, use `auth login`.
 
 The command discovers the instance's Hub, opens its authorization page, listens only on a loopback address (`127.0.0.1`) for the OAuth callback, verifies PKCE and state, and uses the resulting access token once to create a permanent token in Hub. The CLI saves the permanent token, so you do not need to sign in again. The token appears in your Hub profile under __Authentication__ with the name `youtrack-cli` (change it with `--token-name`), and you can revoke it there. Signing in again to the same alias replaces the saved token and revokes the previous one in Hub when it carries the same name; a token with another name, for example one you created by hand, stays valid and the CLI tells you so.
 
 To get the scope it needs for creating the token, the CLI also requests access to Hub itself. Pass `--session` to skip that and save the access token instead. It lasts about one hour and is not refreshed.
 
-Browser SSO requires an interactive terminal. Passing a URL signs in to a new instance, passing an existing alias renews that instance's token in place, and running the command with no argument prompts for the instance to sign in to.
+Browser sign-in requires an interactive terminal. With `auth login`, signing in again with the same `--alias` renews that instance's token in place. `instance login` also takes a URL or an existing alias as an argument.
 
 Browser SSO works on `hub.jetbrains.com` and other Hub versions that provide the public loopback client. If the instance's Hub has no public loopback OAuth client, the command prints a notice and falls back to the permanent-token paste flow.
 
-The flow accepts these flags:
+`instance login` accepts these flags. `auth login` accepts `--alias`, `--save`, `--show-token`, and `--no-browser`; note that `auth login --no-browser` pastes a token instead of printing the sign-in URL, and `auth login --token-name` applies to basic auth only:
 
 <table>
 <tr>
@@ -286,7 +288,7 @@ YouTrack CLI can hold credentials for several instances at once, for example a p
 Add an instance the same way you log in the first time:
 
 ```Shell
-youtrack instance add
+youtrack auth login
 ```
 
 List configured instances and confirm each token is valid. The active instance is marked:

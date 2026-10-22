@@ -16,7 +16,7 @@ Because the two values resolve separately, you can mix sources — for example, 
 
 Saved tokens are bound to their instance: a token taken from a config profile (steps 2 and 4) is only sent when the resolved base URL has the same origin — scheme, host, and port — as that profile. Overriding just the base URL to point at a different host fails with an error rather than forwarding the saved token.
 
-> If no base URL or token can be resolved, the command fails with a message naming the missing value. Run `youtrack instance add` to configure one, or set the environment variables.
+> If no base URL or token can be resolved, the command fails with a message naming the missing value. Run `youtrack auth login` to configure one, or set the environment variables.
 >
 {style="note"}
 
@@ -49,7 +49,7 @@ The top-level keys are:
 - `instances` — map of alias to instance. Each entry holds a `url`, plus optional OAuth metadata (`authMethod` and `tokenExpiresAt`) for browser-SSO instances. A `token` appears only when keyring storage is unavailable or explicitly disabled.
 - `lastUpdateCheck` — Unix timestamp of the last update check, managed automatically. See [The startup update notice](#update-notice).
 
-Manage the file with the `youtrack instance` commands: `instance add` authenticates and saves a new instance (its alias is derived from the URL hostname unless you pass `--alias`), `instance list` shows all instances and which is active, `instance use <alias>` switches the active instance, `instance refresh-token <alias>` replaces a saved token in place, and `instance delete <alias>` removes one. See [Authentication](youtrack-cli-authentication.md) for how to obtain a permanent token and complete the `instance add` flow.
+Manage the file with the `youtrack instance` commands: `auth login` signs in and saves a new instance (its alias is derived from the URL hostname unless you pass `--alias`), `instance list` shows all instances and which is active, `instance use <alias>` switches the active instance, `instance refresh-token <alias>` replaces a saved token in place, and `instance delete <alias>` removes one. See [Authentication](youtrack-cli-authentication.md) for how to obtain a permanent token and complete the `auth login` flow.
 
 ## Environment variables {id="env-vars"}
 

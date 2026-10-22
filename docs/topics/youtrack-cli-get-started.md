@@ -94,7 +94,7 @@ YouTrack CLI authenticates to the YouTrack REST API with a permanent token. A pe
 Run the setup command and follow the prompts:
 
 ```Shell
-youtrack instance add
+youtrack auth login
 ```
 
 The command asks for your YouTrack URL, pre-filled with `https://youtrack.jetbrains.com` (or the active instance's URL); edit it or press Enter to accept it. It then opens your browser to sign in through Hub, creates a permanent token, and saves it.
