@@ -86,6 +86,7 @@ func newCommentDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete <issueId> <commentId>",
 		Short: "Delete a comment",
+		Long:  "Mark a comment as deleted, matching the recoverable deletion in the YouTrack web UI.",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete comment %s?", args[1])); abort {

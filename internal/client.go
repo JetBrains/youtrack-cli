@@ -198,6 +198,37 @@ func expandFields(fields string) string {
 			parts[i] = expanded
 		}
 	}
+	return commentProjectionFields(strings.Join(parts, ","))
+}
+
+// commentProjectionFields retains deletion authority for narrow comment
+// projections, including comments nested inside other projected entities.
+func commentProjectionFields(fields string) string {
+	parts := SplitFields(fields)
+	for i, spec := range parts {
+		open := strings.IndexByte(spec, '(')
+		if open < 0 || !strings.HasSuffix(spec, ")") {
+			continue
+		}
+		name := spec[:open]
+		inner := commentProjectionFields(spec[open+1 : len(spec)-1])
+		if name == "comments" || name == "pinnedComments" {
+			hasDeleted := false
+			for _, field := range SplitFields(inner) {
+				if field == "deleted" {
+					hasDeleted = true
+					break
+				}
+			}
+			if !hasDeleted {
+				if inner != "" {
+					inner += ","
+				}
+				inner += "deleted"
+			}
+		}
+		parts[i] = name + "(" + inner + ")"
+	}
 	return strings.Join(parts, ",")
 }
 
