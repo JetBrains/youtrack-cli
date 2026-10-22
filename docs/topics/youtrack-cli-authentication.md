@@ -145,7 +145,9 @@ Use `instance login` to authenticate through your existing browser session witho
 youtrack instance login https://example.youtrack.cloud
 ```
 
-The command discovers the instance's Hub, opens its authorization page, listens only on a loopback address (`127.0.0.1`) for the OAuth callback, verifies PKCE and state, and saves the resulting token. The token normally lasts about one hour and is not refreshed. For a permanent, non-expiring token, use one of the three permanent methods above instead of browser SSO.
+The command discovers the instance's Hub, opens its authorization page, listens only on a loopback address (`127.0.0.1`) for the OAuth callback, verifies PKCE and state, and uses the resulting access token once to create a permanent token in Hub. The CLI saves the permanent token, so you do not need to sign in again. The token appears in your Hub profile under __Authentication__ with the name `youtrack-cli` (change it with `--token-name`), and you can revoke it there.
+
+To get the scope it needs for creating the token, the CLI also requests access to Hub itself. Pass `--session` to skip that and save the access token instead. It lasts about one hour and is not refreshed.
 
 Browser SSO requires an interactive terminal. Passing a URL signs in to a new instance, passing an existing alias renews that instance's token in place, and running the command with no argument prompts for the instance to sign in to.
 
@@ -247,6 +249,30 @@ How long to wait for the browser callback before giving up.
 <td>
 
 Print the authorization URL instead of opening a browser automatically.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--token-name`
+
+</td>
+<td>
+
+Name of the permanent token created in Hub. Default: `youtrack-cli`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--session`
+
+</td>
+<td>
+
+Save the ~1-hour OAuth access token instead of creating a permanent token.
 
 </td>
 </tr>

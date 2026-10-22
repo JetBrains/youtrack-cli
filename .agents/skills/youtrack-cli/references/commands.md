@@ -15,7 +15,7 @@ Auth commands mask the token in every output format; `--show-token` prints it in
 
 ```bash
 youtrack instance add [--alias <name>] [--save=false]
-youtrack instance login [<url-or-alias>] [--no-browser] [--save=false] [--alias <name>] [--scope <ids>] [--port N] [--client-id <id>] [--timeout <dur>]   # browser SSO (~1h token)
+youtrack instance login [<url-or-alias>] [--no-browser] [--save=false] [--alias <name>] [--scope <ids>] [--port N] [--client-id <id>] [--timeout <dur>] [--token-name <name>] [--session]   # browser SSO → permanent token
 youtrack instance list
 youtrack instance use <alias>
 youtrack instance version                        # active instance's YouTrack version + build number

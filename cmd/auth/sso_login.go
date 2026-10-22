@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -20,7 +21,10 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
-const defaultOAuthClientID = "localhost-auth"
+const (
+	defaultOAuthClientID = "localhost-auth"
+	defaultSSOTokenName  = "youtrack-cli"
+)
 
 // ssoOptions are the tunables of the browser SSO flow: plain defaults from the get-token menu, flag-filled by "instance login".
 type ssoOptions struct {
@@ -29,17 +33,19 @@ type ssoOptions struct {
 	port        int
 	timeout     time.Duration
 	noBrowser   bool
+	session     bool
+	tokenName   string
 }
 
 func defaultSSOOptions() ssoOptions {
-	return ssoOptions{clientID: defaultOAuthClientID, timeout: browserflow.DefaultTimeout}
+	return ssoOptions{clientID: defaultOAuthClientID, timeout: browserflow.DefaultTimeout, tokenName: defaultSSOTokenName}
 }
 
 type ssoLoginResult struct {
 	Login      string `json:"login"`
 	Name       string `json:"name"`
 	Token      string `json:"token"`
-	ExpiresAt  int64  `json:"expiresAt"`
+	ExpiresAt  int64  `json:"expiresAt,omitempty"`
 	Scope      string `json:"scope,omitempty"`
 	ConfigFile string `json:"_configFile,omitempty"`
 	Hint       string `json:"_hint,omitempty"`
@@ -49,14 +55,15 @@ type ssoLoginResult struct {
 func NewSSOLoginCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "login [url-or-alias]",
-		Short: "Sign in through the browser (OAuth 2.0 + PKCE, ~1-hour session token)",
+		Short: "Sign in through the browser (OAuth 2.0 + PKCE) and save a permanent token",
 		Long: `Signs in to a YouTrack instance through the browser using OAuth 2.0 with
 PKCE against the instance's JetBrains Hub. No password or token paste needed —
 the browser session (including SSO) does the authentication.
 
-The resulting access token is short-lived (~1 hour) and is not refreshed;
-re-run this command to renew it, or use "youtrack auth login" to create a
-permanent token instead.
+The CLI uses the short-lived access token once to create a permanent token
+(named by --token-name, visible in your Hub profile under Authentication) and
+saves that. With --session it saves the ~1-hour access token instead, which is
+not refreshed; re-run this command to renew it.
 
 Pass a URL to sign in to a new instance, or an existing alias to renew its
 token. The Hub must have a public loopback OAuth client registered
@@ -96,6 +103,8 @@ paste-token flow.`,
 			opts.port, _ = cmd.Flags().GetInt("port")
 			opts.timeout, _ = cmd.Flags().GetDuration("timeout")
 			opts.noBrowser, _ = cmd.Flags().GetBool("no-browser")
+			opts.session, _ = cmd.Flags().GetBool("session")
+			opts.tokenName, _ = cmd.Flags().GetString("token-name")
 			if scope, _ := cmd.Flags().GetString("scope"); scope != "" {
 				for _, s := range strings.Split(scope, ",") {
 					if s = strings.TrimSpace(s); s != "" {
@@ -103,7 +112,7 @@ paste-token flow.`,
 					}
 				}
 			}
-			return runSSOFlow(cmd, reader, baseURL, opts)
+			return runSSOFlow(cmd, reader, baseURL, &opts)
 		},
 	}
 
@@ -115,6 +124,8 @@ paste-token flow.`,
 	cmd.Flags().String("client-id", defaultOAuthClientID, "OAuth 2.0 client ID registered in Hub")
 	cmd.Flags().Duration("timeout", browserflow.DefaultTimeout, "How long to wait for the browser callback")
 	cmd.Flags().Bool("no-browser", false, "Print the authorization URL instead of opening a browser")
+	cmd.Flags().Bool("session", false, "Save the ~1-hour OAuth access token instead of creating a permanent token")
+	cmd.Flags().String("token-name", defaultSSOTokenName, "Name for the permanent token created in Hub")
 	return cmd
 }
 
@@ -165,8 +176,8 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 	return raw, nil
 }
 
-// runSSOFlow runs the full browser OAuth 2.0 + PKCE flow against the Hub serving baseURL and saves the short-lived access token.
-func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts ssoOptions) error {
+// runSSOFlow runs the full browser OAuth 2.0 + PKCE flow against the Hub serving baseURL and saves a permanent token, or the short-lived access token with --session.
+func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *ssoOptions) error {
 	stderr := cmd.ErrOrStderr()
 	interactive := term.IsTerminal(int(os.Stdin.Fd()))
 
@@ -211,11 +222,15 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d", port)
 
 	scopes := append([]string{ytServiceID}, opts.extraScopes...)
+	requested := scopes
+	if !opts.session {
+		requested = append(slices.Clone(scopes), api.HubServiceID)
+	}
 	q := url.Values{}
 	q.Set("response_type", "code")
 	q.Set("client_id", opts.clientID)
 	q.Set("redirect_uri", redirectURI)
-	q.Set("scope", strings.Join(scopes, " "))
+	q.Set("scope", strings.Join(requested, " "))
 	q.Set("state", state)
 	q.Set("code_challenge", api.PKCEChallengeS256(verifier))
 	q.Set("code_challenge_method", "S256")
@@ -266,36 +281,55 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts s
 		return fmt.Errorf("token verification failed: %w", err)
 	}
 
-	expiresAt := time.Now().Unix() + tok.ExpiresIn - 60 // 60s clock skew margin
 	result := ssoLoginResult{
-		Login:     user.Login,
-		Name:      user.FullName,
-		Token:     tok.AccessToken,
-		ExpiresAt: expiresAt,
-		Scope:     tok.Scope,
+		Login: user.Login,
+		Name:  user.FullName,
+		Token: tok.AccessToken,
+		Scope: tok.Scope,
+	}
+	if opts.session {
+		result.ExpiresAt = time.Now().Unix() + tok.ExpiresIn - 60 // 60s clock skew margin
+	} else {
+		_, _ = fmt.Fprintln(stderr, "Creating permanent token...")
+		perm, err := api.CreateHubTokenWithAccessTokenContext(cmd.Context(), hubURL, tok.AccessToken, opts.tokenName, scopes)
+		if err != nil {
+			return fmt.Errorf("creating permanent token: %w\nre-run with --session to save the ~1-hour access token instead", err)
+		}
+		result.Token = perm.Token
+		result.Scope = ""
 	}
 
-	if save, _ := cmd.Flags().GetBool("save"); save {
-		alias, _ := cmd.Flags().GetString("alias")
+	save, _ := cmd.Flags().GetBool("save")
+	alias := ""
+	if save {
+		alias, _ = cmd.Flags().GetString("alias")
 		cfg, err := config.Load()
 		if err != nil {
 			return err
 		}
-		finalAlias := cfg.AddInstanceOAuth(alias, baseURL, tok.AccessToken, expiresAt)
+		if opts.session {
+			alias = cfg.AddInstanceOAuth(alias, baseURL, result.Token, result.ExpiresAt)
+		} else {
+			alias = cfg.AddInstance(alias, baseURL, result.Token)
+		}
 		if cfg.CurrentInstance == "" {
-			cfg.CurrentInstance = finalAlias
+			cfg.CurrentInstance = alias
 		}
 		if err := cfg.Save(); err != nil {
 			return fmt.Errorf("saving config: %w", err)
 		}
-		path, _ := config.ConfigPath()
-		result.ConfigFile = path
-		result.Hint = fmt.Sprintf(
-			"Session token saved as %q — expires at %s (~1 hour, no refresh; re-run `youtrack instance login %s` to renew).\nFor a permanent token, use `youtrack auth login` instead.",
-			finalAlias, time.Unix(expiresAt, 0).Format("15:04"), finalAlias)
-	} else {
-		result.Hint = fmt.Sprintf("Session token expires at %s (~1 hour, no refresh). For a permanent token, use `youtrack auth login`.",
-			time.Unix(expiresAt, 0).Format("15:04"))
+		result.ConfigFile, _ = config.ConfigPath()
+	}
+	switch {
+	case !opts.session && save:
+		result.Hint = fmt.Sprintf("Permanent token %q saved as %q. Revoke it in your Hub profile under Authentication.", opts.tokenName, alias)
+	case !opts.session:
+		result.Hint = fmt.Sprintf("Permanent token %q created. Revoke it in your Hub profile under Authentication.", opts.tokenName)
+	case save:
+		result.Hint = fmt.Sprintf("Session token saved as %q — expires at %s (~1 hour, no refresh; re-run `youtrack instance login %s` to renew).",
+			alias, time.Unix(result.ExpiresAt, 0).Format("15:04"), alias)
+	default:
+		result.Hint = fmt.Sprintf("Session token expires at %s (~1 hour, no refresh).", time.Unix(result.ExpiresAt, 0).Format("15:04"))
 	}
 
 	// Every format masks the token unless --show-token is set, as writeTokenResult does for the permanent-token flows.

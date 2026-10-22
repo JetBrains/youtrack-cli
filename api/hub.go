@@ -29,6 +29,9 @@ type HubUser struct {
 	Name  string `json:"name"`
 }
 
+// HubServiceID is the ID of Hub's own service; an OAuth token needs it in scope to call the Hub REST API.
+const HubServiceID = "0-0-0-0-0"
+
 // HubService is a registered Hub service (used for token scope).
 type HubService struct {
 	ID   string `json:"id"`
@@ -240,16 +243,21 @@ func ListHubServicesContext(ctx context.Context, baseURL, login, password string
 
 // CreateHubTokenContext creates a permanent token for the given Hub user.
 func CreateHubTokenContext(ctx context.Context, baseURL, login, password, userID, tokenName string, scopeIDs []string) (*HubToken, error) {
+	return createHubToken(ctx, baseURL+"/hub", url.PathEscape(userID), hubBasicAuth(login, password), tokenName, scopeIDs)
+}
+
+// CreateHubTokenWithAccessTokenContext creates a permanent token for the user behind an OAuth access token; the access token must carry Hub's own scope (HubServiceID).
+func CreateHubTokenWithAccessTokenContext(ctx context.Context, hubURL, accessToken, tokenName string, scopeIDs []string) (*HubToken, error) {
+	return createHubToken(ctx, strings.TrimRight(hubURL, "/"), "me", "Bearer "+accessToken, tokenName, scopeIDs)
+}
+
+func createHubToken(ctx context.Context, hubURL, userID, auth, tokenName string, scopeIDs []string) (*HubToken, error) {
 	scope := make([]map[string]string, len(scopeIDs))
 	for i, id := range scopeIDs {
 		scope[i] = map[string]string{"id": id}
 	}
-	path := fmt.Sprintf(
-		"/hub/api/rest/users/%s/permanenttokens?fields=id,name,token,scope(id,name),creationTime",
-		url.PathEscape(userID),
-	)
-	data, err := hubDo(ctx, "POST", baseURL, path, hubBasicAuth(login, password),
-		map[string]any{"name": tokenName, "scope": scope})
+	path := "/api/rest/users/" + userID + "/permanenttokens?fields=id,name,token,scope(id,name),creationTime"
+	data, err := hubDo(ctx, "POST", hubURL, path, auth, map[string]any{"name": tokenName, "scope": scope})
 	if err != nil {
 		return nil, err
 	}

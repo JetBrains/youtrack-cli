@@ -70,6 +70,12 @@ Authenticate once and the CLI remembers the instance:
 youtrack instance add
 ```
 
+Or sign in through the browser. The CLI creates a permanent token through Hub and saves it:
+
+```bash
+youtrack instance login https://youtrack.jetbrains.com
+```
+
 Auth commands mask the token in their output, JSON included. Pass `--show-token` when a script needs the full value, for example `youtrack auth login --save=false --json --show-token | jq -r .token`.
 
 Then:
