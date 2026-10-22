@@ -243,6 +243,8 @@ youtrack raw <path> [--method GET|POST|PUT|DELETE] [--body JSON] [--fields FIELD
 youtrack raw <collection-path> --paginate [--page-size N]
 ```
 
+`--paginate` returns one combined JSON array, including `[]` for an empty collection.
+
 ## dashboard
 
 ```bash
