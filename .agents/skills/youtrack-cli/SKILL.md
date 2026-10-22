@@ -22,7 +22,7 @@ youtrack issue command MYPROJ-1 "State Fixed"                 # update state
 ## Setup
 
 1. **CLI available?** `which youtrack` — if not found, run `make build && cp youtrack /usr/local/bin/` from the repo root.
-2. **Credentials set?** Check the configured instances with `youtrack instance list` or use env vars `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`. If missing, run `youtrack auth login`: it signs in through the browser and saves a ~1-hour session token, or pastes a permanent token with `--no-browser` (use that for long-running automation).
+2. **Credentials set?** Run `youtrack auth status`: it checks every configured instance (or the `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN` env vars) and shows the authenticated user. If nothing is configured or a token is invalid, run `youtrack auth login`: it signs in through the browser and saves a permanent token, or pastes one with `--no-browser`.
 3. **Connectivity OK?** `youtrack user current` — stop and report if it fails.
 
 ## Safety
@@ -77,7 +77,7 @@ pages and accepts `--page-size`.
 
 ## Quick Workflows
 
-- **Sign in**: `youtrack auth login` → OAuth 2.0 + PKCE against JetBrains Hub in the browser, saves the ~1-hour session token; falls back to pasting a token when the Hub has no public loopback client or with `--no-browser`. Browser sign-in needs an interactive terminal. `auth login <url-or-alias>` signs in to another instance or renews a configured alias; `instance login` and `instance add` are the same command.
+- **Sign in**: `youtrack auth login` → OAuth 2.0 + PKCE against JetBrains Hub in the browser, creates and saves a permanent token; falls back to pasting a token when the Hub has no public loopback client or with `--no-browser`. Browser sign-in needs an interactive terminal. `auth login <url-or-alias>` signs in to another instance or renews a configured alias; `instance login` and `instance add` are the same command.
 - **Verify auth**: `youtrack auth status` → check `status` field per instance
 - **Create issue**: `youtrack issue create --project P --summary S` → `issue command <id> "assignee me"`
 - **Bulk update**: `youtrack issue list --query Q --json | jq '.[].id'` → loop `issue command`

@@ -3,13 +3,13 @@
 ## Auth
 
 ```bash
-youtrack auth login [<url-or-alias>] [--alias <name>] [--no-browser] [--scope <ids>] [--client-id <id>] [--port N] [--timeout <dur>] [--login <l> --password <p>]   # browser sign-in → ~1h session token; paste fallback
+youtrack auth login [<url-or-alias>] [--alias <name>] [--no-browser] [--scope <ids>] [--token-name <name>] [--session] [--client-id <id>] [--port N] [--timeout <dur>] [--login <l> --password <p>]   # browser sign-in → permanent token; paste fallback
 youtrack auth status                        # check credentials for all instances
 youtrack auth logout [--instance <alias>]
 youtrack auth refresh-token [<alias>]
 ```
 
-`auth login` signs in through the browser (OAuth 2.0 + PKCE) and saves the ~1-hour session token; with `--no-browser`, or when the Hub has no CLI OAuth client, it prompts for a pasted token. `--login`/`--password` use deprecated Hub basic auth.
+`auth login` signs in through the browser (OAuth 2.0 + PKCE) and saves a permanent token; with `--no-browser`, or when the Hub has no CLI OAuth client, it prompts for a pasted token. `--login`/`--password` use deprecated Hub basic auth.
 Saved tokens use the OS keyring with a mode-`0600` config fallback. Single-instance automation can use `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`.
 Auth commands mask the token in every output format; `--show-token` prints it in full in every format.
 
