@@ -299,6 +299,70 @@ func TestCmd_IssueCreateRollsBackOnBadCustomField(t *testing.T) {
 	assert.Error(t, err, "rolled-back issue %s should no longer exist", m[1])
 }
 
+func TestCmd_IssueCreateRejectsMalformedCustomFields(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	for _, tc := range []struct {
+		name, input string
+	}{
+		{"empty input", ""},
+		{"whitespace", " \n\t"},
+		{"unclosed empty object", `{`},
+		{"missing closing brace", `{"Priority":"Normal"`},
+		{"trailing comma", `{"Priority":"Normal",}`},
+		{"trailing garbage", `{} garbage`},
+		{"multiple objects", `{} {"Priority":"Critical"}`},
+		{"array", `[]`},
+		{"null object", `null`},
+		{"null value", `{"Priority":null}`},
+		{"numeric value", `{"Priority":1}`},
+		{"nested value", `{"Priority":{"name":"Normal"}}`},
+	} {
+		for _, fromFile := range []bool{false, true} {
+			source := "inline"
+			if fromFile {
+				source = "file"
+			}
+			t.Run(tc.name+"/"+source, func(t *testing.T) {
+				args := []string{"issue", "create", "--project", proj.ShortName, "--summary", "invalid custom fields", "--json"}
+				if fromFile {
+					path := filepath.Join(t.TempDir(), "fields.json")
+					require.NoError(t, os.WriteFile(path, []byte(tc.input), 0o600))
+					args = append(args, "--custom-fields-file", path)
+				} else {
+					args = append(args, "--custom-fields", tc.input)
+				}
+				out, err := runCmdFail(t, args...)
+				// Clean up even if a regression accepts the input and creates an issue.
+				var created api.Issue
+				if json.Unmarshal([]byte(out), &created) == nil && created.ID != "" {
+					t.Cleanup(func() { _ = c.DeleteIssue(created.ID) })
+				}
+				assert.Error(t, err, "malformed input must not create an issue: %s", out)
+				assert.Contains(t, out, "parse custom-fields", "reject input before contacting the server")
+			})
+		}
+	}
+}
+
+func TestCmd_IssueCreateWithValidCustomFields(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	for _, input := range []string{"{}\n", `{"Priority":"Critical","Type":"Bug"}`} {
+		t.Run(input, func(t *testing.T) {
+			issue := runJSON[api.Issue](t, "issue", "create", "--project", proj.ShortName,
+				"--summary", "valid custom fields", "--custom-fields", input, "--json")
+			t.Cleanup(func() { _ = c.DeleteIssue(issue.ID) })
+			require.NotEmpty(t, issue.IDReadable)
+			if strings.Contains(input, "Priority") {
+				priority, err := c.GetCustomFieldValue(issue.IDReadable, "Priority")
+				require.NoError(t, err)
+				assert.Contains(t, fmt.Sprint(priority.Value), "Critical")
+			}
+		})
+	}
+}
+
 func TestCmd_IssueView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)

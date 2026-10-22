@@ -57,6 +57,8 @@ youtrack issue command suggest <issueId[,issueId...]> <query>   # preview sugges
 youtrack issue count [--query Q]       # may return -1 on first call (async); retry manually
 ```
 
+`issue create --custom-fields` and `--custom-fields-file` require one complete JSON object of string values. Invalid JSON, trailing content, and `null` values fail before creating an issue.
+
 **social actions**
 ```bash
 youtrack issue assign <issueId> <login>
