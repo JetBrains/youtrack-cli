@@ -266,6 +266,41 @@ func createHubToken(ctx context.Context, hubURL, userID, auth, tokenName string,
 	return &tok, err
 }
 
+// GetHubTokenWithAccessTokenContext returns the metadata (no secret) of a permanent token of the user behind an OAuth access token carrying HubServiceID.
+func GetHubTokenWithAccessTokenContext(ctx context.Context, hubURL, accessToken, tokenID string) (*HubToken, error) {
+	data, err := hubDo(ctx, "GET", strings.TrimRight(hubURL, "/"), "/api/rest/users/me/permanenttokens/"+url.PathEscape(tokenID)+"?fields=id,name", "Bearer "+accessToken, nil)
+	if err != nil {
+		return nil, err
+	}
+	var tok HubToken
+	err = json.Unmarshal(data, &tok)
+	return &tok, err
+}
+
+// DeleteHubTokenWithAccessTokenContext deletes a permanent token of the user behind an OAuth access token carrying HubServiceID.
+func DeleteHubTokenWithAccessTokenContext(ctx context.Context, hubURL, accessToken, tokenID string) error {
+	_, err := hubDo(ctx, "DELETE", strings.TrimRight(hubURL, "/"), "/api/rest/users/me/permanenttokens/"+url.PathEscape(tokenID), "Bearer "+accessToken, nil)
+	return err
+}
+
+// ParsePermanentToken returns the owner login and Hub token ID encoded in a permanent token ("perm-<base64 login>.<base64 id>.<secret>", or "perm:" for older tokens).
+func ParsePermanentToken(token string) (login, id string, ok bool) {
+	rest, found := strings.CutPrefix(token, "perm-")
+	if !found {
+		rest, found = strings.CutPrefix(token, "perm:")
+	}
+	parts := strings.Split(rest, ".")
+	if !found || len(parts) != 3 || parts[2] == "" {
+		return "", "", false
+	}
+	l, errLogin := base64.StdEncoding.DecodeString(parts[0])
+	i, errID := base64.StdEncoding.DecodeString(parts[1])
+	if errLogin != nil || errID != nil || len(l) == 0 || len(i) == 0 {
+		return "", "", false
+	}
+	return string(l), string(i), true
+}
+
 // DeleteHubTokenContext deletes a permanent token by ID (used for test cleanup).
 func DeleteHubTokenContext(ctx context.Context, baseURL, login, password, userID, tokenID string) error {
 	path := fmt.Sprintf("/hub/api/rest/users/%s/permanenttokens/%s",

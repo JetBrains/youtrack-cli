@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"os"
@@ -307,6 +308,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		if err != nil {
 			return err
 		}
+		previous := maps.Clone(cfg.Instances)
 		if opts.session {
 			alias = cfg.AddInstanceOAuth(alias, baseURL, result.Token, result.ExpiresAt)
 		} else {
@@ -319,6 +321,9 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 			return fmt.Errorf("saving config: %w", err)
 		}
 		result.ConfigFile, _ = config.ConfigPath()
+		if !opts.session {
+			revokeReplacedToken(cmd, hubURL, tok.AccessToken, user.Login, opts.tokenName, previous[alias].Token, result.Token)
+		}
 	}
 	switch {
 	case !opts.session && save:
@@ -346,6 +351,25 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return nil
 	}
 	return output.Print(cmd, result)
+}
+
+// revokeReplacedToken deletes the permanent token a re-login just replaced, so signing in again does not leave a working token behind in Hub. Only tokens of the signed-in user that carry the CLI's token name are deleted; any other token is kept and reported.
+func revokeReplacedToken(cmd *cobra.Command, hubURL, accessToken, login, tokenName, oldToken, newToken string) {
+	owner, oldID, ok := api.ParsePermanentToken(oldToken)
+	if !ok || owner != login || oldToken == newToken {
+		return
+	}
+	old, err := api.GetHubTokenWithAccessTokenContext(cmd.Context(), hubURL, accessToken, oldID)
+	switch {
+	case err != nil:
+		output.PrintWarn(cmd, fmt.Sprintf("could not look up the replaced permanent token (%v); it may still be valid, check your Hub profile under Authentication", err))
+	case old.Name != tokenName:
+		output.PrintWarn(cmd, fmt.Sprintf("the replaced permanent token %q is still valid; revoke it in your Hub profile under Authentication if nothing else uses it", old.Name))
+	default:
+		if err := api.DeleteHubTokenWithAccessTokenContext(cmd.Context(), hubURL, accessToken, oldID); err != nil {
+			output.PrintWarn(cmd, fmt.Sprintf("could not revoke the replaced permanent token %q (%v); revoke it in your Hub profile under Authentication", old.Name, err))
+		}
+	}
 }
 
 // discoverHub resolves the Hub base URL and YouTrack service ID (OAuth scope): /api/config ring(...) primary, MCP oauth-protected-resource fallback.

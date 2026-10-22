@@ -144,7 +144,7 @@ Use `instance login` to authenticate through your existing browser session witho
 youtrack instance login https://example.youtrack.cloud
 ```
 
-The command discovers the instance's Hub, opens its authorization page, listens only on a loopback address (`127.0.0.1`) for the OAuth callback, verifies PKCE and state, and uses the resulting access token once to create a permanent token in Hub. The CLI saves the permanent token, so you do not need to sign in again. The token appears in your Hub profile under __Authentication__ with the name `youtrack-cli` (change it with `--token-name`), and you can revoke it there.
+The command discovers the instance's Hub, opens its authorization page, listens only on a loopback address (`127.0.0.1`) for the OAuth callback, verifies PKCE and state, and uses the resulting access token once to create a permanent token in Hub. The CLI saves the permanent token, so you do not need to sign in again. The token appears in your Hub profile under __Authentication__ with the name `youtrack-cli` (change it with `--token-name`), and you can revoke it there. Signing in again to the same alias replaces the saved token and revokes the previous one in Hub when it carries the same name; a token with another name, for example one you created by hand, stays valid and the CLI tells you so.
 
 To get the scope it needs for creating the token, the CLI also requests access to Hub itself. Pass `--session` to skip that and save the access token instead. It lasts about one hour and is not refreshed.
 
