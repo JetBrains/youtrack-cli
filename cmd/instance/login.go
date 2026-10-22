@@ -10,6 +10,6 @@ import (
 func newLoginCmd() *cobra.Command {
 	cmd := auth.NewGetTokenCmd()
 	cmd.Use = "login [url-or-alias]"
-	cmd.Short = "Sign in to an instance and save a permanent token (same as auth login)"
+	cmd.Short = "Sign in to an instance and save its token (same as auth login)"
 	return cmd
 }

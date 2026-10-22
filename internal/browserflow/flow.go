@@ -153,7 +153,7 @@ func Run(ctx context.Context, opts Options) (*Result, error) {
 	case err := <-serverErr:
 		return nil, fmt.Errorf("local callback server failed: %w", err)
 	case <-time.After(timeout):
-		return nil, fmt.Errorf("timeout waiting for browser callback (%v) — re-run or use the paste-token flow (youtrack auth login)", timeout)
+		return nil, fmt.Errorf("timeout waiting for browser callback (%v) — re-run, or pass --no-browser to paste a token instead", timeout)
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}

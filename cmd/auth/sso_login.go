@@ -131,7 +131,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	interactive := term.IsTerminal(int(os.Stdin.Fd()))
 
 	if !interactive {
-		return fmt.Errorf("browser login needs an interactive terminal — use `youtrack auth login` (paste token) or set YOUTRACK_TOKEN\nnote: the OAuth callback goes to this machine's loopback, so the flow cannot work over plain SSH unless you forward the callback port")
+		return fmt.Errorf("browser login needs an interactive terminal — pass --no-browser to paste a token, or set YOUTRACK_TOKEN\nnote: the OAuth callback goes to this machine's loopback, so the flow cannot work over plain SSH unless you forward the callback port")
 	}
 
 	_, _ = fmt.Fprintf(stderr, "Discovering Hub configuration for %s...\n", baseURL)
@@ -140,7 +140,8 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return err
 	}
 	if ytServiceID == "" {
-		return fmt.Errorf("could not discover the YouTrack service ID from %s — this instance may be too old for browser login; use `youtrack auth login` instead", baseURL)
+		_, _ = fmt.Fprintf(stderr, "Could not discover the YouTrack service ID from %s (this instance may be too old for browser sign-in); falling back to the paste-token flow.\n\n", baseURL)
+		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 	// Never hand an unvalidated server-advertised Hub URL to the browser; take the same paste-token fallback as a failed pre-flight.
 	if err := api.ValidateHubURL(baseURL, hubURL); err != nil {

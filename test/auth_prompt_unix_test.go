@@ -249,3 +249,26 @@ func TestAuthLogin_RejectsUnsafeHubURL(t *testing.T) {
 	assert.NotContains(t, s.output(), "use this URL")
 	assert.NotContains(t, s.output(), "oauth2/auth")
 }
+
+func TestAuthLogin_FallsBackToPasteWithoutServiceID(t *testing.T) {
+	// An older instance: /api/config has no ring service ID and the MCP resource metadata is missing, so browser sign-in has no OAuth scope to request.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/config" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"ring":{}}`))
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	t.Cleanup(srv.Close)
+
+	s := browserLoginPTY(t, srv)
+	s.waitFor("falling back to the paste-token flow")
+	s.waitFor("Open browser to create a token?")
+	s.send("n")
+	s.waitFor("Paste your token")
+	s.send("perm:not-a-real-token\r")
+	_ = s.wait() // verification against the fake instance fails; only reaching the paste prompt matters.
+	assert.Contains(t, s.output(), "Could not discover the YouTrack service ID")
+	assert.NotContains(t, s.output(), "use `youtrack auth login` instead")
+}
