@@ -22,7 +22,7 @@ Saved tokens are bound to their instance: a token taken from a config profile (s
 
 ## The config file {id="config-file"}
 
-YouTrack CLI stores its configuration in `~/.youtrack-cli-config.json`. The file is written with `0600` permissions, so only your user account can read it. Saved tokens use the OS keyring when available and are omitted from this file. You do not edit it by hand — the `youtrack instance` commands manage it for you.
+YouTrack CLI stores its configuration in `$XDG_CONFIG_HOME/youtrack/config.json`, which is `~/.config/youtrack/config.json` when `XDG_CONFIG_HOME` is not set. The same location is used on macOS, Linux, and Windows. Versions before this change used `~/.youtrack-cli-config.json`; the CLI moves that file to the new location the first time it runs. The file is written with `0600` permissions, so only your user account can read it. Saved tokens use the OS keyring when available and are omitted from this file. You do not edit it by hand — the `youtrack instance` commands manage it for you.
 
 A config file with two instances looks like this:
 

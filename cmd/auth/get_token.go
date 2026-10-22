@@ -120,7 +120,7 @@ Use --json for machine-readable output.`,
 	cmd.Flags().String("token-name", "cli-token", "Name for the permanent token (basic auth only)")
 	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
-	cmd.Flags().Bool("save", true, "Save credentials to ~/.youtrack-cli-config.json")
+	cmd.Flags().Bool("save", true, "Save credentials to the config file (~/.config/youtrack/config.json)")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().Bool("show-token", false, showTokenUsage)
 	return cmd
@@ -382,7 +382,7 @@ func runDirectTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string
 	return writeTokenResult(cmd, res)
 }
 
-// saveCredentials persists baseURL + token to ~/.youtrack-cli-config.json.
+// saveCredentials persists baseURL + token to the config file.
 // Returns the alias under which the new instance was saved.
 func saveCredentials(cmd *cobra.Command, _ *bufio.Reader, baseURL, token string, res *getTokenResult) (string, error) {
 	alias, _ := cmd.Flags().GetString("alias")

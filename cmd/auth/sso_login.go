@@ -107,7 +107,7 @@ paste-token flow.`,
 		},
 	}
 
-	cmd.Flags().Bool("save", true, "Save credentials to ~/.youtrack-cli-config.json")
+	cmd.Flags().Bool("save", true, "Save credentials to the config file (~/.config/youtrack/config.json)")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().String("scope", "", "Comma-separated extra Hub service IDs to request in addition to the YouTrack service")
 	cmd.Flags().Bool("show-token", false, showTokenUsage)

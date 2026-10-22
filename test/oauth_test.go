@@ -71,7 +71,7 @@ func TestInstanceLogin_FallsBackWithoutOAuthClient(t *testing.T) {
 
 	assert.Contains(t, out, "Token ready:")
 
-	data, err := os.ReadFile(tmpHome + "/.youtrack-cli-config.json")
+	data, err := os.ReadFile(configFile(tmpHome))
 	require.NoError(t, err)
 	assert.Contains(t, string(data), `"ssotest"`)
 }

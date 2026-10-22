@@ -33,6 +33,10 @@ func TestMain(m *testing.M) {
 	if err := os.Setenv("YOUTRACK_DISABLE_KEYRING", "1"); err != nil {
 		log.Fatalf("failed to set YOUTRACK_DISABLE_KEYRING: %v", err)
 	}
+	// Spawned binaries resolve their config under the temp HOME each test sets, never the developer's XDG_CONFIG_HOME.
+	if err := os.Unsetenv("XDG_CONFIG_HOME"); err != nil {
+		log.Fatalf("failed to unset XDG_CONFIG_HOME: %v", err)
+	}
 
 	tmpDir, err := os.MkdirTemp("", "youtrack-cli-test-*")
 	if err != nil {
@@ -144,7 +148,7 @@ func uniqueProjectShortName(prefix string) string {
 // runCmd executes the compiled CLI binary with given args, returns stdout.
 // Env vars YOUTRACK_BASE_URL and YOUTRACK_TOKEN must be set.
 // HOME is overridden to an empty temp dir so the binary does not pick up the
-// developer's ~/.youtrack-cli-config.json and instead falls back to the E2E env vars.
+// developer's config file and instead falls back to the E2E env vars.
 func runCmd(t *testing.T, args ...string) string {
 	t.Helper()
 	requireE2EEnv(t)
@@ -215,7 +219,7 @@ func runCmdExpectError(t *testing.T, args ...string) string {
 // runCmdWithInput executes the compiled CLI binary with the given args and provides
 // stdinInput as the command's stdin. Returns stdout as a string.
 // HOME is overridden to an empty temp dir so the binary does not pick up the
-// developer's ~/.youtrack-cli-config.json and instead falls back to the E2E env vars.
+// developer's config file and instead falls back to the E2E env vars.
 func runCmdWithInput(t *testing.T, stdinInput string, args ...string) string {
 	t.Helper()
 	requireE2EEnv(t)

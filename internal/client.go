@@ -17,7 +17,7 @@ import (
 //  1. --base-url / --token flags (explicit per-command override, always wins)
 //  2. --server flag (selects a named profile from config by alias)
 //  3. YOUTRACK_BASE_URL / YOUTRACK_TOKEN env vars (shell/CI, process-scoped)
-//  4. Active instance from ~/.youtrack-cli-config.json (set via `instance use`)
+//  4. Active instance from the config file (set via `instance use`)
 //
 // A token taken from a saved profile (tiers 2 and 4) is only used when the resolved URL has the same origin as that profile.
 func GetClient(cmd *cobra.Command) (*api.Client, error) {
@@ -134,9 +134,10 @@ func RequireTokenURL(alias string, inst *config.Instance) error {
 	if tokenURL == inst.URL || sameOrigin(inst.URL, tokenURL) {
 		return nil
 	}
+	path, _ := config.ConfigPath()
 	return fmt.Errorf(
-		"refusing to sign in for %q: the config file URL %s differs from %s, the URL its saved token was issued for — check ~/.youtrack-cli-config.json; to sign in to %s on purpose, run: youtrack instance delete %s, then youtrack instance add",
-		alias, inst.URL, tokenURL, inst.URL, alias,
+		"refusing to sign in for %q: the config file URL %s differs from %s, the URL its saved token was issued for — check %s; to sign in to %s on purpose, run: youtrack instance delete %s, then youtrack instance add",
+		alias, inst.URL, tokenURL, path, inst.URL, alias,
 	)
 }
 
