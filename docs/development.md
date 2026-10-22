@@ -14,10 +14,10 @@ cp youtrack /usr/local/bin/
 make fmt             # apply gofmt to the repo
 make fmt-check       # fail if any file is not gofmt'd
 make lint            # run golangci-lint via go run
-make check           # fmt-check + lint + build + test — run before committing
+make check           # fmt-check + lint + build + unit + test — run before committing
 ```
 
-Always run `make check` before pushing. It runs formatting, linting, build, and the full E2E suite.
+Always run `make check` before pushing. It runs formatting, linting, build, pure-function unit tests, and the full E2E suite.
 
 ## Testing
 
@@ -25,7 +25,7 @@ CLI behavior is tested end-to-end only — no mocks, no fake transport. The subj
 
 Two scoped exceptions complement the E2E suite:
 
-- Pure-function unit tests live in `api/*_test.go` and `internal/*_test.go`; run them with `go test ./api/ ./internal/...`.
+- Pure-function unit tests live in `api/*_test.go` and `internal/*_test.go`; run them without Docker using `make unit`. They also run as part of `make check`.
 - API drift detection lives in `test/drift_test.go` (`TestAPIDrift`, gated on the E2E environment), which diffs the Go structs against the live OpenAPI spec.
 
 CI also runs a `govulncheck` scan.
@@ -38,13 +38,13 @@ make e2e-down        # stop and remove the local instance
 
 Prerequisites: `docker`, `curl`, `jq`, and `go` on `PATH`.
 
-The harness starts YouTrack at `http://127.0.0.1:8088` and ignores any ambient `YOUTRACK_BASE_URL`. When bootstrap succeeds it writes `.e2e/youtrack.env` — source it to run the CLI manually against the local instance:
+The harness chooses an available port from 8080–8099 (or uses `YOUTRACK_E2E_PORT`) and ignores any ambient `YOUTRACK_BASE_URL`. When bootstrap succeeds it writes the URL and credentials to `.e2e/youtrack.env` — source it to run the CLI manually against the local instance:
 
 ```bash
 set -a
 source .e2e/youtrack.env
 set +a
-youtrack issue list
+./youtrack issue list --query "#Unresolved"
 ```
 
 ### E2E environment variables
@@ -52,6 +52,7 @@ youtrack issue list
 | Variable | Description |
 |---|---|
 | `YOUTRACK_E2E_RESET=1` | Recreate local YouTrack state from scratch |
+| `YOUTRACK_E2E_PORT` | Override the local YouTrack port |
 | `YOUTRACK_E2E_VERSION=2026.2.17765` | Override the Docker image tag |
 | `YOUTRACK_E2E_LICENSE_NAME` | License owner name for `configure` |
 | `YOUTRACK_E2E_LICENSE_KEY` | License key for `configure` |
@@ -61,15 +62,19 @@ youtrack issue list
 Each test is self-contained: it creates all entities it needs and registers `t.Cleanup()` teardown. Use helpers from `test/helpers_test.go`:
 
 - `newTestClient(t)` — returns a preconfigured API client
-- `createTempProject(t, c)` — creates a temp project, cleaned up after the test
+- `createTempProject(t, c)` — creates a temp project and waits until it is readable; projects remain until the harness is reset because asynchronous deletion can disrupt other tests
 - `runCmd(t, args...)` — runs the compiled CLI binary
 
 Tests may use `api.Client` for fixture setup and teardown, but not as a separate conformance suite. Keep tests centered on observable CLI behavior.
 
-Run a single test by name:
+Run a single test by name after loading the harness credentials. Without credentials, live-server tests skip:
 
 ```bash
-go test ./test/ -run TestGetIssue -v
+make e2e-up
+set -a
+source .e2e/youtrack.env
+set +a
+go test ./test/ -run '^TestCmd_IssueViewPlain$' -v -count=1
 ```
 
 ## Project Structure
