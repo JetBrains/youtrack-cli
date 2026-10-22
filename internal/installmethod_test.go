@@ -42,7 +42,7 @@ func TestAutoUpgradeCommand(t *testing.T) {
 		{"apt has no in-place upgrade", InstallApt, false},
 		{"rpm has no in-place upgrade", InstallRPM, false},
 		{"AUR helper would sync the whole system", InstallArch, false},
-		{"script install is handled separately", InstallScript, false},
+		{"script install re-runs the installer", InstallScript, true},
 		{"unknown install has no upgrade path", InstallUnknown, false},
 	}
 	for _, c := range cases {
@@ -77,5 +77,41 @@ func TestIsGoBin(t *testing.T) {
 				t.Errorf("isGoBin(%q) = %v, want %v", c.exe, got, c.want)
 			}
 		})
+	}
+}
+
+func TestInstallerEnvDropsStaleInstallSettings(t *testing.T) {
+	t.Setenv("YOUTRACK_INSTALL_RELEASE", "v0.5.1")
+	t.Setenv("YOUTRACK_INSTALL_DIR", "/somewhere/else")
+	t.Setenv("YOUTRACK_INSTALL_UPDATE", "")
+	t.Setenv("YOUTRACK_UNRELATED", "kept")
+
+	env := map[string]int{}
+	for _, kv := range installerEnv() {
+		env[kv]++
+	}
+	for _, stale := range []string{"YOUTRACK_INSTALL_RELEASE=v0.5.1", "YOUTRACK_INSTALL_DIR=/somewhere/else", "YOUTRACK_INSTALL_UPDATE="} {
+		if env[stale] != 0 {
+			t.Errorf("installerEnv() kept %q", stale)
+		}
+	}
+	if env["YOUTRACK_INSTALL_UPDATE=1"] != 1 {
+		t.Errorf("installerEnv() must set YOUTRACK_INSTALL_UPDATE=1 exactly once")
+	}
+	if env["YOUTRACK_UNRELATED=kept"] != 1 {
+		t.Errorf("installerEnv() dropped an unrelated variable")
+	}
+}
+
+func TestShellQuote(t *testing.T) {
+	for in, want := range map[string]string{
+		"/home/alice/.local/bin": `'/home/alice/.local/bin'`,
+		"/opt/my tools":          `'/opt/my tools'`,
+		"/tmp/it's":              `'/tmp/it'\''s'`,
+		"/tmp/$(rm -rf ~)":       `'/tmp/$(rm -rf ~)'`,
+	} {
+		if got := shellQuote(in); got != want {
+			t.Errorf("shellQuote(%q) = %s, want %s", in, got, want)
+		}
 	}
 }

@@ -260,13 +260,30 @@ For how to combine `--json`, `--plain`, and `--fields` in scripts, see [Scriptin
 
 ## The startup update notice {id="update-notice"}
 
-On startup, a released build of YouTrack CLI checks GitHub at most once every 24 hours for a newer release. It shows a notice only when the latest release is strictly newer than the running version by semantic-version comparison, printing a single informational line to stderr after the command finishes:
+On startup, a released build of YouTrack CLI checks GitHub at most once every 24 hours for a newer release. When the latest release is strictly newer than the running version by semantic-version comparison, it prints one line to stderr after the command finishes:
 
 ```Shell
-ℹ  youtrack <tag> is available (you have <version>) — see https://github.com/JetBrains/youtrack-cli/releases
+ℹ  YouTrack CLI v<latest> is available (you have <version>) — run 'youtrack update' to update
 ```
 
-The check runs in the background, writes nothing to stdout, and records the time of the last attempt in `lastUpdateCheck` to throttle itself to once every 24 hours. Command exit waits no more than 500 milliseconds for the notice. Development builds, `--quiet`, CI, non-interactive stderr, `YOUTRACK_NO_UPDATE`, and `DO_NOT_TRACK` skip the network check. To upgrade, reinstall using any method in [Getting Started](youtrack-cli-get-started.md).
+The check runs in the background and writes nothing to stdout. It records the time of the last attempt in `lastUpdateCheck` and the latest release in `latestVersion`. Command exit waits no more than 500 milliseconds for the notice. Development builds, `--quiet`, CI, non-interactive stderr, `YOUTRACK_NO_UPDATE`, and `DO_NOT_TRACK` skip the network check.
+
+On a later run, when `latestVersion` is newer than the running version, the CLI asks before the command runs:
+
+```Shell
+Update available! v<version> → v<latest>
+Release notes: https://github.com/JetBrains/youtrack-cli/releases/tag/v<latest>
+
+  1. Update now (runs `<upgrade command>`)
+  2. Skip
+  3. Skip until next version
+```
+
+- **1** runs the same upgrade as `youtrack update`, then runs your command on the current version.
+- **2** runs your command. The CLI asks again on the next run.
+- **3** records the release in `dismissedVersion`. The CLI does not ask again until a newer release is out.
+
+The CLI asks only when stdin, stdout, and stderr are terminals and the output format is a table, so scripts and AI agents never see the prompt. It does not ask for `youtrack update`, `help`, or shell completion, for `--quiet`, or when the install method has no automated upgrade (apt, rpm, AUR, or an undetected install). The same settings that skip the network check also turn off the prompt.
 
 To silence the notice, pass `--quiet`, which also suppresses tips and hints:
 

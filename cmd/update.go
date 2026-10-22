@@ -19,10 +19,11 @@ func newUpdateCmd() *cobra.Command {
 		Short: "Check for a newer YouTrack CLI release and upgrade",
 		Long: `Checks GitHub for the latest YouTrack CLI release. When a newer release
 exists, detects the install method (Homebrew, Scoop, Chocolatey, WinGet, npm,
-or go install) and upgrades through that same channel. Install-script installs,
-methods with no safe single-package upgrade path (apt, rpm, AUR), and an
-undetected install fall back to printing manual instructions, plus a
-gh-based alternative when the gh CLI is installed.
+go install, or the install script) and upgrades through that same channel. An
+install-script install re-runs the official installer, which downloads the new
+release, verifies it, and replaces the binary in place. Methods with no safe
+single-package upgrade path (apt, rpm, AUR) and an undetected install fall back
+to printing manual instructions.
 
 With --json or --plain, or when no newer release exists, only the status is
 reported — no upgrade is attempted.`,
@@ -77,8 +78,4 @@ func runUpgrade(cmd *cobra.Command, status *internal.UpdateStatus) error {
 func printUpgradeFallback(out io.Writer, method internal.InstallMethod) {
 	_, _ = fmt.Fprintf(out, "  %s  %s\n",
 		color.New(color.Bold).Sprint("Upgrade:"), method.UpgradeCommand())
-	if method != internal.InstallScript && internal.HasGH() {
-		_, _ = fmt.Fprintf(out, "  %s  %s\n",
-			color.New(color.Bold).Sprint("Alternative (via gh):"), internal.GHInstallScriptCommand)
-	}
 }

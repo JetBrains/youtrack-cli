@@ -16,6 +16,10 @@ type Config struct {
 	CurrentInstance string              `json:"currentInstance"`
 	Instances       map[string]Instance `json:"instances"`
 	LastUpdateCheck int64               `json:"lastUpdateCheck,omitempty"`
+	// LatestVersion is the newest release seen by the last update check; the startup prompt reads it.
+	LatestVersion string `json:"latestVersion,omitempty"`
+	// DismissedVersion is the release the user chose to skip in the startup prompt.
+	DismissedVersion string `json:"dismissedVersion,omitempty"`
 }
 
 // Instance holds the credentials for a single YouTrack instance; Token is empty in the file when it lives in the OS keyring.
