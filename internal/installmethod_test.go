@@ -79,3 +79,26 @@ func TestIsGoBin(t *testing.T) {
 		})
 	}
 }
+
+func TestInstallerEnvDropsStaleInstallSettings(t *testing.T) {
+	t.Setenv("YOUTRACK_INSTALL_RELEASE", "v0.5.1")
+	t.Setenv("YOUTRACK_INSTALL_DIR", "/somewhere/else")
+	t.Setenv("YOUTRACK_INSTALL_UPDATE", "")
+	t.Setenv("YOUTRACK_UNRELATED", "kept")
+
+	env := map[string]int{}
+	for _, kv := range installerEnv() {
+		env[kv]++
+	}
+	for _, stale := range []string{"YOUTRACK_INSTALL_RELEASE=v0.5.1", "YOUTRACK_INSTALL_DIR=/somewhere/else", "YOUTRACK_INSTALL_UPDATE="} {
+		if env[stale] != 0 {
+			t.Errorf("installerEnv() kept %q", stale)
+		}
+	}
+	if env["YOUTRACK_INSTALL_UPDATE=1"] != 1 {
+		t.Errorf("installerEnv() must set YOUTRACK_INSTALL_UPDATE=1 exactly once")
+	}
+	if env["YOUTRACK_UNRELATED=kept"] != 1 {
+		t.Errorf("installerEnv() dropped an unrelated variable")
+	}
+}

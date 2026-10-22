@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"time"
 )
 
@@ -75,10 +76,28 @@ func RunAutoUpgradeContext(parent context.Context, method InstallMethod, _ strin
 	defer cancel()
 	cmd := exec.CommandContext(ctx, name, args...)
 	if method == InstallScript {
-		// The installers then skip the banner and the first-run "Next steps".
-		cmd.Env = append(os.Environ(), "YOUTRACK_INSTALL_UPDATE=1")
+		cmd.Env = installerEnv()
 	}
 	cmd.Stdout = out
 	cmd.Stderr = errOut
 	return true, cmd.Run()
+}
+
+// installerEnv is the environment for re-running the installer: YOUTRACK_INSTALL_UPDATE makes it skip the banner and the first-run "Next steps", and a YOUTRACK_INSTALL_RELEASE or YOUTRACK_INSTALL_DIR left over from an earlier install is dropped, so it installs the latest release over the running binary. install.ps1 reads its directory only from the environment, so on Windows it gets the running binary's.
+func installerEnv() []string {
+	var env []string
+	for _, kv := range os.Environ() {
+		name, _, _ := strings.Cut(kv, "=")
+		if strings.EqualFold(name, "YOUTRACK_INSTALL_RELEASE") || strings.EqualFold(name, "YOUTRACK_INSTALL_DIR") || strings.EqualFold(name, "YOUTRACK_INSTALL_UPDATE") {
+			continue
+		}
+		env = append(env, kv)
+	}
+	env = append(env, "YOUTRACK_INSTALL_UPDATE=1")
+	if runtime.GOOS == "windows" {
+		if exe, err := runningExecutable(); err == nil {
+			env = append(env, "YOUTRACK_INSTALL_DIR="+filepath.Dir(exe))
+		}
+	}
+	return env
 }
