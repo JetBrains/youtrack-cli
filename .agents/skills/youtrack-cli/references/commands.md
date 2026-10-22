@@ -3,7 +3,7 @@
 ## Auth
 
 ```bash
-youtrack auth login [--alias <name>] [--no-browser] [--token-name <name>] [--session] [--client-id <id>] [--port N] [--timeout <dur>] [--login <l> --password <p>]   # browser sign-in → permanent token; paste fallback
+youtrack auth login [<url-or-alias>] [--alias <name>] [--no-browser] [--scope <ids>] [--token-name <name>] [--session] [--client-id <id>] [--port N] [--timeout <dur>] [--login <l> --password <p>]   # browser sign-in → permanent token; paste fallback
 youtrack auth status                        # check credentials for all instances
 youtrack auth logout [--instance <alias>]
 youtrack auth refresh-token [<alias>]
@@ -14,7 +14,7 @@ Saved tokens use the OS keyring with a mode-`0600` config fallback. Single-insta
 Auth commands mask the token in every output format; `--show-token` prints it in full in every format.
 
 ```bash
-youtrack instance login [<url-or-alias>] [--no-browser] [--save=false] [--alias <name>] [--scope <ids>] [--port N] [--client-id <id>] [--timeout <dur>] [--token-name <name>] [--session]   # same flow as `auth login`, taking the instance as an argument; here --no-browser prints the sign-in URL and --scope takes extra Hub service IDs
+youtrack instance login [<url-or-alias>] [...]   # same command as `auth login`
 youtrack instance list
 youtrack instance use <alias>
 youtrack instance version                        # active instance's YouTrack version + build number

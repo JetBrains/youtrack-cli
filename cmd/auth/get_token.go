@@ -28,25 +28,38 @@ type getTokenResult struct {
 	Hint       string `json:"_hint,omitempty"`
 }
 
-// NewGetTokenCmd constructs the interactive authentication command. Registered
-// as "auth login" (alias "get-token") and reused by cmd/instance as "instance add";
-// both override Use and Short.
+// NewGetTokenCmd constructs the sign-in command. Registered as "auth login" (alias "get-token") and, identically, as "instance login" and "instance add"; callers override Use and Short.
 func NewGetTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "get-token",
+		Use:   "get-token [url-or-alias]",
 		Short: "Authenticate interactively and save a permanent token",
-		Long: `Prompts for the YouTrack URL, pre-filled with the active instance's URL
-(or ` + defaultBaseURL + `), and signs in through the browser: the CLI
-creates a permanent token through Hub and saves it.
+		Long: `Signs in to a YouTrack instance and saves a permanent token. The instance is
+the URL or configured alias given as the argument, then --base-url; otherwise
+the CLI asks for the URL, pre-filled with the active instance's URL (or
+` + defaultBaseURL + `). Passing an existing alias renews its token in place.
 
-When the instance's Hub has no OAuth client for the CLI, or with --no-browser,
-the CLI prints the token page link and asks you to paste a permanent token.
-With --login and --password it creates the token through Hub basic auth instead
-(deprecated: the password passes through the CLI and SSO/2FA accounts cannot use it).
+By default the CLI signs you in through the browser (OAuth 2.0 + PKCE against
+the instance's Hub), uses the short-lived access token once to create a
+permanent token, and saves that. Signing in again revokes the token it replaces
+when that token carries the same --token-name. With --session it saves the
+~1-hour access token instead, which is not refreshed.
+
+When the Hub has no OAuth client for the CLI, with --no-browser, or when stdin
+is not a terminal, the CLI prints the token page link and asks you to paste a
+permanent token. With --login and --password it creates the token through Hub
+basic auth instead (deprecated: the password passes through the CLI and SSO/2FA
+accounts cannot use it).
+
+"auth login", "instance login", and "instance add" are the same command.
 
 Use --json for machine-readable output.`,
+		Args: cobra.MaximumNArgs(1),
 		Example: `  # Sign in through the browser
   youtrack auth login
+
+  # Sign in to another instance, or renew the token of a configured alias
+  youtrack auth login https://example.youtrack.cloud
+  youtrack auth login work
 
   # Paste a token instead of signing in through the browser
   youtrack auth login --base-url https://example.youtrack.cloud --no-browser
@@ -57,24 +70,9 @@ Use --json for machine-readable output.`,
 			reader := bufio.NewReader(os.Stdin)
 
 			// YOUTRACK_BASE_URL is intentionally ignored: login sets up credentials, possibly for a new instance, so the URL is always confirmed.
-			baseURL, _ := cmd.Root().PersistentFlags().GetString("base-url")
-			if baseURL == "" {
-				if term.IsTerminal(int(os.Stdin.Fd())) {
-					output.PrintTip(cmd, "Press Ctrl+C at any time to cancel")
-					_, _ = fmt.Fprintln(cmd.ErrOrStderr())
-				}
-				url, err := promptBaseURL(cmd, reader)
-				if err != nil {
-					return err
-				}
-				baseURL = url
-			}
-			baseURL = strings.TrimRight(baseURL, "/")
-			if baseURL != "" && !strings.HasPrefix(baseURL, "http://") && !strings.HasPrefix(baseURL, "https://") {
-				baseURL = "https://" + baseURL
-			}
-			if baseURL == "" {
-				return fmt.Errorf("base URL is required")
+			baseURL, err := resolveSSOBaseURL(cmd, reader, args)
+			if err != nil {
+				return err
 			}
 
 			noBrowser, _ := cmd.Flags().GetBool("no-browser")
@@ -85,20 +83,17 @@ Use --json for machine-readable output.`,
 				}
 				return runBasicAuthFlow(cmd, reader, baseURL)
 			case noBrowser:
-				if err := requireNoSSOFlags(cmd, "with --no-browser"); err != nil {
+				if err := requireNoSSOFlags(cmd, "with --no-browser", "scope", "token-name"); err != nil {
 					return err
 				}
 				return runPasteTokenFlow(cmd, reader, baseURL)
 			case !term.IsTerminal(int(os.Stdin.Fd())):
-				if err := requireNoSSOFlags(cmd, "when stdin is not a terminal"); err != nil {
+				if err := requireNoSSOFlags(cmd, "when stdin is not a terminal (a pasted token is read instead)", "scope", "token-name"); err != nil {
 					return err
 				}
 				return runPasteTokenFlow(cmd, reader, baseURL)
 			default:
 				opts := ssoOptionsFromFlags(cmd)
-				if name, _ := cmd.Flags().GetString("token-name"); name != "" {
-					opts.tokenName = name
-				}
 				return runSSOFlow(cmd, reader, baseURL, &opts)
 			}
 		},
@@ -107,7 +102,7 @@ Use --json for machine-readable output.`,
 	cmd.Flags().String("login", "", "Hub login (basic auth; prompted interactively if omitted)")
 	cmd.Flags().String("password", "", "Password (basic auth; prompted interactively if omitted — avoid in scripts)")
 	cmd.Flags().String("token-name", "", `Name for the permanent token (default: "youtrack-cli" for browser sign-in, "cli-token" for basic auth)`)
-	cmd.Flags().String("scope", "", "Comma-separated Hub service names (basic auth only; default: YouTrack + YouTrack Administration)")
+	cmd.Flags().String("scope", "", "Comma-separated Hub services to include in the token besides YouTrack: service IDs, or names with --login (basic auth default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
 	cmd.Flags().Bool("save", true, "Save credentials to ~/.youtrack-cli-config.json")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
@@ -251,6 +246,10 @@ func maskToken(token string) string {
 
 // promptBaseURL asks for the instance URL, pre-filled with the active instance's URL or defaultBaseURL.
 func promptBaseURL(cmd *cobra.Command, reader *bufio.Reader) (string, error) {
+	if term.IsTerminal(int(os.Stdin.Fd())) {
+		output.PrintTip(cmd, "Press Ctrl+C at any time to cancel")
+		_, _ = fmt.Fprintln(cmd.ErrOrStderr())
+	}
 	baseURL := defaultBaseURL
 	if cfg, err := config.Load(); err == nil {
 		if inst, ok := cfg.Instances[cfg.CurrentInstance]; ok && inst.URL != "" {

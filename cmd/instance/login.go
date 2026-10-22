@@ -6,6 +6,10 @@ import (
 	"github.com/JetBrains/youtrack-cli/cmd/auth"
 )
 
+// newLoginCmd is "auth login" under the instance group.
 func newLoginCmd() *cobra.Command {
-	return auth.NewSSOLoginCmd()
+	cmd := auth.NewGetTokenCmd()
+	cmd.Use = "login [url-or-alias]"
+	cmd.Short = "Sign in to an instance and save a permanent token (same as auth login)"
+	return cmd
 }

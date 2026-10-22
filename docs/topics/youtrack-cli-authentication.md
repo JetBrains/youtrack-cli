@@ -118,7 +118,7 @@ Name to save the instance under. Derived from the URL hostname when omitted, for
 </td>
 <td>
 
-Comma-separated Hub service names for a basic-auth token. Defaults to `YouTrack` plus `YouTrack Administration`.
+Comma-separated Hub services to include in the token besides YouTrack: service IDs, or service names with `--login`. A basic-auth token defaults to `YouTrack` plus `YouTrack Administration`.
 
 </td>
 </tr>
@@ -141,20 +141,20 @@ Save credentials to `~/.youtrack-cli-config.json`. Enabled by default; pass `--s
 `auth login` authenticates through your existing browser session without entering a password or pasting a token:
 
 ```Shell
-youtrack auth login --base-url https://example.youtrack.cloud
+youtrack auth login https://example.youtrack.cloud
 ```
 
-`instance login` runs the same flow. It differs only in taking the instance as an argument (a URL or an existing alias) and in two flags that mean something else there, described below.
+`auth login`, `instance login`, and `instance add` are the same command with the same flags; use whichever reads best.
 
 The command discovers the instance's Hub, opens its authorization page, listens only on a loopback address (`127.0.0.1`) for the OAuth callback, verifies PKCE and state, and uses the resulting access token once to create a permanent token in Hub. The CLI saves the permanent token, so you do not need to sign in again. The token appears in your Hub profile under __Authentication__ with the name `youtrack-cli` (change it with `--token-name`), and you can revoke it there. Signing in again to the same alias replaces the saved token and revokes the previous one in Hub when it carries the same name; a token with another name, for example one you created by hand, stays valid and the CLI tells you so.
 
 To get the scope it needs for creating the token, the CLI also requests access to Hub itself. Pass `--session` to skip that and save the access token instead. It lasts about one hour and is not refreshed.
 
-Browser sign-in requires an interactive terminal. Signing in again with the same `--alias` renews that instance's token in place; `instance login` also accepts an existing alias as its argument.
+Browser sign-in requires an interactive terminal. Passing a URL signs in to that instance, passing an existing alias (for example `youtrack auth login work`) renews that instance's token in place, and running the command with no argument asks for the URL.
 
 Browser SSO works on `hub.jetbrains.com` and other Hub versions that provide the public loopback client. If the instance's Hub has no public loopback OAuth client, the command prints a notice and falls back to the permanent-token paste flow.
 
-`auth login` and `instance login` accept these flags. The two commands differ in `--no-browser` and `--scope`:
+Browser sign-in also accepts these flags. Combined with `--no-browser`, `--login`, or piped stdin, the sign-in-only flags are rejected rather than ignored:
 
 <table>
 <tr>
@@ -201,7 +201,7 @@ Name to save the instance under. Derived from the URL hostname when omitted.
 </td>
 <td>
 
-`instance login` only: comma-separated extra Hub service IDs to request in addition to the defaults. On `auth login`, `--scope` names the Hub services of a basic-auth token instead.
+Comma-separated extra Hub service IDs to request and include in the token, in addition to YouTrack.
 
 </td>
 </tr>
@@ -249,7 +249,7 @@ How long to wait for the browser callback before giving up.
 </td>
 <td>
 
-`instance login`: print the authorization URL instead of opening a browser automatically. `auth login`: skip browser sign-in and paste a permanent token instead.
+Skip browser sign-in and paste a permanent token instead.
 
 </td>
 </tr>
@@ -323,7 +323,7 @@ When a token is rotated or revoked, replace the saved token without re-adding th
 youtrack auth refresh-token sandbox
 ```
 
-If you omit the alias, the active instance is used. The command offers the same three permanent-token methods as `auth login`. The equivalent `instance refresh-token <alias>` requires the alias explicitly.
+If you omit the alias, the active instance is used. The command asks how to get the new token: basic auth, the token page in a browser, or pasting one. The equivalent `instance refresh-token <alias>` requires the alias explicitly. To get the new token through browser sign-in instead, run `youtrack auth login <alias>`.
 
 ## Checking status and logging out {id="status-logout"}
 

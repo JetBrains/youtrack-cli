@@ -27,13 +27,12 @@ const (
 	defaultSSOTokenName  = "youtrack-cli"
 )
 
-// ssoOptions are the tunables of the browser SSO flow: plain defaults from "auth login", flag-filled by "instance login".
+// ssoOptions are the tunables of the browser sign-in flow, filled from the flags of "auth login".
 type ssoOptions struct {
 	clientID    string
 	extraScopes []string
 	port        int
 	timeout     time.Duration
-	noBrowser   bool
 	session     bool
 	tokenName   string
 }
@@ -52,72 +51,10 @@ type ssoLoginResult struct {
 	Hint       string `json:"_hint,omitempty"`
 }
 
-// NewSSOLoginCmd constructs the browser single sign-on command (registered as "instance login"; also the default path of "auth login").
-func NewSSOLoginCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "login [url-or-alias]",
-		Short: "Sign in through the browser (OAuth 2.0 + PKCE) and save a permanent token",
-		Long: `Signs in to a YouTrack instance through the browser using OAuth 2.0 with
-PKCE against the instance's JetBrains Hub. No password or token paste needed —
-the browser session (including SSO) does the authentication.
-
-The CLI uses the short-lived access token once to create a permanent token
-(named by --token-name, visible in your Hub profile under Authentication) and
-saves that. With --session it saves the ~1-hour access token instead, which is
-not refreshed; re-run this command to renew it.
-
-Pass a URL to sign in to a new instance, or an existing alias to renew its
-token. The Hub must have a public loopback OAuth client registered
-(hub.jetbrains.com has one); when it does not, the command falls back to the
-paste-token flow.`,
-		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reader := bufio.NewReader(os.Stdin)
-
-			baseURL, err := resolveSSOBaseURL(cmd, reader, args)
-			if err != nil {
-				return err
-			}
-
-			// Prompt for the alias like get-token does, only when saving and not preset.
-			save, _ := cmd.Flags().GetBool("save")
-			if save && !flagChanged(cmd, "alias") && term.IsTerminal(int(os.Stdin.Fd())) {
-				alias := config.DeriveAlias(baseURL)
-				if err := newPrompter(cmd, reader).Input("Instance alias", &alias); err != nil {
-					return fmt.Errorf("reading alias: %w", err)
-				}
-				if err := cmd.Flags().Set("alias", strings.TrimSpace(alias)); err != nil {
-					return err
-				}
-			}
-
-			opts := ssoOptionsFromFlags(cmd)
-			opts.noBrowser, _ = cmd.Flags().GetBool("no-browser")
-			opts.tokenName, _ = cmd.Flags().GetString("token-name")
-			if scope, _ := cmd.Flags().GetString("scope"); scope != "" {
-				for _, s := range strings.Split(scope, ",") {
-					if s = strings.TrimSpace(s); s != "" {
-						opts.extraScopes = append(opts.extraScopes, s)
-					}
-				}
-			}
-			return runSSOFlow(cmd, reader, baseURL, &opts)
-		},
-	}
-
-	cmd.Flags().Bool("save", true, "Save credentials to ~/.youtrack-cli-config.json")
-	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
-	cmd.Flags().String("scope", "", "Comma-separated extra Hub service IDs to request in addition to the YouTrack service")
-	cmd.Flags().Bool("show-token", false, showTokenUsage)
-	cmd.Flags().Bool("no-browser", false, "Print the authorization URL instead of opening a browser")
-	cmd.Flags().String("token-name", defaultSSOTokenName, "Name for the permanent token created in Hub")
-	addSSOFlags(cmd)
-	return cmd
-}
-
+// ssoOnlyFlags take effect only in browser sign-in.
 var ssoOnlyFlags = []string{"client-id", "port", "timeout", "session"}
 
-// addSSOFlags registers the browser sign-in flags shared by "auth login" and "instance login".
+// addSSOFlags registers the browser sign-in flags of "auth login".
 func addSSOFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("port", 0, "Fixed loopback port for the OAuth callback (default: pick a free port)")
 	cmd.Flags().String("client-id", defaultOAuthClientID, "OAuth 2.0 client ID registered in Hub")
@@ -132,14 +69,24 @@ func ssoOptionsFromFlags(cmd *cobra.Command) ssoOptions {
 	opts.port, _ = cmd.Flags().GetInt("port")
 	opts.timeout, _ = cmd.Flags().GetDuration("timeout")
 	opts.session, _ = cmd.Flags().GetBool("session")
+	if name, _ := cmd.Flags().GetString("token-name"); name != "" {
+		opts.tokenName = name
+	}
+	if scope, _ := cmd.Flags().GetString("scope"); scope != "" {
+		for _, s := range strings.Split(scope, ",") {
+			if s = strings.TrimSpace(s); s != "" {
+				opts.extraScopes = append(opts.extraScopes, s)
+			}
+		}
+	}
 	return opts
 }
 
-// requireNoSSOFlags rejects browser sign-in flags on a path that never opens the browser, so a flag like --client-id is not silently ignored.
-func requireNoSSOFlags(cmd *cobra.Command, reason string) error {
-	for _, name := range ssoOnlyFlags {
+// requireNoSSOFlags rejects browser sign-in flags (plus extra) on a path that never opens the browser, so a flag like --client-id is not silently ignored.
+func requireNoSSOFlags(cmd *cobra.Command, reason string, extra ...string) error {
+	for _, name := range append(slices.Clone(ssoOnlyFlags), extra...) {
 		if flagChanged(cmd, name) {
-			return fmt.Errorf("--%s applies to browser sign-in only and cannot be used %s", name, reason)
+			return fmt.Errorf("--%s has no effect %s", name, reason)
 		}
 	}
 	return nil
@@ -194,7 +141,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	stderr := cmd.ErrOrStderr()
 	interactive := term.IsTerminal(int(os.Stdin.Fd()))
 
-	if !interactive && !opts.noBrowser {
+	if !interactive {
 		return fmt.Errorf("browser login needs an interactive terminal — use `youtrack auth login` (paste token) or set YOUTRACK_TOKEN\nnote: the OAuth callback goes to this machine's loopback, so the flow cannot work over plain SSH unless you forward the callback port")
 	}
 
@@ -259,17 +206,12 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 
-	if opts.noBrowser {
-		_, _ = fmt.Fprintf(stderr, "Open this URL in your browser to sign in:\n  %s\n\nWaiting for the callback on %s ...\n", hyperlink(authorizeURL), redirectURI)
-	} else {
-		_, _ = fmt.Fprintf(stderr, "Opening your browser to complete sign-in...\nIf it does not open, use this URL:\n  %s\n", hyperlink(authorizeURL))
-	}
+	_, _ = fmt.Fprintf(stderr, "Opening your browser to complete sign-in...\nIf it does not open, use this URL:\n  %s\n", hyperlink(authorizeURL))
 
 	res, err := browserflow.Run(cmd.Context(), browserflow.Options{
 		Listener: listener,
 		State:    state,
 		OpenURL:  authorizeURL,
-		NoOpen:   opts.noBrowser,
 		Timeout:  opts.timeout,
 		Warn: func(format string, args ...any) {
 			_, _ = fmt.Fprintf(stderr, format+"\n", args...)

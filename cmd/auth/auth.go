@@ -21,7 +21,7 @@ func NewCmd() *cobra.Command {
 
 func newLoginCmd() *cobra.Command {
 	c := NewGetTokenCmd()
-	c.Use = "login"
+	c.Use = "login [url-or-alias]"
 	c.Aliases = []string{"get-token"}
 	c.Short = "Authenticate with a YouTrack instance"
 	return c

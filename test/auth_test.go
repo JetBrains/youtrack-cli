@@ -528,33 +528,6 @@ func TestAuth_GetToken_RejectsUnsafeHubURL(t *testing.T) {
 	}
 }
 
-func TestInstanceLogin_RejectsUnsafeHubURL(t *testing.T) {
-	var hubURL string
-	// Answers every request with 200 so the OAuth pre-flight would pass — only Hub URL validation stands between the advertised URL and the browser.
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/api/config" {
-			w.Header().Set("Content-Type", "application/json")
-			_ = json.NewEncoder(w).Encode(map[string]any{"ring": map[string]any{"url": hubURL, "serviceId": "svc"}})
-			return
-		}
-		w.WriteHeader(http.StatusOK)
-	}))
-	t.Cleanup(srv.Close)
-	// Userinfo makes the link read as decoy.example while it actually targets the fake server.
-	hubURL = strings.Replace(srv.URL, "://", "://decoy.example@", 1)
-
-	cmd := exec.Command(binaryPath, "--plain", "instance", "login", srv.URL,
-		"--alias", "unsafehub", "--no-browser", "--timeout", "2s")
-	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
-	cmd.Stdin = strings.NewReader("perm:not-a-real-token\n")
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	_ = cmd.Run() // token verification against the fake instance fails; only what was offered to the user matters.
-	assert.Contains(t, stderr.String(), "falling back to the paste-token flow")
-	assert.NotContains(t, stderr.String(), "Open this URL in your browser")
-	assert.NotContains(t, stderr.String(), "oauth2/auth")
-}
-
 func TestAuth_GetToken_RefusesBasicAuthOverRemoteHTTP(t *testing.T) {
 	// The guard runs before any request, so an unresolvable host is enough.
 	args := []string{"--base-url", "http://youtrack.invalid", "auth", "get-token", "--save=false", "--login", "x", "--password", "y"}
@@ -594,8 +567,8 @@ func TestAuth_GetToken_ReadOnlyBlocksHubTokenCreation(t *testing.T) {
 }
 
 func TestAuthLogin_BrowserFlagsRejectedOnPathsWithoutBrowser(t *testing.T) {
-	// Piped stdin never opens the browser, so a browser-only flag must fail loudly instead of being ignored.
-	for _, flag := range [][]string{{"--session"}, {"--client-id", "x"}, {"--port", "8765"}, {"--timeout", "1m"}} {
+	// Piped stdin reads a pasted token and never opens the browser, so a flag that only shapes the sign-in must fail loudly instead of being ignored.
+	for _, flag := range [][]string{{"--session"}, {"--client-id", "x"}, {"--port", "8765"}, {"--timeout", "1m"}, {"--scope", "x"}, {"--token-name", "x"}} {
 		t.Run(flag[0], func(t *testing.T) {
 			args := append([]string{"--base-url", "https://youtrack.invalid", "auth", "login", "--save=false"}, flag...)
 			cmd := exec.Command(binaryPath, args...)
@@ -604,7 +577,7 @@ func TestAuthLogin_BrowserFlagsRejectedOnPathsWithoutBrowser(t *testing.T) {
 			var stderr bytes.Buffer
 			cmd.Stderr = &stderr
 			require.Error(t, cmd.Run())
-			assert.Contains(t, stderr.String(), flag[0]+" applies to browser sign-in only")
+			assert.Contains(t, stderr.String(), flag[0]+" has no effect when stdin is not a terminal")
 		})
 	}
 
@@ -613,5 +586,5 @@ func TestAuthLogin_BrowserFlagsRejectedOnPathsWithoutBrowser(t *testing.T) {
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
-	assert.Contains(t, stderr.String(), "--session applies to browser sign-in only and cannot be used with --no-browser")
+	assert.Contains(t, stderr.String(), "--session has no effect with --no-browser")
 }

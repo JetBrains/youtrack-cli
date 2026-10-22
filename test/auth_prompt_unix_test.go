@@ -207,3 +207,46 @@ func TestAuthLogin_PortFlagFailsWhenPortIsBusy(t *testing.T) {
 	require.Error(t, s.wait())
 	assert.Contains(t, s.output(), fmt.Sprintf("port %d is in use", port))
 }
+
+func TestAuthLogin_FallsBackToPasteWithoutUsableHub(t *testing.T) {
+	requireE2EEnv(t)
+	token := os.Getenv("YOUTRACK_TOKEN")
+	baseURL := os.Getenv("YOUTRACK_BASE_URL")
+
+	// The harness reports its built-in Hub as the relative URL "/hub", which browser sign-in does not accept, so login falls back to pasting a token.
+	s := startPTY(t, []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1", "TERM=tmux-256color"},
+		"--plain", "instance", "login", baseURL, "--save=false")
+	s.waitFor("falling back to the paste-token flow")
+	s.waitFor("Open browser to create a token?")
+	s.send("n")
+	s.waitFor("Paste your token")
+	s.send(token + "\r")
+	require.NoError(t, s.wait(), "output:\n%s", s.output())
+	assert.Contains(t, s.output(), "Authenticated as")
+}
+
+func TestAuthLogin_RejectsUnsafeHubURL(t *testing.T) {
+	var hubURL string
+	// Answers every request with 200 so the OAuth pre-flight would pass — only Hub URL validation stands between the advertised URL and the browser.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/config" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]any{"ring": map[string]any{"url": hubURL, "serviceId": "svc"}})
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	// Userinfo makes the link read as decoy.example while it actually targets the fake server.
+	hubURL = strings.Replace(srv.URL, "://", "://decoy.example@", 1)
+
+	s := browserLoginPTY(t, srv, "--timeout", "2s")
+	s.waitFor("falling back to the paste-token flow")
+	s.waitFor("Open browser to create a token?")
+	s.send("n")
+	s.waitFor("Paste your token")
+	s.send("perm:not-a-real-token\r")
+	_ = s.wait() // verification against the fake instance fails; only what was offered to the user matters.
+	assert.NotContains(t, s.output(), "use this URL")
+	assert.NotContains(t, s.output(), "oauth2/auth")
+}
