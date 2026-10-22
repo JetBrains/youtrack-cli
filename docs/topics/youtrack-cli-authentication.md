@@ -47,7 +47,7 @@ Verify that the credentials work with `youtrack auth status`.
 
 ## Authenticating interactively {id="interactive-login"}
 
-The `auth login` command signs you in and saves a token: by default the ~1-hour session token from browser sign-in, or a permanent token you paste or create through basic auth. Run it with no arguments:
+The `auth login` command signs you in and saves a permanent token. By default it creates the token through browser sign-in; you can also paste one or create it through basic auth. Run it with no arguments:
 
 ```Shell
 youtrack auth login
@@ -55,7 +55,7 @@ youtrack auth login
 
 It asks for the YouTrack URL (unless you pass `--base-url`). The field is pre-filled with the URL of the active instance, or `https://youtrack.jetbrains.com` when none is configured; edit it or press Enter to accept it. The alias is derived from the URL; pass `--alias` to choose another. Then:
 
-- By default, the CLI signs you in through the browser, as described in [Signing in with the browser](#browser-sso), and saves the session token it gets back.
+- By default, the CLI signs you in through the browser, as described in [Signing in with the browser](#browser-sso), and saves a permanent token created through Hub.
 - When the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it in your browser, and asks you to paste a permanent token you created there. The same happens when stdin is not a terminal, so scripts can pipe a token in.
 - With `--login` and `--password`, the CLI creates the token through Hub basic auth instead. Basic auth is deprecated: the password passes through the CLI and it does not work with SSO or two-factor authentication. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token. Over a plain `http` URL to a host other than `localhost`, basic auth stops before it sends the password; use the `https` URL, or pass `--insecure` to send the password unencrypted.
 
@@ -146,7 +146,9 @@ youtrack auth login https://example.youtrack.cloud
 
 `auth login`, `instance login`, and `instance add` are the same command with the same flags; use whichever reads best.
 
-The command discovers the instance's Hub, opens its authorization page, listens only on a loopback address (`127.0.0.1`) for the OAuth callback, verifies PKCE and state, and saves the resulting access token. The token normally lasts about one hour and is not refreshed; run `youtrack auth login <alias>` again to renew it. For a permanent, non-expiring token, pass `--no-browser` and paste one.
+The command discovers the instance's Hub, opens its authorization page, listens only on a loopback address (`127.0.0.1`) for the OAuth callback, verifies PKCE and state, and uses the resulting access token once to create a permanent token in Hub. The CLI saves the permanent token, so you do not need to sign in again. The token appears in your Hub profile under __Authentication__ with the name `youtrack-cli` (change it with `--token-name`), and you can revoke it there. Signing in again to the same alias replaces the saved token and revokes the previous one in Hub when it carries the same name; a token with another name, for example one you created by hand, stays valid and the CLI tells you so.
+
+To get the scope it needs for creating the token, the CLI also requests access to Hub itself. Pass `--session` to skip that and save the access token instead. It lasts about one hour and is not refreshed.
 
 Browser sign-in requires an interactive terminal. Passing a URL signs in to that instance, passing an existing alias (for example `youtrack auth login work`) renews that instance's token in place, and running the command with no argument asks for the URL.
 
@@ -248,6 +250,30 @@ How long to wait for the browser callback before giving up.
 <td>
 
 Skip browser sign-in and paste a permanent token instead.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--token-name`
+
+</td>
+<td>
+
+Name of the permanent token created in Hub. Default: `youtrack-cli` (`cli-token` for basic auth).
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--session`
+
+</td>
+<td>
+
+Save the ~1-hour OAuth access token instead of creating a permanent token.
 
 </td>
 </tr>

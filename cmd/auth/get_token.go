@@ -32,15 +32,17 @@ type getTokenResult struct {
 func NewGetTokenCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "get-token [url-or-alias]",
-		Short: "Authenticate interactively and save the token",
-		Long: `Signs in to a YouTrack instance and saves the token. The instance is the URL
-or configured alias given as the argument, then --base-url; otherwise the CLI
-asks for the URL, pre-filled with the active instance's URL (or
+		Short: "Authenticate interactively and save a permanent token",
+		Long: `Signs in to a YouTrack instance and saves a permanent token. The instance is
+the URL or configured alias given as the argument, then --base-url; otherwise
+the CLI asks for the URL, pre-filled with the active instance's URL (or
 ` + defaultBaseURL + `). Passing an existing alias renews its token in place.
 
 By default the CLI signs you in through the browser (OAuth 2.0 + PKCE against
-the instance's Hub) and saves the resulting access token. It lasts about one
-hour and is not refreshed; run the command again to renew it.
+the instance's Hub), uses the short-lived access token once to create a
+permanent token, and saves that. Signing in again revokes the token it replaces
+when that token carries the same --token-name. With --session it saves the
+~1-hour access token instead, which is not refreshed.
 
 When the Hub has no OAuth client for the CLI, with --no-browser, or when stdin
 is not a terminal, the CLI prints the token page link and asks you to paste a
@@ -91,7 +93,7 @@ Use --json for machine-readable output.`,
 				}
 				return runPasteTokenFlow(cmd, reader, baseURL)
 			default:
-				if err := rejectFlags(cmd, "with browser sign-in; it applies to basic auth (--login)", "token-name", "insecure"); err != nil {
+				if err := rejectFlags(cmd, "with browser sign-in; it applies to basic auth (--login)", "insecure"); err != nil {
 					return err
 				}
 				opts := ssoOptionsFromFlags(cmd)
@@ -102,7 +104,7 @@ Use --json for machine-readable output.`,
 
 	cmd.Flags().String("login", "", "Hub login (basic auth; prompted interactively if omitted)")
 	cmd.Flags().String("password", "", "Password (basic auth; prompted interactively if omitted — avoid in scripts)")
-	cmd.Flags().String("token-name", "", `Name for the permanent token (basic auth only; default "cli-token")`)
+	cmd.Flags().String("token-name", "", `Name for the permanent token (default: "youtrack-cli" for browser sign-in, "cli-token" for basic auth)`)
 	cmd.Flags().String("scope", "", "Comma-separated Hub services to include in the token besides YouTrack: service IDs, or names with --login (basic auth default: YouTrack + YouTrack Administration)")
 	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
 	cmd.Flags().Bool("save", true, "Save credentials to the config file (~/.config/youtrack/config.json)")
