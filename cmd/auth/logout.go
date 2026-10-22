@@ -20,7 +20,7 @@ func newLogoutCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logout",
 		Short: "Remove saved credentials for an instance",
-		Long: `Removes an instance from ~/.youtrack-cli-config.json.
+		Long: `Removes an instance from the config file (~/.config/youtrack/config.json).
 
 The token remains valid on the YouTrack server until deleted manually
 from your profile (Users → your account → Authentication tab).

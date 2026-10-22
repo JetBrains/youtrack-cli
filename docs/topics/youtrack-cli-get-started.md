@@ -104,7 +104,7 @@ The command asks for your base URL (for example, `https://example.youtrack.cloud
 - __Paste token__ — enter an existing permanent token directly.
 - __Browser SSO__ — authenticate through Hub with OAuth 2.0 + PKCE and save a short-lived token (about one hour). On compatible instances you can also run `youtrack instance login <url>` directly.
 
-Saved tokens use the OS keyring when available; the config file at `~/.youtrack-cli-config.json` stores the instance metadata. To manage several instances, register each under its own alias and switch between them with `youtrack instance use <alias>`. See [Configuration](youtrack-cli-configuration.md) for the full precedence and storage rules.
+Saved tokens use the OS keyring when available; the config file at `~/.config/youtrack/config.json` stores the instance metadata. To manage several instances, register each under its own alias and switch between them with `youtrack instance use <alias>`. See [Configuration](youtrack-cli-configuration.md) for the full precedence and storage rules.
 
 ### Using environment variables
 

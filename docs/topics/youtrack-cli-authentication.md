@@ -131,7 +131,7 @@ Comma-separated Hub service names for a basic-auth token. Defaults to `YouTrack`
 </td>
 <td>
 
-Save credentials to `~/.youtrack-cli-config.json`. Enabled by default; pass `--save=false` to verify a token without storing it.
+Save credentials to the [config file](youtrack-cli-configuration.md#config-file) (`~/.config/youtrack/config.json`). Enabled by default; pass `--save=false` to verify a token without storing it.
 
 </td>
 </tr>
@@ -331,7 +331,7 @@ Credentials saved by `auth login`, `instance add`, `instance login`, and `auth r
 - Windows Credential Manager
 - Linux Secret Service, including GNOME Keyring and KWallet
 
-The keyring service is `youtrack-cli`, keyed by instance alias. A second entry under the service `youtrack-cli-url`, with the same alias, records the instance URL the token belongs to; the CLI sends the token only to that URL. The config file at `~/.youtrack-cli-config.json` then contains the instance URL and non-secret metadata but no token. Removing an instance with `instance delete` or logging out with `auth logout` deletes both keyring entries as well.
+The keyring service is `youtrack-cli`, keyed by instance alias. A second entry under the service `youtrack-cli-url`, with the same alias, records the instance URL the token belongs to; the CLI sends the token only to that URL. The config file at `~/.config/youtrack/config.json` then contains the instance URL and non-secret metadata but no token. Removing an instance with `instance delete` or logging out with `auth logout` deletes both keyring entries as well.
 
 If the keyring is unavailable, for example in a headless container or with a locked keychain, the CLI falls back to writing the token to the config file with mode `0600` and prints a warning to stderr. Existing file-stored tokens migrate to the keyring on a later successful save. Set `YOUTRACK_DISABLE_KEYRING=1` to request file storage explicitly.
 
@@ -347,7 +347,7 @@ A permanent token acts on behalf of your YouTrack account. YouTrack does not cur
 
 To limit exposure:
 
-- Keep `~/.youtrack-cli-config.json` readable only by your user, or pass the token through an environment variable or a secrets manager instead of saving it. Never commit a token to version control.
+- Keep `~/.config/youtrack/config.json` readable only by your user, or pass the token through an environment variable or a secrets manager instead of saving it. Never commit a token to version control.
 - Create a dedicated service account with only the access a pipeline needs.
 - Rotate tokens regularly and revoke leaked tokens from the __Account Security__ tab.
 - Set `YOUTRACK_RO=1` to block all write operations when a workflow only needs to read.
