@@ -59,9 +59,9 @@ func saveUpdateCheckTimestamp(now int64) {
 	_ = cfg.Save()
 }
 
-// saveLatestVersion re-loads the config and records the newest release seen, for the
+// RecordLatestVersion re-loads the config and records the newest release seen, for the
 // startup update prompt.
-func saveLatestVersion(version string) {
+func RecordLatestVersion(version string) {
 	cfg, err := config.Load()
 	if err != nil || cfg.LatestVersion == version {
 		return
@@ -72,8 +72,10 @@ func saveLatestVersion(version string) {
 
 // CheckForUpdateAsync decides synchronously whether a check is due and, if so, persists
 // the throttle timestamp up front so it survives an immediate exit (e.g. --quiet, or a
-// wait shorter than the network round trip). The network fetch runs in the background.
-// Returns a channel that receives at most one notice string then closes.
+// wait shorter than the network round trip). The network fetch runs in the background
+// and only reports what it found: the channel receives at most one latest-release
+// version, then closes. The caller records it (RecordLatestVersion) once the command is
+// done, so the fetch never writes the config while the command or the startup prompt does.
 func CheckForUpdateAsync(currentVersion string) <-chan string {
 	ch := make(chan string, 1)
 	if !updateCheckDue(currentVersion) {
@@ -84,8 +86,8 @@ func CheckForUpdateAsync(currentVersion string) <-chan string {
 	saveUpdateCheckTimestamp(time.Now().Unix())
 	go func() {
 		defer close(ch)
-		if notice := checkForUpdate(currentVersion); notice != "" {
-			ch <- notice
+		if release, err := fetchLatestRelease(context.Background()); err == nil {
+			ch <- release.Version
 		}
 	}()
 	return ch
@@ -186,19 +188,17 @@ func parseReleaseJSON(data []byte) (*ReleaseInfo, error) {
 	}, nil
 }
 
-func checkForUpdate(currentVersion string) string {
-	release, err := fetchLatestRelease(context.Background())
-	if err != nil {
+// UpdateNotice returns the post-command notice for latest, or "" when it is not newer than currentVersion or the user chose "Skip until next version" for it.
+func UpdateNotice(currentVersion, latest string) string {
+	if !IsNewerVersion(strings.TrimPrefix(currentVersion, "v"), latest) {
 		return ""
 	}
-	saveLatestVersion(release.Version)
-	current := strings.TrimPrefix(currentVersion, "v")
-	if !IsNewerVersion(current, release.Version) {
+	if cfg, err := config.Load(); err == nil && cfg.DismissedVersion == latest {
 		return ""
 	}
 	return fmt.Sprintf(
 		"ℹ  YouTrack CLI v%s is available (you have %s) — run 'youtrack update' to update",
-		release.Version, currentVersion,
+		latest, currentVersion,
 	)
 }
 
@@ -211,7 +211,7 @@ func CheckNowContext(ctx context.Context, currentVersion string) (*UpdateStatus,
 		return nil, err
 	}
 	saveUpdateCheckTimestamp(time.Now().Unix())
-	saveLatestVersion(release.Version)
+	RecordLatestVersion(release.Version)
 
 	current := strings.TrimPrefix(currentVersion, "v")
 	status := &UpdateStatus{

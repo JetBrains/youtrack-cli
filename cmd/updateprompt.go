@@ -13,6 +13,9 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
+// updatePromptShown records that this run showed the startup update prompt, so Execute skips the post-command notice.
+var updatePromptShown bool
+
 // maybePromptForUpdate offers the newer release cached by the last background update
 // check before the command runs, as Codex CLI does. Only a person at a terminal sees
 // it (see internal.UpdatePromptEnabled), and only for install methods that
@@ -38,6 +41,7 @@ func maybePromptForUpdate(cmd *cobra.Command) {
 		return
 	}
 
+	updatePromptShown = true
 	errOut := cmd.ErrOrStderr()
 	faint := color.New(color.Faint).SprintFunc()
 	_, _ = fmt.Fprintf(errOut, "%s %s %s %s\n", color.New(color.Bold).Sprint("Update available!"),

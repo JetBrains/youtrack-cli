@@ -428,3 +428,29 @@ func TestCmd_Update_AutoUpgrade_HomebrewThroughSymlink(t *testing.T) {
 	require.NoError(t, readErr, "stub brew was never invoked; output: %s", output)
 	require.Equal(t, "upgrade youtrack\n", string(got))
 }
+
+func TestCmd_UpdatePrompt_NoNoticeAfterPrompt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("pty-based TTY simulation is POSIX-only")
+	}
+	binary := buildVersionedBinaryAt(t, "Cellar/youtrack/0.0.1/bin", "0.0.1")
+	home := t.TempDir()
+	// lastUpdateCheck 0 makes this run's background check fire, so a post-command notice would follow the prompt.
+	cfgPath := filepath.Join(home, ".youtrack-cli-config.json")
+	require.NoError(t, os.WriteFile(cfgPath, []byte(`{"latestVersion":"9.9.9","lastUpdateCheck":0}`), 0o600))
+
+	out, err := runViaPTYAnswering(t, binary, promptEnv(home), "2", "instance", "list")
+	require.NoError(t, err, "output: %s", out)
+	require.Contains(t, out, "Update available!")
+	require.NotContains(t, out, "is available (you have", "the prompt already offered the update this run")
+
+	data, err := os.ReadFile(cfgPath)
+	require.NoError(t, err)
+	var cfg struct {
+		LatestVersion string `json:"latestVersion"`
+	}
+	require.NoError(t, json.Unmarshal(data, &cfg))
+	if cfg.LatestVersion == "9.9.9" {
+		t.Skip("the background check did not reach the GitHub API within the notice wait")
+	}
+}

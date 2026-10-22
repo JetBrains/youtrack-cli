@@ -117,14 +117,29 @@ func Execute(fs embed.FS) error {
 	// Suppress the plain-text update notice when a JSON error envelope was written to stderr, so that stream stays parseable.
 	jsonErrEmitted := jsonMode && execErr != nil
 	if quiet || jsonErrEmitted {
+		// No notice to print, so don't wait; record a release that has already arrived.
+		select {
+		case latest, ok := <-done:
+			if ok {
+				internal.RecordLatestVersion(latest)
+			}
+		default:
+		}
 		return execErr
 	}
 	// The throttle timestamp is persisted synchronously in CheckForUpdateAsync, so bounding the wait here
 	// only risks skipping this run's notice, never a repeated API call. On throttled runs done is already closed.
 	select {
-	case notice := <-done:
-		if notice != "" {
-			_, _ = fmt.Fprintln(root.ErrOrStderr(), notice)
+	case latest, ok := <-done:
+		if !ok {
+			break
+		}
+		internal.RecordLatestVersion(latest)
+		// The startup prompt already offered this release; repeating it as a notice would contradict the answer.
+		if !updatePromptShown {
+			if notice := internal.UpdateNotice(internal.Version, latest); notice != "" {
+				_, _ = fmt.Fprintln(root.ErrOrStderr(), notice)
+			}
 		}
 	case <-time.After(updateNoticeWait):
 	}
