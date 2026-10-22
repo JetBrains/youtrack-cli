@@ -78,7 +78,7 @@ func rawPaginated(client *api.Client, path string, pageSize int) ([]any, error) 
 	if pageSize <= 0 {
 		return nil, fmt.Errorf("--page-size must be greater than zero")
 	}
-	var all []any
+	all := make([]any, 0)
 	for offset := 0; ; offset += pageSize {
 		pagePath, err := withRawPage(path, pageSize, offset)
 		if err != nil {
