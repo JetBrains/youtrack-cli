@@ -47,7 +47,7 @@ Verify that the credentials work with `youtrack auth status`.
 
 ## Authenticating interactively {id="interactive-login"}
 
-The `auth login` command signs you in and saves a permanent token. Run it with no arguments:
+The `auth login` command signs you in and saves a token: by default the ~1-hour session token from browser sign-in, or a permanent token you paste or create through basic auth. Run it with no arguments:
 
 ```Shell
 youtrack auth login

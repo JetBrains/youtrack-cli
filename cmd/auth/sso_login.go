@@ -73,7 +73,12 @@ func ssoOptionsFromFlags(cmd *cobra.Command) ssoOptions {
 
 // requireNoSSOFlags rejects browser sign-in flags (plus extra) on a path that never opens the browser, so a flag like --client-id is not silently ignored.
 func requireNoSSOFlags(cmd *cobra.Command, reason string, extra ...string) error {
-	for _, name := range append(slices.Clone(ssoOnlyFlags), extra...) {
+	return rejectFlags(cmd, reason, append(slices.Clone(ssoOnlyFlags), extra...)...)
+}
+
+// rejectFlags fails on the first of names that was set, because on the chosen path it would be silently ignored.
+func rejectFlags(cmd *cobra.Command, reason string, names ...string) error {
+	for _, name := range names {
 		if flagChanged(cmd, name) {
 			return fmt.Errorf("--%s has no effect %s", name, reason)
 		}

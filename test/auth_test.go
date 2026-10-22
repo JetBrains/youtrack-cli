@@ -568,7 +568,7 @@ func TestAuth_GetToken_ReadOnlyBlocksHubTokenCreation(t *testing.T) {
 
 func TestAuthLogin_BrowserFlagsRejectedOnPathsWithoutBrowser(t *testing.T) {
 	// Piped stdin reads a pasted token and never opens the browser, so a flag that only shapes the sign-in must fail loudly instead of being ignored.
-	for _, flag := range [][]string{{"--client-id", "x"}, {"--port", "8765"}, {"--timeout", "1m"}, {"--scope", "x"}} {
+	for _, flag := range [][]string{{"--client-id", "x"}, {"--port", "8765"}, {"--timeout", "1m"}, {"--scope", "x"}, {"--token-name", "x"}, {"--insecure"}} {
 		t.Run(flag[0], func(t *testing.T) {
 			args := append([]string{"--base-url", "https://youtrack.invalid", "auth", "login", "--save=false"}, flag...)
 			cmd := exec.Command(binaryPath, args...)
@@ -587,4 +587,12 @@ func TestAuthLogin_BrowserFlagsRejectedOnPathsWithoutBrowser(t *testing.T) {
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
 	assert.Contains(t, stderr.String(), "--client-id has no effect with --no-browser")
+
+	// Basic auth never opens the browser either, so --no-browser alongside --login is rejected too.
+	cmd = exec.Command(binaryPath, "--base-url", "https://youtrack.invalid", "auth", "login", "--save=false", "--login", "x", "--password", "y", "--no-browser")
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
+	stderr.Reset()
+	cmd.Stderr = &stderr
+	require.Error(t, cmd.Run())
+	assert.Contains(t, stderr.String(), "--no-browser has no effect with --login or --password")
 }

@@ -272,3 +272,15 @@ func TestAuthLogin_FallsBackToPasteWithoutServiceID(t *testing.T) {
 	assert.Contains(t, s.output(), "Could not discover the YouTrack service ID")
 	assert.NotContains(t, s.output(), "use `youtrack auth login` instead")
 }
+
+func TestAuthLogin_BasicAuthFlagsRejectedWithBrowserSignIn(t *testing.T) {
+	srv := fakeHubInstance(t)
+	for _, flag := range [][]string{{"--token-name", "build-agent"}, {"--insecure"}} {
+		t.Run(flag[0], func(t *testing.T) {
+			s := browserLoginPTY(t, srv, flag...)
+			require.Error(t, s.wait())
+			assert.Contains(t, s.output(), flag[0]+" has no effect with browser sign-in")
+			assert.NotContains(t, s.output(), "use this URL", "the flag must be rejected before sign-in starts")
+		})
+	}
+}

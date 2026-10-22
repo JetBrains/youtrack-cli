@@ -76,21 +76,24 @@ Use --json for machine-readable output.`,
 			noBrowser, _ := cmd.Flags().GetBool("no-browser")
 			switch {
 			case flagChanged(cmd, "login") || flagChanged(cmd, "password"):
-				if err := requireNoSSOFlags(cmd, "with --login or --password"); err != nil {
+				if err := requireNoSSOFlags(cmd, "with --login or --password", "no-browser"); err != nil {
 					return err
 				}
 				return runBasicAuthFlow(cmd, reader, baseURL)
 			case noBrowser:
-				if err := requireNoSSOFlags(cmd, "with --no-browser", "scope"); err != nil {
+				if err := requireNoSSOFlags(cmd, "with --no-browser", "scope", "token-name", "insecure"); err != nil {
 					return err
 				}
 				return runPasteTokenFlow(cmd, reader, baseURL)
 			case !term.IsTerminal(int(os.Stdin.Fd())):
-				if err := requireNoSSOFlags(cmd, "when stdin is not a terminal (a pasted token is read instead)", "scope"); err != nil {
+				if err := requireNoSSOFlags(cmd, "when stdin is not a terminal (a pasted token is read instead)", "scope", "token-name", "insecure"); err != nil {
 					return err
 				}
 				return runPasteTokenFlow(cmd, reader, baseURL)
 			default:
+				if err := rejectFlags(cmd, "with browser sign-in; it applies to basic auth (--login)", "token-name", "insecure"); err != nil {
+					return err
+				}
 				opts := ssoOptionsFromFlags(cmd)
 				return runSSOFlow(cmd, reader, baseURL, &opts)
 			}
