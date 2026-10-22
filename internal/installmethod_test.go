@@ -102,3 +102,16 @@ func TestInstallerEnvDropsStaleInstallSettings(t *testing.T) {
 		t.Errorf("installerEnv() dropped an unrelated variable")
 	}
 }
+
+func TestShellQuote(t *testing.T) {
+	for in, want := range map[string]string{
+		"/home/alice/.local/bin": `'/home/alice/.local/bin'`,
+		"/opt/my tools":          `'/opt/my tools'`,
+		"/tmp/it's":              `'/tmp/it'\''s'`,
+		"/tmp/$(rm -rf ~)":       `'/tmp/$(rm -rf ~)'`,
+	} {
+		if got := shellQuote(in); got != want {
+			t.Errorf("shellQuote(%q) = %s, want %s", in, got, want)
+		}
+	}
+}

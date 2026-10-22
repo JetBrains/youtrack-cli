@@ -178,8 +178,16 @@ func (m InstallMethod) UpgradeCommand() string {
 		if runtime.GOOS == "windows" {
 			return "irm " + installScriptPSURL + " | iex"
 		}
+		if exe, err := runningExecutable(); err == nil {
+			return "curl -fsSL " + installScriptURL + ` | bash -s -- "" ` + shellQuote(filepath.Dir(exe))
+		}
 		return "curl -fsSL " + installScriptURL + " | bash"
 	default:
 		return "visit " + releasesURL
 	}
+}
+
+// shellQuote quotes s for a POSIX shell, so a printed command can be copied as is.
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
