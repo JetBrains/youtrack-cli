@@ -94,15 +94,12 @@ YouTrack CLI authenticates to the YouTrack REST API with a permanent token. A pe
 Run the setup command and follow the prompts:
 
 ```Shell
-youtrack instance add
+youtrack auth login
 ```
 
-The command asks for your base URL (for example, `https://example.youtrack.cloud`), an alias for the instance, and an authentication method:
+The command asks for your YouTrack URL, pre-filled with `https://youtrack.jetbrains.com` (or the active instance's URL); edit it or press Enter to accept it. It then opens your browser to sign in through Hub and saves the resulting session token, which lasts about an hour.
 
-- __Basic auth__ — sign in with your login and password; the CLI creates a permanent token for you.
-- __Web browser__ — the CLI opens the token page so you can create a token and paste it back.
-- __Paste token__ — enter an existing permanent token directly.
-- __Browser SSO__ — authenticate through Hub with OAuth 2.0 + PKCE and save a short-lived token (about one hour). On compatible instances you can also run `youtrack instance login <url>` directly.
+If the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it, and asks you to paste a permanent token you created there.
 
 Saved tokens use the OS keyring when available; the config file at `~/.config/youtrack/config.json` stores the instance metadata. To manage several instances, register each under its own alias and switch between them with `youtrack instance use <alias>`. See [Configuration](youtrack-cli-configuration.md) for the full precedence and storage rules.
 

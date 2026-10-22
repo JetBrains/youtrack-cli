@@ -12,6 +12,7 @@ import (
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
+	"github.com/JetBrains/youtrack-cli/internal/prompt"
 )
 
 // NewRefreshTokenCmd constructs the "refresh-token" command. Exported so
@@ -61,16 +62,18 @@ Use --json for machine-readable output.`,
 
 			reader := bufio.NewReader(os.Stdin)
 
-			_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
-				"\nSelect authentication method:\n  1) Basic auth (login + password)\n  2) Web browser (open token page and paste)\n  3) Paste token directly\nSelect [1-3]: ")
-			choiceRaw, err := internal.ReadLineContext(cmd.Context(), reader)
-			if err != nil {
+			choice := "2"
+			if err := newPrompter(cmd, reader).Select("Authentication method", []prompt.Option{
+				{Label: "Basic auth (login + password)", Value: "1"},
+				{Label: "Web browser (open token page and paste)", Value: "2"},
+				{Label: "Paste token directly", Value: "3"},
+			}, &choice); err != nil {
 				return fmt.Errorf("reading auth type: %w", err)
 			}
 
 			var token string
 			var hubToken *api.HubToken
-			switch strings.TrimSpace(choiceRaw) {
+			switch choice {
 			case "1":
 				hubToken, err = acquireTokenViaBasicAuth(cmd, reader, inst.URL)
 				if err != nil {
@@ -89,8 +92,6 @@ Use --json for machine-readable output.`,
 					return err
 				}
 				hubToken = &api.HubToken{Token: token}
-			default:
-				return fmt.Errorf("invalid choice %q: enter 1, 2, or 3", strings.TrimSpace(choiceRaw))
 			}
 
 			// Upsert in-place: same alias + same URL = token update, no alias collision.
@@ -136,29 +137,16 @@ func acquireTokenViaBasicAuth(cmd *cobra.Command, reader *bufio.Reader, baseURL 
 		return nil, err
 	}
 
+	ask := newPrompter(cmd, reader)
 	if login == "" {
-		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Login: "); err != nil {
-			return nil, err
-		}
-		raw, err := internal.ReadLineContext(cmd.Context(), reader)
-		if err != nil {
+		if err := ask.Input("Hub login", &login); err != nil {
 			return nil, fmt.Errorf("reading login: %w", err)
 		}
-		login = strings.TrimSpace(raw)
 	}
-
 	if password == "" {
-		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Password: "); err != nil {
-			return nil, err
-		}
-		raw, err := internal.ReadPasswordContext(cmd.Context(), int(os.Stdin.Fd()))
-		if _, printErr := fmt.Fprintln(cmd.ErrOrStderr()); printErr != nil {
-			return nil, printErr
-		}
-		if err != nil {
+		if err := ask.Secret("Password", &password); err != nil {
 			return nil, fmt.Errorf("reading password: %w", err)
 		}
-		password = string(raw)
 	}
 
 	me, err := api.GetHubMeContext(cmd.Context(), baseURL, login, password)
@@ -244,16 +232,9 @@ func acquireTokenViaPaste(cmd *cobra.Command, reader *bufio.Reader, baseURL stri
 // promptAndVerifyToken prompts for a token paste, verifies it against the API,
 // and returns the verified token string.
 func promptAndVerifyToken(cmd *cobra.Command, reader *bufio.Reader, baseURL string) (string, error) {
-	if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Paste your token: "); err != nil {
-		return "", err
-	}
-	tokenRaw, err := internal.ReadLineContext(cmd.Context(), reader)
-	if err != nil {
+	var token string
+	if err := newPrompter(cmd, reader).Secret("Paste your token", &token); err != nil {
 		return "", fmt.Errorf("reading token: %w", err)
-	}
-	token := strings.TrimSpace(tokenRaw)
-	if token == "" {
-		return "", fmt.Errorf("token cannot be empty")
 	}
 
 	_, _ = fmt.Fprintln(cmd.ErrOrStderr(), "Verifying token...")

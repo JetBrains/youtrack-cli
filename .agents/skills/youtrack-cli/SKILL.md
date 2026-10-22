@@ -22,7 +22,7 @@ youtrack issue command MYPROJ-1 "State Fixed"                 # update state
 ## Setup
 
 1. **CLI available?** `which youtrack` — if not found, run `make build && cp youtrack /usr/local/bin/` from the repo root.
-2. **Credentials set?** Check the configured instances with `youtrack instance list` or use env vars `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`. If missing, run `youtrack instance add` (or `youtrack auth login`) for a permanent token. `youtrack instance login <url>` is the browser SSO option, but it yields a short-lived (~1 hour) session token that is not refreshed.
+2. **Credentials set?** Check the configured instances with `youtrack instance list` or use env vars `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`. If missing, run `youtrack auth login`: it signs in through the browser and saves a ~1-hour session token, or pastes a permanent token with `--no-browser` (use that for long-running automation).
 3. **Connectivity OK?** `youtrack user current` — stop and report if it fails.
 
 ## Safety
@@ -38,7 +38,7 @@ Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still
 | Area | Commands |
 |---|---|
 | Auth | `auth login`, `auth status`, `auth logout`, `auth refresh-token` |
-| Instances | `instance add`, `instance login` (browser OAuth), `instance list`, `instance use`, `instance version`, `instance delete` (`remove`), `instance refresh-token` (`update-token`) |
+| Instances | `instance list`, `instance use`, `instance version`, `instance delete` (`remove`) |
 | Issues | `issue list`, `view` (`get`), `create` (`add`), `update`, `delete`, `command`, `count` |
 | Issue social | `issue assign/unassign`, `watch/unwatch`, `vote/unvote`, `tag`, `visibility` |
 | Comments | `issue comment list`, `create` (`add`), `update`, `delete`, `pin`, `visibility` |
@@ -77,7 +77,7 @@ pages and accepts `--page-size`.
 
 ## Quick Workflows
 
-- **Browser sign-in**: `youtrack instance login <url>` → OAuth 2.0 + PKCE against JetBrains Hub, saves a ~1-hour session token (re-run to renew, or pass an existing alias); falls back to paste-token when the Hub has no public loopback client. Needs an interactive terminal.
+- **Sign in**: `youtrack auth login` → OAuth 2.0 + PKCE against JetBrains Hub in the browser, saves the ~1-hour session token; falls back to pasting a token when the Hub has no public loopback client or with `--no-browser`. Browser sign-in needs an interactive terminal. `auth login <url-or-alias>` signs in to another instance or renews a configured alias; `instance login` and `instance add` are the same command.
 - **Verify auth**: `youtrack auth status` → check `status` field per instance
 - **Create issue**: `youtrack issue create --project P --summary S` → `issue command <id> "assignee me"`
 - **Bulk update**: `youtrack issue list --query Q --json | jq '.[].id'` → loop `issue command`

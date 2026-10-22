@@ -3,24 +3,22 @@
 ## Auth
 
 ```bash
-youtrack auth login [--alias <name>]    # interactive auth (4-method menu)
+youtrack auth login [<url-or-alias>] [--alias <name>] [--no-browser] [--scope <ids>] [--client-id <id>] [--port N] [--timeout <dur>] [--login <l> --password <p>]   # browser sign-in → ~1h session token; paste fallback
 youtrack auth status                        # check credentials for all instances
 youtrack auth logout [--instance <alias>]
 youtrack auth refresh-token [<alias>]
 ```
 
-Auth methods: (1) basic login+password, (2) web browser, (3) paste token, (4) browser SSO with OAuth 2.0 + PKCE.
+`auth login` signs in through the browser (OAuth 2.0 + PKCE) and saves the ~1-hour session token; with `--no-browser`, or when the Hub has no CLI OAuth client, it prompts for a pasted token. `--login`/`--password` use deprecated Hub basic auth.
 Saved tokens use the OS keyring with a mode-`0600` config fallback. Single-instance automation can use `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`.
 Auth commands mask the token in every output format; `--show-token` prints it in full in every format.
 
 ```bash
-youtrack instance add [--alias <name>] [--save=false]
-youtrack instance login [<url-or-alias>] [--no-browser] [--save=false] [--alias <name>] [--scope <ids>] [--port N] [--client-id <id>] [--timeout <dur>]   # browser SSO (~1h token)
+youtrack instance login [<url-or-alias>] [...]   # same command as `auth login`
 youtrack instance list
 youtrack instance use <alias>
 youtrack instance version                        # active instance's YouTrack version + build number
 youtrack instance delete [--force] <alias>       # alias: remove
-youtrack instance refresh-token <alias>          # alias: update-token
 ```
 
 ## Global Flags
