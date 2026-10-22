@@ -28,10 +28,10 @@ type AddIssueRequest struct {
 	Reporter    *User    `json:"reporter,omitempty"`
 }
 
-// UpdateIssueRequest is the body for updating an issue.
+// UpdateIssueRequest contains only explicitly selected issue fields.
 type UpdateIssueRequest struct {
-	Summary     string `json:"summary,omitempty"`
-	Description string `json:"description,omitempty"`
+	Summary     *string `json:"summary,omitempty"`
+	Description *string `json:"description,omitempty"`
 }
 
 // AddCommentRequest is the body for creating a comment.

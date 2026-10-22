@@ -51,6 +51,7 @@ youtrack issue list --query Q [--limit N] [--offset N]
 youtrack issue create --project P --summary S [--description D] [--parent <issueId>] [--description-file path]
                                        # alias: add
 youtrack issue update <issueId> [--summary S] [--description D]
+                                       # --description "" clears it; omitted fields are preserved
 youtrack issue delete <issueId>
 youtrack issue command <issueId[,issueId...]> <query>   # apply a YouTrack command string
 youtrack issue command suggest <issueId[,issueId...]> <query>   # preview suggestions without applying
