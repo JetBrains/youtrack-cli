@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/JetBrains/youtrack-cli/api"
@@ -131,6 +132,18 @@ func createTempProject(t *testing.T, c *api.Client) *api.Project {
 		Leader:    &api.User{Login: me.Login},
 	}, "")
 	require.NoError(t, err)
+	// Project creation returns before the project is necessarily readable through
+	// the endpoints used by subsequent fixture setup and CLI commands.
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		byName, err := c.GetProject(proj.ShortName)
+		if assert.NoError(collect, err, "project fixture is not readable by short name") {
+			assert.Equal(collect, proj.ID, byName.ID)
+		}
+		byID, err := c.GetProjectByID(proj.ID)
+		if assert.NoError(collect, err, "project fixture is not readable by ID") {
+			assert.Equal(collect, proj.ShortName, byID.ShortName)
+		}
+	}, 10*time.Second, 20*time.Millisecond, "project %s fixture did not become ready", proj.ShortName)
 	return proj
 }
 
