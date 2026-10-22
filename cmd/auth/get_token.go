@@ -8,13 +8,14 @@ import (
 	"runtime"
 	"strings"
 
+	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
-	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
+	"github.com/JetBrains/youtrack-cli/internal/prompt"
 )
 
 const defaultBaseURL = "https://youtrack.jetbrains.com"
@@ -55,6 +56,10 @@ Use --json for machine-readable output.`,
 			// YOUTRACK_BASE_URL is intentionally ignored: login sets up credentials, possibly for a new instance, so the URL is always confirmed.
 			baseURL, _ := cmd.Root().PersistentFlags().GetString("base-url")
 			if baseURL == "" {
+				if term.IsTerminal(int(os.Stdin.Fd())) {
+					output.PrintTip(cmd, "Press Ctrl+C at any time to cancel")
+					_, _ = fmt.Fprintln(cmd.ErrOrStderr())
+				}
 				url, err := promptBaseURL(cmd, reader)
 				if err != nil {
 					return err
@@ -119,29 +124,16 @@ func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) 
 		return err
 	}
 
+	ask := newPrompter(cmd, reader)
 	if login == "" {
-		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Login: "); err != nil {
-			return err
-		}
-		raw, err := internal.ReadLineContext(cmd.Context(), reader)
-		if err != nil {
+		if err := ask.Input("Hub login", &login); err != nil {
 			return fmt.Errorf("reading login: %w", err)
 		}
-		login = strings.TrimSpace(raw)
 	}
-
 	if password == "" {
-		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "Password: "); err != nil {
-			return err
-		}
-		raw, err := internal.ReadPasswordContext(cmd.Context(), int(os.Stdin.Fd()))
-		if _, printErr := fmt.Fprintln(cmd.ErrOrStderr()); printErr != nil {
-			return printErr
-		}
-		if err != nil {
+		if err := ask.Secret("Password", &password); err != nil {
 			return fmt.Errorf("reading password: %w", err)
 		}
-		password = string(raw)
 	}
 
 	me, err := api.GetHubMeContext(cmd.Context(), baseURL, login, password)
@@ -236,32 +228,23 @@ func maskToken(token string) string {
 	return "****"
 }
 
-// promptBaseURL asks for the instance URL, pre-filled with the active instance's URL or defaultBaseURL: editable in a terminal, accepted with Enter on piped stdin.
+// promptBaseURL asks for the instance URL, pre-filled with the active instance's URL or defaultBaseURL.
 func promptBaseURL(cmd *cobra.Command, reader *bufio.Reader) (string, error) {
-	suggested := defaultBaseURL
+	baseURL := defaultBaseURL
 	if cfg, err := config.Load(); err == nil {
 		if inst, ok := cfg.Instances[cfg.CurrentInstance]; ok && inst.URL != "" {
-			suggested = inst.URL
+			baseURL = inst.URL
 		}
 	}
-
-	var raw string
-	var err error
-	if term.IsTerminal(int(os.Stdin.Fd())) {
-		raw, err = internal.ReadLineWithDefault(cmd.Context(), "YouTrack URL: ", suggested)
-	} else {
-		if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "YouTrack URL [%s]: ", suggested); err != nil {
-			return "", err
-		}
-		raw, err = internal.ReadLineContext(cmd.Context(), reader)
-	}
-	if err != nil {
+	if err := newPrompter(cmd, reader).Input("YouTrack URL", &baseURL); err != nil {
 		return "", fmt.Errorf("reading URL: %w", err)
 	}
-	if raw = strings.TrimSpace(raw); raw == "" {
-		return suggested, nil
-	}
-	return raw, nil
+	return strings.TrimSpace(baseURL), nil
+}
+
+// newPrompter asks on cmd's stderr; piped answers come from reader, which the caller shares across all prompts of the command.
+func newPrompter(cmd *cobra.Command, reader *bufio.Reader) *prompt.Prompter {
+	return prompt.New(cmd.Context(), reader, cmd.ErrOrStderr())
 }
 
 // runPasteTokenFlow points the user at the token page (offering to open it in a terminal), then reads and verifies a pasted permanent token.
@@ -278,32 +261,23 @@ func runPasteTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string)
 		return err
 	}
 
-	_, _ = fmt.Fprintf(stderr, "Create a permanent token at:\n  %s\n\n", hyperlink(tokenPageURL))
-	if noBrowser, _ := cmd.Flags().GetBool("no-browser"); !noBrowser && term.IsTerminal(int(os.Stdin.Fd())) {
-		if _, err := fmt.Fprint(stderr, "Open it in your browser? [Y/n]: "); err != nil {
+	ask := newPrompter(cmd, reader)
+	_, _ = fmt.Fprintf(stderr, "%s To authenticate, you need a permanent token.\n  Create one at: %s\n\n", color.YellowString("!"), hyperlink(tokenPageURL))
+	if noBrowser, _ := cmd.Flags().GetBool("no-browser"); !noBrowser && ask.Interactive() {
+		open := true
+		if err := ask.Confirm("Open browser to create a token?", &open); err != nil {
 			return err
 		}
-		answer, err := internal.ReadLineContext(cmd.Context(), reader)
-		if err != nil {
-			return fmt.Errorf("reading answer: %w", err)
-		}
-		if a := strings.ToLower(strings.TrimSpace(answer)); a == "" || a == "y" || a == "yes" {
+		if open {
 			if err := openBrowser(tokenPageURL); err != nil {
-				_, _ = fmt.Fprintf(stderr, "Could not open the browser: %v\n", err)
+				_, _ = fmt.Fprintf(stderr, "  Could not open the browser: %v\n", err)
 			}
 		}
 	}
 
-	if _, err := fmt.Fprint(stderr, "Paste your token: "); err != nil {
-		return err
-	}
-	tokenRaw, err := internal.ReadLineContext(cmd.Context(), reader)
-	if err != nil {
+	var token string
+	if err := ask.Secret("Paste your token", &token); err != nil {
 		return fmt.Errorf("reading token: %w", err)
-	}
-	token := strings.TrimSpace(tokenRaw)
-	if token == "" {
-		return fmt.Errorf("token cannot be empty")
 	}
 
 	// Verify before saving — do not persist an invalid token.
