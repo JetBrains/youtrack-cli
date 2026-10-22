@@ -67,14 +67,10 @@ See the [getting started guide](docs/topics/youtrack-cli-get-started.md) for the
 Authenticate once and the CLI remembers the instance:
 
 ```bash
-youtrack instance add
+youtrack auth login
 ```
 
-Or sign in through the browser. The CLI creates a permanent token through Hub and saves it:
-
-```bash
-youtrack instance login https://youtrack.jetbrains.com
-```
+It asks for the YouTrack URL (pre-filled with `https://youtrack.jetbrains.com` or your active instance), opens your browser to sign in through Hub, and saves a permanent token. Pass `--no-browser` to paste a token instead.
 
 Auth commands mask the token in their output, JSON included. Pass `--show-token` when a script needs the full value, for example `youtrack auth login --save=false --json --show-token | jq -r .token`.
 
