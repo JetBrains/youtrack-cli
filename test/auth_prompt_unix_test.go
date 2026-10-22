@@ -254,25 +254,122 @@ func freePort(t *testing.T) int {
 	return l.Addr().(*net.TCPAddr).Port
 }
 
-func TestAuthLogin_BrowserSignInSavesSessionToken(t *testing.T) {
-	h := newHarnessHub(t)
-	env := ptyEnv(t)
-	s := startPTY(t, env, "--plain", "--base-url", h.baseURL, "auth", "login", "--client-id", h.clientID, "--alias", "browser")
+// envHome returns the HOME of a ptyEnv environment.
+func envHome(env []string) string {
+	for _, kv := range env {
+		if v, ok := strings.CutPrefix(kv, "HOME="); ok {
+			return v
+		}
+	}
+	return ""
+}
 
+// savedToken returns the token saved for alias in the isolated config (the keyring is disabled there).
+func savedToken(t *testing.T, env []string, alias string) string {
+	t.Helper()
+	data, err := os.ReadFile(configFile(envHome(env)))
+	require.NoError(t, err)
+	var cfg struct {
+		Instances map[string]struct {
+			Token string `json:"token"`
+		} `json:"instances"`
+	}
+	require.NoError(t, json.Unmarshal(data, &cfg))
+	return cfg.Instances[alias].Token
+}
+
+// hubTokenNames lists the harness user's permanent tokens by ID.
+func (h *harnessHub) hubTokenNames(t *testing.T) map[string]string {
+	t.Helper()
+	var page struct {
+		Tokens []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"permanenttokens"`
+	}
+	h.hubAdmin(t, http.MethodGet, "/api/rest/users/me/permanenttokens?fields=id,name&$top=1000", nil, &page)
+	names := map[string]string{}
+	for _, tok := range page.Tokens {
+		names[tok.ID] = tok.Name
+	}
+	return names
+}
+
+// deleteTokensNamed removes the harness user's permanent tokens called name when the test ends, so runs don't pile them up.
+func (h *harnessHub) deleteTokensNamed(t *testing.T, name string) {
+	t.Helper()
+	t.Cleanup(func() {
+		for id, n := range h.hubTokenNames(t) {
+			if n == name {
+				h.hubAdmin(t, http.MethodDelete, "/api/rest/users/me/permanenttokens/"+url.PathEscape(id), nil, nil)
+			}
+		}
+	})
+}
+
+// signIn runs a browser sign-in in a pty, approves it as the harness user, and returns the CLI output.
+func (h *harnessHub) signIn(t *testing.T, env []string, check func(q url.Values), args ...string) string {
+	t.Helper()
+	s := startPTY(t, env, append([]string{"--plain", "--base-url", h.baseURL, "auth", "login", "--client-id", h.clientID}, args...)...)
 	authorize := s.authorizeURL()
-	q := authorize.Query()
-	assert.Equal(t, h.clientID, q.Get("client_id"))
-	assert.Equal(t, "S256", q.Get("code_challenge_method"))
-	assert.NotEmpty(t, q.Get("code_challenge"))
-	assert.Equal(t, h.serviceID, q.Get("scope"))
+	if check != nil {
+		check(authorize.Query())
+	}
 	h.approve(t, authorize)
 	require.NoError(t, s.wait(), "output:\n%s", s.output())
-	assert.Contains(t, s.output(), `Session token saved as "browser"`)
+	return s.output()
+}
 
-	// The saved token works for the next command.
-	out, err := runInEnv(env, "--server", "browser", "--plain", "user", "current")
-	require.NoError(t, err, out)
-	assert.Contains(t, out, os.Getenv("YOUTRACK_LOGIN"))
+func TestAuthLogin_BrowserSignInCreatesPermanentToken(t *testing.T) {
+	h := newHarnessHub(t)
+	env := ptyEnv(t)
+	name := fmt.Sprintf("youtrack-cli-e2e-token-%d", time.Now().UnixNano())
+	h.deleteTokensNamed(t, name)
+
+	out := h.signIn(t, env, func(q url.Values) {
+		assert.Equal(t, h.clientID, q.Get("client_id"))
+		assert.Equal(t, "S256", q.Get("code_challenge_method"))
+		assert.NotEmpty(t, q.Get("code_challenge"))
+		assert.Equal(t, h.serviceID+" 0-0-0-0-0", q.Get("scope"), "Hub's own scope is requested to create the token")
+	}, "--alias", "browser", "--token-name", name)
+	assert.Contains(t, out, fmt.Sprintf("Permanent token %q saved as \"browser\"", name))
+
+	first := savedToken(t, env, "browser")
+	_, firstID, ok := api.ParsePermanentToken(first)
+	require.True(t, ok, "the saved token is a permanent token: %q", first)
+	assert.Equal(t, name, h.hubTokenNames(t)[firstID])
+	cli, err := runInEnv(env, "--server", "browser", "--plain", "user", "current")
+	require.NoError(t, err, cli)
+	assert.Contains(t, cli, os.Getenv("YOUTRACK_LOGIN"))
+
+	// Signing in again replaces the token and revokes the old one in Hub.
+	h.signIn(t, env, nil, "--alias", "browser", "--token-name", name)
+	_, secondID, ok := api.ParsePermanentToken(savedToken(t, env, "browser"))
+	require.True(t, ok)
+	require.NotEqual(t, firstID, secondID)
+	tokens := h.hubTokenNames(t)
+	assert.NotContains(t, tokens, firstID, "the replaced token must be revoked")
+	assert.Equal(t, name, tokens[secondID])
+}
+
+func TestAuthLogin_SessionReplacingPermanentTokenWarns(t *testing.T) {
+	h := newHarnessHub(t)
+	env := ptyEnv(t)
+	name := fmt.Sprintf("youtrack-cli-e2e-token-%d", time.Now().UnixNano())
+	h.deleteTokensNamed(t, name)
+
+	h.signIn(t, env, nil, "--alias", "renew", "--token-name", name)
+	_, permID, ok := api.ParsePermanentToken(savedToken(t, env, "renew"))
+	require.True(t, ok)
+
+	out := h.signIn(t, env, func(q url.Values) {
+		assert.Equal(t, h.serviceID, q.Get("scope"), "--session does not request Hub's scope")
+	}, "--alias", "renew", "--session")
+	assert.Contains(t, out, `Session token saved as "renew"`)
+	assert.Contains(t, out, `the permanent token previously saved for "renew" is still valid in Hub`)
+	_, _, isPerm := api.ParsePermanentToken(savedToken(t, env, "renew"))
+	assert.False(t, isPerm, "--session saves the access token")
+	assert.Contains(t, h.hubTokenNames(t), permID, "the session token cannot revoke it, so it stays")
 }
 
 func TestAuthLogin_BrowserFlagsShapeAuthorizeURL(t *testing.T) {
@@ -287,7 +384,7 @@ func TestAuthLogin_BrowserFlagsShapeAuthorizeURL(t *testing.T) {
 			assert.Equal(t, fmt.Sprintf("http://127.0.0.1:%d", port), q.Get("redirect_uri"))
 		}},
 		"scope": {flags: []string{"--scope", "0-0-0-0-0"}, check: func(t *testing.T, q url.Values) {
-			assert.Equal(t, h.serviceID+" 0-0-0-0-0", q.Get("scope"))
+			assert.Equal(t, h.serviceID+" 0-0-0-0-0", q.Get("scope"), "Hub's scope is not requested twice")
 		}},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -353,13 +450,20 @@ func TestAuthLogin_RejectsUnsafeHubURL(t *testing.T) {
 	assert.NotContains(t, s.output(), "oauth2/auth")
 }
 
-func TestAuthLogin_BasicAuthFlagsRejectedWithBrowserSignIn(t *testing.T) {
+func TestAuthLogin_FlagsRejectedWithBrowserSignIn(t *testing.T) {
 	requireE2EEnv(t)
-	for _, flag := range [][]string{{"--token-name", "build-agent"}, {"--insecure"}} {
-		t.Run(flag[0], func(t *testing.T) {
-			s := startPTY(t, ptyEnv(t), append([]string{"--plain", "--base-url", os.Getenv("YOUTRACK_BASE_URL"), "auth", "login", "--save=false"}, flag...)...)
+	// --token-name alone is accepted: browser sign-in names the permanent token it creates. With --session there is no such token.
+	for name, tc := range map[string]struct {
+		flags []string
+		want  string
+	}{
+		"insecure":             {flags: []string{"--insecure"}, want: "--insecure has no effect with browser sign-in"},
+		"token-name w/session": {flags: []string{"--session", "--token-name", "build-agent"}, want: "--token-name has no effect with --session"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			s := startPTY(t, ptyEnv(t), append([]string{"--plain", "--base-url", os.Getenv("YOUTRACK_BASE_URL"), "auth", "login", "--save=false"}, tc.flags...)...)
 			require.Error(t, s.wait())
-			assert.Contains(t, s.output(), flag[0]+" has no effect with browser sign-in")
+			assert.Contains(t, s.output(), tc.want)
 			assert.NotContains(t, s.output(), "Discovering Hub", "the flag must be rejected before sign-in starts")
 		})
 	}
