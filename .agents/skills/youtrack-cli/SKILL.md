@@ -22,7 +22,7 @@ youtrack issue command MYPROJ-1 "State Fixed"                 # update state
 ## Setup
 
 1. **CLI available?** `which youtrack` — if not found, run `make build && cp youtrack /usr/local/bin/` from the repo root.
-2. **Credentials set?** Check the configured instances with `youtrack instance list` or use env vars `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`. If missing, run `youtrack instance add` (or `youtrack auth login`) for a permanent token. `youtrack instance login <url>` is the browser SSO option: it saves an OAuth session that refreshes itself automatically (needs a human at a browser; `--no-browser` prints a URL and accepts the pasted redirect URL).
+2. **Credentials set?** Run `youtrack auth status`: it checks every configured instance (or the `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN` env vars) and shows the authenticated user. If nothing is configured or a token is invalid, run `youtrack auth login`: it signs in through the browser and saves a permanent token, or pastes one with `--no-browser`. For a session that refreshes itself, use `youtrack auth login --session` (needs a human at a browser; add `--no-browser` to print a URL and accept the pasted redirect URL).
 3. **Connectivity OK?** `youtrack user current` — stop and report if it fails.
 
 ## Safety
@@ -38,7 +38,7 @@ Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still
 | Area | Commands |
 |---|---|
 | Auth | `auth login`, `auth status`, `auth logout`, `auth refresh-token` |
-| Instances | `instance add`, `instance login` (browser OAuth), `instance list`, `instance use`, `instance version`, `instance delete` (`remove`), `instance refresh-token` (`update-token`) |
+| Instances | `instance list`, `instance use`, `instance version`, `instance delete` (`remove`) |
 | Issues | `issue list`, `view` (`get`), `create` (`add`), `update`, `delete`, `command`, `count` |
 | Issue social | `issue assign/unassign`, `watch/unwatch`, `vote/unvote`, `tag`, `visibility` |
 | Comments | `issue comment list`, `create` (`add`), `update`, `delete`, `pin`, `visibility` |
@@ -77,7 +77,7 @@ pages and accepts `--page-size`.
 
 ## Quick Workflows
 
-- **Browser sign-in**: `youtrack instance login <url>` → OAuth 2.0 + PKCE against JetBrains Hub; saves an access + refresh token and every command refreshes transparently. `--client-id` for a client registered in YouTrack (Administration → Access Management → OAuth Clients: Authorization Code + Require PKCE, redirect URI `http://127.0.0.1`, no client secret), `--hub-url` for a standalone Hub, `--no-browser` for SSH/headless (paste the final `http://127.0.0.1:<port>/?code=…` URL). If a command reports "OAuth session … expired or was revoked", re-run `youtrack instance login <alias>`. `--token`/`YOUTRACK_TOKEN` always win over a saved session. Falls back to paste-token when Hub has no such client.
+- **Sign in**: `youtrack auth login` → OAuth 2.0 + PKCE against JetBrains Hub in the browser, creates and saves a permanent token; falls back to pasting a token when the Hub has no public loopback client or with `--no-browser`. Browser sign-in needs an interactive terminal. `auth login <url-or-alias>` signs in to another instance or renews a configured alias; `instance login` and `instance add` are the same command. `--session` saves an access + refresh token instead of a permanent token, and every command refreshes it transparently; `--client-id` selects a client registered in YouTrack (Administration → Access Management → OAuth Clients: Authorization Code + Require PKCE, redirect URI `http://127.0.0.1`, no client secret), `--hub-url` a standalone Hub, and `--session --no-browser` works over SSH/headless (paste the final `http://127.0.0.1:<port>/?code=…` URL). If a command reports "OAuth session … expired or was revoked", re-run `youtrack auth login --session <alias>`. `--token`/`YOUTRACK_TOKEN` always win over a saved session.
 - **Verify auth**: `youtrack auth status` → check `status` field per instance
 - **Create issue**: `youtrack issue create --project P --summary S` → `issue command <id> "assignee me"`
 - **Bulk update**: `youtrack issue list --query Q --json | jq '.[].id'` → loop `issue command`

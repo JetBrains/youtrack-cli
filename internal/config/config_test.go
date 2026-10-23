@@ -17,8 +17,13 @@ func isolate(t *testing.T) string {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("USERPROFILE", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
 	t.Setenv("YOUTRACK_DISABLE_KEYRING", "1")
-	return filepath.Join(home, ".youtrack-cli-config.json")
+	path := filepath.Join(home, ".config", "youtrack", "config.json")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	return path
 }
 
 func TestOAuthSessionRoundTrip(t *testing.T) {

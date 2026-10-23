@@ -5,7 +5,6 @@ package api_test
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"syscall"
 	"testing"
@@ -39,7 +38,7 @@ func TestConfigWritersWaitForLock(t *testing.T) {
 			home := t.TempDir()
 			hub.login(t, home, "fake")
 
-			lock, err := os.OpenFile(filepath.Join(home, ".youtrack-cli-config.json.lock"), os.O_RDWR|os.O_CREATE, 0600)
+			lock, err := os.OpenFile(configFile(home)+".lock", os.O_RDWR|os.O_CREATE, 0600)
 			require.NoError(t, err)
 			defer func() { _ = lock.Close() }()
 			require.NoError(t, syscall.Flock(int(lock.Fd()), syscall.LOCK_EX))

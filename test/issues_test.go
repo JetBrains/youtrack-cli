@@ -299,6 +299,70 @@ func TestCmd_IssueCreateRollsBackOnBadCustomField(t *testing.T) {
 	assert.Error(t, err, "rolled-back issue %s should no longer exist", m[1])
 }
 
+func TestCmd_IssueCreateRejectsMalformedCustomFields(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	for _, tc := range []struct {
+		name, input string
+	}{
+		{"empty input", ""},
+		{"whitespace", " \n\t"},
+		{"unclosed empty object", `{`},
+		{"missing closing brace", `{"Priority":"Normal"`},
+		{"trailing comma", `{"Priority":"Normal",}`},
+		{"trailing garbage", `{} garbage`},
+		{"multiple objects", `{} {"Priority":"Critical"}`},
+		{"array", `[]`},
+		{"null object", `null`},
+		{"null value", `{"Priority":null}`},
+		{"numeric value", `{"Priority":1}`},
+		{"nested value", `{"Priority":{"name":"Normal"}}`},
+	} {
+		for _, fromFile := range []bool{false, true} {
+			source := "inline"
+			if fromFile {
+				source = "file"
+			}
+			t.Run(tc.name+"/"+source, func(t *testing.T) {
+				args := []string{"issue", "create", "--project", proj.ShortName, "--summary", "invalid custom fields", "--json"}
+				if fromFile {
+					path := filepath.Join(t.TempDir(), "fields.json")
+					require.NoError(t, os.WriteFile(path, []byte(tc.input), 0o600))
+					args = append(args, "--custom-fields-file", path)
+				} else {
+					args = append(args, "--custom-fields", tc.input)
+				}
+				out, err := runCmdFail(t, args...)
+				// Clean up even if a regression accepts the input and creates an issue.
+				var created api.Issue
+				if json.Unmarshal([]byte(out), &created) == nil && created.ID != "" {
+					t.Cleanup(func() { _ = c.DeleteIssue(created.ID) })
+				}
+				assert.Error(t, err, "malformed input must not create an issue: %s", out)
+				assert.Contains(t, out, "parse custom-fields", "reject input before contacting the server")
+			})
+		}
+	}
+}
+
+func TestCmd_IssueCreateWithValidCustomFields(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	for _, input := range []string{"{}\n", `{"Priority":"Critical","Type":"Bug"}`} {
+		t.Run(input, func(t *testing.T) {
+			issue := runJSON[api.Issue](t, "issue", "create", "--project", proj.ShortName,
+				"--summary", "valid custom fields", "--custom-fields", input, "--json")
+			t.Cleanup(func() { _ = c.DeleteIssue(issue.ID) })
+			require.NotEmpty(t, issue.IDReadable)
+			if strings.Contains(input, "Priority") {
+				priority, err := c.GetCustomFieldValue(issue.IDReadable, "Priority")
+				require.NoError(t, err)
+				assert.Contains(t, fmt.Sprint(priority.Value), "Critical")
+			}
+		})
+	}
+}
+
 func TestCmd_IssueView(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
@@ -880,6 +944,51 @@ func TestCmd_IssueFieldSet(t *testing.T) {
 
 	out := runCmd(t, "issue", "field", "set", issue.IDReadable, "Priority", "Critical")
 	assert.Contains(t, out, "updated field Priority")
+}
+
+func TestCmd_IssueFieldSet_UserBeyondFirstTen(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+
+	// All eleven users match the assignee's login through their full names.
+	assigneeLogin := fmt.Sprintf("field-user-%s-10", proj.ShortName)
+	var users []api.User
+	for i := range 11 {
+		login := fmt.Sprintf("field-user-%s-%02d", proj.ShortName, i)
+		user, err := c.AddUser(&api.AddUserRequest{
+			Login: login, FullName: fmt.Sprintf("Field user %02d %s", i, assigneeLogin),
+			Email: login + "@example.com", Password: "Test1234!",
+		})
+		require.NoError(t, err)
+		t.Cleanup(func() { _ = c.DeleteUser(user.ID, me.ID) })
+		users = append(users, *user)
+	}
+	assignee := users[len(users)-1]
+	firstPage := runJSON[[]api.User](t, "user", "list", "--query", assignee.Login, "--limit", "10", "--json")
+	require.Len(t, firstPage, 10)
+	for _, user := range firstPage {
+		require.NotEqual(t, assignee.ID, user.ID, "fixture assignee must be outside the first ten search results")
+	}
+	_, err = c.AddUserToProjectTeam(proj.ShortName, assignee.ID)
+	require.NoError(t, err)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "user field lookup test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	out := runCmd(t, "issue", "field", "set", issue.IDReadable, "Assignee", assignee.Login, "--type", "user")
+	assert.Contains(t, out, "updated field Assignee")
+	assertIssueAssignee(t, c, issue.IDReadable, assignee.Login)
+
+	missingLogin := "field-user-" + proj.ShortName
+	errOutput := runCmdExpectError(t, "issue", "field", "set", issue.IDReadable, "Assignee", missingLogin, "--type", "user")
+	assert.Contains(t, errOutput, "user '"+missingLogin+"' not found")
+	assertIssueAssignee(t, c, issue.IDReadable, assignee.Login)
 }
 
 func TestCmd_IssueFieldSet_MultiValue(t *testing.T) {

@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/creack/pty"
 	"github.com/stretchr/testify/require"
@@ -273,4 +274,180 @@ func TestCmd_Update_AutoUpgrade_GoInstall(t *testing.T) {
 	got, readErr := os.ReadFile(record)
 	require.NoError(t, readErr, "stub go was never invoked; output: %s", output)
 	require.Equal(t, "install github.com/JetBrains/youtrack-cli@latest\n", string(got))
+}
+
+// buildVersionedBinaryAt compiles the CLI with version baked in at
+// t.TempDir()/relDir/youtrack, so path-based install detection sees it.
+func buildVersionedBinaryAt(t *testing.T, relDir, version string) string {
+	t.Helper()
+	dir := filepath.Join(t.TempDir(), relDir)
+	require.NoError(t, os.MkdirAll(dir, 0o755))
+	built := buildVersionedBinary(t, version)
+	data, err := os.ReadFile(built)
+	require.NoError(t, err)
+	path := filepath.Join(dir, "youtrack")
+	require.NoError(t, os.WriteFile(path, data, 0o755))
+	return path
+}
+
+// writePromptConfig writes a config in home that caches latestVersion and a fresh
+// check timestamp, so the startup prompt fires and no network check runs.
+func writePromptConfig(t *testing.T, home, latestVersion string) string {
+	t.Helper()
+	body := fmt.Sprintf(`{"latestVersion":%q,"lastUpdateCheck":%d}`, latestVersion, time.Now().Unix())
+	return configFixture(t, home, body)
+}
+
+// promptEnv clears the variables that disable the update prompt and points HOME at home.
+func promptEnv(home string, extra ...string) []string {
+	return append([]string{"HOME=" + home, "CI=", "YOUTRACK_NO_UPDATE=", "DO_NOT_TRACK="}, extra...)
+}
+
+// runViaPTYAnswering runs binary on a pty like runViaPTY and types answer once the
+// update prompt asks for a choice.
+func runViaPTYAnswering(t *testing.T, binary string, env []string, answer string, args ...string) (string, error) {
+	t.Helper()
+	ptmx, tty, err := pty.Open()
+	require.NoError(t, err)
+	defer func() { _ = ptmx.Close() }()
+
+	cmd := exec.Command(binary, args...)
+	cmd.Env = append(os.Environ(), env...)
+	cmd.Stdin, cmd.Stdout, cmd.Stderr = tty, tty, tty
+	require.NoError(t, cmd.Start())
+	_ = tty.Close()
+
+	var buf bytes.Buffer
+	copyDone := make(chan struct{})
+	go func() {
+		defer close(copyDone)
+		chunk := make([]byte, 4096)
+		sent := false
+		for {
+			n, readErr := ptmx.Read(chunk)
+			buf.Write(chunk[:n])
+			if !sent && strings.Contains(buf.String(), "Choose [1-3") {
+				_, _ = ptmx.Write([]byte(answer + "\n"))
+				sent = true
+			}
+			if readErr != nil {
+				return
+			}
+		}
+	}()
+	waitErr := cmd.Wait()
+	<-copyDone
+	return buf.String(), waitErr
+}
+
+func TestCmd_UpdatePrompt_UpdateNowRunsUpgrade(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("pty-based TTY simulation is POSIX-only")
+	}
+	binary := buildVersionedBinaryAt(t, "Cellar/youtrack/0.0.1/bin", "0.0.1")
+	home := t.TempDir()
+	writePromptConfig(t, home, "9.9.9")
+	stubDir := t.TempDir()
+	record := filepath.Join(stubDir, "record.txt")
+	writeE2EStubExecutable(t, stubDir, "brew", record)
+
+	out, err := runViaPTYAnswering(t, binary,
+		promptEnv(home, "PATH="+stubDir+string(os.PathListSeparator)+os.Getenv("PATH")),
+		"1", "instance", "list")
+	require.NoError(t, err, "output: %s", out)
+	require.Contains(t, out, "Update available!")
+	require.Contains(t, out, "Updated to v9.9.9")
+
+	got, readErr := os.ReadFile(record)
+	require.NoError(t, readErr, "stub brew was never invoked; output: %s", out)
+	require.Equal(t, "upgrade youtrack\n", string(got))
+}
+
+func TestCmd_UpdatePrompt_SkipUntilNextVersion(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("pty-based TTY simulation is POSIX-only")
+	}
+	binary := buildVersionedBinaryAt(t, "Cellar/youtrack/0.0.1/bin", "0.0.1")
+	home := t.TempDir()
+	cfgPath := writePromptConfig(t, home, "9.9.9")
+
+	out, err := runViaPTYAnswering(t, binary, promptEnv(home), "3", "instance", "list")
+	require.NoError(t, err, "output: %s", out)
+	require.Contains(t, out, "Update available!")
+
+	data, err := os.ReadFile(cfgPath)
+	require.NoError(t, err)
+	var cfg struct {
+		DismissedVersion string `json:"dismissedVersion"`
+	}
+	require.NoError(t, json.Unmarshal(data, &cfg))
+	require.Equal(t, "9.9.9", cfg.DismissedVersion)
+
+	out, err = runViaPTYAnswering(t, binary, promptEnv(home), "1", "instance", "list")
+	require.NoError(t, err, "output: %s", out)
+	require.NotContains(t, out, "Update available!")
+}
+
+func TestCmd_UpdatePrompt_NotShownWithoutTerminal(t *testing.T) {
+	binary := buildVersionedBinaryAt(t, "Cellar/youtrack/0.0.1/bin", "0.0.1")
+	home := t.TempDir()
+	writePromptConfig(t, home, "9.9.9")
+
+	cmd := exec.Command(binary, "instance", "list")
+	cmd.Env = append(os.Environ(), promptEnv(home)...)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "output: %s", out)
+	require.NotContains(t, string(out), "Update available!")
+}
+
+func TestCmd_Update_AutoUpgrade_HomebrewThroughSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("pty-based TTY simulation is POSIX-only")
+	}
+	// Homebrew on Intel Macs runs youtrack through a /usr/local/bin symlink into its Cellar. A ~/.local/bin
+	// symlink stands in for it: detection used to match that unresolved path as an install-script install.
+	// On Linux os.Executable already resolves symlinks, so this guards the macOS behavior.
+	cellarBinary := copyBinaryToFakeInstallPath(t, "Cellar/youtrack/1.0.0/bin")
+	linkDir := filepath.Join(t.TempDir(), ".local", "bin")
+	require.NoError(t, os.MkdirAll(linkDir, 0o755))
+	link := filepath.Join(linkDir, "youtrack")
+	require.NoError(t, os.Symlink(cellarBinary, link))
+
+	stubDir := t.TempDir()
+	record := filepath.Join(stubDir, "record.txt")
+	writeE2EStubExecutable(t, stubDir, "brew", record)
+
+	// Only the stub is on PATH: a regression to the install-script upgrade finds no bash and fails instead of running the real installer.
+	output, err := runViaPTY(t, link, []string{"PATH=" + stubDir}, "update", "--format", "table")
+	skipIfUpdateCheckUnreachable(t, output, output, err)
+	require.NoError(t, err, "output: %s", output)
+
+	got, readErr := os.ReadFile(record)
+	require.NoError(t, readErr, "stub brew was never invoked; output: %s", output)
+	require.Equal(t, "upgrade youtrack\n", string(got))
+}
+
+func TestCmd_UpdatePrompt_NoNoticeAfterPrompt(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("pty-based TTY simulation is POSIX-only")
+	}
+	binary := buildVersionedBinaryAt(t, "Cellar/youtrack/0.0.1/bin", "0.0.1")
+	home := t.TempDir()
+	// lastUpdateCheck 0 makes this run's background check fire, so a post-command notice would follow the prompt.
+	cfgPath := configFixture(t, home, `{"latestVersion":"9.9.9","lastUpdateCheck":0}`)
+
+	out, err := runViaPTYAnswering(t, binary, promptEnv(home), "2", "instance", "list")
+	require.NoError(t, err, "output: %s", out)
+	require.Contains(t, out, "Update available!")
+	require.NotContains(t, out, "is available (you have", "the prompt already offered the update this run")
+
+	data, err := os.ReadFile(cfgPath)
+	require.NoError(t, err)
+	var cfg struct {
+		LatestVersion string `json:"latestVersion"`
+	}
+	require.NoError(t, json.Unmarshal(data, &cfg))
+	if cfg.LatestVersion == "9.9.9" {
+		t.Skip("the background check did not reach the GitHub API within the notice wait")
+	}
 }

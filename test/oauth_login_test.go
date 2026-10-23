@@ -143,12 +143,12 @@ func patchInstance(t *testing.T, home, alias string, edit func(inst map[string]a
 	edit(inst)
 	data, err := json.MarshalIndent(cfg, "", "  ")
 	require.NoError(t, err)
-	require.NoError(t, os.WriteFile(filepath.Join(home, ".youtrack-cli-config.json"), data, 0600))
+	require.NoError(t, os.WriteFile(configFile(home), data, 0600))
 }
 
 func readConfig(t *testing.T, home string) map[string]any {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(home, ".youtrack-cli-config.json"))
+	data, err := os.ReadFile(configFile(home))
 	require.NoError(t, err)
 	var cfg map[string]any
 	require.NoError(t, json.Unmarshal(data, &cfg))
@@ -162,7 +162,7 @@ func savedInstance(t *testing.T, home, alias string) map[string]any {
 }
 
 func configExists(home string) bool {
-	_, err := os.Stat(filepath.Join(home, ".youtrack-cli-config.json"))
+	_, err := os.Stat(configFile(home))
 	return err == nil
 }
 
@@ -196,7 +196,7 @@ var authorizeURLPattern = regexp.MustCompile(`https?://\S+/oauth2/auth\?\S+`)
 
 func startLogin(t *testing.T, home, clientID string, args ...string) *loginProc {
 	t.Helper()
-	base := []string{"--json", "instance", "login", "--insecure", "--no-browser", "--client-id", clientID, "--timeout", "20s"}
+	base := []string{"--json", "instance", "login", "--insecure", "--session", "--no-browser", "--client-id", clientID, "--timeout", "20s"}
 	p := &loginProc{urlCh: make(chan string, 1), done: make(chan error, 1)}
 	p.cmd = exec.Command(binaryPath, append(base, args...)...)
 	p.cmd.Env = isolatedEnv(home)
@@ -315,7 +315,7 @@ func TestOAuthLogin_LoopbackFlow(t *testing.T) {
 		assert.NotContains(t, p.errText(), secret)
 	}
 	if runtime.GOOS != "windows" {
-		fi, err := os.Stat(filepath.Join(home, ".youtrack-cli-config.json"))
+		fi, err := os.Stat(configFile(home))
 		require.NoError(t, err)
 		assert.Equal(t, os.FileMode(0o600), fi.Mode().Perm())
 	}
@@ -441,7 +441,7 @@ func TestOAuthLogin_PastedURLWithWrongStateRejected(t *testing.T) {
 
 func TestOAuthLogin_RequiresHTTPS(t *testing.T) {
 	// Plain http to a remote host is refused even with --insecure; the guard runs before any request.
-	cmd := exec.Command(binaryPath, "instance", "login", "http://youtrack.invalid", "--insecure", "--no-browser", "--save=false")
+	cmd := exec.Command(binaryPath, "instance", "login", "http://youtrack.invalid", "--insecure", "--session", "--session", "--no-browser", "--save=false")
 	cmd.Env = isolatedEnv(t.TempDir())
 	out, err := cmd.CombinedOutput()
 	require.Error(t, err)
@@ -449,7 +449,7 @@ func TestOAuthLogin_RequiresHTTPS(t *testing.T) {
 
 	// Loopback http needs an explicit --insecure.
 	requireOAuthEnv(t)
-	cmd = exec.Command(binaryPath, "instance", "login", os.Getenv("YOUTRACK_BASE_URL"), "--no-browser", "--save=false")
+	cmd = exec.Command(binaryPath, "instance", "login", os.Getenv("YOUTRACK_BASE_URL"), "--session", "--no-browser", "--save=false")
 	cmd.Env = isolatedEnv(t.TempDir())
 	out, err = cmd.CombinedOutput()
 	require.Error(t, err)
@@ -474,7 +474,7 @@ func TestOAuthRefresh(t *testing.T) {
 	assert.Equal(t, signedIn["refreshToken"], inst["refreshToken"])
 	expiresAt, _ := inst["tokenExpiresAt"].(float64)
 	assert.InDelta(t, time.Now().Unix()+3600, expiresAt, 60)
-	matches, _ := filepath.Glob(filepath.Join(home, ".youtrack-cli-config.json.*.tmp"))
+	matches, _ := filepath.Glob(configFile(home) + ".*.tmp")
 	assert.Empty(t, matches, "atomic write leaves no temp files")
 
 	// A fresh token is not refreshed again.
@@ -497,20 +497,20 @@ func TestOAuthRefresh_InvalidGrantClearsCredentials(t *testing.T) {
 	_, stderr, err := runInHome(home, nil, "--format", "table", "user", "current")
 	require.Error(t, err)
 	assert.Contains(t, stderr, "expired or was revoked")
-	assert.Contains(t, stderr, "youtrack instance login e2e")
+	assert.Contains(t, stderr, "youtrack auth login --session e2e")
 	assert.NotContains(t, stderr, deadRefresh)
 
 	inst := savedInstance(t, home, "e2e")
 	assert.Empty(t, inst["token"], "stale access token removed")
 	assert.Empty(t, inst["refreshToken"], "stale refresh token removed")
 	assert.Equal(t, hub.baseURL, inst["url"], "the profile is kept for re-login")
-	data, _ := os.ReadFile(filepath.Join(home, ".youtrack-cli-config.json"))
+	data, _ := os.ReadFile(configFile(home))
 	assert.NotContains(t, string(data), signedIn["token"].(string))
 
 	// Later commands keep pointing at re-login and do not retry the dead grant.
 	_, stderr, err = runInHome(home, nil, "--verbose", "--format", "table", "user", "current")
 	require.Error(t, err)
-	assert.Contains(t, stderr, "youtrack instance login e2e")
+	assert.Contains(t, stderr, "youtrack auth login --session e2e")
 	assert.NotContains(t, stderr, refreshLogLine)
 }
 
@@ -656,7 +656,7 @@ func TestOAuthStatus_FailedCheckKeepsSessionMetadata(t *testing.T) {
 		var s map[string]any
 		require.NoError(t, json.Unmarshal([]byte(out), &s), "output: %s", out)
 		assert.True(t, strings.HasPrefix(s["status"].(string), wantPrefix), "status: %v", s["status"])
-		assert.Contains(t, s["status"], "youtrack instance login e2e")
+		assert.Contains(t, s["status"], "youtrack auth login --session e2e")
 		assert.Equal(t, "profile", s["source"])
 		assert.Equal(t, "e2e", s["alias"])
 		assert.Equal(t, "oauth", s["authMethod"])

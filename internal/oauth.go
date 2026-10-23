@@ -70,7 +70,7 @@ func (s *oauthSession) Token(ctx context.Context) (string, error) {
 		return "", sessionExpiredError(s.alias)
 	}
 	if !cur.OAuthEndpointsTrusted() {
-		return "", fmt.Errorf("refusing to send the refresh token for %q to %s: the endpoint is not the one saved with the token in the OS keyring — sign in again: youtrack instance login %s", s.alias, cur.TokenEndpoint, s.alias)
+		return "", fmt.Errorf("refusing to send the refresh token for %q to %s: the endpoint is not the one saved with the token in the OS keyring — sign in again: youtrack auth login --session %s", s.alias, cur.TokenEndpoint, s.alias)
 	}
 
 	requestedAt := s.now()
@@ -117,14 +117,14 @@ func (s *oauthSession) Token(ctx context.Context) (string, error) {
 }
 
 func sessionExpiredError(alias string) error {
-	return fmt.Errorf("the OAuth session for %q has expired or was revoked — sign in again: youtrack instance login %s", alias, alias)
+	return fmt.Errorf("the OAuth session for %q has expired or was revoked — sign in again: youtrack auth login --session %s", alias, alias)
 }
 
 // NewSavedInstanceClient builds a client for a saved instance, refreshing its token on demand when it is an OAuth session.
 // It refuses an instance whose config-file URL has another origin than the URL its keyring credentials are bound to.
 func NewSavedInstanceClient(cmd *cobra.Command, alias string, inst *config.Instance) (*api.Client, error) {
 	if !sameOrigin(inst.URL, inst.TokenURL()) {
-		return nil, fmt.Errorf("refusing to send the saved token for %q (%s) to %s — sign in again: youtrack instance login %s", alias, inst.TokenURL(), inst.URL, alias)
+		return nil, fmt.Errorf("refusing to send the saved token for %q (%s) to %s — sign in again: youtrack auth login --session %s", alias, inst.TokenURL(), inst.URL, alias)
 	}
 	c := api.NewClient(inst.URL, inst.Token).WithContext(cmd.Context())
 	if canRefresh(inst) {

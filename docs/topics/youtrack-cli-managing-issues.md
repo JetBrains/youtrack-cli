@@ -20,6 +20,8 @@ By default the command returns up to 100 issues. Use `--limit` to change that an
 youtrack issue list --query "project: DEMO" --limit 20 -f idReadable,summary,project.shortName
 ```
 
+Use `--offset` to skip issues when paging. Both `--limit` and `--offset` must be non-negative; `--limit 0` returns no issues.
+
 Custom fields work as columns too, like the visible columns of the issue list in the web interface. Any `--fields` entry that is not an issue attribute (`idReadable`, `summary`, `reporter`, `created`, `project.shortName`, and so on) is read as the name of a custom field in the issue's project. Names are case-insensitive, and a name with spaces needs quoting:
 
 ```Shell
@@ -66,6 +68,8 @@ youtrack issue create --project DEMO --summary "Crash on startup" --custom-field
 
 `--project` and `--summary` are required. The other flags are optional: `--description` and `--description-file` set the body (mutually exclusive); `--custom-fields` and `--custom-fields-file` take a JSON object of field values; `--parent` nests the issue under another issue ID; and `--asUser` creates it as another login.
 
+Custom fields must be one complete JSON object with string values. Malformed JSON, trailing content, and non-string values (including `null`) are rejected before an issue is created.
+
 > Use `youtrack project list` to look up a project's short name.
 >
 {style="tip"}
@@ -77,7 +81,10 @@ Update the summary or description of an existing issue:
 ```Shell
 youtrack issue update DEMO-42 --summary "Login button overlaps header"
 youtrack issue update DEMO-42 --description "Reproduced on iOS Safari."
+youtrack issue update DEMO-42 --description ""  # clear the description
 ```
+
+Only fields whose flags are passed are changed. An explicit empty `--description` clears the description; omitting the flag preserves it.
 
 To change fields such as State, Priority, or Assignee, apply a command (see [Applying a command](#command)) or set a field value directly (see [Setting custom fields](#fields)).
 

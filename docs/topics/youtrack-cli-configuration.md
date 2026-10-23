@@ -16,13 +16,13 @@ Because the two values resolve separately, you can mix sources — for example, 
 
 Saved tokens are bound to their instance: a token taken from a config profile (steps 2 and 4) is only sent when the resolved base URL has the same origin — scheme, host, and port — as that profile. Overriding just the base URL to point at a different host fails with an error rather than forwarding the saved token.
 
-> If no base URL or token can be resolved, the command fails with a message naming the missing value. Run `youtrack instance add` to configure one, or set the environment variables.
+> If no base URL or token can be resolved, the command fails with a message naming the missing value. Run `youtrack auth login` to configure one, or set the environment variables.
 >
 {style="note"}
 
 ## The config file {id="config-file"}
 
-YouTrack CLI stores its configuration in `~/.youtrack-cli-config.json`. The file is written with `0600` permissions, so only your user account can read it. Saved tokens use the OS keyring when available and are omitted from this file. You do not edit it by hand — the `youtrack instance` commands manage it for you.
+YouTrack CLI stores its configuration in `$XDG_CONFIG_HOME/youtrack/config.json`, which is `~/.config/youtrack/config.json` when `XDG_CONFIG_HOME` is not set. The same location is used on macOS, Linux, and Windows. Versions before this change used `~/.youtrack-cli-config.json`; the CLI moves that file to the new location the first time it runs. The file is written with `0600` permissions, so only your user account can read it. Saved tokens use the OS keyring when available and are omitted from this file. You do not edit it by hand — the `youtrack instance` commands manage it for you.
 
 A config file with two instances looks like this:
 
@@ -46,10 +46,10 @@ A config file with two instances looks like this:
 The top-level keys are:
 
 - `currentInstance` — alias of the active instance. Its credentials are used when no flag or environment variable overrides them.
-- `instances` — map of alias to instance. Each entry holds a `url`, plus optional OAuth session metadata for browser-SSO instances (`authMethod`, `tokenExpiresAt`, `tokenType`, `scope`, `hubUrl`, `clientId`, `tokenEndpoint`). A `token` (and, for OAuth sessions, a `refreshToken`) appears only when keyring storage is unavailable or explicitly disabled. The sibling `~/.youtrack-cli-config.json.lock` file serializes every config update (token refreshes, sign-ins, `instance use`/`delete`, `auth logout`) between concurrent CLI processes, so one process never overwrites a refresh token that another has just rotated.
+- `instances` — map of alias to instance. Each entry holds a `url`, plus optional OAuth session metadata for browser-SSO instances (`authMethod`, `tokenExpiresAt`, `tokenType`, `scope`, `hubUrl`, `clientId`, `tokenEndpoint`). A `token` (and, for OAuth sessions, a `refreshToken`) appears only when keyring storage is unavailable or explicitly disabled. The sibling `config.json.lock` file next to it serializes every config update (token refreshes, sign-ins, `instance use`/`delete`, `auth logout`) between concurrent CLI processes, so one process never overwrites a refresh token that another has just rotated.
 - `lastUpdateCheck` — Unix timestamp of the last update check, managed automatically. See [The startup update notice](#update-notice).
 
-Manage the file with the `youtrack instance` commands: `instance add` authenticates and saves a new instance (its alias is derived from the URL hostname unless you pass `--alias`), `instance list` shows all instances and which is active, `instance use <alias>` switches the active instance, `instance refresh-token <alias>` replaces a saved token in place, and `instance delete <alias>` removes one. See [Authentication](youtrack-cli-authentication.md) for how to obtain a permanent token and complete the `instance add` flow.
+Manage the file with the `youtrack instance` commands: `auth login` signs in and saves a new instance (its alias is derived from the URL hostname unless you pass `--alias`), `instance list` shows all instances and which is active, `instance use <alias>` switches the active instance, `instance refresh-token <alias>` replaces a saved token in place, and `instance delete <alias>` removes one. See [Authentication](youtrack-cli-authentication.md) for how to obtain a permanent token and complete the `auth login` flow.
 
 ## Environment variables {id="env-vars"}
 
@@ -260,13 +260,30 @@ For how to combine `--json`, `--plain`, and `--fields` in scripts, see [Scriptin
 
 ## The startup update notice {id="update-notice"}
 
-On startup, a released build of YouTrack CLI checks GitHub at most once every 24 hours for a newer release. It shows a notice only when the latest release is strictly newer than the running version by semantic-version comparison, printing a single informational line to stderr after the command finishes:
+On startup, a released build of YouTrack CLI checks GitHub at most once every 24 hours for a newer release. When the latest release is strictly newer than the running version by semantic-version comparison, it prints one line to stderr after the command finishes:
 
 ```Shell
-ℹ  youtrack <tag> is available (you have <version>) — see https://github.com/JetBrains/youtrack-cli/releases
+ℹ  YouTrack CLI v<latest> is available (you have <version>) — run 'youtrack update' to update
 ```
 
-The check runs in the background, writes nothing to stdout, and records the time of the last attempt in `lastUpdateCheck` to throttle itself to once every 24 hours. Command exit waits no more than 500 milliseconds for the notice. Development builds, `--quiet`, CI, non-interactive stderr, `YOUTRACK_NO_UPDATE`, and `DO_NOT_TRACK` skip the network check. To upgrade, reinstall using any method in [Getting Started](youtrack-cli-get-started.md).
+The check runs in the background and writes nothing to stdout. It records the time of the last attempt in `lastUpdateCheck` and the latest release in `latestVersion`. Command exit waits no more than 500 milliseconds for the notice. Development builds, `--quiet`, CI, non-interactive stderr, `YOUTRACK_NO_UPDATE`, and `DO_NOT_TRACK` skip the network check.
+
+On a later run, when `latestVersion` is newer than the running version, the CLI asks before the command runs:
+
+```Shell
+Update available! v<version> → v<latest>
+Release notes: https://github.com/JetBrains/youtrack-cli/releases/tag/v<latest>
+
+  1. Update now (runs `<upgrade command>`)
+  2. Skip
+  3. Skip until next version
+```
+
+- **1** runs the same upgrade as `youtrack update`, then runs your command on the current version.
+- **2** runs your command. The CLI asks again on the next run.
+- **3** records the release in `dismissedVersion`. The CLI does not ask again until a newer release is out.
+
+The CLI asks only when stdin, stdout, and stderr are terminals and the output format is a table, so scripts and AI agents never see the prompt. It does not ask for `youtrack update`, `help`, or shell completion, for `--quiet`, or when the install method has no automated upgrade (apt, rpm, AUR, or an undetected install). The same settings that skip the network check also turn off the prompt.
 
 To silence the notice, pass `--quiet`, which also suppresses tips and hints:
 

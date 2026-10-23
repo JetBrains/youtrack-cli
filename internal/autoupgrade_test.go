@@ -10,7 +10,7 @@ import (
 // is no subprocess dispatch to exercise — just a pure decision. The Homebrew and
 // go-install cases that spawn a process are covered end-to-end instead.
 func TestRunAutoUpgrade_UnsupportedMethodNotAttempted(t *testing.T) {
-	for _, method := range []InstallMethod{InstallApt, InstallScript} {
+	for _, method := range []InstallMethod{InstallApt, InstallRPM, InstallArch, InstallUnknown} {
 		var out, errOut bytes.Buffer
 		attempted, err := RunAutoUpgrade(method, "1.2.3", &out, &errOut)
 		if attempted {

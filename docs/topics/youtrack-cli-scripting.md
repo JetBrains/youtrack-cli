@@ -24,6 +24,8 @@ Read commands print the entity or list as JSON. Write commands behave in one of 
 - `issue create` and `issue update` return the created or updated issue object, including its `idReadable`.
 - `issue delete` and other confirmations print a short success line, such as `deleted issue DEMO-42` (prefixed with a green `✓` in a terminal).
 
+Declining a confirmation exits with code `0`. In JSON mode, destructive commands such as `issue delete` report `{"status":"canceled","message":"Canceled."}` on stdout; table and plain modes print `Canceled.`. Check the status to distinguish a canceled operation from a completed one.
+
 > Successful data is written to stdout. In JSON mode, a failure is emitted as a structured `{"error":{...}}` object on stderr and the process exits non-zero. This keeps stdout safe for `jq` and prevents error text from contaminating a data pipeline.
 >
 {style="note"}
@@ -129,11 +131,13 @@ youtrack raw /api/issues/DEMO-42/comments \
 Raw responses are arbitrary JSON, so pass `--json` or pipe the output when you want to parse it.
 
 For collection endpoints, `--paginate` follows `$skip`/`$top` pages and emits
-one combined JSON array. `--page-size` defaults to 100:
+one combined JSON array, or `[]` when the collection is empty. `--page-size` defaults to 100:
 
 ```Shell
 youtrack raw /api/issues --fields "idReadable,summary" --paginate --page-size 100
 ```
+
+All list commands with `--limit` (`issue list`, `article list`, `user list`, and `tag issue list`) require non-negative values; `0` returns an empty list. Use `raw --paginate` to fetch every page. The `issue list --offset` value must also be non-negative.
 
 <table>
 <tr>

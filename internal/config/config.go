@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-// Config is the top-level structure of ~/.youtrack-cli-config.json.
+// Config is the top-level structure of the config file at ConfigPath.
 type Config struct {
 	CurrentInstance string              `json:"currentInstance"`
 	Instances       map[string]Instance `json:"instances"`
@@ -20,6 +20,10 @@ type Config struct {
 
 	// staleRefresh lists aliases whose OAuth session was replaced by a permanent token; Save drops their OAuth session keyring entries.
 	staleRefresh []string
+	// LatestVersion is the newest release seen by the last update check; the startup prompt reads it.
+	LatestVersion string `json:"latestVersion,omitempty"`
+	// DismissedVersion is the release the user chose to skip in the startup prompt.
+	DismissedVersion string `json:"dismissedVersion,omitempty"`
 }
 
 // Instance holds the credentials for a single YouTrack instance; Token is empty in the file when it lives in the OS keyring.
@@ -67,8 +71,31 @@ type OAuthSession struct {
 	TokenEndpoint string
 }
 
-// ConfigPath returns the absolute path to ~/.youtrack-cli-config.json.
+// ConfigDir returns the youtrack-cli config directory ($XDG_CONFIG_HOME/youtrack or ~/.config/youtrack).
+// A relative XDG_CONFIG_HOME is ignored, as the XDG spec requires.
+func ConfigDir() (string, error) {
+	configHome := os.Getenv("XDG_CONFIG_HOME")
+	if !filepath.IsAbs(configHome) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return "", fmt.Errorf("resolving home dir: %w", err)
+		}
+		configHome = filepath.Join(home, ".config")
+	}
+	return filepath.Join(configHome, "youtrack"), nil
+}
+
+// ConfigPath returns the absolute path to config.json in ConfigDir.
 func ConfigPath() (string, error) {
+	dir, err := ConfigDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(dir, "config.json"), nil
+}
+
+// legacyConfigPath is where versions before the XDG move kept the config.
+func legacyConfigPath() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("resolving home dir: %w", err)
@@ -76,13 +103,14 @@ func ConfigPath() (string, error) {
 	return filepath.Join(home, ".youtrack-cli-config.json"), nil
 }
 
-// Load reads ~/.youtrack-cli-config.json.
-// Returns an empty Config (not an error) if the file does not exist.
+// Load reads the config file, moving a legacy ~/.youtrack-cli-config.json to ConfigPath first.
+// Returns an empty Config (not an error) if no config file exists.
 func Load() (*Config, error) {
 	path, err := ConfigPath()
 	if err != nil {
 		return nil, err
 	}
+	path = migrateLegacy(path)
 	data, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return &Config{Instances: map[string]Instance{}}, nil
@@ -132,7 +160,7 @@ func Load() (*Config, error) {
 	return &c, nil
 }
 
-// Save atomically writes the config to ~/.youtrack-cli-config.json at 0600.
+// Save atomically writes the config to ConfigPath at 0600, creating its directory at 0700.
 // Uses write-to-temp + rename to avoid partial writes on crash (and so a rotated refresh token is never half-written).
 // Tokens go to the OS keyring when available (migrating older file tokens), else stay in the file on any keyring failure.
 func (c *Config) Save() error {
@@ -184,6 +212,9 @@ func (c *Config) Save() error {
 // pre-existing, more permissive temp file can never be reused. When the data holds secrets, it
 // refuses to proceed if the file permissions cannot be restricted to the owner.
 func writeFileAtomic(path string, data []byte, secret bool) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return fmt.Errorf("creating config dir: %w", err)
+	}
 	f, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
 	if err != nil {
 		return fmt.Errorf("writing config: %w", err)
@@ -221,7 +252,33 @@ func writeFileAtomic(path string, data []byte, secret bool) error {
 		cleanup()
 		return fmt.Errorf("saving config: %w", err)
 	}
+	if legacy, err := legacyConfigPath(); err == nil {
+		_ = os.Remove(legacy)
+	}
 	return nil
+}
+
+// migrateLegacy moves a legacy config to path when path does not exist yet and returns the file Load should read.
+// If the move fails and no other process has migrated it meanwhile, it returns the legacy path,
+// so the next Save writes path and removes the legacy file.
+func migrateLegacy(path string) string {
+	legacy, err := legacyConfigPath()
+	if err != nil {
+		return path
+	}
+	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
+		return path
+	}
+	if _, err := os.Stat(legacy); err != nil {
+		return path
+	}
+	if os.MkdirAll(filepath.Dir(path), 0700) == nil && os.Rename(legacy, path) == nil {
+		return path
+	}
+	if _, err := os.Stat(path); err == nil {
+		return path
+	}
+	return legacy
 }
 
 // keyringWrite is what Save must write to the keyring for one instance.

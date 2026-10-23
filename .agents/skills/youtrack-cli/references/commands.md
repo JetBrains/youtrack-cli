@@ -3,24 +3,22 @@
 ## Auth
 
 ```bash
-youtrack auth login [--alias <name>]    # interactive auth (4-method menu)
+youtrack auth login [<url-or-alias>] [--alias <name>] [--no-browser] [--scope <ids>] [--token-name <name>] [--session] [--client-id <id>] [--port N] [--timeout <dur>] [--login <l> --password <p>]   # browser sign-in → permanent token; paste fallback
 youtrack auth status                        # check credentials for all instances
 youtrack auth logout [--instance <alias>]
 youtrack auth refresh-token [<alias>]
 ```
 
-Auth methods: (1) basic login+password, (2) web browser, (3) paste token, (4) browser SSO with OAuth 2.0 + PKCE.
+`auth login` signs in through the browser (OAuth 2.0 + PKCE) and saves a permanent token; with `--no-browser`, or when the Hub has no CLI OAuth client, it prompts for a pasted token. `--login`/`--password` use deprecated Hub basic auth.
 Saved tokens use the OS keyring with a mode-`0600` config fallback. Single-instance automation can use `YOUTRACK_BASE_URL` + `YOUTRACK_TOKEN`.
 Auth commands mask the token in every output format; `--show-token` prints it in full in every format.
 
 ```bash
-youtrack instance add [--alias <name>] [--save=false]
-youtrack instance login [<url-or-alias>] [--no-browser] [--save=false] [--alias <name>] [--scope <ids>] [--port N] [--client-id <id>] [--timeout <dur>]   # browser SSO (~1h token)
+youtrack instance login [<url-or-alias>] [...]   # same command as `auth login`
 youtrack instance list
 youtrack instance use <alias>
 youtrack instance version                        # active instance's YouTrack version + build number
 youtrack instance delete [--force] <alias>       # alias: remove
-youtrack instance refresh-token <alias>          # alias: update-token
 ```
 
 ## Global Flags
@@ -44,6 +42,7 @@ projects/queries instead of pulling every record.
 
 Destructive commands (deletes, `user ban`, `project archive`, `settings feature`, link/reaction
 removals, etc.) prompt for confirmation and accept `--force` to skip the prompt.
+Declining a destructive-action confirmation exits `0` and reports `{"status":"canceled","message":"Canceled."}` in JSON mode; table/plain output remains `Canceled.`.
 
 ## issue
 
@@ -53,11 +52,14 @@ youtrack issue list --query Q [--limit N] [--offset N]
 youtrack issue create --project P --summary S [--description D] [--parent <issueId>] [--description-file path]
                                        # alias: add
 youtrack issue update <issueId> [--summary S] [--description D]
+                                       # --description "" clears it; omitted fields are preserved
 youtrack issue delete <issueId>
 youtrack issue command <issueId[,issueId...]> <query>   # apply a YouTrack command string
 youtrack issue command suggest <issueId[,issueId...]> <query>   # preview suggestions without applying
 youtrack issue count [--query Q]       # may return -1 on first call (async); retry manually
 ```
+
+`issue create --custom-fields` and `--custom-fields-file` require one complete JSON object of string values. Invalid JSON, trailing content, and `null` values fail before creating an issue.
 
 **social actions**
 ```bash
@@ -244,6 +246,8 @@ youtrack article untag <articleId> <tagId>
 youtrack raw <path> [--method GET|POST|PUT|DELETE] [--body JSON] [--fields FIELDS]
 youtrack raw <collection-path> --paginate [--page-size N]
 ```
+
+`--paginate` returns one combined JSON array, including `[]` for an empty collection.
 
 ## dashboard
 

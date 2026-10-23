@@ -28,10 +28,10 @@ type AddIssueRequest struct {
 	Reporter    *User    `json:"reporter,omitempty"`
 }
 
-// UpdateIssueRequest is the body for updating an issue.
+// UpdateIssueRequest contains only explicitly selected issue fields.
 type UpdateIssueRequest struct {
-	Summary     string `json:"summary,omitempty"`
-	Description string `json:"description,omitempty"`
+	Summary     *string `json:"summary,omitempty"`
+	Description *string `json:"description,omitempty"`
 }
 
 // AddCommentRequest is the body for creating a comment.
@@ -407,21 +407,11 @@ func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string
 	case "text":
 		body = map[string]any{"value": map[string]any{"text": fieldValue}}
 	case "user":
-		var users []User
-		if err := c.Get(pathUsers+fmt.Sprintf("?query=%s&fields=id,login&$top=10", url.QueryEscape(fieldValue)), &users); err != nil {
+		user, err := c.GetUser(fieldValue)
+		if err != nil {
 			return err
 		}
-		var userID string
-		for i := range users {
-			if users[i].Login == fieldValue {
-				userID = users[i].ID
-				break
-			}
-		}
-		if userID == "" {
-			return fmt.Errorf("user '%s' not found", fieldValue)
-		}
-		body = map[string]any{"value": map[string]any{"id": userID}}
+		body = map[string]any{"value": map[string]any{"id": user.ID}}
 	case "int":
 		n, err := strconv.Atoi(fieldValue)
 		if err != nil {

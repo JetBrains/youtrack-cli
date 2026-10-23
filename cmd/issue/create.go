@@ -40,10 +40,10 @@ func newIssueCreateCmd() *cobra.Command {
 				description = string(b)
 			}
 
-			if customFieldsFile != "" && customFields != "" {
+			if cmd.Flags().Changed("custom-fields-file") && cmd.Flags().Changed("custom-fields") {
 				return fmt.Errorf("--custom-fields and --custom-fields-file are mutually exclusive")
 			}
-			if customFieldsFile != "" {
+			if cmd.Flags().Changed("custom-fields-file") {
 				b, err := os.ReadFile(customFieldsFile)
 				if err != nil {
 					return fmt.Errorf("read custom-fields file: %w", err)
@@ -53,7 +53,7 @@ func newIssueCreateCmd() *cobra.Command {
 
 			// Parse before creating so bad input never leaves a stray, partially-fielded issue.
 			var customFieldsCmd string
-			if customFields != "" {
+			if cmd.Flags().Changed("custom-fields") || cmd.Flags().Changed("custom-fields-file") {
 				q, err := jsonToCommand(customFields)
 				if err != nil {
 					return fmt.Errorf("parse custom-fields: %w", err)
@@ -129,6 +129,11 @@ func newIssueCreateCmd() *cobra.Command {
 // (e.g. Type before Subsystem). User logins are braced downstream by api.WrapUserValues.
 func jsonToCommand(jsonStr string) (string, error) {
 	shape := fmt.Errorf(`custom-fields must be a flat JSON object of string values, e.g. {"Type":"Bug","Assignee":"alice.qa"}`)
+	// Validate the whole document before decoding in order: More alone does not
+	// distinguish a closing brace from EOF or reject content after the object.
+	if !json.Valid([]byte(jsonStr)) {
+		return "", shape
+	}
 	dec := json.NewDecoder(strings.NewReader(jsonStr))
 	if tok, err := dec.Token(); err != nil || tok != json.Delim('{') {
 		return "", shape
@@ -139,11 +144,14 @@ func jsonToCommand(jsonStr string) (string, error) {
 		if err != nil {
 			return "", shape
 		}
-		var value string
+		var value *string
 		if err := dec.Decode(&value); err != nil {
 			return "", fmt.Errorf("%w (%w)", err, shape)
 		}
-		parts = append(parts, key.(string), value)
+		if value == nil {
+			return "", shape
+		}
+		parts = append(parts, key.(string), *value)
 	}
 	return strings.Join(parts, " "), nil
 }

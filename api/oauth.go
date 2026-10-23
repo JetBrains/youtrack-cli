@@ -325,6 +325,7 @@ type AuthorizationRequest struct {
 	Scopes        []string
 	State         string
 	CodeChallenge string // S256 challenge; plain PKCE is never sent
+	Offline       bool   // request a refresh token (access_type=offline)
 }
 
 // BuildAuthorizationURL encodes an authorization-code + PKCE (S256) request onto the Hub authorization endpoint.
@@ -349,7 +350,9 @@ func BuildAuthorizationURL(endpoint string, r *AuthorizationRequest) (string, er
 	q.Set("code_challenge", r.CodeChallenge)
 	q.Set("code_challenge_method", "S256")
 	// access_type=offline makes Hub issue a refresh token on the first code exchange; request_credentials=default shows the login form only when the user has no Hub session.
-	q.Set("access_type", "offline")
+	if r.Offline {
+		q.Set("access_type", "offline")
+	}
 	q.Set("request_credentials", "default")
 	u.RawQuery = q.Encode()
 	return u.String(), nil
@@ -393,21 +396,4 @@ func GeneratePKCEVerifier() (string, error) {
 func PKCEChallengeS256(verifier string) string {
 	sum := sha256.Sum256([]byte(verifier))
 	return base64.RawURLEncoding.EncodeToString(sum[:])
-}
-
-// ResolveHubURL resolves a possibly relative URL against baseURL. YouTrack Server reports its built-in Hub root-relative,
-// with the context path already included (https://host/youtrack reports "/youtrack/hub").
-func ResolveHubURL(baseURL, ref string) string {
-	if ref == "" {
-		return ""
-	}
-	base, err := url.Parse(strings.TrimRight(baseURL, "/") + "/")
-	if err != nil {
-		return ref
-	}
-	r, err := url.Parse(ref)
-	if err != nil {
-		return ref
-	}
-	return base.ResolveReference(r).String()
 }

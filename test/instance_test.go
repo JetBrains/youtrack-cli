@@ -15,10 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// configFixture writes a pre-built ~/.youtrack-cli-config.json into tmpHome.
+// configFile returns the config path the binary uses when HOME is tmpHome and XDG_CONFIG_HOME is unset.
+func configFile(tmpHome string) string {
+	return filepath.Join(tmpHome, ".config", "youtrack", "config.json")
+}
+
+// configFixture writes a pre-built config file into tmpHome.
 func configFixture(t *testing.T, tmpHome, content string) string {
 	t.Helper()
-	path := filepath.Join(tmpHome, ".youtrack-cli-config.json")
+	path := configFile(tmpHome)
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
 	require.NoError(t, os.WriteFile(path, []byte(content), 0600))
 	return path
 }
@@ -56,6 +62,52 @@ func TestInstance_List(t *testing.T) {
 	assert.Equal(t, "work", items[1].Alias)
 	assert.Equal(t, "https://work.example.com", items[1].URL)
 	assert.True(t, items[1].Active)
+}
+
+func TestInstance_List_MigratesLegacyConfig(t *testing.T) {
+	tmpHome := t.TempDir()
+	legacy := filepath.Join(tmpHome, ".youtrack-cli-config.json")
+	require.NoError(t, os.WriteFile(legacy, []byte(twoInstanceConfig), 0600))
+
+	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome}, "instance", "list")
+	var items []struct {
+		Alias string `json:"alias"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &items))
+	require.Len(t, items, 2)
+
+	assert.NoFileExists(t, legacy)
+	data, err := os.ReadFile(configFile(tmpHome))
+	require.NoError(t, err)
+	assert.JSONEq(t, twoInstanceConfig, string(data))
+}
+
+func TestInstance_List_XDGConfigHome(t *testing.T) {
+	tmpHome := t.TempDir()
+	xdg := t.TempDir()
+	path := filepath.Join(xdg, "youtrack", "config.json")
+	require.NoError(t, os.MkdirAll(filepath.Dir(path), 0700))
+	require.NoError(t, os.WriteFile(path, []byte(twoInstanceConfig), 0600))
+
+	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome, "XDG_CONFIG_HOME=" + xdg}, "instance", "list")
+	var items []struct {
+		Alias string `json:"alias"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &items))
+	require.Len(t, items, 2)
+	assert.NoDirExists(t, filepath.Join(tmpHome, ".config"))
+}
+
+func TestInstance_List_IgnoresRelativeXDGConfigHome(t *testing.T) {
+	tmpHome := t.TempDir()
+	configFixture(t, tmpHome, twoInstanceConfig)
+
+	out := runCmdWithEnv(t, "", []string{"HOME=" + tmpHome, "XDG_CONFIG_HOME=relative"}, "instance", "list")
+	var items []struct {
+		Alias string `json:"alias"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(out), &items))
+	require.Len(t, items, 2)
 }
 
 func TestInstance_List_Empty(t *testing.T) {
@@ -238,14 +290,14 @@ func TestAuthGetToken_SavesToConfig(t *testing.T) {
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 	tmpHome := t.TempDir()
 
-	// Option 3 (direct paste), --alias mywork, default --save=true.
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	// Pasted token, --alias mywork, default --save=true.
+	runCmdWithEnv(t, token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"--base-url", baseURL, "auth", "get-token",
 		"--alias", "mywork",
 	)
 
-	data, err := os.ReadFile(filepath.Join(tmpHome, ".youtrack-cli-config.json"))
+	data, err := os.ReadFile(configFile(tmpHome))
 	require.NoError(t, err)
 	var result struct {
 		CurrentInstance string `json:"currentInstance"`

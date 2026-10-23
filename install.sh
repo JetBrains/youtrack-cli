@@ -352,6 +352,10 @@ install_youtrack() {
 
     configure_path
 
+    # 'youtrack update' sets YOUTRACK_INSTALL_UPDATE: the user already knows the next steps.
+    if [[ -n "${YOUTRACK_INSTALL_UPDATE:-}" ]]; then
+        return 0
+    fi
     printf '\n\033[1mNext steps:\033[0m\n\n'
     printf '  Authenticate with your YouTrack instance:\n'
     printf '    \033[0;90myoutrack instance add\033[0m\n\n'
@@ -364,6 +368,7 @@ trap 'fail "interrupted"' INT TERM
 
 choose_install_dir
 
+if [[ -z "${YOUTRACK_INSTALL_UPDATE:-}" ]]; then
 cat << 'LOGO'
 
  __   __         _____               _
@@ -378,5 +383,6 @@ printf 'This script installs \033[1myoutrack\033[0m to %s.\n' "$OUT_DIR"
 printf 'New installs use ~/.local/bin without sudo; existing unmanaged installs are updated in place.\n'
 printf 'Install to a different directory:  \033[0;90mcurl -fsSL https://jb.gg/youtrack-cli/install | bash -s -- "" ~/.local/bin\033[0m\n'
 printf 'Install a specific version:        \033[0;90mcurl -fsSL https://jb.gg/youtrack-cli/install | bash -s -- v0.5.1\033[0m\n\n'
+fi
 
 install_youtrack

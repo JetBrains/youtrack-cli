@@ -69,10 +69,9 @@ nfpms:
       - src: README.md
         dst: /usr/share/doc/youtrack/README.md
 
-# External package-manager channels. All publishing is credential-gated and is
-# skipped at release time (--skip=homebrew,scoop,aur,winget,chocolatey,npm) until
-# the corresponding tokens are provisioned; the definitions live here so the set
-# is complete and can be switched on by dropping the skip and adding the secret.
+# External package-manager channels. All publishing is credential-gated; AUR and
+# npm are still skipped at release time (--skip=aur,npm) until their tokens are
+# provisioned.
 brews:
   - name: youtrack
     repository:
@@ -154,6 +153,7 @@ chocolateys:
       - Multi-instance support
       - Designed for AI agents and developers
     project_url: https://github.com/JetBrains/youtrack-cli
+    icon_url: https://resources.jetbrains.com/storage/products/company/brand/logos/YouTrack_icon.png
     copyright: JetBrains s.r.o.
     license_url: https://github.com/JetBrains/youtrack-cli/blob/master/LICENSE
     require_license_acceptance: false

@@ -19,18 +19,22 @@ func newIssueUpdateCmd() *cobra.Command {
 			summary, _ := cmd.Flags().GetString("summary")
 			description, _ := cmd.Flags().GetString("description")
 
-			if summary == "" && description == "" {
+			if !cmd.Flags().Changed("summary") && !cmd.Flags().Changed("description") {
 				return fmt.Errorf("at least one of --summary or --description must be provided")
+			}
+			req := api.UpdateIssueRequest{}
+			if cmd.Flags().Changed("summary") {
+				req.Summary = &summary
+			}
+			if cmd.Flags().Changed("description") {
+				req.Description = &description
 			}
 
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			issue, err := client.UpdateIssue(args[0], api.UpdateIssueRequest{
-				Summary:     summary,
-				Description: description,
-			})
+			issue, err := client.UpdateIssue(args[0], req)
 			if err != nil {
 				return err
 			}
@@ -38,6 +42,6 @@ func newIssueUpdateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("summary", "", "New summary")
-	cmd.Flags().String("description", "", "New description")
+	cmd.Flags().String("description", "", "New description (an empty string clears it)")
 	return cmd
 }

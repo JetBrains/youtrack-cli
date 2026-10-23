@@ -132,6 +132,20 @@ token_is_valid() {
   api_with_token "${token}" "/api/users/me?fields=id,login" >/dev/null
 }
 
+apply_license() {
+  local token="$1"
+  require_command jq
+
+  # Configure's JVM properties do not persist the license to the running service.
+  curl -fsS \
+    -H "Authorization: Bearer ${token}" \
+    -H "Content-Type: application/json" \
+    -X POST \
+    -d "$(jq -n --arg username "${LICENSE_NAME}" --arg license "${LICENSE_KEY}" '{username: $username, license: $license}')" \
+    "${BASE_URL}/api/admin/globalSettings/license?fields=error" \
+    | jq -e 'if .error then error(.error) else true end' >/dev/null
+}
+
 service_is_running() {
   compose ps --status running -q youtrack | grep -q .
 }

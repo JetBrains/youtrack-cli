@@ -1,6 +1,8 @@
 package user
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 
 	"github.com/JetBrains/youtrack-cli/internal"
@@ -13,6 +15,9 @@ func newUserListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List users",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 0 {
+				return fmt.Errorf("--limit must not be negative, got %d", limit)
+			}
 			query, _ := cmd.Flags().GetString("query")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -29,6 +34,6 @@ func newUserListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("query", "", "Filter users by query")
-	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of users to return")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of users to return (non-negative; 0 returns none)")
 	return cmd
 }

@@ -56,25 +56,23 @@ func TestOAuthDiscovery(t *testing.T) {
 	assert.NotEmpty(t, eps.TokenEndpoint)
 }
 
-// TestInstanceLogin_FallsBackWithoutOAuthClient checks that with no "youtrack-cli" client, `instance login` pre-flight falls back to the paste-token flow (fed via stdin); the full browser flow can't run headlessly.
-func TestInstanceLogin_FallsBackWithoutOAuthClient(t *testing.T) {
+// TestInstanceLogin_FallsBackWithoutOAuthClient checks that with no "localhost-auth" client, `instance login` pre-flight falls back to the paste-token flow (fed via stdin); the full browser flow can't run headlessly.
+func TestInstanceLogin_IsAuthLogin(t *testing.T) {
 	requireE2EEnv(t)
 	baseURL := os.Getenv("YOUTRACK_BASE_URL")
 	token := os.Getenv("YOUTRACK_TOKEN")
 	tmpHome := t.TempDir()
 
-	out := runCmdWithEnv(t, token+"\n",
-		[]string{"HOME=" + tmpHome},
-		"--plain", "instance", "login", baseURL,
-		"--alias", "ssotest",
-		"--no-browser",
-		"--insecure", // the E2E harness serves plain http on loopback
-		"--timeout", "10s",
-	)
-
+	// The instance is the positional argument, like "auth login <url>"; piped stdin pastes the token.
+	out := runCmdWithEnv(t, token+"\n", []string{"HOME=" + tmpHome},
+		"--plain", "instance", "login", baseURL, "--alias", "ssotest")
 	assert.Contains(t, out, "Token ready:")
 
-	data, err := os.ReadFile(tmpHome + "/.youtrack-cli-config.json")
+	data, err := os.ReadFile(configFile(tmpHome))
 	require.NoError(t, err)
 	assert.Contains(t, string(data), `"ssotest"`)
+
+	// Passing the alias renews that instance's token in place, through either spelling.
+	out = runCmdWithEnv(t, token+"\n", []string{"HOME=" + tmpHome}, "--plain", "auth", "login", "ssotest")
+	assert.Contains(t, out, `Token saved as "ssotest"`)
 }

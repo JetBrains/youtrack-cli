@@ -29,6 +29,12 @@ func newIssueListCmd() *cobra.Command {
 			"  youtrack issue list --query \"project: FOO\" --limit 20 --offset 20 -f idReadable,summary,project.shortName\n" +
 			"  youtrack issue list --query \"project: FOO #Unresolved\" --fields idReadable,summary,Priority,State,Assignee",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 0 {
+				return fmt.Errorf("--limit must not be negative, got %d", limit)
+			}
+			if offset < 0 {
+				return fmt.Errorf("--offset must not be negative, got %d", offset)
+			}
 			query, _ := cmd.Flags().GetString("query")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -57,8 +63,8 @@ func newIssueListCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("query", "", "YouTrack query string (required)")
-	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of issues to return")
-	cmd.Flags().IntVar(&offset, "offset", 0, "Number of issues to skip")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of issues to return (non-negative; 0 returns none)")
+	cmd.Flags().IntVar(&offset, "offset", 0, "Number of issues to skip (non-negative)")
 	internal.MustMarkRequired(cmd, "query")
 	return cmd
 }

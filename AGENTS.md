@@ -12,10 +12,11 @@ A full YouTrack interaction guide is available as an agent skill — load it whe
 
 ```bash
 make build                                           # compile ./youtrack binary
-make check                                          # fmt-check + lint + build + test — run before committing/pushing
+make check                                          # fmt-check + lint + build + unit + test — run before committing/pushing
+make unit                                           # pure-function tests, no Docker required
 make test                                            # Dockerized YouTrack E2E suite against a real local instance
 go run . issue list --query "assignee: me"           # run without building
-go test ./test/ -run TestGetIssue -v                 # run a single test by name
+go test ./test/ -run TestCmd_IssueViewPlain -v        # run a single E2E test after loading .e2e/youtrack.env
 ```
 
 ## Environment
@@ -115,4 +116,4 @@ surface with its own parallel contract suite. Keep CLI coverage centered on obse
 
 Use Conventional Commit prefixes: `feat:`, `fix:`, `chore:`, `docs:`. Keep commits focused; don't mix refactors with behavior changes.
 
-Always run `make check` before committing or pushing. It runs formatting, linting, build, and the full E2E test suite. Do not push code that fails `make check`.
+Always run `make check` before committing or pushing. It runs formatting, linting, build, pure-function unit tests, and the full E2E test suite. Do not push code that fails `make check`.

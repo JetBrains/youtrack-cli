@@ -20,10 +20,10 @@ func newLogoutCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "logout",
 		Short: "Remove saved credentials for an instance",
-		Long: `Removes an instance from ~/.youtrack-cli-config.json and its tokens from
-the OS keyring.
+		Long: `Removes an instance from the config file (~/.config/youtrack/config.json) and
+its tokens from the OS keyring.
 
-For an OAuth session (created by "instance login"), logout removes the tokens
+For an OAuth session (created by "auth login --session"), logout removes the tokens
 locally only: the refresh token stays valid at Hub until it expires. To revoke
 it, open your profile in Hub (Authentication / Account Security).
 

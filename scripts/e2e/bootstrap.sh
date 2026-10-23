@@ -35,12 +35,13 @@ if [[ -z "${token}" || "${token}" == "null" ]]; then
   exit 1
 fi
 
-write_env_file "${token}"
-
 if ! token_is_valid "${token}"; then
   echo "generated token is not accepted by YouTrack" >&2
   exit 1
 fi
+
+apply_license "${token}"
+write_env_file "${token}"
 
 copy_logs
 echo "prepared YouTrack E2E instance at ${BASE_URL}"

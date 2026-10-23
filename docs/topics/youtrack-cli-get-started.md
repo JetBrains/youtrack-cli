@@ -69,7 +69,7 @@ Alternatively, download the matching `youtrack_<version>_windows_x86_64.zip` or 
 
 ### Installing with go install
 
-If you have a Go toolchain, install YouTrack CLI from source. This requires Go 1.26.9 or later:
+If you have a Go toolchain, install YouTrack CLI from source. This requires Go 1.26 or later:
 
 ```Shell
 go install github.com/JetBrains/youtrack-cli@latest
@@ -94,17 +94,14 @@ YouTrack CLI authenticates to the YouTrack REST API with a permanent token. A pe
 Run the setup command and follow the prompts:
 
 ```Shell
-youtrack instance add
+youtrack auth login
 ```
 
-The command asks for your base URL (for example, `https://example.youtrack.cloud`), an alias for the instance, and an authentication method:
+The command asks for your YouTrack URL, pre-filled with `https://youtrack.jetbrains.com` (or the active instance's URL); edit it or press Enter to accept it. It then opens your browser to sign in through Hub, creates a permanent token, and saves it.
 
-- __Browser SSO__ — authenticate through Hub with OAuth 2.0 + PKCE and save an OAuth session that the CLI refreshes automatically. You can also run `youtrack instance login <url>` directly; add `--no-browser` over SSH.
-- __Web browser__ — the CLI opens the token page so you can create a token and paste it back.
-- __Paste token__ — enter an existing permanent token directly.
-- __Basic auth__ (deprecated) — sign in with your login and password; the CLI creates a permanent token for you. Prefer browser SSO: basic auth does not work with SSO or two-factor authentication.
+If the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it, and asks you to paste a permanent token you created there. With `--session` it saves an OAuth session that the CLI refreshes automatically instead (add `--no-browser` over SSH to paste the redirect URL back).
 
-Saved tokens use the OS keyring when available; the config file at `~/.youtrack-cli-config.json` stores the instance metadata. To manage several instances, register each under its own alias and switch between them with `youtrack instance use <alias>`. See [Configuration](youtrack-cli-configuration.md) for the full precedence and storage rules.
+Saved tokens use the OS keyring when available; the config file at `~/.config/youtrack/config.json` stores the instance metadata. To manage several instances, register each under its own alias and switch between them with `youtrack instance use <alias>`. See [Configuration](youtrack-cli-configuration.md) for the full precedence and storage rules.
 
 ### Using environment variables
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -12,13 +13,16 @@ const lockWait = 30 * time.Second
 
 const lockPollInterval = 50 * time.Millisecond
 
-// Lock takes an exclusive advisory lock on ~/.youtrack-cli-config.json.lock so that concurrent CLI
+// Lock takes an exclusive advisory lock on the config file's .lock sibling so that concurrent CLI
 // processes serialize read-modify-write cycles of the config (notably OAuth refresh, where a lost
 // write would drop a rotated refresh token). Call the returned function to release it.
 func Lock(ctx context.Context) (unlock func(), err error) {
 	path, err := ConfigPath()
 	if err != nil {
 		return nil, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, fmt.Errorf("creating config dir: %w", err)
 	}
 	f, err := os.OpenFile(path+".lock", os.O_RDWR|os.O_CREATE, 0600)
 	if err != nil {

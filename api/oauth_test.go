@@ -48,6 +48,7 @@ func TestBuildAuthorizationURL(t *testing.T) {
 		Scopes:        []string{"yt-svc", "extra svc"},
 		State:         "st&ate",
 		CodeChallenge: "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
+		Offline:       true,
 	}
 	got, err := BuildAuthorizationURL("https://hub.example.com/hub/api/rest/oauth2/auth?keep=1", &req)
 	if err != nil {
@@ -84,6 +85,15 @@ func TestBuildAuthorizationURL(t *testing.T) {
 	}
 	if len(q) != len(want) {
 		t.Errorf("unexpected parameters in %s", got)
+	}
+
+	req.Offline = false
+	got, err = BuildAuthorizationURL("https://hub.example.com/hub/api/rest/oauth2/auth", &req)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if strings.Contains(got, "access_type") {
+		t.Errorf("access_type sent without Offline: %s", got)
 	}
 }
 
@@ -227,24 +237,6 @@ func TestValidateOAuthURL(t *testing.T) {
 		err := ValidateOAuthURL(tc.url, tc.insecure)
 		if (err == nil) != tc.ok {
 			t.Errorf("ValidateOAuthURL(%q, %v) = %v, want ok=%v", tc.url, tc.insecure, err, tc.ok)
-		}
-	}
-}
-
-func TestResolveHubURL(t *testing.T) {
-	t.Parallel()
-
-	for _, tc := range []struct{ base, ref, want string }{
-		{"http://127.0.0.1:8080", "/hub", "http://127.0.0.1:8080/hub"},
-		{"https://yt.example.com/youtrack", "/hub", "https://yt.example.com/hub"},
-		{"https://yt.example.com/youtrack", "hub", "https://yt.example.com/youtrack/hub"},
-		{"https://yt.example.com/youtrack/", "/youtrack/hub", "https://yt.example.com/youtrack/hub"},
-		{"https://x.youtrack.cloud", "https://x.youtrack.cloud/hub", "https://x.youtrack.cloud/hub"},
-		{"https://yt.example.com", "https://hub.example.com", "https://hub.example.com"},
-		{"https://yt.example.com", "", ""},
-	} {
-		if got := ResolveHubURL(tc.base, tc.ref); got != tc.want {
-			t.Errorf("ResolveHubURL(%q, %q) = %q, want %q", tc.base, tc.ref, got, tc.want)
 		}
 	}
 }

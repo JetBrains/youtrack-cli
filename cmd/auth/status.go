@@ -227,7 +227,7 @@ func runMultiInstanceStatus(cmd *cobra.Command, cfg *config.Config) error {
 			Active: alias == cfg.CurrentInstance,
 		}
 		if inst.AuthMethod == config.AuthMethodOAuth && inst.Token == "" {
-			s.Status = fmt.Sprintf("invalid token: OAuth session expired or was revoked — run: youtrack instance login %s", alias)
+			s.Status = fmt.Sprintf("invalid token: OAuth session expired or was revoked — run: youtrack auth login --session %s", alias)
 			statuses = append(statuses, s)
 			continue
 		}

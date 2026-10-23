@@ -7,8 +7,10 @@ import (
 	"crypto/rand"
 	"encoding/binary"
 	"fmt"
+	"maps"
 	"net"
 	"os"
+	"slices"
 	"strings"
 	"time"
 
@@ -22,122 +24,89 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
-// ssoOptions are the tunables of the browser SSO flow: plain defaults from the get-token menu, flag-filled by "instance login".
+const defaultSSOTokenName = "youtrack-cli"
+
+// ssoOptions are the tunables of the browser sign-in flow, filled from the flags of "auth login".
 type ssoOptions struct {
 	clientID    string // empty → api.DefaultOAuthClientID for the resolved Hub
 	extraScopes []string
 	port        int
 	timeout     time.Duration
-	noBrowser   bool
+	session     bool
+	tokenName   string
+	noBrowser   bool   // print the authorization URL and accept the pasted redirect URL instead of opening a browser
 	hubURL      string // explicit Hub URL (standalone Hub); empty → discovered from the instance
 	insecure    bool   // allow plain http for loopback (local development) instances
 }
 
 func defaultSSOOptions() ssoOptions {
-	return ssoOptions{timeout: browserflow.DefaultTimeout}
+	return ssoOptions{timeout: browserflow.DefaultTimeout, tokenName: defaultSSOTokenName}
 }
 
-// ssoLoginResult is the output of a browser sign-in; it never contains the tokens themselves.
+// ssoLoginResult is the output of a browser sign-in; the token is masked unless --show-token is set, and a session's refresh token is never printed.
 type ssoLoginResult struct {
 	Login           string `json:"login"`
 	Name            string `json:"name"`
-	TokenPreview    string `json:"tokenPreview"`
-	ExpiresAt       int64  `json:"expiresAt"`
-	HasRefreshToken bool   `json:"hasRefreshToken"`
+	Token           string `json:"token"`
+	ExpiresAt       int64  `json:"expiresAt,omitempty"`
+	HasRefreshToken bool   `json:"hasRefreshToken,omitempty"`
 	Scope           string `json:"scope,omitempty"`
-	HubURL          string `json:"hubUrl"`
-	ClientID        string `json:"clientId"`
+	HubURL          string `json:"hubUrl,omitempty"`
+	ClientID        string `json:"clientId,omitempty"`
 	Alias           string `json:"alias,omitempty"`
 	ConfigFile      string `json:"_configFile,omitempty"`
 	TokenStorage    string `json:"_tokenStorage,omitempty"`
 	Hint            string `json:"_hint,omitempty"`
 }
 
-// NewSSOLoginCmd constructs the browser single sign-on command (registered as "instance login"; also option 1 in the get-token menu).
-func NewSSOLoginCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "login [url-or-alias]",
-		Short: "Sign in through the browser (OAuth 2.0 + PKCE, auto-refreshing session)",
-		Long: `Signs in to a YouTrack instance through the browser using the OAuth 2.0
-authorization-code flow with PKCE (S256) against the instance's Hub. No password
-or token paste needed — the browser session (including SSO) does the
-authentication.
+// ssoOnlyFlags take effect only in browser sign-in.
+var ssoOnlyFlags = []string{"client-id", "port", "timeout", "session", "hub-url"}
 
-The CLI listens on 127.0.0.1 for the redirect, verifies the state, exchanges the
-code, and saves a short-lived access token plus a refresh token (in the OS
-keyring when available). Every command refreshes the access token
-automatically shortly before it expires; if the session is revoked, sign in
-again with this command.
-
-Headless / SSH / WSL: pass --no-browser (or run where no browser is detected),
-open the printed URL on any device, and paste the URL the browser ends up on
-(http://127.0.0.1:<port>/?code=...&state=...) back into the terminal.
-
-Pass a URL to sign in to a new instance, or an existing alias to renew its
-session. Hub needs an OAuth client with Client ID "youtrack-cli" (on
-hub.jetbrains.com, the CLI uses its "localhost-auth" client),
-Authorization Code flow and Require PKCE enabled, redirect URI
-http://127.0.0.1, and no client secret. Administrators register it in
-YouTrack under Administration > Access Management > OAuth Clients. Use
---client-id for a client with another ID and --hub-url for a standalone Hub.
-When the client is missing, the command falls back to the paste-token flow.`,
-		Args: cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reader := bufio.NewReader(os.Stdin)
-
-			baseURL, err := resolveSSOBaseURL(cmd, reader, args)
-			if err != nil {
-				return err
-			}
-
-			// Prompt for the alias like get-token does, only when saving and not preset.
-			save, _ := cmd.Flags().GetBool("save")
-			if save && !flagChanged(cmd, "alias") && term.IsTerminal(int(os.Stdin.Fd())) {
-				derived := config.DeriveAlias(baseURL)
-				if _, err := fmt.Fprintf(cmd.ErrOrStderr(), "Instance alias [%s]: ", derived); err != nil {
-					return err
-				}
-				raw, err := internal.ReadLineContext(cmd.Context(), reader)
-				if err != nil {
-					return fmt.Errorf("reading alias: %w", err)
-				}
-				alias := strings.TrimSpace(raw)
-				if alias == "" {
-					alias = derived
-				}
-				if err := cmd.Flags().Set("alias", alias); err != nil {
-					return err
-				}
-			}
-
-			opts := defaultSSOOptions()
-			opts.clientID, _ = cmd.Flags().GetString("client-id")
-			opts.port, _ = cmd.Flags().GetInt("port")
-			opts.timeout, _ = cmd.Flags().GetDuration("timeout")
-			opts.noBrowser, _ = cmd.Flags().GetBool("no-browser")
-			opts.hubURL, _ = cmd.Flags().GetString("hub-url")
-			opts.insecure, _ = cmd.Flags().GetBool("insecure")
-			if scope, _ := cmd.Flags().GetString("scope"); scope != "" {
-				for _, s := range strings.Split(scope, ",") {
-					if s = strings.TrimSpace(s); s != "" {
-						opts.extraScopes = append(opts.extraScopes, s)
-					}
-				}
-			}
-			return runSSOFlow(cmd, reader, baseURL, &opts)
-		},
-	}
-
-	cmd.Flags().Bool("save", true, "Save credentials to ~/.youtrack-cli-config.json")
-	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
-	cmd.Flags().String("scope", "", "Comma-separated extra Hub service IDs to request in addition to the YouTrack service")
+// addSSOFlags registers the browser sign-in flags of "auth login".
+func addSSOFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("port", 0, "Fixed loopback port for the OAuth callback (default: pick a free port)")
 	cmd.Flags().String("client-id", "", `OAuth 2.0 client ID registered in Hub (default: "localhost-auth" on hub.jetbrains.com, "youtrack-cli" elsewhere)`)
 	cmd.Flags().Duration("timeout", browserflow.DefaultTimeout, "How long to wait for the browser callback")
-	cmd.Flags().Bool("no-browser", false, "Print the authorization URL and accept the pasted redirect URL instead of opening a browser (SSH, WSL, headless)")
+	cmd.Flags().Bool("session", false, "Save an auto-refreshing OAuth session (access + refresh token) instead of creating a permanent token")
 	cmd.Flags().String("hub-url", "", "Hub base URL for a standalone Hub (default: discovered from the instance, e.g. <url>/hub)")
-	cmd.Flags().Bool("insecure", false, "Allow plain http for a local (localhost/127.0.0.1) instance or Hub; remote http is always refused")
-	return cmd
+}
+
+// ssoOptionsFromFlags reads the flags registered by addSSOFlags.
+func ssoOptionsFromFlags(cmd *cobra.Command) ssoOptions {
+	opts := defaultSSOOptions()
+	opts.clientID, _ = cmd.Flags().GetString("client-id")
+	opts.port, _ = cmd.Flags().GetInt("port")
+	opts.timeout, _ = cmd.Flags().GetDuration("timeout")
+	opts.session, _ = cmd.Flags().GetBool("session")
+	opts.hubURL, _ = cmd.Flags().GetString("hub-url")
+	opts.noBrowser, _ = cmd.Flags().GetBool("no-browser")
+	opts.insecure, _ = cmd.Flags().GetBool("insecure")
+	if name, _ := cmd.Flags().GetString("token-name"); name != "" {
+		opts.tokenName = name
+	}
+	if scope, _ := cmd.Flags().GetString("scope"); scope != "" {
+		for _, s := range strings.Split(scope, ",") {
+			if s = strings.TrimSpace(s); s != "" {
+				opts.extraScopes = append(opts.extraScopes, s)
+			}
+		}
+	}
+	return opts
+}
+
+// requireNoSSOFlags rejects browser sign-in flags (plus extra) on a path that never opens the browser, so a flag like --client-id is not silently ignored.
+func requireNoSSOFlags(cmd *cobra.Command, reason string, extra ...string) error {
+	return rejectFlags(cmd, reason, append(slices.Clone(ssoOnlyFlags), extra...)...)
+}
+
+// rejectFlags fails on the first of names that was set, because on the chosen path it would be silently ignored.
+func rejectFlags(cmd *cobra.Command, reason string, names ...string) error {
+	for _, name := range names {
+		if flagChanged(cmd, name) {
+			return fmt.Errorf("--%s has no effect %s", name, reason)
+		}
+	}
+	return nil
 }
 
 // resolveSSOBaseURL resolves the target instance URL: positional arg (URL or configured alias) → --base-url flag → interactive prompt.
@@ -168,14 +137,11 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 		raw, _ = cmd.Root().PersistentFlags().GetString("base-url")
 	}
 	if raw == "" {
-		if _, err := fmt.Fprint(cmd.ErrOrStderr(), "YouTrack base URL: "); err != nil {
+		url, err := promptBaseURL(cmd, reader)
+		if err != nil {
 			return "", err
 		}
-		line, err := internal.ReadLineContext(cmd.Context(), reader)
-		if err != nil {
-			return "", fmt.Errorf("reading URL: %w", err)
-		}
-		raw = strings.TrimSpace(line)
+		raw = url
 	}
 	raw = strings.TrimRight(raw, "/")
 	if raw != "" && !strings.HasPrefix(raw, "http://") && !strings.HasPrefix(raw, "https://") {
@@ -187,13 +153,13 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 	return raw, nil
 }
 
-// runSSOFlow runs the full browser OAuth 2.0 + PKCE flow against the Hub serving baseURL and saves the resulting session.
+// runSSOFlow runs the full browser OAuth 2.0 + PKCE flow against the Hub serving baseURL and saves a permanent token, or with --session an auto-refreshing OAuth session.
 func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *ssoOptions) error {
 	stderr := cmd.ErrOrStderr()
 	interactive := term.IsTerminal(int(os.Stdin.Fd()))
 
 	if !interactive && !opts.noBrowser {
-		return fmt.Errorf("browser login needs an interactive terminal — pass --no-browser to paste the redirect URL instead, use `youtrack auth login` (paste token), or set YOUTRACK_TOKEN")
+		return fmt.Errorf("browser login needs an interactive terminal — pass --no-browser to paste a token (with --session, the redirect URL), or set YOUTRACK_TOKEN")
 	}
 
 	// TLS: the instance and Hub must be https; plain http is only for loopback development instances behind --insecure.
@@ -210,7 +176,8 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return err
 	}
 	if ytServiceID == "" {
-		return fmt.Errorf("could not discover the YouTrack service ID from %s — check the URL (it must be the YouTrack base URL); older instances may not support browser login, use `youtrack auth login` instead", baseURL)
+		_, _ = fmt.Fprintf(stderr, "Could not discover the YouTrack service ID from %s (this instance may be too old for browser sign-in); falling back to the paste-token flow.\n\n", baseURL)
+		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 	if opts.hubURL != "" {
 		hubURL = strings.TrimRight(opts.hubURL, "/")
@@ -220,7 +187,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	} else if err := api.ValidateHubURL(baseURL, hubURL); err != nil {
 		// Never hand an unvalidated server-advertised Hub URL to the browser; take the same paste-token fallback as a failed pre-flight.
 		_, _ = fmt.Fprintf(stderr, "Hub URL is not usable for browser sign-in (%v); falling back to the paste-token flow.\n\n", err)
-		return runDirectTokenFlow(cmd, reader, baseURL)
+		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 	if err := api.ValidateOAuthURL(hubURL, opts.insecure); err != nil {
 		return fmt.Errorf("hub: %w (pass --hub-url to point at the https Hub)", err)
@@ -270,12 +237,17 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d", port)
 
 	scopes := append([]string{ytServiceID}, opts.extraScopes...)
+	requested := scopes
+	if !opts.session && !slices.Contains(scopes, api.HubServiceID) {
+		requested = append(slices.Clone(scopes), api.HubServiceID)
+	}
 	authorizeURL, err := api.BuildAuthorizationURL(endpoints.AuthorizationEndpoint, &api.AuthorizationRequest{
 		ClientID:      opts.clientID,
 		RedirectURI:   redirectURI,
-		Scopes:        scopes,
+		Scopes:        requested,
 		State:         state,
 		CodeChallenge: api.PKCEChallengeS256(verifier),
+		Offline:       opts.session,
 	})
 	if err != nil {
 		closeListener()
@@ -294,7 +266,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 			"or pass the Client ID of an existing client with --client-id; "+
 			"falling back to the paste-token flow.\n\n",
 			opts.clientID, err)
-		return runDirectTokenFlow(cmd, reader, baseURL)
+		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 
 	link := authorizeURL
@@ -341,77 +313,111 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return fmt.Errorf("token verification failed: %w", err)
 	}
 
-	scope := tok.Scope
-	if scope == "" {
-		scope = strings.Join(scopes, " ")
-	}
-	sess := config.OAuthSession{
-		AccessToken:   tok.AccessToken,
-		RefreshToken:  tok.RefreshToken,
-		ExpiresAt:     api.TokenExpiry(requestedAt, tok.ExpiresIn),
-		TokenType:     cmp.Or(tok.TokenType, "Bearer"),
-		Scope:         scope,
-		HubURL:        hubURL,
-		ClientID:      opts.clientID,
-		TokenEndpoint: endpoints.TokenEndpoint,
-	}
-	result := ssoLoginResult{
-		Login:           user.Login,
-		Name:            user.FullName,
-		TokenPreview:    maskToken(tok.AccessToken),
-		ExpiresAt:       sess.ExpiresAt,
-		HasRefreshToken: sess.RefreshToken != "",
-		Scope:           scope,
-		HubURL:          hubURL,
-		ClientID:        opts.clientID,
-	}
-	renewal := "the session refreshes automatically"
-	if !result.HasRefreshToken {
-		renewal = "Hub issued no refresh token, so re-run `youtrack instance login` to renew"
+	// Check the config is loadable before creating a permanent token, so a broken config fails before anything exists in Hub.
+	save, _ := cmd.Flags().GetBool("save")
+	if save {
+		if _, err := config.Load(); err != nil {
+			return err
+		}
 	}
 
-	if save, _ := cmd.Flags().GetBool("save"); save {
-		alias, _ := cmd.Flags().GetString("alias")
-		var finalAlias string
-		var inKeyring bool
+	result := ssoLoginResult{
+		Login: user.Login,
+		Name:  user.FullName,
+		Token: tok.AccessToken,
+		Scope: tok.Scope,
+	}
+	var sess config.OAuthSession
+	newTokenID := ""
+	if opts.session {
+		scope := cmp.Or(tok.Scope, strings.Join(scopes, " "))
+		sess = config.OAuthSession{
+			AccessToken:   tok.AccessToken,
+			RefreshToken:  tok.RefreshToken,
+			ExpiresAt:     api.TokenExpiry(requestedAt, tok.ExpiresIn),
+			TokenType:     cmp.Or(tok.TokenType, "Bearer"),
+			Scope:         scope,
+			HubURL:        hubURL,
+			ClientID:      opts.clientID,
+			TokenEndpoint: endpoints.TokenEndpoint,
+		}
+		result.ExpiresAt = sess.ExpiresAt
+		result.HasRefreshToken = sess.RefreshToken != ""
+		result.Scope = scope
+		result.HubURL = hubURL
+		result.ClientID = opts.clientID
+	} else {
+		_, _ = fmt.Fprintln(stderr, "Creating permanent token...")
+		perm, err := api.CreateHubTokenWithAccessTokenContext(cmd.Context(), hubURL, tok.AccessToken, opts.tokenName, scopes)
+		if err != nil {
+			return fmt.Errorf("creating permanent token: %w\nre-run with --session to save an auto-refreshing session instead", err)
+		}
+		result.Token = perm.Token
+		result.Scope = ""
+		newTokenID = perm.ID
+	}
+
+	alias := ""
+	if save {
+		alias, _ = cmd.Flags().GetString("alias")
+		var previous map[string]config.Instance
 		err := config.Update(cmd.Context(), func(cfg *config.Config) error {
-			finalAlias = cfg.AddInstanceOAuth(alias, baseURL, &sess)
+			previous = maps.Clone(cfg.Instances)
+			if opts.session {
+				alias = cfg.AddInstanceOAuth(alias, baseURL, &sess)
+			} else {
+				alias = cfg.AddInstance(alias, baseURL, result.Token)
+			}
 			if cfg.CurrentInstance == "" {
-				cfg.CurrentInstance = finalAlias
+				cfg.CurrentInstance = alias
 			}
 			return nil
 		})
 		if err != nil {
-			return fmt.Errorf("saving config: %w", err)
+			return revokeUnsavedToken(cmd, hubURL, tok.AccessToken, newTokenID, opts.tokenName, fmt.Errorf("saving config: %w", err))
 		}
+		result.Alias = alias
+		result.ConfigFile, _ = config.ConfigPath()
+		result.TokenStorage = "file " + result.ConfigFile + " (0600)"
 		if cfg, err := config.Load(); err == nil {
-			// The two keyring writes can fail independently; claim keyring storage only when both credentials made it.
-			inKeyring = cfg.TokenInKeyring(finalAlias) && (sess.RefreshToken == "" || cfg.RefreshTokenInKeyring(finalAlias))
+			// The keyring writes can fail independently; claim keyring storage only when every credential made it.
+			if cfg.TokenInKeyring(alias) && (!opts.session || sess.RefreshToken == "" || cfg.RefreshTokenInKeyring(alias)) {
+				result.TokenStorage = "OS keyring (service youtrack-cli)"
+			} else {
+				_, _ = fmt.Fprintf(stderr, "warning: OS keyring unavailable — tokens stored in %s (mode 0600)\n", result.ConfigFile)
+			}
 		}
-		path, _ := config.ConfigPath()
-		result.Alias = finalAlias
-		result.ConfigFile = path
-		result.TokenStorage = "file " + path + " (0600)"
-		if inKeyring {
-			result.TokenStorage = "OS keyring (service youtrack-cli)"
+		if opts.session {
+			warnReplacedPermanentToken(cmd, user.Login, alias, previous[alias].Token)
 		} else {
-			_, _ = fmt.Fprintf(stderr, "warning: OS keyring unavailable — tokens stored in %s (mode 0600)\n", path)
+			revokeReplacedToken(cmd, hubURL, tok.AccessToken, user.Login, opts.tokenName, previous[alias].Token, result.Token)
 		}
-		result.Hint = fmt.Sprintf("Signed in as %q — access token expires at %s; %s.",
-			finalAlias, time.Unix(sess.ExpiresAt, 0).Format("15:04"), renewal)
-	} else {
-		result.Hint = fmt.Sprintf("Verified only (--save=false): nothing was stored. The access token would expire at %s.",
-			time.Unix(sess.ExpiresAt, 0).Format("15:04"))
+	}
+	renewal := "the session refreshes automatically"
+	if opts.session && !result.HasRefreshToken {
+		renewal = "Hub issued no refresh token, so re-run `youtrack auth login --session` to renew"
+	}
+	switch {
+	case !opts.session && save:
+		result.Hint = fmt.Sprintf("Permanent token %q saved as %q. Revoke it in your Hub profile under Authentication.", opts.tokenName, alias)
+	case !opts.session:
+		result.Hint = fmt.Sprintf("Permanent token %q created. Revoke it in your Hub profile under Authentication.", opts.tokenName)
+	case save:
+		result.Hint = fmt.Sprintf("Session saved as %q — access token expires at %s; %s.",
+			alias, time.Unix(result.ExpiresAt, 0).Format("15:04"), renewal)
+	default:
+		result.Hint = fmt.Sprintf("Verified only (--save=false): nothing was stored. The access token would expire at %s.", time.Unix(result.ExpiresAt, 0).Format("15:04"))
 	}
 
-	// Like the other auth commands, JSON (explicit or non-TTY stdout) goes through output.Print; table and plain get the human summary.
+	// Every format masks the token unless --show-token is set, as writeTokenResult does for the permanent-token flows.
+	result.Token = revealToken(cmd, result.Token)
+	// Like writeTokenResult: JSON (explicit, or the default for non-TTY stdout) goes through output.Print for scripts; table and --plain print the summary, which plain output cannot render as a struct.
 	if !jsonOutput(cmd) {
 		w := cmd.OutOrStdout()
 		_, _ = fmt.Fprintf(w, "Signed in as %s (%s)\n", output.Sanitize(result.Name), output.Sanitize(result.Login))
-		_, _ = fmt.Fprintf(w, "  Token:   %s\n", result.TokenPreview)
-		if result.TokenStorage != "" {
-			_, _ = fmt.Fprintf(w, "  Stored:  %s\n", result.TokenStorage)
-			_, _ = fmt.Fprintf(w, "  Config:  %s\n", result.ConfigFile)
+		_, _ = fmt.Fprintf(w, "  Token:  %s\n", result.Token)
+		if result.ConfigFile != "" {
+			_, _ = fmt.Fprintf(w, "  Saved:  %s\n", result.ConfigFile)
 		}
 		_, _ = fmt.Fprintf(w, "\n%s\n", result.Hint)
 		return nil
@@ -426,6 +432,43 @@ func randomHighPort() (int, error) {
 		return 0, err
 	}
 	return 49152 + int(binary.BigEndian.Uint16(b[:]))%16384, nil
+}
+
+// revokeUnsavedToken deletes a permanent token that was created but could not be saved, so a failed save does not leave a working token nobody can see; it returns saveErr, noting when the token is still live.
+func revokeUnsavedToken(cmd *cobra.Command, hubURL, accessToken, tokenID, tokenName string, saveErr error) error {
+	if tokenID == "" {
+		return saveErr
+	}
+	if err := api.DeleteHubTokenWithAccessTokenContext(cmd.Context(), hubURL, accessToken, tokenID); err != nil {
+		return fmt.Errorf("%w\nthe permanent token %q created for this sign-in could not be revoked (%w); revoke it in your Hub profile under Authentication", saveErr, tokenName, err)
+	}
+	return saveErr
+}
+
+// warnReplacedPermanentToken reports a permanent token of the signed-in user that a --session sign-in just replaced; the session token lacks Hub's scope, so the CLI cannot revoke it.
+func warnReplacedPermanentToken(cmd *cobra.Command, login, alias, oldToken string) {
+	if owner, _, ok := api.ParsePermanentToken(oldToken); ok && owner == login {
+		output.PrintWarn(cmd, fmt.Sprintf("the permanent token previously saved for %q is still valid in Hub; revoke it in your Hub profile under Authentication if nothing else uses it", alias))
+	}
+}
+
+// revokeReplacedToken deletes the permanent token a re-login just replaced, so signing in again does not leave a working token behind in Hub. Only tokens of the signed-in user that carry the CLI's token name are deleted; any other token is kept and reported.
+func revokeReplacedToken(cmd *cobra.Command, hubURL, accessToken, login, tokenName, oldToken, newToken string) {
+	owner, oldID, ok := api.ParsePermanentToken(oldToken)
+	if !ok || owner != login || oldToken == newToken {
+		return
+	}
+	old, err := api.GetHubTokenWithAccessTokenContext(cmd.Context(), hubURL, accessToken, oldID)
+	switch {
+	case err != nil:
+		output.PrintWarn(cmd, fmt.Sprintf("could not look up the replaced permanent token (%v); it may still be valid, check your Hub profile under Authentication", err))
+	case old.Name != tokenName:
+		output.PrintWarn(cmd, fmt.Sprintf("the replaced permanent token %q is still valid; revoke it in your Hub profile under Authentication if nothing else uses it", old.Name))
+	default:
+		if err := api.DeleteHubTokenWithAccessTokenContext(cmd.Context(), hubURL, accessToken, oldID); err != nil {
+			output.PrintWarn(cmd, fmt.Sprintf("could not revoke the replaced permanent token %q (%v); revoke it in your Hub profile under Authentication", old.Name, err))
+		}
+	}
 }
 
 // discoverHub resolves the Hub base URL and YouTrack service ID (OAuth scope): /api/config ring(...) primary, MCP oauth-protected-resource fallback.

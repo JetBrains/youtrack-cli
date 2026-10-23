@@ -23,11 +23,11 @@ Tokens saved via `auth login`, `instance add`, `instance login`, or `auth refres
 - **Windows** — Credential Manager
 - **Linux** — Secret Service (GNOME Keyring, KWallet, etc. via D-Bus)
 
-Each token is stored under the service name `youtrack-cli` with the instance alias as the account. An OAuth session also has an entry under the service name `youtrack-cli-oauth` with the instance alias as the account: it holds the refresh token and the Hub token endpoint recorded at sign-in. The CLI sends the refresh token only to this endpoint and ignores the endpoint in the config file. If the access token is in the keyring but this entry is missing, the CLI does not refresh the session and asks you to sign in again. A second entry, under the service name `youtrack-cli-url` with the instance alias as the account, holds the instance URL that the token was saved for. The token entry keeps only the token, so older CLI versions can still read it after a downgrade. The config file (`~/.youtrack-cli-config.json`) then contains only the instance URL and non-secret session metadata (Hub URL, client ID, token endpoint, expiry, scope) — no secret.
+Each token is stored under the service name `youtrack-cli` with the instance alias as the account. An OAuth session also has an entry under the service name `youtrack-cli-oauth` with the instance alias as the account: it holds the refresh token and the Hub token endpoint recorded at sign-in. The CLI sends the refresh token only to this endpoint and ignores the endpoint in the config file. If the access token is in the keyring but this entry is missing, the CLI does not refresh the session and asks you to sign in again. A second entry, under the service name `youtrack-cli-url` with the instance alias as the account, holds the instance URL that the token was saved for. The token entry keeps only the token, so older CLI versions can still read it after a downgrade. The config file (`~/.config/youtrack/config.json`) then contains only the instance URL and non-secret session metadata (Hub URL, client ID, token endpoint, expiry, scope) — no secret.
 
 The keyring does not protect the token from other processes that run as the same user. On macOS, the keyring library reads the Keychain through `/usr/bin/security`, so any process of your user can read the token without a prompt. An AI agent with shell access can read it too. Give an agent only the access that the token gives your account.
 
-When no keyring is available (headless Linux, CI containers, locked keychain), the CLI automatically falls back to storing the token in `~/.youtrack-cli-config.json` (mode 0600), exactly as before, and prints a one-line warning to stderr. The file is always written to a new temporary file and renamed into place. If its permissions can't be restricted to the owner, the CLI refuses to write tokens to it. Existing file-stored tokens are migrated to the keyring transparently the next time the config is written; the token is then removed from the file.
+When no keyring is available (headless Linux, CI containers, locked keychain), the CLI automatically falls back to storing the token in `~/.config/youtrack/config.json` (mode 0600), exactly as before, and prints a one-line warning to stderr. The file is always written to a new temporary file and renamed into place. If its permissions can't be restricted to the owner, the CLI refuses to write tokens to it. Existing file-stored tokens are migrated to the keyring transparently the next time the config is written; the token is then removed from the file.
 
 `instance delete` / `auth logout` remove the keyring entry along with the config entry. If the keyring refuses the delete (for example, a locked keychain), the command prints a warning that names the entry, so you can remove it manually.
 
@@ -49,7 +49,7 @@ Environment credentials (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored 
 
 ## Browser Sign-In (OAuth)
 
-`instance login` (and option 1 of `auth login`) uses the OAuth 2.0 authorization-code flow with PKCE, without a client secret:
+`auth login --session` uses the OAuth 2.0 authorization-code flow with PKCE, without a client secret:
 
 - **PKCE always, S256 only.** A new 256-bit verifier is generated for each attempt. If Hub advertises PKCE methods without `S256`, sign-in stops.
 - **State.** A random, single-use `state` is compared in constant time. A callback or pasted URL with a different `state` is rejected, and its code is never exchanged.
@@ -57,7 +57,7 @@ Environment credentials (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored 
 - **No client secret.** The CLI never sends client credentials. If Hub answers `invalid_client`, check that the OAuth client has **Authorization Code flow** and **Require PKCE** enabled and requires no **Client secret** (see [Registering an OAuth client](topics/youtrack-cli-authentication.md#oauth-client)).
 - **TLS.** The instance and Hub URLs must be `https`. `http` works only for `localhost`/`127.0.0.1` with `--insecure`, which prints a warning. Remote `http` is always refused. Certificate verification is never disabled. OAuth endpoints found through discovery must share the Hub's origin, and requests to them never follow redirects.
 - **URL building.** The authorization URL is built from validated parts with standard query encoding. The browser gets it as a single process argument, never through a shell.
-- **Tokens are never printed.** `instance login` shows at most a masked prefix, `auth status` shows only the method, expiry, and whether a refresh token exists, and `--verbose` logs only method, URL, and status. Headers and OAuth request bodies are never logged.
+- **Tokens are never printed.** `auth login --session` shows at most a masked prefix, `auth status` shows only the method, expiry, and whether a refresh token exists, and `--verbose` logs only method, URL, and status. Headers and OAuth request bodies are never logged.
 - **Refresh.** Expiry is stored as an absolute time (receipt time + `expires_in`), and the token is refreshed 60 seconds early to absorb clock skew. A rotated refresh token replaces the old one with an atomic file write. Concurrent processes serialize refresh through a lock file, and a revoked refresh token (`invalid_grant`) deletes the stale credentials.
 
 ## Untrusted Server Content
@@ -82,6 +82,8 @@ For AI agents this means that text in YouTrack (an issue description, a comment)
 Release archives have SHA-256 entries in `checksums.txt`, and signed releases include its GPG signature (`checksums.txt.asc`). Windows and macOS binaries are also code-signed. Releases are built and published by the [TeamCity release pipeline](https://buildserver.labs.intellij.net/pipeline/YouTrack_CLI_Release).
 
 The installers (`install.sh` and `install.ps1`, also used by `install.cmd`) check the archive against `checksums.txt` before extraction. When `gpg` is installed, they first verify `checksums.txt.asc` against the pinned JetBrains signing key `B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501` and stop if the signature is not valid. The public key is embedded in the scripts, so verification needs no key server, and the scripts also check the fingerprint of the key that made the signature. A release built without signing has an empty `checksums.txt.asc`; with `gpg` installed, the installers stop on it.
+
+`youtrack update` upgrades an install-script install by running the same installer again (`install.sh`, or `install.ps1` on Windows), so the same checks apply. The startup update prompt uses the same upgrade.
 
 Without `gpg`, the installers check only that the archive matches `checksums.txt` from the same release, which does not protect against a replaced release. Install `gpg` for signature verification. The installers use authenticated `gh` downloads when available, with a fallback to GitHub HTTPS downloads. Unix `curl` downloads, and `wget` downloads when GNU `wget` is used, accept only `https` with TLS 1.2 or later. BusyBox `wget` has no such option; the script prints a note and continues, so install `curl` where that matters.
 

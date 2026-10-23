@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/JetBrains/youtrack-cli/api"
@@ -32,6 +33,10 @@ func TestMain(m *testing.M) {
 	// Force file-only token storage in spawned binaries — deterministic across platforms and keeps test tokens out of the real keychain.
 	if err := os.Setenv("YOUTRACK_DISABLE_KEYRING", "1"); err != nil {
 		log.Fatalf("failed to set YOUTRACK_DISABLE_KEYRING: %v", err)
+	}
+	// Spawned binaries resolve their config under the temp HOME each test sets, never the developer's XDG_CONFIG_HOME.
+	if err := os.Unsetenv("XDG_CONFIG_HOME"); err != nil {
+		log.Fatalf("failed to unset XDG_CONFIG_HOME: %v", err)
 	}
 
 	tmpDir, err := os.MkdirTemp("", "youtrack-cli-test-*")
@@ -127,6 +132,18 @@ func createTempProject(t *testing.T, c *api.Client) *api.Project {
 		Leader:    &api.User{Login: me.Login},
 	}, "")
 	require.NoError(t, err)
+	// Project creation returns before the project is necessarily readable through
+	// the endpoints used by subsequent fixture setup and CLI commands.
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		byName, err := c.GetProject(proj.ShortName)
+		if assert.NoError(collect, err, "project fixture is not readable by short name") {
+			assert.Equal(collect, proj.ID, byName.ID)
+		}
+		byID, err := c.GetProjectByID(proj.ID)
+		if assert.NoError(collect, err, "project fixture is not readable by ID") {
+			assert.Equal(collect, proj.ShortName, byID.ShortName)
+		}
+	}, 10*time.Second, 20*time.Millisecond, "project %s fixture did not become ready", proj.ShortName)
 	return proj
 }
 
@@ -144,7 +161,7 @@ func uniqueProjectShortName(prefix string) string {
 // runCmd executes the compiled CLI binary with given args, returns stdout.
 // Env vars YOUTRACK_BASE_URL and YOUTRACK_TOKEN must be set.
 // HOME is overridden to an empty temp dir so the binary does not pick up the
-// developer's ~/.youtrack-cli-config.json and instead falls back to the E2E env vars.
+// developer's config file and instead falls back to the E2E env vars.
 func runCmd(t *testing.T, args ...string) string {
 	t.Helper()
 	requireE2EEnv(t)
@@ -215,7 +232,7 @@ func runCmdExpectError(t *testing.T, args ...string) string {
 // runCmdWithInput executes the compiled CLI binary with the given args and provides
 // stdinInput as the command's stdin. Returns stdout as a string.
 // HOME is overridden to an empty temp dir so the binary does not pick up the
-// developer's ~/.youtrack-cli-config.json and instead falls back to the E2E env vars.
+// developer's config file and instead falls back to the E2E env vars.
 func runCmdWithInput(t *testing.T, stdinInput string, args ...string) string {
 	t.Helper()
 	requireE2EEnv(t)

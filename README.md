@@ -22,6 +22,19 @@ New installs use `~/.local/bin` without sudo; rerunning the script updates an ex
 
 The installers verify the downloaded archive against `checksums.txt` and, when `gpg` is installed, verify its signature against the pinned JetBrains key.
 
+**Homebrew (macOS & Linux):**
+```bash
+brew install jetbrains/utils/youtrack
+```
+
+**Scoop (Windows):**
+```powershell
+scoop bucket add jetbrains https://github.com/JetBrains/scoop-utils
+scoop install youtrack
+```
+
+`youtrack update` upgrades the CLI through the method that installed it. In a terminal, the CLI also offers the update before a command runs when a newer release is out. Set `YOUTRACK_NO_UPDATE=1` to turn off update checks.
+
 **Windows (PowerShell):**
 ```powershell
 irm https://jb.gg/youtrack-cli/install.ps1 | iex
@@ -53,7 +66,7 @@ sudo rpm -i youtrack_linux_amd64.rpm
 
 Replace `amd64` with `arm64` on ARM machines.
 
-**Build from source** (requires [Go 1.26.9+](https://go.dev/dl/)):
+**Build from source** (requires [Go 1.26+](https://go.dev/dl/)):
 ```bash
 go install github.com/JetBrains/youtrack-cli@latest
 ```
@@ -67,13 +80,15 @@ See the [getting started guide](docs/topics/youtrack-cli-get-started.md) for the
 Authenticate once and the CLI remembers the instance:
 
 ```bash
-youtrack instance add
+youtrack auth login
 ```
 
-Or sign in through the browser (OAuth 2.0 + PKCE). The session refreshes itself, and `--no-browser` works over SSH:
+It asks for the YouTrack URL (pre-filled with `https://youtrack.jetbrains.com` or your active instance), opens your browser to sign in through Hub, and saves a permanent token. Pass `--no-browser` to paste a token instead.
+
+Or save an OAuth session that refreshes itself instead of a permanent token. `--no-browser` works over SSH:
 
 ```bash
-youtrack instance login https://example.youtrack.cloud
+youtrack auth login https://example.youtrack.cloud --session
 youtrack auth status      # auth method, expiry, refresh token present — never the token itself
 ```
 
