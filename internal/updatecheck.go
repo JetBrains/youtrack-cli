@@ -48,15 +48,15 @@ func isUpdateCheckDisabled() bool {
 	return !term.IsTerminal(int(os.Stderr.Fd()))
 }
 
-// saveUpdateCheckTimestamp re-loads the config and saves the current timestamp
-// to avoid race conditions with concurrent config writes (e.g., from instance add).
+// saveUpdateCheckTimestamp re-loads the config under the config lock and saves the current timestamp,
+// so it cannot overwrite a concurrent write (e.g. an OAuth token refresh in another process).
 func saveUpdateCheckTimestamp(now int64) {
-	cfg, err := config.Load()
-	if err != nil {
-		return
-	}
-	cfg.LastUpdateCheck = now
-	_ = cfg.Save()
+	ctx, cancel := context.WithTimeout(context.Background(), updateCheckTimeout)
+	defer cancel()
+	_ = config.Update(ctx, func(cfg *config.Config) error {
+		cfg.LastUpdateCheck = now
+		return nil
+	})
 }
 
 // RecordLatestVersion re-loads the config and records the newest release seen, for the

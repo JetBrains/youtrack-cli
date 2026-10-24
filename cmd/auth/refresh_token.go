@@ -24,7 +24,7 @@ func NewRefreshTokenCmd() *cobra.Command {
 		Long: `Replaces the saved token for a configured instance using any available
 authentication method:
 
-  1) Basic auth   — login + password via Hub API
+  1) Basic auth   — login + password via Hub API (deprecated: no SSO/2FA)
   2) Web browser  — open the token page in a browser, then paste the token
   3) Paste token  — enter a token directly without opening a browser
 
@@ -64,7 +64,7 @@ Use --json for machine-readable output.`,
 
 			choice := "2"
 			if err := newPrompter(cmd, reader).Select("Authentication method", []prompt.Option{
-				{Label: "Basic auth (login + password)", Value: "1"},
+				{Label: "Basic auth (login + password; deprecated)", Value: "1"},
 				{Label: "Web browser (open token page and paste)", Value: "2"},
 				{Label: "Paste token directly", Value: "3"},
 			}, &choice); err != nil {
@@ -94,9 +94,17 @@ Use --json for machine-readable output.`,
 				hubToken = &api.HubToken{Token: token}
 			}
 
-			// Upsert in-place: same alias + same URL = token update, no alias collision.
-			cfg.AddInstance(alias, inst.URL, token)
-			if err := cfg.Save(); err != nil {
+			// Upsert in-place: same alias + same URL = token update, no alias collision. The prompts above run
+			// unlocked; the write re-reads the config under the lock so it cannot overwrite a concurrent change.
+			err = config.Update(cmd.Context(), func(fresh *config.Config) error {
+				cfg = fresh
+				if cur, ok := fresh.Instances[alias]; !ok || cur.URL != inst.URL {
+					return fmt.Errorf("instance %q was removed or changed by another youtrack process — re-run the command", alias)
+				}
+				fresh.AddInstance(alias, inst.URL, token)
+				return nil
+			})
+			if err != nil {
 				return fmt.Errorf("saving config: %w", err)
 			}
 			path, _ := config.ConfigPath()
@@ -123,6 +131,7 @@ Use --json for machine-readable output.`,
 // acquireTokenViaBasicAuth authenticates with Hub login/password and creates a
 // new permanent token. Returns the full HubToken (includes ID for potential cleanup).
 func acquireTokenViaBasicAuth(cmd *cobra.Command, reader *bufio.Reader, baseURL string) (*api.HubToken, error) {
+	warnBasicAuthDeprecated(cmd)
 	if flagChanged(cmd, "verbose") {
 		api.SetHubVerbose(cmd.ErrOrStderr())
 		defer api.SetHubVerbose(nil)

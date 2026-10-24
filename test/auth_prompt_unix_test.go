@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -108,7 +107,7 @@ func TestAuthLogin_InteractivePromptsPrefillURLFromConfig(t *testing.T) {
 
 	home := t.TempDir()
 	cfg := `{"currentInstance":"harness","instances":{"harness":{"url":"` + baseURL + `"}}}`
-	require.NoError(t, os.WriteFile(filepath.Join(home, ".youtrack-cli-config.json"), []byte(cfg), 0o600))
+	configFixture(t, home, cfg)
 
 	s := startPTY(t, []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "YOUTRACK_DISABLE_KEYRING=1", "TERM=tmux-256color"},
 		"--plain", "auth", "login", "--no-browser", "--save=false")
@@ -365,7 +364,7 @@ func TestAuthLogin_SessionReplacingPermanentTokenWarns(t *testing.T) {
 	out := h.signIn(t, env, func(q url.Values) {
 		assert.Equal(t, h.serviceID, q.Get("scope"), "--session does not request Hub's scope")
 	}, "--alias", "renew", "--session")
-	assert.Contains(t, out, `Session token saved as "renew"`)
+	assert.Contains(t, out, `Session saved as "renew"`)
 	assert.Contains(t, out, `the permanent token previously saved for "renew" is still valid in Hub`)
 	_, _, isPerm := api.ParsePermanentToken(savedToken(t, env, "renew"))
 	assert.False(t, isPerm, "--session saves the access token")
@@ -391,7 +390,7 @@ func TestAuthLogin_BrowserFlagsShapeAuthorizeURL(t *testing.T) {
 			s := startPTY(t, ptyEnv(t), append([]string{"--plain", "--base-url", h.baseURL, "auth", "login", "--save=false", "--client-id", h.clientID, "--timeout", "2s"}, tc.flags...)...)
 			tc.check(t, s.authorizeURL().Query())
 			require.Error(t, s.wait(), "login must end in the timeout, output:\n%s", s.output())
-			assert.Contains(t, s.output(), "timeout waiting for browser callback (2s)")
+			assert.Contains(t, s.output(), "sign-in timed out after 2s without a browser callback")
 		})
 	}
 }
@@ -412,9 +411,9 @@ func TestAuthLogin_FallsBackToPasteWithoutOAuthClient(t *testing.T) {
 	requireE2EEnv(t)
 	token := os.Getenv("YOUTRACK_TOKEN")
 
-	// The harness Hub has no "localhost-auth" client, so the pre-flight fails and login falls back to pasting a token.
+	// The harness Hub has no "youtrack-cli" client, so the pre-flight fails and login falls back to pasting a token.
 	s := startPTY(t, ptyEnv(t), "--plain", "instance", "login", os.Getenv("YOUTRACK_BASE_URL"), "--save=false")
-	s.waitFor(`no public CLI OAuth client ("localhost-auth")`)
+	s.waitFor(`Hub did not accept OAuth client "youtrack-cli"`)
 	s.waitFor("Open browser to create a token?")
 	s.send("n")
 	s.waitFor("Paste your token")

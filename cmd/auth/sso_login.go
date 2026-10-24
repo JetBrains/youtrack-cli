@@ -2,11 +2,13 @@ package auth
 
 import (
 	"bufio"
+	"cmp"
 	"context"
+	"crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"maps"
 	"net"
-	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -22,44 +24,50 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
-const (
-	defaultOAuthClientID = "localhost-auth"
-	defaultSSOTokenName  = "youtrack-cli"
-)
+const defaultSSOTokenName = "youtrack-cli"
 
 // ssoOptions are the tunables of the browser sign-in flow, filled from the flags of "auth login".
 type ssoOptions struct {
-	clientID    string
+	clientID    string // empty → api.DefaultOAuthClientID for the resolved Hub
 	extraScopes []string
 	port        int
 	timeout     time.Duration
 	session     bool
 	tokenName   string
+	noBrowser   bool   // print the authorization URL and accept the pasted redirect URL instead of opening a browser
+	hubURL      string // explicit Hub URL (standalone Hub); empty → discovered from the instance
 }
 
 func defaultSSOOptions() ssoOptions {
-	return ssoOptions{clientID: defaultOAuthClientID, timeout: browserflow.DefaultTimeout, tokenName: defaultSSOTokenName}
+	return ssoOptions{timeout: browserflow.DefaultTimeout, tokenName: defaultSSOTokenName}
 }
 
+// ssoLoginResult is the output of a browser sign-in; the token is masked unless --show-token is set, and a session's refresh token is never printed.
 type ssoLoginResult struct {
-	Login      string `json:"login"`
-	Name       string `json:"name"`
-	Token      string `json:"token"`
-	ExpiresAt  int64  `json:"expiresAt,omitempty"`
-	Scope      string `json:"scope,omitempty"`
-	ConfigFile string `json:"_configFile,omitempty"`
-	Hint       string `json:"_hint,omitempty"`
+	Login           string `json:"login"`
+	Name            string `json:"name"`
+	Token           string `json:"token"`
+	ExpiresAt       int64  `json:"expiresAt,omitempty"`
+	HasRefreshToken bool   `json:"hasRefreshToken,omitempty"`
+	Scope           string `json:"scope,omitempty"`
+	HubURL          string `json:"hubUrl,omitempty"`
+	ClientID        string `json:"clientId,omitempty"`
+	Alias           string `json:"alias,omitempty"`
+	ConfigFile      string `json:"_configFile,omitempty"`
+	TokenStorage    string `json:"_tokenStorage,omitempty"`
+	Hint            string `json:"_hint,omitempty"`
 }
 
 // ssoOnlyFlags take effect only in browser sign-in.
-var ssoOnlyFlags = []string{"client-id", "port", "timeout", "session"}
+var ssoOnlyFlags = []string{"client-id", "port", "timeout", "session", "hub-url"}
 
 // addSSOFlags registers the browser sign-in flags of "auth login".
 func addSSOFlags(cmd *cobra.Command) {
 	cmd.Flags().Int("port", 0, "Fixed loopback port for the OAuth callback (default: pick a free port)")
-	cmd.Flags().String("client-id", defaultOAuthClientID, "OAuth 2.0 client ID registered in Hub")
+	cmd.Flags().String("client-id", "", `OAuth 2.0 client ID registered in Hub (default: "localhost-auth" on hub.jetbrains.com, "youtrack-cli" elsewhere)`)
 	cmd.Flags().Duration("timeout", browserflow.DefaultTimeout, "How long to wait for the browser callback")
-	cmd.Flags().Bool("session", false, "Save the ~1-hour OAuth access token instead of creating a permanent token")
+	cmd.Flags().Bool("session", false, "Save an auto-refreshing OAuth session (access + refresh token) instead of creating a permanent token")
+	cmd.Flags().String("hub-url", "", "Hub base URL for a standalone Hub (default: discovered from the instance, e.g. <url>/hub)")
 }
 
 // ssoOptionsFromFlags reads the flags registered by addSSOFlags.
@@ -69,6 +77,8 @@ func ssoOptionsFromFlags(cmd *cobra.Command) ssoOptions {
 	opts.port, _ = cmd.Flags().GetInt("port")
 	opts.timeout, _ = cmd.Flags().GetDuration("timeout")
 	opts.session, _ = cmd.Flags().GetBool("session")
+	opts.hubURL, _ = cmd.Flags().GetString("hub-url")
+	opts.noBrowser, _ = cmd.Flags().GetBool("no-browser")
 	if name, _ := cmd.Flags().GetString("token-name"); name != "" {
 		opts.tokenName = name
 	}
@@ -141,13 +151,18 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 	return raw, nil
 }
 
-// runSSOFlow runs the full browser OAuth 2.0 + PKCE flow against the Hub serving baseURL and saves a permanent token, or the short-lived access token with --session.
+// runSSOFlow runs the full browser OAuth 2.0 + PKCE flow against the Hub serving baseURL and saves a permanent token, or with --session an auto-refreshing OAuth session.
 func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *ssoOptions) error {
 	stderr := cmd.ErrOrStderr()
 	interactive := term.IsTerminal(int(os.Stdin.Fd()))
 
-	if !interactive {
-		return fmt.Errorf("browser login needs an interactive terminal — pass --no-browser to paste a token, or set YOUTRACK_TOKEN\nnote: the OAuth callback goes to this machine's loopback, so the flow cannot work over plain SSH unless you forward the callback port")
+	if !interactive && !opts.noBrowser {
+		return fmt.Errorf("browser login needs an interactive terminal — pass --no-browser to paste a token (with --session, the redirect URL), or set YOUTRACK_TOKEN")
+	}
+
+	// TLS: the instance and Hub must be https; plain http is only for loopback development instances.
+	if err := api.ValidateOAuthURL(baseURL); err != nil {
+		return err
 	}
 
 	_, _ = fmt.Fprintf(stderr, "Discovering Hub configuration for %s...\n", baseURL)
@@ -159,17 +174,29 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		_, _ = fmt.Fprintf(stderr, "Could not discover the YouTrack service ID from %s (this instance may be too old for browser sign-in); falling back to the paste-token flow.\n\n", baseURL)
 		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
-	// Never hand an unvalidated server-advertised Hub URL to the browser; take the same paste-token fallback as a failed pre-flight.
-	if err := api.ValidateHubURL(baseURL, hubURL); err != nil {
+	if opts.hubURL != "" {
+		hubURL = strings.TrimRight(opts.hubURL, "/")
+		if err := api.ValidateOAuthURL(hubURL); err != nil {
+			return fmt.Errorf("--hub-url: %w", err)
+		}
+	} else if err := api.ValidateHubURL(baseURL, hubURL); err != nil {
+		// Never hand an unvalidated server-advertised Hub URL to the browser; take the same paste-token fallback as a failed pre-flight.
 		_, _ = fmt.Fprintf(stderr, "Hub URL is not usable for browser sign-in (%v); falling back to the paste-token flow.\n\n", err)
 		return runPasteTokenFlow(cmd, reader, baseURL)
+	}
+	if err := api.ValidateOAuthURL(hubURL); err != nil {
+		return fmt.Errorf("hub: %w (pass --hub-url to point at the https Hub)", err)
 	}
 
 	endpoints, err := api.DiscoverOAuthEndpointsContext(cmd.Context(), hubURL)
 	if err != nil {
 		return err
 	}
+	if opts.clientID == "" {
+		opts.clientID = api.DefaultOAuthClientID(hubURL)
+	}
 
+	// PKCE is mandatory: a fresh 256-bit verifier per attempt, S256 challenge only (plain is never offered).
 	verifier, err := api.GeneratePKCEVerifier()
 	if err != nil {
 		return err
@@ -180,10 +207,27 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	}
 
 	listener, err := browserflow.ListenLoopback(opts.port)
-	if err != nil {
+	var port int
+	switch {
+	case err == nil:
+		port = listener.Addr().(*net.TCPAddr).Port
+	case opts.port != 0:
+		// A fixed port in use may belong to another program that would receive the redirect; stop instead of guessing.
 		return err
+	default:
+		// No loopback networking at all: continue paste-only on a random high port that nothing listens on.
+		_, _ = fmt.Fprintf(stderr, "Could not listen for the browser callback (%v); you will paste the redirect URL instead.\n", err)
+		port, err = randomHighPort()
+		if err != nil {
+			return err
+		}
+		listener = nil
 	}
-	port := listener.Addr().(*net.TCPAddr).Port
+	closeListener := func() {
+		if listener != nil {
+			_ = listener.Close()
+		}
+	}
 	// Bare path-less loopback URI on the literal 127.0.0.1 we bound (RFC 8252 §8.3), so the browser can't miss us by resolving "localhost" to IPv6 [::1].
 	redirectURI := fmt.Sprintf("http://127.0.0.1:%d", port)
 
@@ -192,33 +236,54 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	if !opts.session && !slices.Contains(scopes, api.HubServiceID) {
 		requested = append(slices.Clone(scopes), api.HubServiceID)
 	}
-	q := url.Values{}
-	q.Set("response_type", "code")
-	q.Set("client_id", opts.clientID)
-	q.Set("redirect_uri", redirectURI)
-	q.Set("scope", strings.Join(requested, " "))
-	q.Set("state", state)
-	q.Set("code_challenge", api.PKCEChallengeS256(verifier))
-	q.Set("code_challenge_method", "S256")
-	authorizeURL := endpoints.AuthorizationEndpoint + "?" + q.Encode()
+	authorizeURL, err := api.BuildAuthorizationURL(endpoints.AuthorizationEndpoint, &api.AuthorizationRequest{
+		ClientID:      opts.clientID,
+		RedirectURI:   redirectURI,
+		Scopes:        requested,
+		State:         state,
+		CodeChallenge: api.PKCEChallengeS256(verifier),
+		Offline:       opts.session,
+	})
+	if err != nil {
+		closeListener()
+		return err
+	}
 
 	// Pre-flight: verify the Hub knows this client and accepts the loopback redirect; fall back to paste-token otherwise.
 	if err := api.PreflightOAuthClientContext(cmd.Context(), authorizeURL); err != nil {
-		_ = listener.Close()
+		closeListener()
 		if contextErr := cmd.Context().Err(); contextErr != nil {
 			return contextErr
 		}
-		_, _ = fmt.Fprintf(stderr, "This Hub has no public CLI OAuth client (%q); falling back to the paste-token flow.\n\n", opts.clientID)
+		_, _ = fmt.Fprintf(stderr, "Hub did not accept OAuth client %q with a loopback redirect (%v).\n"+
+			"Ask a YouTrack administrator to register a client under Administration > Access Management > OAuth Clients "+
+			"(Authentication tab: Client ID youtrack-cli, Authorization Code flow + Require PKCE, Redirect URI http://127.0.0.1, no Client secret), "+
+			"or pass the Client ID of an existing client with --client-id; "+
+			"falling back to the paste-token flow.\n\n",
+			opts.clientID, err)
 		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 
-	_, _ = fmt.Fprintf(stderr, "Opening your browser to complete sign-in...\nIf it does not open, use this URL:\n  %s\n", hyperlink(authorizeURL))
+	link := authorizeURL
+	if term.IsTerminal(int(os.Stderr.Fd())) && os.Getenv("NO_COLOR") == "" {
+		link = hyperlink(authorizeURL)
+	}
+	pastePrompt := fmt.Sprintf("If the browser is on another device, it will end on a page that fails to load at %s/?code=...\nPaste that full URL here and press Enter:", redirectURI)
+	if opts.noBrowser || listener == nil {
+		_, _ = fmt.Fprintf(stderr, "Open this URL in a browser on any device to sign in:\n  %s\n\n", link)
+	} else {
+		_, _ = fmt.Fprintf(stderr, "Opening your browser to complete sign-in...\nIf it does not open, use this URL:\n  %s\n", link)
+	}
 
-	res, err := browserflow.Run(cmd.Context(), browserflow.Options{
-		Listener: listener,
-		State:    state,
-		OpenURL:  authorizeURL,
-		Timeout:  opts.timeout,
+	res, err := browserflow.Run(cmd.Context(), &browserflow.Options{
+		Listener:    listener,
+		State:       state,
+		OpenURL:     authorizeURL,
+		NoOpen:      opts.noBrowser,
+		Timeout:     opts.timeout,
+		Paste:       reader,
+		RedirectURI: redirectURI,
+		PastePrompt: pastePrompt,
 		Warn: func(format string, args ...any) {
 			_, _ = fmt.Fprintf(stderr, format+"\n", args...)
 		},
@@ -228,6 +293,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	}
 
 	_, _ = fmt.Fprintln(stderr, "Exchanging authorization code...")
+	requestedAt := time.Now()
 	tok, err := api.ExchangeOAuthCodeContext(cmd.Context(), endpoints.TokenEndpoint, opts.clientID, res.Code, redirectURI, verifier)
 	if err != nil {
 		return fmt.Errorf("exchanging authorization code: %w", err)
@@ -242,11 +308,10 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return fmt.Errorf("token verification failed: %w", err)
 	}
 
-	// Load before creating a permanent token, so a broken config fails before anything exists in Hub.
+	// Check the config is loadable before creating a permanent token, so a broken config fails before anything exists in Hub.
 	save, _ := cmd.Flags().GetBool("save")
-	var cfg *config.Config
 	if save {
-		if cfg, err = config.Load(); err != nil {
+		if _, err := config.Load(); err != nil {
 			return err
 		}
 	}
@@ -257,14 +322,30 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		Token: tok.AccessToken,
 		Scope: tok.Scope,
 	}
+	var sess config.OAuthSession
 	newTokenID := ""
 	if opts.session {
-		result.ExpiresAt = time.Now().Unix() + tok.ExpiresIn - 60 // 60s clock skew margin
+		scope := cmp.Or(tok.Scope, strings.Join(scopes, " "))
+		sess = config.OAuthSession{
+			AccessToken:   tok.AccessToken,
+			RefreshToken:  tok.RefreshToken,
+			ExpiresAt:     api.TokenExpiry(requestedAt, tok.ExpiresIn),
+			TokenType:     cmp.Or(tok.TokenType, "Bearer"),
+			Scope:         scope,
+			HubURL:        hubURL,
+			ClientID:      opts.clientID,
+			TokenEndpoint: endpoints.TokenEndpoint,
+		}
+		result.ExpiresAt = sess.ExpiresAt
+		result.HasRefreshToken = sess.RefreshToken != ""
+		result.Scope = scope
+		result.HubURL = hubURL
+		result.ClientID = opts.clientID
 	} else {
 		_, _ = fmt.Fprintln(stderr, "Creating permanent token...")
 		perm, err := api.CreateHubTokenWithAccessTokenContext(cmd.Context(), hubURL, tok.AccessToken, opts.tokenName, scopes)
 		if err != nil {
-			return fmt.Errorf("creating permanent token: %w\nre-run with --session to save the ~1-hour access token instead", err)
+			return fmt.Errorf("creating permanent token: %w\nre-run with --session to save an auto-refreshing session instead", err)
 		}
 		result.Token = perm.Token
 		result.Scope = ""
@@ -274,24 +355,42 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	alias := ""
 	if save {
 		alias, _ = cmd.Flags().GetString("alias")
-		previous := maps.Clone(cfg.Instances)
-		if opts.session {
-			alias = cfg.AddInstanceOAuth(alias, baseURL, result.Token, result.ExpiresAt)
-		} else {
-			alias = cfg.AddInstance(alias, baseURL, result.Token)
-		}
-		if cfg.CurrentInstance == "" {
-			cfg.CurrentInstance = alias
-		}
-		if err := cfg.Save(); err != nil {
+		var previous map[string]config.Instance
+		err := config.Update(cmd.Context(), func(cfg *config.Config) error {
+			previous = maps.Clone(cfg.Instances)
+			if opts.session {
+				alias = cfg.AddInstanceOAuth(alias, baseURL, &sess)
+			} else {
+				alias = cfg.AddInstance(alias, baseURL, result.Token)
+			}
+			if cfg.CurrentInstance == "" {
+				cfg.CurrentInstance = alias
+			}
+			return nil
+		})
+		if err != nil {
 			return revokeUnsavedToken(cmd, hubURL, tok.AccessToken, newTokenID, opts.tokenName, fmt.Errorf("saving config: %w", err))
 		}
+		result.Alias = alias
 		result.ConfigFile, _ = config.ConfigPath()
+		result.TokenStorage = "file " + result.ConfigFile + " (0600)"
+		if cfg, err := config.Load(); err == nil {
+			// The keyring writes can fail independently; claim keyring storage only when every credential made it.
+			if cfg.TokenInKeyring(alias) && (!opts.session || sess.RefreshToken == "" || cfg.RefreshTokenInKeyring(alias)) {
+				result.TokenStorage = "OS keyring (service youtrack-cli)"
+			} else {
+				_, _ = fmt.Fprintf(stderr, "warning: OS keyring unavailable — tokens stored in %s (mode 0600)\n", result.ConfigFile)
+			}
+		}
 		if opts.session {
 			warnReplacedPermanentToken(cmd, user.Login, alias, previous[alias].Token)
 		} else {
 			revokeReplacedToken(cmd, hubURL, tok.AccessToken, user.Login, opts.tokenName, previous[alias].Token, result.Token)
 		}
+	}
+	renewal := "the session refreshes automatically"
+	if opts.session && !result.HasRefreshToken {
+		renewal = "Hub issued no refresh token, so re-run `youtrack auth login --session` to renew"
 	}
 	switch {
 	case !opts.session && save:
@@ -299,10 +398,10 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	case !opts.session:
 		result.Hint = fmt.Sprintf("Permanent token %q created. Revoke it in your Hub profile under Authentication.", opts.tokenName)
 	case save:
-		result.Hint = fmt.Sprintf("Session token saved as %q — expires at %s (~1 hour, no refresh; re-run `youtrack auth login %s` to renew).",
-			alias, time.Unix(result.ExpiresAt, 0).Format("15:04"), alias)
+		result.Hint = fmt.Sprintf("Session saved as %q — access token expires at %s; %s.",
+			alias, time.Unix(result.ExpiresAt, 0).Format("15:04"), renewal)
 	default:
-		result.Hint = fmt.Sprintf("Session token expires at %s (~1 hour, no refresh).", time.Unix(result.ExpiresAt, 0).Format("15:04"))
+		result.Hint = fmt.Sprintf("Verified only (--save=false): nothing was stored. The access token would expire at %s.", time.Unix(result.ExpiresAt, 0).Format("15:04"))
 	}
 
 	// Every format masks the token unless --show-token is set, as writeTokenResult does for the permanent-token flows.
@@ -310,7 +409,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	// Like writeTokenResult: JSON (explicit, or the default for non-TTY stdout) goes through output.Print for scripts; table and --plain print the summary, which plain output cannot render as a struct.
 	if !jsonOutput(cmd) {
 		w := cmd.OutOrStdout()
-		_, _ = fmt.Fprintf(w, "Signed in as %s (%s)\n", result.Name, result.Login)
+		_, _ = fmt.Fprintf(w, "Signed in as %s (%s)\n", output.Sanitize(result.Name), output.Sanitize(result.Login))
 		_, _ = fmt.Fprintf(w, "  Token:  %s\n", result.Token)
 		if result.ConfigFile != "" {
 			_, _ = fmt.Fprintf(w, "  Saved:  %s\n", result.ConfigFile)
@@ -319,6 +418,15 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return nil
 	}
 	return output.Print(cmd, result)
+}
+
+// randomHighPort picks a port in the dynamic range for a paste-only redirect URI when no loopback listener could be bound.
+func randomHighPort() (int, error) {
+	var b [2]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return 0, err
+	}
+	return 49152 + int(binary.BigEndian.Uint16(b[:]))%16384, nil
 }
 
 // revokeUnsavedToken deletes a permanent token that was created but could not be saved, so a failed save does not leave a working token nobody can see; it returns saveErr, noting when the token is still live.
