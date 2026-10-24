@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	gokeyring "github.com/zalando/go-keyring"
 )
 
 // isolate points the config at a temp HOME with file-only storage, so tests never touch the real keyring or config.
@@ -82,6 +84,44 @@ func TestOAuthSessionRoundTrip(t *testing.T) {
 	cleared, _ := Load()
 	if i := cleared.Instances[alias]; i.URL != "https://work.example.com" || i.AuthMethod != AuthMethodOAuth {
 		t.Fatalf("clearing must keep the profile for re-login: %+v", i)
+	}
+}
+
+func TestReplacementSessionIgnoresStaleKeyringRefreshToken(t *testing.T) {
+	path := isolate(t)
+	gokeyring.MockInit()
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "")
+	session := func(at, rt string) *OAuthSession {
+		return &OAuthSession{AccessToken: at, RefreshToken: rt, ExpiresAt: 1234, TokenType: "Bearer",
+			HubURL: "https://work.example.com/hub", ClientID: "cli", TokenEndpoint: "https://work.example.com/hub/api/rest/oauth2/token"}
+	}
+
+	// Alice's session goes to the keyring and is read back from it.
+	cfg, _ := Load()
+	cfg.AddInstanceOAuth("work", "https://work.example.com", session("at-alice", "rt-alice"))
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if got, _ := Load(); got.Instances["work"].RefreshToken != "rt-alice" {
+		t.Fatalf("refresh token not read back from the keyring: %+v", got.Instances["work"])
+	}
+	if data, _ := os.ReadFile(path); strings.Contains(string(data), "rt-alice") {
+		t.Fatalf("keyring-stored refresh token leaked into the file: %s", data)
+	}
+
+	// Bob replaces the session while the keyring is down, and Hub issues no refresh token: Alice's keyring entry stays behind.
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "1")
+	cfg, _ = Load()
+	cfg.AddInstanceOAuth("work", "https://work.example.com", session("at-bob", ""))
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	// With the keyring back, Bob's session must not pick up Alice's refresh token.
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "")
+	got, _ := Load()
+	if inst := got.Instances["work"]; inst.Token != "at-bob" || inst.RefreshToken != "" {
+		t.Fatalf("replacement session reads a stale keyring refresh token: token=%q refreshToken=%q", inst.Token, inst.RefreshToken)
 	}
 }
 

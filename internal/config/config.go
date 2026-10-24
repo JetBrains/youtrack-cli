@@ -44,6 +44,9 @@ type Instance struct {
 
 	// RefreshToken renews an OAuth access token; like Token, it is empty in the file when it lives in the OS keyring.
 	RefreshToken string `json:"refreshToken,omitempty"`
+	// RefreshTokenInKeyring records in the file that the refresh token lives in the keyring session entry. Without it an empty
+	// RefreshToken means the session has none, so an entry left from an earlier sign-in (a failed keyring write) is never read back.
+	RefreshTokenInKeyring bool `json:"refreshTokenInKeyring,omitempty"`
 	// oauthInKeyring marks the refresh token as stored in the keyring session entry (see oauthSecret), so Save omits it from the file.
 	oauthInKeyring bool
 	// oauthBound marks TokenEndpoint and tokenURL as read from the keyring session entry, independent of where the refresh token lives.
@@ -149,7 +152,8 @@ func Load() (*Config, error) {
 				if s.URL != "" {
 					inst.tokenURL = s.URL
 				}
-				if inst.RefreshToken == "" || inst.RefreshToken == s.RefreshToken {
+				// The keyring refresh token is taken only when the file says it was saved there, never for a session saved without one.
+				if inst.RefreshToken == s.RefreshToken || (inst.RefreshToken == "" && inst.RefreshTokenInKeyring) {
 					inst.RefreshToken = s.RefreshToken
 					inst.oauthInKeyring = true
 				}
@@ -314,6 +318,7 @@ func (c *Config) fileView() Config {
 		if inst.tokenInKeyring {
 			inst.Token = ""
 		}
+		inst.RefreshTokenInKeyring = inst.oauthInKeyring && inst.RefreshToken != ""
 		if inst.oauthInKeyring {
 			inst.RefreshToken = ""
 		}
