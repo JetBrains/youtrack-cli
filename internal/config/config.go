@@ -323,7 +323,7 @@ func (c *Config) fileView() Config {
 }
 
 // holdsSecrets reports whether any token is kept in the file itself rather than the keyring.
-func (c Config) holdsSecrets() bool {
+func (c *Config) holdsSecrets() bool {
 	for alias := range c.Instances {
 		if inst := c.Instances[alias]; inst.Token != "" || inst.RefreshToken != "" {
 			return true
