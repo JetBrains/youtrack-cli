@@ -73,7 +73,16 @@ Use --json for machine-readable output.`,
 			// Remove under the config lock on a fresh load, so a concurrent refresh cannot resurrect the session
 			// and the session reported below is the latest one (a refresh may have changed it since the prompt).
 			var purgeErr error
-			err = config.Update(cmd.Context(), func(fresh *config.Config) error {
+			err = func() error {
+				unlock, err := config.Lock(cmd.Context())
+				if err != nil {
+					return err
+				}
+				defer unlock()
+				fresh, err := config.Load()
+				if err != nil {
+					return err
+				}
 				cur, ok := fresh.Instances[targetAlias]
 				if !ok {
 					return fmt.Errorf("instance %q was removed by another youtrack process", targetAlias)
@@ -85,10 +94,14 @@ Use --json for machine-readable output.`,
 				if fresh.CurrentInstance == targetAlias {
 					fresh.CurrentInstance = ""
 				}
-				// Purged before the lock is released, so a concurrent login that recreates targetAlias keeps its new credentials.
+				if err := fresh.Save(); err != nil {
+					return err
+				}
+				// Purged only after the save succeeds, so a failed save keeps the profile usable, and before the lock is
+				// released, so a concurrent login that recreates targetAlias keeps its new credentials.
 				purgeErr = config.PurgeKeyringToken(targetAlias)
 				return nil
-			})
+			}()
 			if err != nil {
 				return err
 			}

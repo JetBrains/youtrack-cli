@@ -32,7 +32,16 @@ func newDeleteCmd() *cobra.Command {
 			// The prompt runs unlocked; the removal re-reads the config under the lock so it cannot drop a concurrent refresh.
 			wasActive := false
 			var purgeErr error
-			err = config.Update(cmd.Context(), func(cfg *config.Config) error {
+			err = func() error {
+				unlock, err := config.Lock(cmd.Context())
+				if err != nil {
+					return err
+				}
+				defer unlock()
+				cfg, err := config.Load()
+				if err != nil {
+					return err
+				}
 				wasActive = cfg.CurrentInstance == alias
 				if err := cfg.RemoveInstance(alias); err != nil {
 					return err
@@ -40,10 +49,14 @@ func newDeleteCmd() *cobra.Command {
 				if wasActive {
 					cfg.CurrentInstance = ""
 				}
-				// Purged before the lock is released, so a concurrent login that recreates alias keeps its new credentials.
+				if err := cfg.Save(); err != nil {
+					return err
+				}
+				// Purged only after the save succeeds, so a failed save keeps the profile usable, and before the lock is
+				// released, so a concurrent login that recreates alias keeps its new credentials.
 				purgeErr = config.PurgeKeyringToken(alias)
 				return nil
-			})
+			}()
 			if err != nil {
 				return err
 			}
