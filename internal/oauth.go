@@ -80,7 +80,7 @@ func (s *oauthSession) Token(ctx context.Context) (string, error) {
 	}
 	refreshCtx, cancel := context.WithTimeout(ctx, refreshTimeout)
 	defer cancel()
-	tok, err := api.RefreshOAuthTokenContext(refreshCtx, cur.TokenEndpoint, cur.ClientID, cur.RefreshToken, cur.Scope)
+	tok, err := api.RefreshOAuthTokenContext(refreshCtx, cur.TokenEndpoint, cur.ClientID, cur.RefreshToken)
 	if err != nil {
 		if s.verbose != nil {
 			_, _ = fmt.Fprintf(s.verbose, "< refresh failed\n")

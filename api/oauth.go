@@ -232,15 +232,13 @@ func ExchangeOAuthCodeContext(ctx context.Context, tokenEndpoint, clientID, code
 	return postTokenForm(ctx, tokenEndpoint, form)
 }
 
-// RefreshOAuthTokenContext trades a refresh token for a new access token as a public client; Hub requires scope on refresh and may rotate the refresh token.
-func RefreshOAuthTokenContext(ctx context.Context, tokenEndpoint, clientID, refreshToken, scope string) (*OAuthToken, error) {
+// RefreshOAuthTokenContext trades a refresh token for a new access token as a public client and may return a rotated refresh token.
+// It sends no scope, so Hub reuses the scope granted with the refresh token (RFC 6749 §6).
+func RefreshOAuthTokenContext(ctx context.Context, tokenEndpoint, clientID, refreshToken string) (*OAuthToken, error) {
 	form := url.Values{}
 	form.Set("grant_type", "refresh_token")
 	form.Set("refresh_token", refreshToken)
 	form.Set("client_id", clientID)
-	if scope != "" {
-		form.Set("scope", scope)
-	}
 	return postTokenForm(ctx, tokenEndpoint, form)
 }
 
