@@ -8,8 +8,9 @@ import (
 	"time"
 )
 
-// lockWait bounds how long a process waits for another one to finish a token refresh.
-const lockWait = 30 * time.Second
+// lockWait bounds how long a process waits for another one to finish a token refresh. It exceeds the 30s refresh
+// request timeout plus the OS keyring calls made under the lock, so a waiter does not give up on a refresh in progress.
+const lockWait = 60 * time.Second
 
 const lockPollInterval = 50 * time.Millisecond
 
