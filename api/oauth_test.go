@@ -224,27 +224,24 @@ func TestValidateOAuthURL(t *testing.T) {
 	t.Parallel()
 
 	for _, tc := range []struct {
-		url      string
-		insecure bool
-		ok       bool
+		url string
+		ok  bool
 	}{
-		{"https://example.youtrack.cloud", false, true},
-		{"https://yt.example.com/youtrack", false, true},
-		{"http://127.0.0.1:8080", true, true},
-		{"http://localhost:8080", true, true},
-		{"http://[::1]:8080", true, true},
-		{"http://127.0.0.1:8080", false, false},
-		{"http://yt.example.com", true, false},
-		{"http://yt.example.com", false, false},
-		{"example.youtrack.cloud", false, false},
-		{"/relative", false, false},
-		{"https://user:pw@example.youtrack.cloud", false, false},
-		{"javascript://example.com/%0aalert(1)", false, false},
-		{"file:///etc/passwd", false, false},
+		{"https://example.youtrack.cloud", true},
+		{"https://yt.example.com/youtrack", true},
+		{"http://127.0.0.1:8080", true},
+		{"http://localhost:8080", true},
+		{"http://[::1]:8080", true},
+		{"http://yt.example.com", false},
+		{"example.youtrack.cloud", false},
+		{"/relative", false},
+		{"https://user:pw@example.youtrack.cloud", false},
+		{"javascript://example.com/%0aalert(1)", false},
+		{"file:///etc/passwd", false},
 	} {
-		err := ValidateOAuthURL(tc.url, tc.insecure)
+		err := ValidateOAuthURL(tc.url)
 		if (err == nil) != tc.ok {
-			t.Errorf("ValidateOAuthURL(%q, %v) = %v, want ok=%v", tc.url, tc.insecure, err, tc.ok)
+			t.Errorf("ValidateOAuthURL(%q) = %v, want ok=%v", tc.url, err, tc.ok)
 		}
 	}
 }

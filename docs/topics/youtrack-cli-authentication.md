@@ -157,7 +157,7 @@ Browser sign-in requires an interactive terminal, except `--session --no-browser
 
 The browser shows a static page that tells you to return to the terminal. Passing a URL signs in to a new instance, and passing an existing alias renews that instance's session in place. With no argument, the command prompts for the instance. Press `Ctrl+C` to cancel; the loopback port is released immediately.
 
-The instance and Hub URLs must use `https`. For a local development instance on `http://localhost` or `http://127.0.0.1`, pass `--insecure`.
+The instance and Hub URLs must use `https`. Plain `http` works only for a local development instance on `http://localhost`, `http://127.0.0.1` or `http://[::1]`. Remote `http` URLs are always refused.
 
 ### Automatic refresh {id="oauth-refresh"}
 
@@ -338,7 +338,7 @@ Save an auto-refreshing OAuth session (access + refresh token) instead of creati
 </td>
 <td>
 
-Allow plain `http` for a local (`localhost`/`127.0.0.1`) instance or Hub, for development; prints a warning. Remote `http` URLs are always refused. With `--login`, it allows basic auth over plain `http` instead.
+With `--login`, allow basic auth over plain `http` to a host other than `localhost` (the password is sent unencrypted). Browser sign-in rejects it: a local `http` instance works without it, and remote `http` URLs are always refused.
 
 </td>
 </tr>

@@ -91,6 +91,9 @@ Use --json for machine-readable output.`,
 				return runBasicAuthFlow(cmd, reader, baseURL)
 			case noBrowser && sessionFlag(cmd):
 				// An explicit headless OAuth session: print the authorization URL and read the pasted redirect URL; no terminal needed.
+				if err := rejectFlags(cmd, "with browser sign-in; it applies to basic auth (--login)", "insecure"); err != nil {
+					return err
+				}
 				if err := rejectFlags(cmd, "with --session, which saves an OAuth session instead of creating a permanent token", "token-name"); err != nil {
 					return err
 				}
@@ -107,6 +110,9 @@ Use --json for machine-readable output.`,
 				}
 				return runPasteTokenFlow(cmd, reader, baseURL)
 			default:
+				if err := rejectFlags(cmd, "with browser sign-in; it applies to basic auth (--login)", "insecure"); err != nil {
+					return err
+				}
 				if sessionFlag(cmd) {
 					if err := rejectFlags(cmd, "with --session, which saves an OAuth session instead of creating a permanent token", "token-name"); err != nil {
 						return err
@@ -122,7 +128,7 @@ Use --json for machine-readable output.`,
 	cmd.Flags().String("password", "", "Password (basic auth; prompted interactively if omitted — avoid in scripts)")
 	cmd.Flags().String("token-name", "", `Name for the permanent token (default: "youtrack-cli" for browser sign-in, "cli-token" for basic auth)`)
 	cmd.Flags().String("scope", "", "Comma-separated Hub services to include in the token besides YouTrack: service IDs, or names with --login (basic auth default: YouTrack + YouTrack Administration)")
-	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted), or browser sign-in to a local http (localhost/127.0.0.1) instance")
+	cmd.Flags().Bool("insecure", false, "Allow basic auth over plain http to a non-loopback host (sends the password unencrypted)")
 	cmd.Flags().Bool("save", true, "Save credentials to the config file (~/.config/youtrack/config.json)")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().Bool("show-token", false, showTokenUsage)

@@ -196,7 +196,7 @@ var authorizeURLPattern = regexp.MustCompile(`https?://\S+/oauth2/auth\?\S+`)
 
 func startLogin(t *testing.T, home, clientID string, args ...string) *loginProc {
 	t.Helper()
-	base := []string{"--json", "instance", "login", "--insecure", "--session", "--no-browser", "--client-id", clientID, "--timeout", "20s"}
+	base := []string{"--json", "instance", "login", "--session", "--no-browser", "--client-id", clientID, "--timeout", "20s"}
 	p := &loginProc{urlCh: make(chan string, 1), done: make(chan error, 1)}
 	p.cmd = exec.Command(binaryPath, append(base, args...)...)
 	p.cmd.Env = isolatedEnv(home)
@@ -440,20 +440,20 @@ func TestOAuthLogin_PastedURLWithWrongStateRejected(t *testing.T) {
 }
 
 func TestOAuthLogin_RequiresHTTPS(t *testing.T) {
-	// Plain http to a remote host is refused even with --insecure; the guard runs before any request.
-	cmd := exec.Command(binaryPath, "instance", "login", "http://youtrack.invalid", "--insecure", "--session", "--session", "--no-browser", "--save=false")
+	// Plain http to a remote host is refused; the guard runs before any request.
+	cmd := exec.Command(binaryPath, "instance", "login", "http://youtrack.invalid", "--session", "--no-browser", "--save=false")
 	cmd.Env = isolatedEnv(t.TempDir())
 	out, err := cmd.CombinedOutput()
 	require.Error(t, err)
 	assert.Contains(t, string(out), "refusing to sign in over plain http")
 
-	// Loopback http needs an explicit --insecure.
+	// Loopback http passes the guard (RFC 8252 §8.3); the flow then waits for the pasted redirect URL, which stdin does not hold.
 	requireOAuthEnv(t)
 	cmd = exec.Command(binaryPath, "instance", "login", os.Getenv("YOUTRACK_BASE_URL"), "--session", "--no-browser", "--save=false")
 	cmd.Env = isolatedEnv(t.TempDir())
 	out, err = cmd.CombinedOutput()
 	require.Error(t, err)
-	assert.Contains(t, string(out), "--insecure")
+	assert.NotContains(t, string(out), "plain http")
 }
 
 func TestOAuthRefresh(t *testing.T) {

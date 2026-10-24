@@ -343,7 +343,7 @@ func BuildAuthorizationURL(endpoint string, r *AuthorizationRequest) (string, er
 		return "", fmt.Errorf("invalid authorization endpoint %q", endpoint)
 	}
 	if !strings.EqualFold(u.Scheme, "https") && !strings.EqualFold(u.Scheme, "http") {
-		return "", fmt.Errorf("authorization endpoint %q must use https", endpoint)
+		return "", fmt.Errorf("authorization endpoint %q must use https or http", endpoint)
 	}
 	if r.ClientID == "" || r.RedirectURI == "" || r.State == "" || r.CodeChallenge == "" || len(r.Scopes) == 0 {
 		return "", errors.New("authorization request is missing client_id, redirect_uri, scope, state, or code_challenge")
@@ -365,8 +365,8 @@ func BuildAuthorizationURL(endpoint string, r *AuthorizationRequest) (string, er
 	return u.String(), nil
 }
 
-// ValidateOAuthURL requires an absolute https URL with a host and no user-info; plain http is accepted only for a loopback host when allowInsecureLoopback is set (local development).
-func ValidateOAuthURL(rawURL string, allowInsecureLoopback bool) error {
+// ValidateOAuthURL requires an absolute https URL with a host and no user-info; plain http is accepted only for a loopback host (RFC 8252 §8.3: traffic never leaves the machine).
+func ValidateOAuthURL(rawURL string) error {
 	u, err := url.Parse(strings.TrimSpace(rawURL))
 	if err != nil || !u.IsAbs() || u.Hostname() == "" {
 		return fmt.Errorf("%q is not an absolute URL — use the full address, e.g. https://example.youtrack.cloud", rawURL)
@@ -380,9 +380,6 @@ func ValidateOAuthURL(rawURL string, allowInsecureLoopback bool) error {
 	case "http":
 		if IsInsecureRemoteHTTP(rawURL) {
 			return fmt.Errorf("refusing to sign in over plain http to %s — use the https URL", u.Host)
-		}
-		if !allowInsecureLoopback {
-			return fmt.Errorf("%s uses plain http — use the https URL, or pass --insecure to allow http for a local (loopback) instance", rawURL)
 		}
 		return nil
 	default:

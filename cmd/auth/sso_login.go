@@ -36,7 +36,6 @@ type ssoOptions struct {
 	tokenName   string
 	noBrowser   bool   // print the authorization URL and accept the pasted redirect URL instead of opening a browser
 	hubURL      string // explicit Hub URL (standalone Hub); empty → discovered from the instance
-	insecure    bool   // allow plain http for loopback (local development) instances
 }
 
 func defaultSSOOptions() ssoOptions {
@@ -80,7 +79,6 @@ func ssoOptionsFromFlags(cmd *cobra.Command) ssoOptions {
 	opts.session, _ = cmd.Flags().GetBool("session")
 	opts.hubURL, _ = cmd.Flags().GetString("hub-url")
 	opts.noBrowser, _ = cmd.Flags().GetBool("no-browser")
-	opts.insecure, _ = cmd.Flags().GetBool("insecure")
 	if name, _ := cmd.Flags().GetString("token-name"); name != "" {
 		opts.tokenName = name
 	}
@@ -162,12 +160,9 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return fmt.Errorf("browser login needs an interactive terminal — pass --no-browser to paste a token (with --session, the redirect URL), or set YOUTRACK_TOKEN")
 	}
 
-	// TLS: the instance and Hub must be https; plain http is only for loopback development instances behind --insecure.
-	if err := api.ValidateOAuthURL(baseURL, opts.insecure); err != nil {
+	// TLS: the instance and Hub must be https; plain http is only for loopback development instances.
+	if err := api.ValidateOAuthURL(baseURL); err != nil {
 		return err
-	}
-	if opts.insecure && strings.HasPrefix(strings.ToLower(baseURL), "http://") {
-		_, _ = fmt.Fprintf(stderr, "warning: --insecure: signing in over plain http to %s — for local development only\n", baseURL)
 	}
 
 	_, _ = fmt.Fprintf(stderr, "Discovering Hub configuration for %s...\n", baseURL)
@@ -181,7 +176,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	}
 	if opts.hubURL != "" {
 		hubURL = strings.TrimRight(opts.hubURL, "/")
-		if err := api.ValidateOAuthURL(hubURL, opts.insecure); err != nil {
+		if err := api.ValidateOAuthURL(hubURL); err != nil {
 			return fmt.Errorf("--hub-url: %w", err)
 		}
 	} else if err := api.ValidateHubURL(baseURL, hubURL); err != nil {
@@ -189,7 +184,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		_, _ = fmt.Fprintf(stderr, "Hub URL is not usable for browser sign-in (%v); falling back to the paste-token flow.\n\n", err)
 		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
-	if err := api.ValidateOAuthURL(hubURL, opts.insecure); err != nil {
+	if err := api.ValidateOAuthURL(hubURL); err != nil {
 		return fmt.Errorf("hub: %w (pass --hub-url to point at the https Hub)", err)
 	}
 
