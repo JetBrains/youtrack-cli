@@ -293,7 +293,7 @@ func TestOAuthLogin_LoopbackFlow(t *testing.T) {
 	assert.Equal(t, true, out["hasRefreshToken"])
 	assert.Equal(t, hub.hubURL, out["hubUrl"])
 	assert.Equal(t, hub.clientID, out["clientId"])
-	assert.NotContains(t, out, "token")
+	assert.Contains(t, out["token"], "****", "the access token is masked without --show-token")
 
 	inst := savedInstance(t, home, "e2e")
 	require.NotNil(t, inst)

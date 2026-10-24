@@ -28,7 +28,7 @@ func TestConfigWritersWaitForLock(t *testing.T) {
 		{args: []string{"auth", "refresh-token", "fake"}, stdin: "2\n{token}\n", check: func(t *testing.T, home string) {
 			assert.Equal(t, os.Getenv("YOUTRACK_TOKEN"), savedInstance(t, home, "fake")["token"])
 		}},
-		{args: []string{"auth", "get-token", "--alias", "other"}, stdin: "{url}\n3\n{token}\n", check: func(t *testing.T, home string) {
+		{args: []string{"auth", "get-token", "--alias", "other"}, stdin: "{url}\n{token}\n", check: func(t *testing.T, home string) {
 			assert.Equal(t, os.Getenv("YOUTRACK_TOKEN"), savedInstance(t, home, "other")["token"])
 		}},
 	} {
