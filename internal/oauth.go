@@ -28,10 +28,11 @@ type oauthSession struct {
 	inst    config.Instance
 	verbose io.Writer // nil unless --verbose
 	now     func() time.Time
+	skew    time.Duration // refreshSkew, or half the lifetime of a shorter-lived token so it is not refreshed on every request
 }
 
 func newOAuthSession(alias string, inst *config.Instance, verbose io.Writer) *oauthSession {
-	return &oauthSession{alias: alias, inst: *inst, verbose: verbose, now: time.Now}
+	return &oauthSession{alias: alias, inst: *inst, verbose: verbose, now: time.Now, skew: refreshSkew}
 }
 
 // canRefresh reports whether inst is an OAuth session with everything needed to refresh it.
@@ -43,7 +44,7 @@ func canRefresh(inst *config.Instance) bool {
 func (s *oauthSession) Token(ctx context.Context) (string, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if !api.TokenNeedsRefresh(s.inst.TokenExpiresAt, s.now(), refreshSkew) {
+	if !api.TokenNeedsRefresh(s.inst.TokenExpiresAt, s.now(), s.skew) {
 		return s.inst.Token, nil
 	}
 
@@ -62,7 +63,7 @@ func (s *oauthSession) Token(ctx context.Context) (string, error) {
 	if !ok || !sameOrigin(cur.URL, s.inst.URL) || !sameOrigin(cur.TokenURL(), s.inst.URL) || cur.AuthMethod != config.AuthMethodOAuth {
 		return "", fmt.Errorf("the saved session for %q was removed or replaced by another youtrack process — re-run the command", s.alias)
 	}
-	if cur.Token != "" && !api.TokenNeedsRefresh(cur.TokenExpiresAt, s.now(), refreshSkew) {
+	if cur.Token != "" && !api.TokenNeedsRefresh(cur.TokenExpiresAt, s.now(), s.skew) {
 		s.inst = cur
 		return cur.Token, nil
 	}
@@ -113,6 +114,7 @@ func (s *oauthSession) Token(ctx context.Context) (string, error) {
 		return "", fmt.Errorf("saving the refreshed OAuth session for %q: %w", s.alias, err)
 	}
 	s.inst = cfg.Instances[s.alias]
+	s.skew = min(refreshSkew, time.Duration(tok.ExpiresIn)*time.Second/2)
 	return tok.AccessToken, nil
 }
 
