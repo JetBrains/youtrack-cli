@@ -200,16 +200,25 @@ func (e *OAuthError) Error() string {
 	}
 	// The CLI has no secret to send. Hub answers invalid_client when the client lacks the flow, and invalid_grant
 	// "Invalid service secret" when the client requires a secret.
-	if e.Code == "invalid_client" || e.Code == "unauthorized_client" || (e.Code == "invalid_grant" && strings.Contains(e.Description, "service secret")) {
+	if e.Code == "invalid_client" || e.Code == "unauthorized_client" || e.isServiceSecretError() {
 		msg += " — in YouTrack, open Administration > Access Management > OAuth Clients, select the client, and on its Authentication tab enable Authorization Code flow and Require PKCE with no Client secret (with an external Hub, configure the service there)"
 	}
 	return fmt.Sprintf("%s (HTTP %d)", msg, e.StatusCode)
 }
 
+// isServiceSecretError reports Hub's invalid_grant "Invalid service secret", a client-configuration error rather than a dead grant.
+func (e *OAuthError) isServiceSecretError() bool {
+	return e.Code == "invalid_grant" && strings.Contains(e.Description, "service secret")
+}
+
 // IsInvalidGrant reports whether err means the grant (authorization code or refresh token) is invalid, expired, or revoked.
+// Hub reports an expired refresh token with its own expired_refresh_token code instead of invalid_grant.
 func IsInvalidGrant(err error) bool {
 	var oauthErr *OAuthError
-	return errors.As(err, &oauthErr) && oauthErr.Code == "invalid_grant"
+	if !errors.As(err, &oauthErr) || oauthErr.isServiceSecretError() {
+		return false
+	}
+	return oauthErr.Code == "invalid_grant" || oauthErr.Code == "expired_refresh_token"
 }
 
 // ExchangeOAuthCodeContext redeems an authorization code as a public client — client_id in the form body, no secret, PKCE code_verifier for proof of possession.

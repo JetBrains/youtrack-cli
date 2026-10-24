@@ -182,6 +182,14 @@ func TestIsInvalidGrant(t *testing.T) {
 	if IsInvalidGrant(errors.New("network down")) {
 		t.Fatal("plain error misclassified as invalid_grant")
 	}
+	_, err = parseTokenResponse(403, []byte(`{"error":"expired_refresh_token","error_description":"The refresh token has expired"}`))
+	if !IsInvalidGrant(err) {
+		t.Fatalf("Hub expired_refresh_token not detected as a dead grant: %v", err)
+	}
+	_, err = parseTokenResponse(400, []byte(`{"error":"invalid_grant","error_description":"Invalid service secret"}`))
+	if IsInvalidGrant(err) {
+		t.Fatal("client-configuration error (service secret) misclassified as a dead grant")
+	}
 }
 
 func TestTokenExpiryAndRefresh(t *testing.T) {
