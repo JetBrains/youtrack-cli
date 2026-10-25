@@ -27,6 +27,7 @@ type oauthSecret struct {
 	RefreshToken  string `json:"refreshToken,omitempty"`
 	TokenEndpoint string `json:"tokenEndpoint,omitempty"`
 	URL           string `json:"url,omitempty"`
+	SessionID     string `json:"sessionId,omitempty"`
 }
 
 // keyringTimeout guards against keyring backends that hang instead of failing (e.g. a locked keychain awaiting input).

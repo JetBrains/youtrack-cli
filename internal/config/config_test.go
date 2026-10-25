@@ -125,6 +125,46 @@ func TestReplacementSessionIgnoresStaleKeyringRefreshToken(t *testing.T) {
 	}
 }
 
+func TestReplacementSessionIgnoresStaleKeyringEndpoint(t *testing.T) {
+	isolate(t)
+	gokeyring.MockInit()
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "")
+	session := func(rt, hub string) *OAuthSession {
+		return &OAuthSession{AccessToken: "at-" + rt, RefreshToken: rt, ExpiresAt: 1234, ClientID: "cli", TokenEndpoint: hub + "/api/rest/oauth2/token"}
+	}
+
+	cfg, _ := Load()
+	cfg.AddInstanceOAuth("work", "https://work.example.com", session("rt-alice", "https://old-hub.example.com"))
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	// A new sign-in against another Hub is saved while the keyring is down: the old keyring session entry stays behind.
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "1")
+	cfg, _ = Load()
+	cfg.AddInstanceOAuth("work", "https://work.example.com", session("rt-bob", "https://new-hub.example.com"))
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	bobID := cfg.Instances["work"].SessionID
+
+	// With the keyring back, the new refresh token must go to the new Hub only.
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "")
+	got, _ := Load()
+	if inst := got.Instances["work"]; inst.RefreshToken != "rt-bob" || inst.TokenEndpoint != "https://new-hub.example.com/api/rest/oauth2/token" {
+		t.Fatalf("replacement session mixed with a stale keyring entry: refreshToken=%q tokenEndpoint=%q", inst.RefreshToken, inst.TokenEndpoint)
+	}
+
+	// A refresh keeps the session ID, so a running command still recognizes its own session.
+	got.SetOAuthTokens("work", "at-2", "rt-bob-2", 5678)
+	if err := got.Save(); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := Load(); again.Instances["work"].SessionID != bobID || again.Instances["work"].RefreshToken != "rt-bob-2" {
+		t.Fatalf("refresh changed the session: %+v", again.Instances["work"])
+	}
+}
+
 func TestLegacyConfigStillLoads(t *testing.T) {
 	path := isolate(t)
 	// A config written by an older version: permanent token, and an OAuth session without refresh metadata.

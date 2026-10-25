@@ -1,6 +1,7 @@
 package config
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -51,6 +52,9 @@ type Instance struct {
 	oauthInKeyring bool
 	// oauthBound marks TokenEndpoint and tokenURL as read from the keyring session entry, independent of where the refresh token lives.
 	oauthBound bool
+	// SessionID is new for each sign-in and kept across refreshes. Load ignores a keyring session entry with another ID,
+	// and a refresh refuses a profile whose ID changed, so the tokens of two sign-ins are never mixed.
+	SessionID string `json:"sessionId,omitempty"`
 	// OAuth session metadata recorded at sign-in so the access token can be refreshed without re-discovery.
 	TokenType     string `json:"tokenType,omitempty"`
 	Scope         string `json:"scope,omitempty"`
@@ -146,7 +150,7 @@ func Load() (*Config, error) {
 		// Only OAuth sessions have a keyring session entry; skip the round trip for permanent-token instances.
 		if inst.AuthMethod == AuthMethodOAuth {
 			var s oauthSecret
-			if raw, err := keyringGet(keyringOAuthService, alias); err == nil && json.Unmarshal([]byte(raw), &s) == nil {
+			if raw, err := keyringGet(keyringOAuthService, alias); err == nil && json.Unmarshal([]byte(raw), &s) == nil && s.SessionID == inst.SessionID {
 				// The keyring endpoint and URL win over the file; a refresh token left in the file (keyring was down at the last Save) is newer.
 				inst.TokenEndpoint, inst.oauthBound = s.TokenEndpoint, true
 				if s.URL != "" {
@@ -189,7 +193,7 @@ func (c *Config) Save() error {
 		}
 		if bindOAuth {
 			// The entry is written even without a refresh token, so one left from an earlier sign-in is replaced.
-			s, _ := json.Marshal(oauthSecret{RefreshToken: inst.RefreshToken, TokenEndpoint: inst.TokenEndpoint, URL: inst.TokenURL()})
+			s, _ := json.Marshal(oauthSecret{RefreshToken: inst.RefreshToken, TokenEndpoint: inst.TokenEndpoint, URL: inst.TokenURL(), SessionID: inst.SessionID})
 			if keyringSet(keyringOAuthService, alias, string(s)) == nil {
 				inst.oauthInKeyring, inst.oauthBound = true, true
 			}
@@ -399,6 +403,7 @@ func (c *Config) AddInstanceOAuth(alias, rawURL string, sess *OAuthSession) stri
 		HubURL:         sess.HubURL,
 		ClientID:       sess.ClientID,
 		TokenEndpoint:  sess.TokenEndpoint,
+		SessionID:      rand.Text(),
 	})
 }
 

@@ -55,12 +55,13 @@ func (s *oauthSession) Token(ctx context.Context) (string, error) {
 	defer unlock()
 
 	// Another process may have refreshed while we waited for the lock; its rotated refresh token supersedes ours.
+	// A new sign-in (another SessionID) is not a refresh: adopting its tokens would switch accounts in the middle of a command.
 	cfg, err := config.Load()
 	if err != nil {
 		return "", err
 	}
 	cur, ok := cfg.Instances[s.alias]
-	if !ok || !sameOrigin(cur.URL, s.inst.URL) || !sameOrigin(cur.TokenURL(), s.inst.URL) || cur.AuthMethod != config.AuthMethodOAuth {
+	if !ok || !sameOrigin(cur.URL, s.inst.URL) || !sameOrigin(cur.TokenURL(), s.inst.URL) || cur.AuthMethod != config.AuthMethodOAuth || cur.SessionID != s.inst.SessionID {
 		return "", fmt.Errorf("the saved session for %q was removed or replaced by another youtrack process — re-run the command", s.alias)
 	}
 	if cur.Token != "" && !api.TokenNeedsRefresh(cur.TokenExpiresAt, s.now(), s.skew) {
