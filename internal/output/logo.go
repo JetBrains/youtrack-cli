@@ -28,15 +28,19 @@ var (
 	dimMagentaStyle    = color.New(color.FgMagenta, color.Faint)
 )
 
-// PrintLogo prints the YouTrack ASCII logo to w.
-// If w is a terminal, it plays a matrix-style reveal animation in magenta.
+// PrintLogo prints the YouTrack ASCII logo to w in magenta.
+// When animate is true, it plays a matrix-style reveal animation first.
 // Non-terminal output (pipes, agents) is silently skipped.
-func PrintLogo(w io.Writer) {
+func PrintLogo(w io.Writer, animate bool) {
 	if !isTerminal(w) {
 		return
 	}
 
 	lines := strings.Split(logo, "\n")
+	if !animate {
+		_, _ = fmt.Fprint(w, "\n"+brightMagentaStyle.Sprint(logo)+"\n\n")
+		return
+	}
 	height := len(lines)
 
 	type pos struct{ r, c int }
