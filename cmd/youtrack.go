@@ -39,7 +39,7 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
 			animate := firstRun()
-			output.PrintLogo(os.Stdout, animate)
+			output.PrintLogo(cmd.Context(), os.Stdout, animate)
 			if !animate {
 				_ = cmd.Help()
 				return
@@ -48,7 +48,7 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 			cmd.SetOut(&buf)
 			_ = cmd.Help()
 			cmd.SetOut(os.Stdout)
-			output.PrintHelpAnimated(os.Stdout, buf.String())
+			output.PrintHelpAnimated(cmd.Context(), os.Stdout, buf.String())
 		},
 	}
 

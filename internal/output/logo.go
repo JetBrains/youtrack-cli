@@ -1,6 +1,7 @@
 package output
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"math/rand"
@@ -29,9 +30,9 @@ var (
 )
 
 // PrintLogo prints the YouTrack ASCII logo to w in magenta.
-// When animate is true, it plays a matrix-style reveal animation first.
+// When animate is true, it plays a matrix-style reveal animation first; canceling ctx skips to the final logo.
 // Non-terminal output (pipes, agents) is silently skipped.
-func PrintLogo(w io.Writer, animate bool) {
+func PrintLogo(ctx context.Context, w io.Writer, animate bool) {
 	if !isTerminal(w) {
 		return
 	}
@@ -79,8 +80,11 @@ func PrintLogo(w io.Writer, animate bool) {
 
 	moveUp := fmt.Sprintf("\033[%dA", height)
 	frame := func(d time.Duration, gs []rune) {
+		if ctx.Err() != nil {
+			return
+		}
 		render(gs)
-		time.Sleep(d)
+		pause(ctx, d)
 		_, _ = fmt.Fprint(w, moveUp)
 	}
 
@@ -118,9 +122,9 @@ func PrintLogo(w io.Writer, animate bool) {
 	}
 }
 
-// PrintHelpAnimated prints help text with a typewriter line-reveal animation.
+// PrintHelpAnimated prints help text with a typewriter line-reveal animation; canceling ctx prints the rest at once.
 // Falls back to plain print on non-terminal output (pipes, agents).
-func PrintHelpAnimated(w io.Writer, text string) {
+func PrintHelpAnimated(ctx context.Context, w io.Writer, text string) {
 	if !isTerminal(w) {
 		_, _ = fmt.Fprint(w, text)
 		return
@@ -132,10 +136,18 @@ func PrintHelpAnimated(w io.Writer, text string) {
 		// Hold after the description block (first blank separator line) before the command table.
 		if !pausedAtDescription && line == "" {
 			pausedAtDescription = true
-			time.Sleep(500 * time.Millisecond)
+			pause(ctx, 500*time.Millisecond)
 		} else {
-			time.Sleep(12 * time.Millisecond)
+			pause(ctx, 12*time.Millisecond)
 		}
+	}
+}
+
+// pause waits for d, or returns at once when ctx is canceled (Ctrl+C).
+func pause(ctx context.Context, d time.Duration) {
+	select {
+	case <-ctx.Done():
+	case <-time.After(d):
 	}
 }
 
