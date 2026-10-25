@@ -122,27 +122,6 @@ func PrintLogo(ctx context.Context, w io.Writer, animate bool) {
 	}
 }
 
-// PrintHelpAnimated prints help text with a typewriter line-reveal animation; canceling ctx prints the rest at once.
-// Falls back to plain print on non-terminal output (pipes, agents).
-func PrintHelpAnimated(ctx context.Context, w io.Writer, text string) {
-	if !isTerminal(w) {
-		_, _ = fmt.Fprint(w, text)
-		return
-	}
-	lines := strings.Split(strings.TrimRight(text, "\n"), "\n")
-	pausedAtDescription := false
-	for _, line := range lines {
-		_, _ = fmt.Fprintln(w, line)
-		// Hold after the description block (first blank separator line) before the command table.
-		if !pausedAtDescription && line == "" {
-			pausedAtDescription = true
-			pause(ctx, 500*time.Millisecond)
-		} else {
-			pause(ctx, 12*time.Millisecond)
-		}
-	}
-}
-
 // pause waits for d, or returns at once when ctx is canceled (Ctrl+C).
 func pause(ctx context.Context, d time.Duration) {
 	select {

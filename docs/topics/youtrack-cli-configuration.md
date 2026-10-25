@@ -283,7 +283,7 @@ Release notes: https://github.com/JetBrains/youtrack-cli/releases/tag/v<latest>
 - **2** runs your command. The CLI asks again on the next run.
 - **3** records the release in `dismissedVersion`. The CLI does not ask again until a newer release is out.
 
-For `youtrack` without arguments, the CLI shows only the prompt: no logo, help, or tips. Run `youtrack` again to see the help.
+For `youtrack` without arguments, the CLI shows only the prompt: no logo, next steps, or tips. Run `youtrack` again to see the start screen.
 
 The CLI asks only when stdin, stdout, and stderr are terminals and the output format is a table, so scripts and AI agents never see the prompt. It does not ask for `youtrack update`, `help`, or shell completion, for `--quiet`, or when the install method has no automated upgrade (apt, rpm, AUR, or an undetected install). The same settings that skip the network check also turn off the prompt.
 
