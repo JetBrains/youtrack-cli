@@ -40,15 +40,18 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 		Run: func(cmd *cobra.Command, args []string) {
 			animate := firstRun()
 			output.PrintLogo(cmd.Context(), os.Stdout, animate)
-			if !animate {
+			if animate {
+				var buf bytes.Buffer
+				cmd.SetOut(&buf)
 				_ = cmd.Help()
-				return
+				cmd.SetOut(os.Stdout)
+				output.PrintHelpAnimated(cmd.Context(), os.Stdout, buf.String())
+			} else {
+				_ = cmd.Help()
 			}
-			var buf bytes.Buffer
-			cmd.SetOut(&buf)
-			_ = cmd.Help()
-			cmd.SetOut(os.Stdout)
-			output.PrintHelpAnimated(cmd.Context(), os.Stdout, buf.String())
+			if noInstanceConfigured() {
+				output.PrintTip(cmd, "No YouTrack instance configured — run 'youtrack auth login' to connect one")
+			}
 		},
 	}
 
@@ -172,4 +175,13 @@ func firstRun() bool {
 		return false // ponytail: can't record it, so skip the animation rather than replay it every run
 	}
 	return true
+}
+
+// noInstanceConfigured reports whether neither YOUTRACK_BASE_URL nor a saved instance tells the CLI which YouTrack to use.
+func noInstanceConfigured() bool {
+	if os.Getenv("YOUTRACK_BASE_URL") != "" {
+		return false
+	}
+	cfg, err := config.Load()
+	return err == nil && len(cfg.Instances) == 0
 }
