@@ -126,6 +126,9 @@ func sessionExpiredError(alias string) error {
 // NewSavedInstanceClient builds a client for a saved instance, refreshing its token on demand when it is an OAuth session.
 // It refuses an instance whose config-file URL has another origin than the URL its keyring credentials are bound to.
 func NewSavedInstanceClient(cmd *cobra.Command, alias string, inst *config.Instance) (*api.Client, error) {
+	if err := requireReadableTokenURL(alias, inst); err != nil {
+		return nil, err
+	}
 	if !sameOrigin(inst.URL, inst.TokenURL()) {
 		return nil, fmt.Errorf("refusing to send the saved token for %q (%s) to %s — sign in again: youtrack auth login --session %s", alias, inst.TokenURL(), inst.URL, alias)
 	}

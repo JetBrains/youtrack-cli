@@ -141,6 +141,11 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 		)
 	}
 
+	if savedInst != nil {
+		if err := requireReadableTokenURL(savedTokenAlias, savedInst); err != nil {
+			return nil, src, err
+		}
+	}
 	// A saved token is bound to its instance: never forward it to a URL overridden via --base-url or YOUTRACK_BASE_URL.
 	if savedTokenURL != "" && !sameOrigin(baseURL, savedTokenURL) {
 		return nil, src, fmt.Errorf(
@@ -168,6 +173,9 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 // RequireTokenURL refuses to sign in again for a saved profile whose config-file URL has another origin than the URL its keyring token is bound to.
 // Renewing would send the password or a browser sign-in to a host set by whoever edited the config file, and bind the new token to it.
 func RequireTokenURL(alias string, inst *config.Instance) error {
+	if err := requireReadableTokenURL(alias, inst); err != nil {
+		return err
+	}
 	tokenURL := inst.TokenURL()
 	if tokenURL == inst.URL || sameOrigin(inst.URL, tokenURL) {
 		return nil
@@ -177,6 +185,14 @@ func RequireTokenURL(alias string, inst *config.Instance) error {
 		"refusing to sign in for %q: the config file URL %s differs from %s, the URL its saved token was issued for — check %s; to sign in to %s on purpose, run: youtrack instance delete %s, then youtrack instance add",
 		alias, inst.URL, tokenURL, path, inst.URL, alias,
 	)
+}
+
+// requireReadableTokenURL refuses a keyring token whose bound URL could not be read: TokenURL would fall back to the editable config file URL.
+func requireReadableTokenURL(alias string, inst *config.Instance) error {
+	if inst.TokenURLUnreadable() {
+		return fmt.Errorf("cannot read the URL the saved token for %q is bound to from the OS keyring — unlock the keyring and retry", alias)
+	}
+	return nil
 }
 
 // sameOrigin reports whether two instance URLs share scheme, host and port (default ports normalized); unparsable or host-less URLs never match.

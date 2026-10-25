@@ -36,6 +36,8 @@ type Instance struct {
 	tokenInKeyring bool
 	// tokenURLMissing marks a keyring token that has no URL entry, because an older version saved it, so Save binds it to the current URL.
 	tokenURLMissing bool
+	// tokenURLUnreadable marks a keyring token whose URL entry could not be read (not a confirmed missing one), so the token is not sent anywhere.
+	tokenURLUnreadable bool
 	// tokenURL is the instance URL stored for the token or the OAuth session in the keyring; empty for file tokens and for keyring tokens without a readable URL entry.
 	tokenURL string
 	// AuthMethod records how the token was obtained ("oauth" for browser SSO; empty for permanent tokens).
@@ -138,12 +140,14 @@ func Load() (*Config, error) {
 			if tok, err := keyringGet(keyringService, alias); err == nil && tok != "" {
 				inst.Token = tok
 				inst.tokenInKeyring = true
-				// Only a confirmed missing URL entry is bound later; a failed read leaves the token bound to the file URL without rebinding it.
+				// Only a confirmed missing URL entry is bound later; after a failed read the token is unusable, since the file URL may be edited.
 				switch u, err := keyringGet(keyringURLService, alias); {
 				case err == nil && u != "":
 					inst.tokenURL = u
 				case err == nil || errors.Is(err, errKeyringNotFound):
 					inst.tokenURLMissing = true
+				default:
+					inst.tokenURLUnreadable = true
 				}
 			}
 		}
@@ -154,7 +158,7 @@ func Load() (*Config, error) {
 				// The keyring endpoint and URL win over the file; a refresh token left in the file (keyring was down at the last Save) is newer.
 				inst.TokenEndpoint, inst.oauthBound = s.TokenEndpoint, true
 				if s.URL != "" {
-					inst.tokenURL = s.URL
+					inst.tokenURL, inst.tokenURLUnreadable = s.URL, false
 				}
 				// The keyring refresh token is taken only when the file says it was saved there, never for a session saved without one.
 				if inst.RefreshToken == s.RefreshToken || (inst.RefreshToken == "" && inst.RefreshTokenInKeyring) {
@@ -184,7 +188,7 @@ func (c *Config) Save() error {
 		case keyringWriteToken:
 			// The URL goes first, so the keyring never holds a new token without its URL; on any failure the token stays in the file.
 			if keyringSet(keyringURLService, alias, inst.URL) == nil && keyringSet(keyringService, alias, inst.Token) == nil {
-				inst.tokenInKeyring, inst.tokenURLMissing, inst.tokenURL = true, false, inst.URL
+				inst.tokenInKeyring, inst.tokenURLMissing, inst.tokenURLUnreadable, inst.tokenURL = true, false, false, inst.URL
 			}
 		case keyringWriteURL:
 			if keyringSet(keyringURLService, alias, inst.URL) == nil {
@@ -361,6 +365,11 @@ func (i *Instance) TokenURL() string {
 	return i.URL
 }
 
+// TokenURLUnreadable reports whether the token lives in the keyring but the URL it is bound to could not be read from there.
+func (i *Instance) TokenURLUnreadable() bool {
+	return i.tokenURLUnreadable
+}
+
 // TokenInKeyring reports whether the token for alias is stored in the OS keyring.
 func (c *Config) TokenInKeyring(alias string) bool {
 	return c.Instances[alias].tokenInKeyring
@@ -431,7 +440,7 @@ func (c *Config) ClearOAuthTokens(alias string) {
 	}
 	// Expiry 1 (not 0 = never): if the keyring purge fails and Load re-imports the dead tokens, they are refreshed (and rejected) rather than used as-is.
 	inst.Token, inst.RefreshToken, inst.TokenExpiresAt = "", "", 1
-	inst.tokenInKeyring, inst.oauthInKeyring, inst.oauthBound, inst.tokenURLMissing, inst.tokenURL = false, false, false, false, ""
+	inst.tokenInKeyring, inst.oauthInKeyring, inst.oauthBound, inst.tokenURLMissing, inst.tokenURLUnreadable, inst.tokenURL = false, false, false, false, false, ""
 	c.Instances[alias] = inst
 }
 
