@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/cmd/auth"
 	"github.com/JetBrains/youtrack-cli/cmd/instance"
@@ -20,6 +22,7 @@ import (
 	"github.com/JetBrains/youtrack-cli/cmd/skill"
 	"github.com/JetBrains/youtrack-cli/cmd/user"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
@@ -35,7 +38,12 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			output.PrintLogo(os.Stdout)
+			animate := firstRun()
+			output.PrintLogo(os.Stdout, animate)
+			if !animate {
+				_ = cmd.Help()
+				return
+			}
 			var buf bytes.Buffer
 			cmd.SetOut(&buf)
 			_ = cmd.Help()
@@ -144,4 +152,24 @@ func Execute(fs embed.FS) error {
 	case <-time.After(updateNoticeWait):
 	}
 	return execErr
+}
+
+// firstRun reports whether this is the first bare `youtrack` run on this machine and records
+// that it happened, so the intro animation plays once and later help output is instant.
+func firstRun() bool {
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		return false
+	}
+	dir, err := config.ConfigDir()
+	if err != nil {
+		return false
+	}
+	marker := filepath.Join(dir, ".intro-shown")
+	if _, err := os.Stat(marker); err == nil {
+		return false
+	}
+	if os.MkdirAll(dir, 0o700) != nil || os.WriteFile(marker, nil, 0o600) != nil {
+		return false // ponytail: can't record it, so skip the animation rather than replay it every run
+	}
+	return true
 }
