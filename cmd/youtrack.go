@@ -38,6 +38,9 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
+			if updatePromptShown { // the update prompt is the whole answer; help would push it off screen
+				return
+			}
 			animate := firstRun()
 			output.PrintLogo(cmd.Context(), os.Stdout, animate)
 			if animate {
