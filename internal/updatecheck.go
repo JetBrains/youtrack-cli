@@ -59,15 +59,15 @@ func saveUpdateCheckTimestamp(now int64) {
 	})
 }
 
-// RecordLatestVersion re-loads the config and records the newest release seen, for the
+// RecordLatestVersion re-loads the config under the config lock and records the newest release seen, for the
 // startup update prompt.
 func RecordLatestVersion(version string) {
-	cfg, err := config.Load()
-	if err != nil || cfg.LatestVersion == version {
-		return
-	}
-	cfg.LatestVersion = version
-	_ = cfg.Save()
+	ctx, cancel := context.WithTimeout(context.Background(), updateCheckTimeout)
+	defer cancel()
+	_ = config.Update(ctx, func(cfg *config.Config) error {
+		cfg.LatestVersion = version
+		return nil
+	})
 }
 
 // CheckForUpdateAsync decides synchronously whether a check is due and, if so, persists

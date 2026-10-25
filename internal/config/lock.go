@@ -14,6 +14,10 @@ const lockWait = 60 * time.Second
 
 const lockPollInterval = 50 * time.Millisecond
 
+// keyringDrainWait bounds how long unlock waits for a timed-out keyring write to finish. With the 30s refresh and one
+// keyringTimeout (later mutations fail fast), a holder releases the lock within lockWait, so waiters do not time out first.
+const keyringDrainWait = 20 * time.Second
+
 // Lock takes an exclusive advisory lock on the config file's .lock sibling so that concurrent CLI
 // processes serialize read-modify-write cycles of the config (notably OAuth refresh, where a lost
 // write would drop a rotated refresh token). Call the returned function to release it.
@@ -38,6 +42,8 @@ func Lock(ctx context.Context) (unlock func(), err error) {
 		}
 		if ok {
 			return func() {
+				// A keyring write that timed out under this lock may still land; another process must not save credentials before it does.
+				awaitKeyringMutations()
 				_ = unlockFile(f)
 				_ = f.Close()
 			}, nil
@@ -52,6 +58,20 @@ func Lock(ctx context.Context) (unlock func(), err error) {
 			return nil, ctx.Err()
 		case <-time.After(lockPollInterval):
 		}
+	}
+}
+
+// awaitKeyringMutations blocks until the keyring writes and deletes started by this process have finished (see keyringMutations).
+// ponytail: bounded, so a keyring that never answers cannot hang the CLI; a write that lands after keyringDrainWait can still race.
+func awaitKeyringMutations() {
+	done := make(chan struct{})
+	go func() {
+		keyringMutations.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(keyringDrainWait):
 	}
 }
 
