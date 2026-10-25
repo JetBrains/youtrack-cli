@@ -1,15 +1,16 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"path/filepath"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -41,20 +42,15 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 			if updatePromptShown { // the update prompt is the whole answer; help would push it off screen
 				return
 			}
-			animate := firstRun()
-			output.PrintLogo(cmd.Context(), os.Stdout, animate)
-			if animate {
-				var buf bytes.Buffer
-				cmd.SetOut(&buf)
+			if !term.IsTerminal(int(os.Stdout.Fd())) { // agents and pipes read the full command list
 				_ = cmd.Help()
-				cmd.SetOut(os.Stdout)
-				output.PrintHelpAnimated(cmd.Context(), os.Stdout, buf.String())
-			} else {
-				_ = cmd.Help()
+				if noInstanceConfigured() {
+					output.PrintTip(cmd, "No YouTrack instance configured — run 'youtrack auth login' to connect one")
+				}
+				return
 			}
-			if noInstanceConfigured() {
-				output.PrintTip(cmd, "No YouTrack instance configured — run 'youtrack auth login' to connect one")
-			}
+			output.PrintLogo(cmd.Context(), os.Stdout, firstRun())
+			printNextSteps(cmd.OutOrStdout(), cmd.Long, !noInstanceConfigured())
 		},
 	}
 
@@ -160,12 +156,9 @@ func Execute(fs embed.FS) error {
 	return execErr
 }
 
-// firstRun reports whether this is the first bare `youtrack` run on this machine and records
-// that it happened, so the intro animation plays once and later help output is instant.
+// firstRun reports whether this is the first bare `youtrack` run in a terminal on this machine and
+// records that it happened, so the intro animation plays once and later runs are instant.
 func firstRun() bool {
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
-		return false
-	}
 	dir, err := config.ConfigDir()
 	if err != nil {
 		return false
@@ -187,4 +180,25 @@ func noInstanceConfigured() bool {
 	}
 	cfg, err := config.Load()
 	return err == nil && len(cfg.Instances) == 0
+}
+
+// printNextSteps prints the short start screen of bare `youtrack` in a terminal: what the CLI is and
+// what to run next. `youtrack --help` lists every command.
+func printNextSteps(w io.Writer, about string, configured bool) {
+	title, steps := "Get started:", [][2]string{
+		{"youtrack auth login", "Connect to your YouTrack instance"},
+	}
+	if configured {
+		title, steps = "Try:", [][2]string{
+			{`youtrack issue list --query "for: me"`, "List issues assigned to you"},
+			{"youtrack auth status", "Show the connected instance and user"},
+		}
+	}
+	steps = append(steps, [2]string{"youtrack --help", "Show all commands"})
+	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
+	_, _ = fmt.Fprintf(tw, "%s\n\n%s\n", about, title)
+	for _, s := range steps {
+		_, _ = fmt.Fprintf(tw, "  %s\t%s\n", s[0], s[1])
+	}
+	_ = tw.Flush()
 }
