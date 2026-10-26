@@ -51,6 +51,13 @@ youtrack issue view DEMO-42
 youtrack issue view DEMO-42 --comments 5 -f idReadable,summary,reporter.login
 ```
 
+`-f` adds fields to the default projection. To fetch only the fields you name, add `--only-fields`. To keep the default projection but leave out a long description, add `--no-description`:
+
+```Shell
+youtrack issue view DEMO-42 --only-fields -f idReadable,summary,reporter --json
+youtrack issue view DEMO-42 --no-description --json
+```
+
 ## Creating an issue {id="create"}
 
 Create an issue with `youtrack issue create`. Specify the project by its short name and provide a summary:

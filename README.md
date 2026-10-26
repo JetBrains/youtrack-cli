@@ -117,6 +117,9 @@ youtrack issue command DEMO-42 "State In Progress"
 # view an issue with its five most recent comments
 youtrack issue view DEMO-42 --comments 5
 
+# only the fields you name, without the default projection or description
+youtrack issue view DEMO-42 --only-fields --fields idReadable,summary,reporter --json
+
 # what a command would do, without applying it
 youtrack issue command suggest DEMO-42 "State "
 
