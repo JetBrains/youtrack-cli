@@ -7,7 +7,7 @@ import (
 
 func (c *Client) ListWorkflows() ([]Workflow, error) {
 	const pageSize = 500
-	var result []Workflow
+	result := []Workflow{}
 	for skip := 0; ; skip += pageSize {
 		var page []Workflow
 		path := fmt.Sprintf(pathAdminWorkflows+"?fields=id,name,title,rules(id,name,title)&$top=%d&$skip=%d", pageSize, skip)
