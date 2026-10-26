@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -927,6 +928,8 @@ func TestCmd_IssueFieldView(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
+	awaitIssueFields(t, c, issue.IDReadable, "Priority")
+
 	out := runCmd(t, "issue", "field", "view", issue.IDReadable, "Priority", "--format", "json")
 	assert.Contains(t, out, "Priority")
 }
@@ -941,6 +944,8 @@ func TestCmd_IssueFieldSet(t *testing.T) {
 	})
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	awaitIssueFields(t, c, issue.IDReadable, "Priority")
 
 	out := runCmd(t, "issue", "field", "set", issue.IDReadable, "Priority", "Critical")
 	assert.Contains(t, out, "updated field Priority")
@@ -1022,12 +1027,32 @@ func TestCmd_IssueFieldSet_MultiValue(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 
+	awaitIssueFields(t, c, issue.IDReadable, name)
+
 	out := runCmd(t, "issue", "field", "set", issue.IDReadable, name, "Alpha")
 	assert.Contains(t, out, "updated field "+name)
 
 	got, err := c.GetCustomFieldValue(issue.IDReadable, name)
 	require.NoError(t, err)
 	assert.Contains(t, fmt.Sprint(got.Value), "Alpha")
+}
+
+func awaitIssueFields(t *testing.T, c *api.Client, issueID string, names ...string) {
+	t.Helper()
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		var fields []api.IssueField
+		err := c.Get("/api/issues/"+url.PathEscape(issueID)+"/customFields?fields=id,name&$top=500", &fields)
+		if !assert.NoError(collect, err, "reading issue %s fixture fields", issueID) {
+			return
+		}
+		byName := make(map[string]string, len(fields))
+		for _, field := range fields {
+			byName[field.Name] = field.ID
+		}
+		for _, name := range names {
+			assert.NotEmpty(collect, byName[name], "issue %s fixture field %q is not ready; visible fields: %v", issueID, name, byName)
+		}
+	}, 10*time.Second, 20*time.Millisecond, "issue %s fixture fields did not become ready", issueID)
 }
 
 func TestCmd_IssueVisibility(t *testing.T) {
