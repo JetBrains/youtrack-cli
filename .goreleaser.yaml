@@ -240,7 +240,12 @@ release:
 
     ### macOS & Linux
 
-    **Install script (recommended):**
+    **Homebrew (recommended):**
+    ```bash
+    brew install jetbrains/utils/youtrack
+    ```
+
+    **Install script:**
     ```bash
     curl -fsSL https://jb.gg/youtrack-cli/install | bash
     ```
@@ -259,12 +264,30 @@ release:
 
     ### Windows
 
-    **PowerShell:**
+    **Winget (recommended):**
+    ```powershell
+    winget install JetBrains.YouTrackCLI
+    ```
+
+    **Chocolatey:**
+    ```powershell
+    choco install youtrackcli
+    ```
+
+    **Scoop:**
+    ```powershell
+    scoop bucket add jetbrains https://github.com/JetBrains/scoop-utils
+    scoop install youtrack
+    ```
+
+    Package-manager releases may lag GitHub releases. If a package is unavailable, use an install script.
+
+    **PowerShell (install script):**
     ```powershell
     irm https://jb.gg/youtrack-cli/install.ps1 | iex
     ```
 
-    **CMD:**
+    **CMD (install script):**
     ```cmd
     curl -fsSL https://jb.gg/youtrack-cli/install.cmd -o install.cmd && install.cmd && del install.cmd
     ```
