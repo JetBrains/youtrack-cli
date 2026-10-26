@@ -27,11 +27,23 @@ The installers verify the downloaded archive against `checksums.txt` and, when `
 brew install jetbrains/utils/youtrack
 ```
 
-**Scoop (Windows):**
+**Windows (Winget):**
+```powershell
+winget install JetBrains.YouTrackCLI
+```
+
+**Chocolatey:**
+```powershell
+choco install youtrackcli
+```
+
+**Scoop:**
 ```powershell
 scoop bucket add jetbrains https://github.com/JetBrains/scoop-utils
 scoop install youtrack
 ```
+
+Package-manager releases may lag GitHub releases. If a package is unavailable, use an install script.
 
 `youtrack update` upgrades the CLI through the method that installed it. In a terminal, the CLI also offers the update before a command runs when a newer release is out. Set `YOUTRACK_NO_UPDATE=1` to turn off update checks.
 
