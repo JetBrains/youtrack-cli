@@ -1218,6 +1218,52 @@ func TestCmd_IssueCommand_ByDatabaseIDAndUnknownID(t *testing.T) {
 	assert.NotEmpty(t, strings.TrimSpace(stderr), "unknown issue should produce an error message")
 }
 
+func TestCmd_IssueCommand_NoNewTags(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "no new tags", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	suffix := strconv.FormatInt(time.Now().UnixNano()%1_000_000, 10)
+	existing, missing := "keeptag"+suffix, "newtag"+suffix
+	tag, err := c.AddTag(api.AddTagRequest{Name: existing})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		_ = c.DeleteTag(tag.ID)
+		tags, _ := c.ListTags()
+		for _, tg := range tags {
+			if tg.Name == missing {
+				_ = c.DeleteTag(tg.ID)
+			}
+		}
+	})
+	issueTags := func() []string {
+		tags, err := c.ListIssueTags(issue.IDReadable)
+		require.NoError(t, err)
+		var names []string
+		for _, tg := range tags {
+			names = append(names, tg.Name)
+		}
+		return names
+	}
+
+	stderr := runCmdExpectError(t, "issue", "command", issue.IDReadable, "tag "+existing+" tag "+missing, "--no-new-tags")
+	assert.Contains(t, stderr, missing)
+	assert.Contains(t, stderr, "nothing was applied")
+	assert.Empty(t, issueTags(), "a refused command must not apply any part")
+	tags, err := c.ListTags()
+	require.NoError(t, err)
+	for _, tg := range tags {
+		assert.NotEqual(t, missing, tg.Name, "--no-new-tags must not create the tag")
+	}
+
+	out := runCmd(t, "issue", "command", issue.IDReadable, "tag "+existing, "--no-new-tags")
+	assert.Contains(t, out, "command applied to "+issue.IDReadable)
+	assert.Equal(t, []string{existing}, issueTags())
+}
+
 // File names with quotes and line breaks must reach YouTrack without corrupting the multipart part headers.
 func TestCmd_IssueAttachmentAdd_UnusualFileNames(t *testing.T) {
 	c := newTestClient(t)

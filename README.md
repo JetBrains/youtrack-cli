@@ -120,6 +120,9 @@ youtrack issue view DEMO-42 --comments 5
 # what a command would do, without applying it
 youtrack issue command suggest DEMO-42 "State "
 
+# tag an issue, refusing to create the tag if it does not exist
+youtrack issue command DEMO-42 "tag regression" --no-new-tags
+
 # link a commit to an issue, and list what is linked
 youtrack issue vcs attach DEMO-42 1a2b3c4d5e6f7081
 youtrack issue vcs list DEMO-42

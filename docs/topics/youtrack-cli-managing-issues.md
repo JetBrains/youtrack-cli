@@ -169,6 +169,14 @@ youtrack issue command DEMO-1,DEMO-2 "assignee jane.doe Priority Critical"
 
 A single command can set several fields at once, add tags, or change the State.
 
+YouTrack creates a tag that does not exist yet when a command names it. Pass `--no-new-tags` to refuse such a command before anything is applied:
+
+```Shell
+youtrack issue command DEMO-42 "tag regression" --no-new-tags
+```
+
+The check reads the command preview from `youtrack issue command suggest`, which follows your YouTrack language; only English previews are recognized.
+
 > When a command sets the assignee or reporter through `issue command`, YouTrack CLI automatically wraps a login containing a dot, hyphen, or `@` in braces for YouTrack's command parser, so `assignee jane.doe` becomes `assignee {jane.doe}`. Write the login as-is.
 >
 {style="note"}

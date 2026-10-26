@@ -54,7 +54,8 @@ youtrack issue create --project P --summary S [--description D] [--parent <issue
 youtrack issue update <issueId> [--summary S] [--description D]
                                        # --description "" clears it; omitted fields are preserved
 youtrack issue delete <issueId>
-youtrack issue command <issueId[,issueId...]> <query>   # apply a YouTrack command string
+youtrack issue command <issueId[,issueId...]> <query> [--no-new-tags]   # apply a YouTrack command string
+                                       # --no-new-tags refuses a command that would create a tag
 youtrack issue command suggest <issueId[,issueId...]> <query>   # preview suggestions without applying
 youtrack issue count [--query Q]       # may return -1 on first call (async); retry manually
 ```
