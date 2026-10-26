@@ -99,7 +99,7 @@ youtrack auth login
 
 The command asks for your YouTrack URL, pre-filled with `https://youtrack.jetbrains.com` (or the active instance's URL); edit it or press Enter to accept it. It then opens your browser to sign in through Hub, creates a permanent token, and saves it.
 
-If the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it, and asks you to paste a permanent token you created there.
+If the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it, and asks you to paste a permanent token you created there. With `--session` it saves an OAuth session that the CLI refreshes automatically instead (add `--no-browser` over SSH to paste the redirect URL back).
 
 Saved tokens use the OS keyring when available; the config file at `~/.config/youtrack/config.json` stores the instance metadata. To manage several instances, register each under its own alias and switch between them with `youtrack instance use <alias>`. See [Configuration](youtrack-cli-configuration.md) for the full precedence and storage rules.
 

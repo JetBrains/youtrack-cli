@@ -41,8 +41,12 @@ the CLI asks for the URL, pre-filled with the active instance's URL (or
 By default the CLI signs you in through the browser (OAuth 2.0 + PKCE against
 the instance's Hub), uses the short-lived access token once to create a
 permanent token, and saves that. Signing in again revokes the token it replaces
-when that token carries the same --token-name. With --session it saves the
-~1-hour access token instead, which is not refreshed.
+when that token carries the same --token-name. With --session it saves an
+auto-refreshing OAuth session instead: a ~1-hour access token plus a refresh
+token (in the OS keyring when available) that every command renews shortly
+before the access token expires. Where the browser is on another device (SSH,
+WSL, headless), add --no-browser: the CLI prints the authorization URL and
+reads the redirect URL pasted back from the browser's address bar.
 
 When the Hub has no OAuth client for the CLI, with --no-browser, or when stdin
 is not a terminal, the CLI prints the token page link and asks you to paste a
@@ -65,7 +69,10 @@ Use --json for machine-readable output.`,
   youtrack auth login --base-url https://example.youtrack.cloud --no-browser
 
   # Sign in with a custom OAuth client on a fixed callback port
-  youtrack auth login --client-id my-client --port 8765`,
+  youtrack auth login --client-id my-client --port 8765
+
+  # Save an auto-refreshing OAuth session instead of a permanent token
+  youtrack auth login --session`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reader := bufio.NewReader(os.Stdin)
 
@@ -82,6 +89,16 @@ Use --json for machine-readable output.`,
 					return err
 				}
 				return runBasicAuthFlow(cmd, reader, baseURL)
+			case noBrowser && sessionFlag(cmd):
+				// An explicit headless OAuth session: print the authorization URL and read the pasted redirect URL; no terminal needed.
+				if err := rejectFlags(cmd, "with browser sign-in; it applies to basic auth (--login)", "insecure"); err != nil {
+					return err
+				}
+				if err := rejectFlags(cmd, "with --session, which saves an OAuth session instead of creating a permanent token", "token-name"); err != nil {
+					return err
+				}
+				opts := ssoOptionsFromFlags(cmd)
+				return runSSOFlow(cmd, reader, baseURL, &opts)
 			case noBrowser:
 				if err := requireNoSSOFlags(cmd, "with --no-browser", "scope", "token-name", "insecure"); err != nil {
 					return err
@@ -96,8 +113,8 @@ Use --json for machine-readable output.`,
 				if err := rejectFlags(cmd, "with browser sign-in; it applies to basic auth (--login)", "insecure"); err != nil {
 					return err
 				}
-				if session, _ := cmd.Flags().GetBool("session"); session {
-					if err := rejectFlags(cmd, "with --session, which saves the access token instead of creating a permanent token", "token-name"); err != nil {
+				if sessionFlag(cmd) {
+					if err := rejectFlags(cmd, "with --session, which saves an OAuth session instead of creating a permanent token", "token-name"); err != nil {
 						return err
 					}
 				}
@@ -115,9 +132,15 @@ Use --json for machine-readable output.`,
 	cmd.Flags().Bool("save", true, "Save credentials to the config file (~/.config/youtrack/config.json)")
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().Bool("show-token", false, showTokenUsage)
-	cmd.Flags().Bool("no-browser", false, "Paste a permanent token instead of signing in through the browser")
+	cmd.Flags().Bool("no-browser", false, "Paste a permanent token instead of signing in through the browser; with --session, print the authorization URL and paste the redirect URL back (SSH, WSL, headless)")
 	addSSOFlags(cmd)
 	return cmd
+}
+
+// sessionFlag reports whether --session (an auto-refreshing OAuth session) was requested.
+func sessionFlag(cmd *cobra.Command) bool {
+	session, _ := cmd.Flags().GetBool("session")
+	return session
 }
 
 // requireSecureBasicAuth refuses to send a password over plain http to a non-loopback host unless --insecure is set.
@@ -128,8 +151,15 @@ func requireSecureBasicAuth(cmd *cobra.Command, baseURL string) error {
 	return fmt.Errorf("refusing to send your password over plain http to %s — use the https URL, choose another sign-in method, or pass --insecure", baseURL)
 }
 
+// warnBasicAuthDeprecated steers users off password sign-in, which bypasses SSO and two-factor authentication.
+func warnBasicAuthDeprecated(cmd *cobra.Command) {
+	output.PrintWarn(cmd, "basic auth is deprecated: it sends your password through the CLI and does not work with SSO or two-factor authentication — "+
+		"prefer browser sign-in (youtrack auth login) or a permanent token of a dedicated, least-privilege account for automation")
+}
+
 // runBasicAuthFlow handles the Hub login/password → permanent-token creation flow.
 func runBasicAuthFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string) error {
+	warnBasicAuthDeprecated(cmd)
 	if flagChanged(cmd, "verbose") {
 		api.SetHubVerbose(cmd.ErrOrStderr())
 		defer api.SetHubVerbose(nil)
@@ -330,16 +360,17 @@ func runPasteTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string)
 func saveCredentials(cmd *cobra.Command, _ *bufio.Reader, baseURL, token string, res *getTokenResult) (string, error) {
 	alias, _ := cmd.Flags().GetString("alias")
 
-	cfg, err := config.Load()
+	var cfg *config.Config
+	var finalAlias string
+	err := config.Update(cmd.Context(), func(c *config.Config) error {
+		cfg = c
+		finalAlias = c.AddInstance(alias, baseURL, token)
+		if c.CurrentInstance == "" {
+			c.CurrentInstance = finalAlias
+		}
+		return nil
+	})
 	if err != nil {
-		return "", err
-	}
-
-	finalAlias := cfg.AddInstance(alias, baseURL, token)
-	if cfg.CurrentInstance == "" {
-		cfg.CurrentInstance = finalAlias
-	}
-	if err := cfg.Save(); err != nil {
 		return "", fmt.Errorf("saving config: %w", err)
 	}
 

@@ -85,6 +85,13 @@ youtrack auth login
 
 It asks for the YouTrack URL (pre-filled with `https://youtrack.jetbrains.com` or your active instance), opens your browser to sign in through Hub, and saves a permanent token. Pass `--no-browser` to paste a token instead.
 
+Or save an OAuth session that refreshes itself instead of a permanent token. `--no-browser` works over SSH:
+
+```bash
+youtrack auth login https://example.youtrack.cloud --session
+youtrack auth status      # auth method, expiry, refresh token present — never the token itself
+```
+
 Auth commands mask the token in their output, JSON included. Pass `--show-token` when a script needs the full value, for example `youtrack auth login --save=false --json --show-token | jq -r .token`.
 
 Then:
@@ -169,7 +176,7 @@ See [AI agent integration](docs/topics/youtrack-cli-ai-agent-integration.md) for
 ## Learn more
 
 - [Getting started](docs/topics/youtrack-cli-get-started.md) — install, authenticate, and run your first commands
-- [Authentication](docs/topics/youtrack-cli-authentication.md) — tokens, browser SSO, multiple instances, credential precedence
+- [Authentication](docs/topics/youtrack-cli-authentication.md) — tokens, browser SSO (OAuth client registration, headless sign-in, automatic refresh), multiple instances, credential precedence
 - [Configuration](docs/topics/youtrack-cli-configuration.md) — config file, environment variables, global flags, update checks
 - [Scripting and automation](docs/topics/youtrack-cli-scripting.md) — JSON/plain output, field projection, exit codes, CI
 - [Security](docs/security.md) — token disclaimer, `YOUTRACK_RO`, keyring storage, command-mutability reference
