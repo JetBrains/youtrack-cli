@@ -66,7 +66,7 @@ youtrack issue create --project DEMO --summary "Release notes" --description-fil
 youtrack issue create --project DEMO --summary "Crash on startup" --custom-fields '{"Type":"Bug","Priority":"Critical"}'
 ```
 
-`--project` and `--summary` are required. The other flags are optional: `--description` and `--description-file` set the body (mutually exclusive); `--custom-fields` and `--custom-fields-file` take a JSON object of field values; `--parent` nests the issue under another issue ID; and `--asUser` creates it as another login.
+`--project` and `--summary` are required. The other flags are optional: `--description` and `--description-file` set the body (mutually exclusive; `--description-file -` reads standard input); `--custom-fields` and `--custom-fields-file` take a JSON object of field values; `--parent` nests the issue under another issue ID; and `--asUser` creates it as another login.
 
 Custom fields must be one complete JSON object with string values. Malformed JSON, trailing content, and non-string values (including `null`) are rejected before an issue is created.
 
@@ -82,9 +82,10 @@ Update the summary or description of an existing issue:
 youtrack issue update DEMO-42 --summary "Login button overlaps header"
 youtrack issue update DEMO-42 --description "Reproduced on iOS Safari."
 youtrack issue update DEMO-42 --description ""  # clear the description
+generate-notes | youtrack issue update DEMO-42 --description-file -
 ```
 
-Only fields whose flags are passed are changed. An explicit empty `--description` clears the description; omitting the flag preserves it.
+Only fields whose flags are passed are changed. An explicit empty `--description` clears the description; omitting the flag preserves it. `--description-file <path>` reads the description from a file, and `--description-file -` from standard input.
 
 To change fields such as State, Priority, or Assignee, apply a command (see [Applying a command](#command)) or set a field value directly (see [Setting custom fields](#fields)).
 
@@ -115,7 +116,11 @@ youtrack issue comment delete DEMO-42 4-17
 youtrack issue comment pin DEMO-42 4-17
 youtrack issue comment pin DEMO-42 4-17 --unpin
 youtrack issue comment create DEMO-42 --text "Triaged." --asUser jane.doe
+youtrack issue comment create DEMO-42 --text-file report.md
+git log -1 --format=%B | youtrack issue comment update DEMO-42 4-17 --text-file -
 ```
+
+`comment create` and `comment update` take the text either inline with `--text` or from a file with `--text-file`; `--text-file -` reads standard input, which keeps long markdown and shell-sensitive characters intact.
 
 ## Tagging issues {id="tags"}
 
@@ -207,7 +212,7 @@ youtrack issue draft submit 3-45
 youtrack issue draft delete 3-45
 ```
 
-`issue draft create` returns the draft ID (for example `3-45`). Pass it to `update`, `submit`, and `delete`. Both `create` and `update` accept `--description` and `--description-file`; `update` additionally accepts `--custom-fields` and `--custom-fields-file`. `issue draft delete` discards a draft you no longer need and prompts for confirmation unless you pass `--force`.
+`issue draft create` returns the draft ID (for example `3-45`). Pass it to `update`, `submit`, and `delete`. Both `create` and `update` accept `--description` and `--description-file` (`-` reads standard input); `update` additionally accepts `--custom-fields` and `--custom-fields-file`. `issue draft delete` discards a draft you no longer need and prompts for confirmation unless you pass `--force`.
 
 ## Viewing sprints {id="sprints"}
 

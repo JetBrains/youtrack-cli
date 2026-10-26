@@ -52,18 +52,10 @@ func newIssueDraftCreateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectShortName, _ := cmd.Flags().GetString("project")
 			summary, _ := cmd.Flags().GetString("summary")
-			description, _ := cmd.Flags().GetString("description")
-			descriptionFile, _ := cmd.Flags().GetString("description-file")
 
-			if descriptionFile != "" && description != "" {
-				return fmt.Errorf("--description and --description-file are mutually exclusive")
-			}
-			if descriptionFile != "" {
-				b, err := os.ReadFile(descriptionFile)
-				if err != nil {
-					return fmt.Errorf("read description file: %w", err)
-				}
-				description = string(b)
+			description, _, err := textFromFlags(cmd, "description", "description-file")
+			if err != nil {
+				return err
 			}
 
 			client, err := internal.GetClient(cmd)
@@ -86,7 +78,7 @@ func newIssueDraftCreateCmd() *cobra.Command {
 	cmd.Flags().String("project", "", "Project short name (required)")
 	cmd.Flags().String("summary", "", "Issue summary (optional; template may prefill)")
 	cmd.Flags().String("description", "", "Issue description")
-	cmd.Flags().String("description-file", "", "Read description from file")
+	addTextFileFlag(cmd, "description", "description-file", "the description")
 	internal.MustMarkRequired(cmd, "project")
 	return cmd
 }
@@ -99,20 +91,12 @@ func newIssueDraftUpdateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			draftID := args[0]
 			summary, _ := cmd.Flags().GetString("summary")
-			description, _ := cmd.Flags().GetString("description")
-			descriptionFile, _ := cmd.Flags().GetString("description-file")
 			customFields, _ := cmd.Flags().GetString("custom-fields")
 			customFieldsFile, _ := cmd.Flags().GetString("custom-fields-file")
 
-			if descriptionFile != "" && description != "" {
-				return fmt.Errorf("--description and --description-file are mutually exclusive")
-			}
-			if descriptionFile != "" {
-				b, err := os.ReadFile(descriptionFile)
-				if err != nil {
-					return fmt.Errorf("read description file: %w", err)
-				}
-				description = string(b)
+			description, _, err := textFromFlags(cmd, "description", "description-file")
+			if err != nil {
+				return err
 			}
 			if customFieldsFile != "" && customFields != "" {
 				return fmt.Errorf("--custom-fields and --custom-fields-file are mutually exclusive")
@@ -170,7 +154,7 @@ func newIssueDraftUpdateCmd() *cobra.Command {
 	}
 	cmd.Flags().String("summary", "", "New summary")
 	cmd.Flags().String("description", "", "New description")
-	cmd.Flags().String("description-file", "", "Read description from file")
+	addTextFileFlag(cmd, "description", "description-file", "the description")
 	cmd.Flags().String("custom-fields", "", `JSON object of field values, e.g. '{"Type":"Bug","Priority":"High"}'`)
 	cmd.Flags().String("custom-fields-file", "", "Read custom fields JSON from file")
 	return cmd
