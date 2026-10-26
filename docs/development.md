@@ -19,6 +19,20 @@ make check           # fmt-check + lint + build + unit + test — run before com
 
 Always run `make check` before pushing. It runs formatting, linting, build, pure-function unit tests, and the full E2E suite.
 
+## Release Pipeline
+
+The release pipeline is defined in [`.teamcity.yml`](../.teamcity.yml). It
+selects Go 1.27.3 or a newer toolchain required by the module and checks each
+binary's Go build metadata before publishing. Signing-client and Chocolatey
+downloads are checked against their pinned SHA-256 hashes.
+
+Validate and apply pipeline changes with:
+
+```bash
+TEAMCITY_URL=https://buildserver.labs.intellij.net teamcity pipeline validate .teamcity.yml
+TEAMCITY_URL=https://buildserver.labs.intellij.net teamcity pipeline push YouTrack_CLI_Release .teamcity.yml
+```
+
 ## Testing
 
 CLI behavior is tested end-to-end only — no mocks, no fake transport. The subject under test is the compiled `youtrack` binary against a real YouTrack instance running in Docker.
