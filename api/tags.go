@@ -57,18 +57,9 @@ func (c *Client) ResolveTagID(ref string) (string, error) {
 	if IsTagID(ref) {
 		return ref, nil
 	}
-	const pageSize = 500
-	var candidates []Tag
-	for skip := 0; ; skip += pageSize {
-		var page []Tag
-		path := fmt.Sprintf(pathTags+"?fields=%s&query=%s&$top=%d&$skip=%d", tagFields, url.QueryEscape(ref), pageSize, skip)
-		if err := c.Get(path, &page); err != nil {
-			return "", err
-		}
-		candidates = append(candidates, page...)
-		if len(page) < pageSize {
-			break
-		}
+	candidates, err := c.allTagPages(pathTags + "?fields=" + tagFields + "&query=" + url.QueryEscape(ref))
+	if err != nil {
+		return "", err
 	}
 	return pickTagByName(candidates, ref, "visible to you")
 }
@@ -81,11 +72,26 @@ func (c *Client) ResolveIssueTagID(issueID, ref string) (string, error) {
 	if IsTagID(ref) {
 		return ref, nil
 	}
-	tags, err := c.ListIssueTags(issueID)
+	tags, err := c.allTagPages(fmt.Sprintf(pathIssueTags, url.PathEscape(issueID)) + "?fields=" + tagFields)
 	if err != nil {
 		return "", err
 	}
 	return pickTagByName(tags, ref, "on issue "+issueID)
+}
+
+func (c *Client) allTagPages(path string) ([]Tag, error) {
+	const pageSize = 500
+	var all []Tag
+	for skip := 0; ; skip += pageSize {
+		var page []Tag
+		if err := c.Get(fmt.Sprintf("%s&$top=%d&$skip=%d", path, pageSize, skip), &page); err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < pageSize {
+			return all, nil
+		}
+	}
 }
 
 func pickTagByName(tags []Tag, name, scope string) (string, error) {
