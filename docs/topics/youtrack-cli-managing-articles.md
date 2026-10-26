@@ -209,7 +209,7 @@ youtrack article tag DEMO-A-1 6-12
 youtrack article untag DEMO-A-1 6-12
 ```
 
-> Look up a tag's ID with `youtrack tag list` before tagging.
+> Look up a tag's ID with `youtrack tag list --query <name>` before tagging.
 >
 {style="tip"}
 

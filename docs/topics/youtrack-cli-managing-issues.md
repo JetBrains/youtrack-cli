@@ -119,13 +119,22 @@ youtrack issue comment create DEMO-42 --text "Triaged." --asUser jane.doe
 
 ## Tagging issues {id="tags"}
 
-Attach, list, and inspect tags with `youtrack issue tag`. A tag is identified by its opaque ID, not its name:
+Attach, list, and inspect tags with `youtrack issue tag`. `add` and `remove` accept a tag ID or the tag's exact name; `view` takes an ID:
 
 ```Shell
 youtrack issue tag list DEMO-42
 youtrack issue tag add DEMO-42 6-3
+youtrack issue tag add DEMO-42 "release blocker"
 youtrack issue tag view DEMO-42 6-3
-youtrack issue tag remove DEMO-42 6-3
+youtrack issue tag remove DEMO-42 "release blocker"
+```
+
+A name must match one tag exactly, including case. `add` looks among the tags visible to you, and `remove` looks among the tags on the issue. When no tag has that name, or several tags do (tags owned by different users can share a name), the command fails and lists the candidates' IDs. `add` never creates a tag; create one with `youtrack tag create` first. An argument shaped like an ID, such as `6-3`, is always treated as an ID.
+
+Tags share one namespace across the instance, so filter the list instead of reading all of it. `--query` keeps tags with a word in their name that starts with the text, and `--limit` (default 100) caps the result:
+
+```Shell
+youtrack tag list --query release --limit 20
 ```
 
 ## Linking issues {id="links"}

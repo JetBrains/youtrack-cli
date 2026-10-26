@@ -1197,7 +1197,7 @@ func TestCmd_IssueCommand_ByDatabaseIDAndUnknownID(t *testing.T) {
 	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
 	tag := "cmdtag" + strconv.FormatInt(time.Now().UnixNano()%1_000_000, 10)
 	t.Cleanup(func() {
-		tags, _ := c.ListTags()
+		tags, _ := c.ListTags(tag, 100)
 		for _, tg := range tags {
 			if tg.Name == tag {
 				_ = c.DeleteTag(tg.ID)

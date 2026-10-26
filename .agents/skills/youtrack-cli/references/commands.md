@@ -70,8 +70,8 @@ youtrack issue unwatch <issueId>
 youtrack issue vote <issueId>          # cannot vote on your own issues
 youtrack issue unvote <issueId>
 youtrack issue tag list <issueId>
-youtrack issue tag add <issueId> <tagId>
-youtrack issue tag remove <issueId> <tagId>
+youtrack issue tag add <issueId> <tagId|name>      # exact name; fails on no match or ambiguity, never creates
+youtrack issue tag remove <issueId> <tagId|name>   # name is matched among the issue's tags
 youtrack issue visibility <issueId> [flags]
 ```
 
@@ -261,7 +261,7 @@ youtrack dashboard delete <id>
 ## tag
 
 ```bash
-youtrack tag list
+youtrack tag list [--query Q] [--limit N]  # Q: name word prefix, case-insensitive; default limit 100
 youtrack tag create --name NAME [flags]   # alias: add
 youtrack tag delete <id>
 youtrack tag issue list <tagId>           # view issues for a tag
