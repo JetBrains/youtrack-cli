@@ -2,7 +2,7 @@ BINARY := youtrack
 GO ?= go
 GOFMT ?= gofmt
 GO_VERSION ?= $(shell $(GO) env GOVERSION)
-GOLANGCI_LINT ?= GOTOOLCHAIN=$(GO_VERSION) $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
+GOLANGCI_LINT ?= GOTOOLCHAIN=$(GO_VERSION) $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 VERSION ?= dev
 COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 DATE    := $(shell date -u +%Y-%m-%d)
