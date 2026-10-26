@@ -97,6 +97,8 @@ youtrack auth login
 
 It asks for the YouTrack URL (pre-filled with `https://youtrack.jetbrains.com` or your active instance), opens your browser to sign in through Hub, and saves a permanent token. Pass `--no-browser` to paste a token instead.
 
+Apps and scripts without a terminal sign in through the browser with `--web`: `youtrack auth login https://example.youtrack.cloud --web --json`. It never prompts and fails at once when something is missing. The authorization URL goes to stderr as a `{"authorizationUrl": "..."}` line (a plain line without `--json`), so the caller can open it if the browser does not open.
+
 Auth commands mask the token in their output, JSON included. Pass `--show-token` when a script needs the full value, for example `youtrack auth login --save=false --json --show-token | jq -r .token`.
 
 Then:
