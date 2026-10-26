@@ -2,9 +2,8 @@ package issue
 
 import (
 	"fmt"
-	"io"
-	"os"
 
+	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/spf13/cobra"
 )
 
@@ -16,12 +15,7 @@ func textFromFlags(cmd *cobra.Command, textFlag, fileFlag string) (text string, 
 		return text, cmd.Flags().Changed(textFlag), nil
 	}
 	path, _ := cmd.Flags().GetString(fileFlag)
-	var b []byte
-	if path == "-" {
-		b, err = io.ReadAll(cmd.InOrStdin())
-	} else {
-		b, err = os.ReadFile(path)
-	}
+	b, err := internal.ReadInput(cmd, path)
 	if err != nil {
 		return "", false, fmt.Errorf("read --%s: %w", fileFlag, err)
 	}
