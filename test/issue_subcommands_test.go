@@ -406,6 +406,12 @@ func TestCmd_IssueViewOnlyFields(t *testing.T) {
 	out := runCmd(t, "issue", "view", issue.IDReadable, "--only-fields", "--fields", "idReadable,summary", "--plain")
 	assert.Equal(t, issue.IDReadable+"\tonly fields view test", strings.TrimSpace(out))
 
+	for _, format := range []string{"plain", "table"} {
+		out = runCmd(t, "issue", "view", issue.IDReadable, "--only-fields", "--fields", "idReadable", "--comments", "1", "--format", format)
+		assert.Contains(t, out, issue.IDReadable)
+		assert.Contains(t, out, "only fields comment", "--fields projects the issue, not its comments (%s)", format)
+	}
+
 	errOut := runCmdExpectError(t, "issue", "view", issue.IDReadable, "--only-fields", "--json")
 	assert.Contains(t, errOut, "--only-fields requires --fields")
 }

@@ -49,7 +49,7 @@ func newIssueViewCmd() *cobra.Command {
 					if err != nil {
 						return err
 					}
-					return output.Print(cmd, comments)
+					return printComments(cmd, comments)
 				}
 				return nil
 			}
@@ -82,7 +82,7 @@ func newIssueViewCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				return output.Print(cmd, comments)
+				return printComments(cmd, comments)
 			}
 			return nil
 		},
@@ -92,4 +92,12 @@ func newIssueViewCmd() *cobra.Command {
 	cmd.Flags().Bool("only-fields", false, "Fetch only the fields listed in --fields instead of adding them to the default projection")
 	cmd.MarkFlagsMutuallyExclusive("no-description", "only-fields")
 	return cmd
+}
+
+// printComments ignores --fields, which projects the issue rather than its comments.
+func printComments(cmd *cobra.Command, comments []api.Comment) error {
+	if output.Format(cmd) == "plain" {
+		return output.PrintPlain(cmd.OutOrStdout(), comments)
+	}
+	return output.PrintTable(cmd.OutOrStdout(), comments)
 }
