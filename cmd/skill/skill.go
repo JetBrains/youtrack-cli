@@ -181,29 +181,48 @@ func runSkillInstall(cmd *cobra.Command, fs embed.FS, opts *skillOptions, args [
 		ProjectDir: ".",
 		Global:     !opts.project,
 	}
-	if checkVersion {
-		allUpToDate := true
-		for _, name := range names {
-			installed, err := instill.InstalledVersion(name, instillOpts)
+	if !checkVersion {
+		results, err := instill.Install(fs, instillOpts)
+		if err != nil {
+			return err
+		}
+		printInstallResults(cmd, results, versions)
+		return nil
+	}
+	// InstalledVersion returns the first version found across all targets,
+	// so each agent is checked on its own to find missing or stale copies.
+	for _, name := range names {
+		var stale []string
+		for _, agent := range agents {
+			installed, err := instill.InstalledVersion(name, instill.Options{
+				Agents:     []string{agent},
+				ProjectDir: instillOpts.ProjectDir,
+				Global:     instillOpts.Global,
+			})
 			if err != nil {
 				return err
 			}
 			if installed != versions[name] {
-				allUpToDate = false
-				break
+				stale = append(stale, agent)
 			}
 		}
-		if allUpToDate {
-			for _, name := range names {
-				output.PrintSuccess(cmd, fmt.Sprintf("skill %s already up to date (%s)", name, versions[name]))
-			}
-			return nil
+		if len(stale) == 0 {
+			output.PrintSuccess(cmd, fmt.Sprintf("skill %s already up to date (%s)", name, versions[name]))
+			continue
 		}
+		skillOpts := instillOpts
+		skillOpts.Agents = stale
+		skillOpts.Skills = []string{name}
+		results, err := instill.Install(fs, skillOpts)
+		if err != nil {
+			return err
+		}
+		printInstallResults(cmd, results, versions)
 	}
-	results, err := instill.Install(fs, instillOpts)
-	if err != nil {
-		return err
-	}
+	return nil
+}
+
+func printInstallResults(cmd *cobra.Command, results []instill.Result, versions map[string]string) {
 	for _, r := range results {
 		bundled := versions[r.Skill]
 		switch {
@@ -217,7 +236,6 @@ func runSkillInstall(cmd *cobra.Command, fs embed.FS, opts *skillOptions, args [
 			output.PrintSuccess(cmd, fmt.Sprintf("reinstalled %s for %s (%s)", r.Skill, r.Agent, bundled))
 		}
 	}
-	return nil
 }
 
 func runSkillRemove(cmd *cobra.Command, fs embed.FS, opts *skillOptions, args []string) error {
