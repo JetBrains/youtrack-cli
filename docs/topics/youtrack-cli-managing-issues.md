@@ -175,7 +175,7 @@ YouTrack creates a tag that does not exist yet when a command names it. Pass `--
 youtrack issue command DEMO-42 "tag regression" --no-new-tags
 ```
 
-The check reads the command preview from `youtrack issue command suggest`, which follows your YouTrack language; only English previews are recognized.
+The check reads the command preview from `youtrack issue command suggest`, which follows your YouTrack language; non-English or unverifiable previews are rejected without applying the command. The preview is a best-effort check, not an atomic server-side restriction: tags or settings can change before execution. For exact existing-tag association, use `issue tag add`.
 
 > When a command sets the assignee or reporter through `issue command`, YouTrack CLI automatically wraps a login containing a dot, hyphen, or `@` in braces for YouTrack's command parser, so `assignee jane.doe` becomes `assignee {jane.doe}`. Write the login as-is.
 >

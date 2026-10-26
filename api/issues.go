@@ -487,7 +487,7 @@ func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]a
 	}
 	var result map[string]any
 	err = c.postQuery(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
-		map[string]any{"query": query, "issues": issues}, &result)
+		map[string]any{"query": WrapUserValues(query), "issues": issues}, &result)
 	return result, err
 }
 
@@ -792,8 +792,20 @@ var (
 )
 
 // NewTagsInCommand returns the tags that applying query would create, read from the server's parsed-command
-// descriptions ("Add new tag X"). Those descriptions follow the user's YouTrack language; only English is recognized.
+// descriptions ("Add new tag X"). Refuse non-English profiles because the API exposes no tag-creation discriminator.
 func (c *Client) NewTagsInCommand(query string, issueIDs []string) ([]string, error) {
+	var profile struct {
+		Locale *struct {
+			Language string `json:"language"`
+		} `json:"locale"`
+	}
+	if err := c.Get("/api/users/me/profiles/general?fields=locale(language)", &profile); err != nil {
+		return nil, fmt.Errorf("cannot verify command preview language: %w", err)
+	}
+	if profile.Locale == nil || profile.Locale.Language != "en" {
+		return nil, fmt.Errorf("--no-new-tags requires an English YouTrack profile; use issue tag add for existing tags without command parsing; nothing was applied")
+	}
+
 	issues, err := c.commandIssues(issueIDs)
 	if err != nil {
 		return nil, err
@@ -801,15 +813,22 @@ func (c *Client) NewTagsInCommand(query string, issueIDs []string) ([]string, er
 	var result struct {
 		Commands []struct {
 			Description string `json:"description"`
+			Error       *bool  `json:"error"`
 		} `json:"commands"`
 	}
-	err = c.postQuery(pathCommandsAssist+"?fields=commands(description)",
+	err = c.postQuery(pathCommandsAssist+"?fields=commands(description,error)",
 		map[string]any{"query": WrapUserValues(query), "issues": issues}, &result)
 	if err != nil {
 		return nil, err
 	}
+	if len(result.Commands) == 0 {
+		return nil, fmt.Errorf("cannot verify an empty command preview; nothing was applied")
+	}
 	var tags []string
 	for _, cmd := range result.Commands {
+		if cmd.Error == nil || *cmd.Error || cmd.Description == "" {
+			return nil, fmt.Errorf("cannot verify command preview: %s; nothing was applied", cmd.Description)
+		}
 		if text := html.UnescapeString(htmlTagRe.ReplaceAllString(cmd.Description, "")); newTagCommandRe.MatchString(text) {
 			tags = append(tags, newTagCommandRe.ReplaceAllString(text, ""))
 		}
