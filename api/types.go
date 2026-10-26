@@ -63,6 +63,7 @@ type Comment struct {
 	Created    int64       `json:"created,omitempty"`
 	Updated    int64       `json:"updated,omitempty"`
 	Deleted    bool        `json:"deleted"`
+	Pinned     bool        `json:"pinned"`
 	Visibility *Visibility `json:"visibility,omitempty"`
 
 	// raw preserves fields requested through --fields, including fields the

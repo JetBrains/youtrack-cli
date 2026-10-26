@@ -19,7 +19,7 @@ const issueDetailFields = issueFields + ",customFields(name,value(name,login,tex
 // (name), user (login, fullName), text (text), period (presentation); number and date values are scalars.
 // projectCustomField.emptyFieldText is what the UI shows for an unset value ("Unassigned", "No Fix versions").
 const issueCustomFieldValues = "customFields(name,value(name,login,fullName,text,presentation),projectCustomField(emptyFieldText))"
-const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,visibility"
+const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,pinned,visibility($type,permittedGroups(id,name),permittedUsers(id,login,fullName))"
 const draftFields = "id,summary,description,created,fields(id,name,$type)"
 
 // AddIssueRequest is the body for creating an issue.

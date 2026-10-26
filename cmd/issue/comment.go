@@ -2,6 +2,7 @@ package issue
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/spf13/cobra"
 
@@ -27,11 +28,15 @@ func newIssueCommentCmd() *cobra.Command {
 }
 
 func newCommentListCmd() *cobra.Command {
-	return &cobra.Command{
+	cmd := &cobra.Command{
 		Use:   "list <issueId>",
 		Short: "List comments on an issue",
-		Args:  cobra.ExactArgs(1),
+		Long:  "List comments on an issue with their pinned state and visibility. Deleted comments are left out unless --include-deleted is passed.",
+		Example: "  youtrack issue comment list FOO-42\n" +
+			"  youtrack issue comment list FOO-42 --include-deleted --fields id,deleted,pinned,text",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			includeDeleted, _ := cmd.Flags().GetBool("include-deleted")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -40,9 +45,14 @@ func newCommentListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if !includeDeleted {
+				comments = slices.DeleteFunc(comments, func(c api.Comment) bool { return c.Deleted })
+			}
 			return output.Print(cmd, comments)
 		},
 	}
+	cmd.Flags().Bool("include-deleted", false, "Include deleted comments, marked as deleted")
+	return cmd
 }
 
 func newCommentCreateCmd() *cobra.Command {

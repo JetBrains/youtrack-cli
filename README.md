@@ -105,6 +105,9 @@ youtrack issue command DEMO-42 "State In Progress"
 # view an issue with its five most recent comments
 youtrack issue view DEMO-42 --comments 5
 
+# comments with pinned state and visibility, deleted ones included
+youtrack issue comment list DEMO-42 --include-deleted --json
+
 # what a command would do, without applying it
 youtrack issue command suggest DEMO-42 "State "
 

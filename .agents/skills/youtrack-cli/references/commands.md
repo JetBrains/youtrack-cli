@@ -73,7 +73,7 @@ youtrack issue visibility <issueId> [flags]
 
 **comment**
 ```bash
-youtrack issue comment list <issueId>
+youtrack issue comment list <issueId> [--include-deleted]   # JSON includes deleted, pinned, visibility
 youtrack issue comment create <issueId> --text "..."   # alias: add
 youtrack issue comment update <issueId> <commentId> --text "..."
 youtrack issue comment delete <issueId> <commentId>

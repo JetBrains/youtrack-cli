@@ -110,6 +110,12 @@ youtrack issue comment pin DEMO-42 4-17 --unpin
 youtrack issue comment create DEMO-42 --text "Triaged." --asUser jane.doe
 ```
 
+`issue comment list` leaves deleted comments out. Pass `--include-deleted` to list them too, marked as deleted. Comment JSON includes `deleted`, `pinned`, and `visibility` with its permitted groups and users:
+
+```Shell
+youtrack issue comment list DEMO-42 --include-deleted --fields id,deleted,pinned,text
+```
+
 ## Tagging issues {id="tags"}
 
 Attach, list, and inspect tags with `youtrack issue tag`. A tag is identified by its opaque ID, not its name:

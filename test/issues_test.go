@@ -459,7 +459,10 @@ func TestCmd_IssueCommentCRUD(t *testing.T) {
 
 	// UI-style deletion retains a recoverable comment. JSON must make its state
 	// visible even when the server still returns the original comment text.
-	deleted := runJSON[[]map[string]any](t, "issue", "comment", "list", issue.IDReadable, "--json")
+	hidden := runJSON[[]map[string]any](t, "issue", "comment", "list", issue.IDReadable, "--json")
+	assert.Empty(t, hidden, "comment list leaves deleted comments out by default")
+
+	deleted := runJSON[[]map[string]any](t, "issue", "comment", "list", issue.IDReadable, "--include-deleted", "--json")
 	require.Len(t, deleted, 1)
 	assert.Equal(t, comment.ID, deleted[0]["id"])
 	assert.Equal(t, true, deleted[0]["deleted"])
@@ -474,6 +477,8 @@ func TestCmd_IssueCommentCRUD(t *testing.T) {
 				args := []string{"issue", "comment", action, issue.IDReadable}
 				if action == "view" {
 					args = append(args, comment.ID)
+				} else {
+					args = append(args, "--include-deleted")
 				}
 				args = append(args, "--format", format)
 				out := runCmd(t, args...)
@@ -710,6 +715,23 @@ func TestCmd_IssueCommentPin(t *testing.T) {
 
 	out := runCmd(t, "issue", "comment", "pin", issue.IDReadable, comment.ID)
 	assert.Contains(t, out, "pinned")
+
+	other, err := c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "not pinned"})
+	require.NoError(t, err)
+	listed := runJSON[[]api.Comment](t, "issue", "comment", "list", issue.IDReadable, "--json")
+	pinned := map[string]bool{}
+	for _, cm := range listed {
+		pinned[cm.ID] = cm.Pinned
+	}
+	assert.Equal(t, map[string]bool{comment.ID: true, other.ID: false}, pinned)
+	raw := runJSON[[]map[string]any](t, "issue", "comment", "list", issue.IDReadable, "--json")
+	for _, cm := range raw {
+		assert.Contains(t, cm, "pinned", "comment JSON must include pinned=false too")
+	}
+
+	out = runCmd(t, "issue", "comment", "list", issue.IDReadable, "--fields", "id,pinned", "--plain")
+	assert.Contains(t, out, comment.ID+"\ttrue")
+	assert.Contains(t, out, other.ID+"\tfalse")
 }
 
 func TestCmd_IssueCommentVisibility(t *testing.T) {
@@ -730,6 +752,16 @@ func TestCmd_IssueCommentVisibility(t *testing.T) {
 	// Call with no groups/users — sets an empty LimitedVisibility which is valid
 	out := runCmd(t, "issue", "comment", "visibility", issue.IDReadable, comment.ID)
 	assert.Contains(t, out, "updated visibility for comment "+comment.ID)
+
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+	runCmd(t, "issue", "comment", "visibility", issue.IDReadable, comment.ID, "--users", me.ID)
+	listed := runJSON[[]api.Comment](t, "issue", "comment", "list", issue.IDReadable, "--json")
+	require.Len(t, listed, 1)
+	require.NotNil(t, listed[0].Visibility)
+	assert.Equal(t, "LimitedVisibility", listed[0].Visibility.Type)
+	require.Len(t, listed[0].Visibility.PermittedUsers, 1)
+	assert.Equal(t, me.Login, listed[0].Visibility.PermittedUsers[0].Login)
 }
 
 func TestCmd_IssueLinkRemove(t *testing.T) {
