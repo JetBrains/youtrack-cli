@@ -38,6 +38,7 @@ type UpdateStatus struct {
 	UpdateAvailable bool   `json:"updateAvailable"`
 	UpgradeCommand  string `json:"upgradeCommand,omitempty"`
 	ReleaseURL      string `json:"releaseUrl"`
+	Upgraded        bool   `json:"upgraded,omitempty"`
 }
 
 // isUpdateCheckDisabled reports whether to skip the check entirely: env opt-out, CI, or non-TTY stderr.
