@@ -94,7 +94,7 @@ func newIssueDraftUpdateCmd() *cobra.Command {
 			customFields, _ := cmd.Flags().GetString("custom-fields")
 			customFieldsFile, _ := cmd.Flags().GetString("custom-fields-file")
 
-			description, _, err := textFromFlags(cmd, "description", "description-file")
+			description, descriptionSet, err := textFromFlags(cmd, "description", "description-file")
 			if err != nil {
 				return err
 			}
@@ -115,8 +115,12 @@ func newIssueDraftUpdateCmd() *cobra.Command {
 			}
 
 			var draft *api.IssueDraft
-			if summary != "" || description != "" {
-				draft, err = client.UpdateDraft(draftID, summary, description)
+			if summary != "" || descriptionSet {
+				var descriptionPtr *string
+				if descriptionSet {
+					descriptionPtr = &description
+				}
+				draft, err = client.UpdateDraft(draftID, summary, descriptionPtr)
 				if err != nil {
 					return err
 				}
@@ -153,7 +157,7 @@ func newIssueDraftUpdateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("summary", "", "New summary")
-	cmd.Flags().String("description", "", "New description")
+	cmd.Flags().String("description", "", "New description (an empty string clears it)")
 	addTextFileFlag(cmd, "description", "description-file", "the description")
 	cmd.Flags().String("custom-fields", "", `JSON object of field values, e.g. '{"Type":"Bug","Priority":"High"}'`)
 	cmd.Flags().String("custom-fields-file", "", "Read custom fields JSON from file")

@@ -531,13 +531,14 @@ func (c *Client) GetDraft(draftID string) (*IssueDraft, error) {
 	return &result, err
 }
 
-func (c *Client) UpdateDraft(draftID, summary, description string) (*IssueDraft, error) {
+// UpdateDraft sets a non-empty summary, and the description when it is not nil; an empty description clears it.
+func (c *Client) UpdateDraft(draftID, summary string, description *string) (*IssueDraft, error) {
 	body := map[string]any{}
 	if summary != "" {
 		body["summary"] = summary
 	}
-	if description != "" {
-		body["description"] = description
+	if description != nil {
+		body["description"] = *description
 	}
 	var result IssueDraft
 	path := fmt.Sprintf(pathUserDraft+"?fields=%s", "me", url.PathEscape(draftID), draftFields)

@@ -73,6 +73,11 @@ func TestCmd_IssueDraftDescriptionFromStdin(t *testing.T) {
 	got, err = c.GetDraft(draft.ID)
 	require.NoError(t, err)
 	assert.Equal(t, "updated from stdin", got.Description)
+
+	runCmdWithInput(t, "", "issue", "draft", "update", draft.ID, "--description-file", "-", "--json")
+	got, err = c.GetDraft(draft.ID)
+	require.NoError(t, err)
+	assert.Empty(t, got.Description, "empty stdin clears the description")
 }
 
 func TestCmd_IssueCommentTextFromFileOrStdin(t *testing.T) {
