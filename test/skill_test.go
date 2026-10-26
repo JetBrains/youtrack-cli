@@ -63,3 +63,20 @@ func TestSkill_InstallUpdateRemove(t *testing.T) {
 	assert.Empty(t, stdout)
 	assert.Contains(t, stderr, "not installed")
 }
+
+func TestSkill_UpdateChecksEveryAgent(t *testing.T) {
+	dir := t.TempDir()
+
+	_, _, err := runCmdInDir(t, dir, "skill", "install", "--agent", "codex", "--project")
+	require.NoError(t, err)
+
+	// A current codex copy must not hide the missing claude-code copy.
+	stdout, _, err := runCmdInDir(t, dir, "skill", "update", "--agent", "codex,claude-code", "--project")
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "installed youtrack-cli for claude-code")
+	assert.NotContains(t, stdout, "codex")
+
+	skillMD := filepath.Join(dir, ".claude", "skills", "youtrack-cli", "SKILL.md")
+	_, err = os.Stat(skillMD)
+	require.NoError(t, err, "SKILL.md should exist for claude-code after update")
+}
