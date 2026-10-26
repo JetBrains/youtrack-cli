@@ -13,11 +13,26 @@ import (
 
 func TestCmd_WorkflowListReturnsEveryWorkflow(t *testing.T) {
 	c := newTestClient(t)
-	var all []api.Workflow
-	require.NoError(t, c.Get("/api/admin/workflows?fields=id&$top=100000", &all))
+	marker := fmt.Sprintf("wf-pages-%d", time.Now().UnixNano())
+	// At least 501 matching workflows force a second page even on an empty instance.
+	ids := make([]string, 0, 501)
+	t.Cleanup(func() {
+		for _, id := range ids {
+			assert.NoError(t, c.DeleteWorkflow(id))
+		}
+	})
+	for i := 0; i < 501; i++ {
+		wf, err := c.AddWorkflow(fmt.Sprintf("%s-%03d", marker, i), "Pagination fixture")
+		require.NoError(t, err)
+		ids = append(ids, wf.ID)
+	}
+	listed := runJSON[[]api.Workflow](t, "workflow", "list", "--name", marker, "--json")
+	got := make([]string, 0, len(listed))
+	for _, wf := range listed {
+		got = append(got, wf.ID)
+	}
+	assert.ElementsMatch(t, ids, got)
 
-	listed := runJSON[[]api.Workflow](t, "workflow", "list", "--json")
-	assert.Len(t, listed, len(all))
 }
 
 func TestCmd_WorkflowListFilterByName(t *testing.T) {
