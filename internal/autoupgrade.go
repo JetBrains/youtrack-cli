@@ -52,8 +52,8 @@ func (m InstallMethod) AutoUpgradeCommand() (name string, args []string, ok bool
 		if err != nil {
 			return "", nil, false
 		}
-		// $0 and $1 carry the URL and directory, so the path is never parsed as shell code.
-		return "bash", []string{"-c", `curl -fsSL "$0" | bash -s -- "" "$1"`, installScriptURL, filepath.Dir(exe)}, true
+		// $0 and $1 carry the URL and directory, so the path is never parsed as shell code. pipefail makes a failed download fail the upgrade: without it, bash runs the empty script and exits 0.
+		return "bash", []string{"-c", `set -o pipefail; curl -fsSL "$0" | bash -s -- "" "$1"`, installScriptURL, filepath.Dir(exe)}, true
 	default:
 		return "", nil, false
 	}
