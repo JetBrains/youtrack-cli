@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -67,7 +68,7 @@ func RunAutoUpgrade(method InstallMethod, version string, out, errOut io.Writer)
 	return RunAutoUpgradeContext(context.Background(), method, version, out, errOut)
 }
 
-func RunAutoUpgradeContext(parent context.Context, method InstallMethod, _ string, out, errOut io.Writer) (attempted bool, err error) {
+func RunAutoUpgradeContext(parent context.Context, method InstallMethod, version string, out, errOut io.Writer) (attempted bool, err error) {
 	name, args, ok := method.AutoUpgradeCommand()
 	if !ok {
 		return false, nil
@@ -80,7 +81,48 @@ func RunAutoUpgradeContext(parent context.Context, method InstallMethod, _ strin
 	}
 	cmd.Stdout = out
 	cmd.Stderr = errOut
-	return true, cmd.Run()
+	if err := cmd.Run(); err != nil {
+		return true, err
+	}
+	return true, verifyUpgrade(ctx, version)
+}
+
+// verifyUpgrade checks that the youtrack this process was started as now reports at least version.
+// A package manager whose index lags the GitHub release exits 0 and leaves the old binary in place.
+// The path is the unresolved one: a Homebrew symlink points to the new Cellar version after the upgrade.
+func verifyUpgrade(ctx context.Context, version string) error {
+	installed, err := installedVersion(ctx)
+	// The upgrade command succeeded, so a version that cannot be read or is not a release
+	// (go install builds report "dev") does not fail the upgrade.
+	if err != nil || installed == "dev" || installed == "unknown" {
+		return nil //nolint:nilerr // deliberate: an unverifiable version keeps the upgrade's own result
+	}
+	if IsNewerVersion(installed, version) {
+		return fmt.Errorf("the upgrade command finished, but youtrack still reports %s; the %s package may not be published yet",
+			FormatVersion(installed), FormatVersion(version))
+	}
+	return nil
+}
+
+// installedVersion runs `youtrack --version` on the path this process was started as and returns the
+// version field of its output.
+func installedVersion(ctx context.Context) (string, error) {
+	path, err := exec.LookPath(os.Args[0])
+	if err != nil {
+		return "", err
+	}
+	cmd := exec.CommandContext(ctx, path, "--version")
+	cmd.Env = append(os.Environ(), "YOUTRACK_NO_UPDATE=1")
+	out, err := cmd.Output()
+	if err != nil {
+		return "", err
+	}
+	// The output is "youtrack <version> (<commit>, <date>)".
+	fields := strings.Fields(string(out))
+	if len(fields) < 2 {
+		return "", fmt.Errorf("unexpected --version output: %q", out)
+	}
+	return fields[1], nil
 }
 
 // installerEnv is the environment for re-running the installer: YOUTRACK_INSTALL_UPDATE makes it skip the banner and the first-run "Next steps", and a YOUTRACK_INSTALL_RELEASE or YOUTRACK_INSTALL_DIR left over from an earlier install is dropped, so it installs the latest release over the running binary. install.ps1 reads its directory only from the environment, so on Windows it gets the running binary's.
