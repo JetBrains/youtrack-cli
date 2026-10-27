@@ -47,7 +47,8 @@ Declining a destructive-action confirmation exits `0` and reports `{"status":"ca
 ## issue
 
 ```bash
-youtrack issue view <issueId>           # alias: get
+youtrack issue view <issueId> [--comments N] [--no-description] [--only-fields]
+                                       # alias: get; --only-fields makes --fields replace the default projection
 youtrack issue list --query Q [--limit N] [--offset N]
 youtrack issue create --project P --summary S [--description D | --description-file <path|->] [--parent <issueId>]
                                        # alias: add

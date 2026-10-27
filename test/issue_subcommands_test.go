@@ -3,9 +3,12 @@ package api_test
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
+	"strings"
 	"testing"
 	"time"
 
@@ -340,4 +343,75 @@ func TestCmd_IssueViewPlain(t *testing.T) {
 	assert.Contains(t, out, "Reporter:")
 	assert.Contains(t, out, "Project:")
 	assert.Contains(t, out, proj.ShortName)
+}
+
+func TestCmd_IssueViewNoDescription(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary:     "no description view test",
+		Description: "description that should stay hidden",
+		Project:     &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	result := runJSON[map[string]any](t, "issue", "view", issue.IDReadable, "--no-description", "--json")
+	assert.Equal(t, issue.IDReadable, result["idReadable"])
+	assert.Equal(t, "no description view test", result["summary"])
+	assert.NotContains(t, result, "description")
+
+	out := runCmd(t, "issue", "view", issue.IDReadable, "--no-description", "--plain")
+	assert.Contains(t, out, "no description view test")
+	assert.Contains(t, out, "Reporter:")
+	assert.NotContains(t, out, "description that should stay hidden")
+}
+
+func TestCmd_IssueViewOnlyFields(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary:     "only fields view test",
+		Description: "description outside the projection",
+		Project:     &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	_, err = c.AddComment(issue.IDReadable, api.AddCommentRequest{Text: "only fields comment"})
+	require.NoError(t, err)
+
+	added := runJSON[map[string]any](t, "issue", "view", issue.IDReadable, "--fields", "idReadable,votes", "--json")
+	assert.Contains(t, added, "description", "--fields alone must keep the default projection")
+	assert.Contains(t, added, "votes")
+
+	only := runJSON[map[string]any](t, "issue", "view", issue.IDReadable, "--only-fields", "--fields", "idReadable,summary,reporter", "--json")
+	delete(only, "$type")
+	assert.ElementsMatch(t, []string{"idReadable", "summary", "reporter"}, slices.Collect(maps.Keys(only)))
+	reporter, ok := only["reporter"].(map[string]any)
+	require.True(t, ok, "reporter must be an object: %v", only["reporter"])
+	assert.NotEmpty(t, reporter["login"], "bare entity fields must still expand to their sub-fields")
+
+	withComments := runJSON[struct {
+		IDReadable  string        `json:"idReadable"`
+		Description *string       `json:"description"`
+		Comments    []api.Comment `json:"comments"`
+	}](t, "issue", "view", issue.IDReadable, "--only-fields", "--fields", "idReadable", "--comments", "1", "--json")
+	assert.Equal(t, issue.IDReadable, withComments.IDReadable)
+	assert.Nil(t, withComments.Description)
+	require.Len(t, withComments.Comments, 1)
+	assert.Equal(t, "only fields comment", withComments.Comments[0].Text)
+
+	out := runCmd(t, "issue", "view", issue.IDReadable, "--only-fields", "--fields", "idReadable,summary", "--plain")
+	assert.Equal(t, issue.IDReadable+"\tonly fields view test", strings.TrimSpace(out))
+
+	for _, format := range []string{"plain", "table"} {
+		out = runCmd(t, "issue", "view", issue.IDReadable, "--only-fields", "--fields", "idReadable", "--comments", "1", "--format", format)
+		assert.Contains(t, out, issue.IDReadable)
+		assert.Contains(t, out, "only fields comment", "--fields projects the issue, not its comments (%s)", format)
+	}
+
+	errOut := runCmdExpectError(t, "issue", "view", issue.IDReadable, "--only-fields", "--json")
+	assert.Contains(t, errOut, "--only-fields requires --fields")
 }

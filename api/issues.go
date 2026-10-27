@@ -10,8 +10,10 @@ import (
 	"time"
 )
 
-const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
-const issueDetailFields = issueFields + ",customFields(name,value(name,login,text,presentation))"
+const issueFieldsWithoutDescription = "id,idReadable,summary,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
+const issueFields = issueFieldsWithoutDescription + ",description"
+const issueDetailCustomFields = ",customFields(name,value(name,login,text,presentation))"
+const issueDetailFields = issueFields + issueDetailCustomFields
 
 // issueCustomFieldValues fetches custom fields with the sub-fields that identify each value type: enum/state/version/build
 // (name), user (login, fullName), text (text), period (presentation); number and date values are scalars.
@@ -106,8 +108,25 @@ func (c *Client) GetIssueDetail(id string) (*Issue, error) {
 }
 
 func (c *Client) GetIssue(id string) (*Issue, error) {
+	return c.GetIssueProjection(id, issueFields)
+}
+
+// IssueViewFields is the default issue view projection; detail adds custom field values for plain output.
+func IssueViewFields(detail, description bool) string {
+	fields := issueFieldsWithoutDescription
+	if description {
+		fields = issueFields
+	}
+	if detail {
+		fields += issueDetailCustomFields
+	}
+	return fields
+}
+
+// GetIssueProjection fetches an issue with exactly the given fields, plus any Client.Fields.
+func (c *Client) GetIssueProjection(id, fields string) (*Issue, error) {
 	var result Issue
-	path := fmt.Sprintf(pathIssue+"?fields=%s", url.PathEscape(id), issueFields)
+	path := fmt.Sprintf(pathIssue+"?fields=%s", url.PathEscape(id), fields)
 	err := c.Get(path, &result)
 	return &result, err
 }
