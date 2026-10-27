@@ -52,7 +52,10 @@ func newCommentCreateCmd() *cobra.Command {
 		Short:   "Create a comment on an issue",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			text, _ := cmd.Flags().GetString("text")
+			text, _, err := textFromFlags(cmd, "text", "text-file")
+			if err != nil {
+				return err
+			}
 			asUser, _ := cmd.Flags().GetString("asUser")
 
 			client, err := internal.GetClient(cmd)
@@ -76,9 +79,10 @@ func newCommentCreateCmd() *cobra.Command {
 			return output.Print(cmd, comment)
 		},
 	}
-	cmd.Flags().String("text", "", "Comment text (required)")
+	cmd.Flags().String("text", "", "Comment text")
+	addTextFileFlag(cmd, "text", "text-file", "the comment text")
+	cmd.MarkFlagsOneRequired("text", "text-file")
 	cmd.Flags().String("asUser", "", "Post as this user (login)")
-	internal.MustMarkRequired(cmd, "text")
 	return cmd
 }
 
@@ -112,7 +116,10 @@ func newCommentUpdateCmd() *cobra.Command {
 		Short: "Update a comment's text",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			text, _ := cmd.Flags().GetString("text")
+			text, _, err := textFromFlags(cmd, "text", "text-file")
+			if err != nil {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -124,8 +131,9 @@ func newCommentUpdateCmd() *cobra.Command {
 			return output.Print(cmd, comment)
 		},
 	}
-	cmd.Flags().String("text", "", "New comment text (required)")
-	internal.MustMarkRequired(cmd, "text")
+	cmd.Flags().String("text", "", "New comment text")
+	addTextFileFlag(cmd, "text", "text-file", "the new comment text")
+	cmd.MarkFlagsOneRequired("text", "text-file")
 	return cmd
 }
 

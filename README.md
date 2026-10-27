@@ -113,6 +113,11 @@ youtrack issue list --query "project: DEMO #Unresolved" --fields "idReadable,sum
 # create an issue
 youtrack issue create --project DEMO --summary "Login button unresponsive on Safari"
 
+# long markdown from stdin, no shell quoting
+youtrack issue comment create DEMO-42 --text-file - <<'EOF'
+Repro: run `make` with "$HOME" unset.
+EOF
+
 # move it along
 youtrack issue command DEMO-42 "State In Progress"
 

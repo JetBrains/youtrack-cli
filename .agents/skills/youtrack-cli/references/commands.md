@@ -49,9 +49,9 @@ Declining a destructive-action confirmation exits `0` and reports `{"status":"ca
 ```bash
 youtrack issue view <issueId>           # alias: get
 youtrack issue list --query Q [--limit N] [--offset N]
-youtrack issue create --project P --summary S [--description D] [--parent <issueId>] [--description-file path]
+youtrack issue create --project P --summary S [--description D | --description-file <path|->] [--parent <issueId>]
                                        # alias: add
-youtrack issue update <issueId> [--summary S] [--description D]
+youtrack issue update <issueId> [--summary S] [--description D | --description-file <path|->]
                                        # --description "" clears it; omitted fields are preserved
 youtrack issue delete <issueId>
 youtrack issue command <issueId[,issueId...]> <query>   # apply a YouTrack command string
@@ -78,8 +78,8 @@ youtrack issue visibility <issueId> [flags]
 **comment**
 ```bash
 youtrack issue comment list <issueId>
-youtrack issue comment create <issueId> --text "..."   # alias: add
-youtrack issue comment update <issueId> <commentId> --text "..."
+youtrack issue comment create <issueId> (--text "..." | --text-file <path|->)   # alias: add
+youtrack issue comment update <issueId> <commentId> (--text "..." | --text-file <path|->)
 youtrack issue comment delete <issueId> <commentId>
 youtrack issue comment pin <issueId> <commentId>
 youtrack issue comment visibility <issueId> <commentId> [flags]

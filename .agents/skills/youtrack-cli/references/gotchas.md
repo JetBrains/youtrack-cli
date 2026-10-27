@@ -51,7 +51,7 @@ When the user asks to create a role, always create a new one with a unique name 
 ## Tips
 
 - Always run a lookup command first when you need an internal ID: `user view <login>`, `project list`, `role list`, `board list`, etc.
-- Use `--description-file` (issue/draft) to pass long content from a file instead of an inline string.
+- Use `--description-file` (issue create/update, draft) and `--text-file` (issue comment create/update) to pass long content from a file instead of an inline string. `-` reads standard input and, unlike `/dev/stdin`, works on Windows too; pipe long markdown in to keep shell-sensitive characters intact without a temp file.
 - `issue visibility` / `issue comment visibility` accept `--groups` / `--users` as comma-separated ID lists.
 - All boolean flags accept `true`/`false`, e.g. `--enabled=false`.
 - Run `youtrack <group> --help` or `youtrack <group> <subcommand> --help` to see a command's full flag list.
