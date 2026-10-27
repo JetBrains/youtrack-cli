@@ -451,3 +451,45 @@ func TestCmd_UpdatePrompt_NoNoticeAfterPrompt(t *testing.T) {
 		t.Skip("the background check did not reach the GitHub API within the notice wait")
 	}
 }
+
+func TestCmd_Update_YesUpgradesWithoutTerminal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stub package manager is a POSIX shell script")
+	}
+	fakeBinary := copyBinaryToFakeInstallPath(t, "Cellar/youtrack/1.0.0/bin")
+	stubDir := t.TempDir()
+	record := filepath.Join(stubDir, "record.txt")
+	writeE2EStubExecutable(t, stubDir, "brew", record)
+
+	cmd := exec.Command(fakeBinary, "update", "--yes", "--json")
+	cmd.Env = append(os.Environ(), "PATH="+stubDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	skipIfUpdateCheckUnreachable(t, stdout.String(), stderr.String(), err)
+
+	got, readErr := os.ReadFile(record)
+	require.NoError(t, readErr, "stub brew was never invoked; stderr: %s", stderr.String())
+	require.Equal(t, "upgrade youtrack\n", string(got))
+
+	var status struct {
+		updateStatus
+		Upgraded bool `json:"upgraded"`
+	}
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &status), "stdout: %s", stdout.String())
+	require.True(t, status.Upgraded)
+}
+
+func TestCmd_Update_YesFailsWhenUpgradeUnavailable(t *testing.T) {
+	// The test binary lives in a temp directory, which matches no install method.
+	stdout, stderr, err := runUpdate(t, nil, "--yes", "--json")
+	for _, marker := range updateCheckEnvLimitMarkers {
+		if strings.Contains(stderr, marker) {
+			t.Skipf("skipping: update check unreachable in this environment (stderr: %s)", stderr)
+		}
+	}
+	require.Error(t, err, "stdout: %s", stdout)
+	require.Contains(t, stderr, "automatic upgrade is not available for this install")
+	require.Empty(t, stdout)
+}

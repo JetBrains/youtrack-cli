@@ -45,7 +45,7 @@ scoop install youtrack
 
 Package-manager releases may lag GitHub releases. If a package is unavailable, use an install script.
 
-`youtrack update` upgrades the CLI through the method that installed it. In a terminal, the CLI also offers the update before a command runs when a newer release is out. Set `YOUTRACK_NO_UPDATE=1` to turn off update checks.
+`youtrack update` upgrades the CLI through the method that installed it. Without a terminal it only reports the status; pass `--yes` (for example `youtrack update --yes --json` from an app) to upgrade anyway and get a non-zero exit code when the upgrade fails. In a terminal, the CLI also offers the update before a command runs when a newer release is out. Set `YOUTRACK_NO_UPDATE=1` to turn off update checks.
 
 **Windows (PowerShell):**
 ```powershell

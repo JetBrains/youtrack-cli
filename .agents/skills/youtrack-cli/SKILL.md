@@ -79,6 +79,7 @@ pages and accepts `--page-size`.
 
 - **Sign in**: `youtrack auth login` → OAuth 2.0 + PKCE against JetBrains Hub in the browser, creates and saves a permanent token; falls back to pasting a token when the Hub has no public loopback client or with `--no-browser`. Browser sign-in needs an interactive terminal. `auth login <url-or-alias>` signs in to another instance or renews a configured alias; `instance login` and `instance add` are the same command.
 - **Verify auth**: `youtrack auth status` → check `status` field per instance
+- **Upgrade the CLI**: `youtrack update --yes --json` → upgrades through the install method without a terminal; without `--yes`, a non-terminal run only reports the status. A failed or unavailable upgrade exits non-zero.
 - **Create issue**: `youtrack issue create --project P --summary S` → `issue command <id> "assignee me"`
 - **Bulk update**: `youtrack issue list --query Q --json | jq '.[].id'` → loop `issue command`
 - **Link a commit to an issue**: `youtrack issue vcs attach <id> <commitHash>` → `issue vcs list <id>` to confirm. The commit must be one a VCS integration on the project can see; YouTrack answers 404 otherwise. `detach` (alias `delete`) unlinks it, picking the mechanism YouTrack allows for that change: a hand-attached commit is deleted, an integration-attached one is detached.
