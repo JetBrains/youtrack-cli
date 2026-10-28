@@ -60,6 +60,7 @@ Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still
 | Tags | `tag list [--query Q] [--limit N]`, `create` (`add`), `delete`, `tag issue list <tagId>`; `issue tag add/remove` take a tag ID or exact name |
 | Dashboards | `dashboard list`, `create` (`add`), `update`, `delete` |
 | Saved searches | `search list`, `view` (`get`), `create` (`add`), `delete`, `share` |
+| Workflows | `workflow list`, `create` (`add`), `delete`, `restore` + `workflow rule create/view/update` |
 
 ## Output & fields
 

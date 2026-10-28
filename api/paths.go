@@ -153,5 +153,6 @@ const (
 	pathAdminWorkflows              = "/api/admin/workflows"
 	pathAdminWorkflow               = "/api/admin/workflows/%s"
 	pathAdminWorkflowRules          = "/api/admin/workflows/%s/rules"
+	pathAdminWorkflowRule           = "/api/admin/workflows/%s/rules/%s"
 	pathAdminWorkflowsRestoreStatus = "/api/admin/workflows/restoreStatus"
 )
