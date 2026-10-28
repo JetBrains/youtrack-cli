@@ -44,7 +44,7 @@ Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still
 | Comments | `issue comment list`, `create` (`add`), `update`, `delete`, `pin`, `visibility` |
 | Links | `issue link list`, `add`, `remove`, `type list/create` (`add`) |
 | Attachments | `issue attachment list`, `add`, `delete` |
-| Custom fields | `issue field view` (`get`), `set` |
+| Custom fields | `issue field view` (`get`), `values`, `set` |
 | Work items | `issue workitem list`, `view`, `create` (`add`), `update`, `delete` |
 | VCS changes | `issue vcs list`, `view`, `attach`, `detach` (`delete`) |
 | Projects | `project list`, `view` (`get`), `create` (`add`), `update`, `delete`, `archive` |

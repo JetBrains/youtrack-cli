@@ -19,6 +19,16 @@ func commentText(comment *api.Comment) string {
 	return comment.Text
 }
 
+func issueFieldValueName(value *api.IssueFieldValue) string {
+	if value.Name != "" {
+		return value.Name
+	}
+	if value.Login != "" {
+		return value.Login
+	}
+	return value.FullName
+}
+
 // PrintTable renders data as a human-readable table. Falls back to JSON for unknown types.
 func PrintTable(out io.Writer, data any) error {
 	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
@@ -66,6 +76,11 @@ func PrintTable(out io.Writer, data any) error {
 			author = v.Author.Login
 		}
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.ID, author, truncate(commentText(v), 60))
+	case []api.IssueFieldValue:
+		_, _ = fmt.Fprintln(w, "ID\tVALUE")
+		for i := range v {
+			_, _ = fmt.Fprintf(w, "%s\t%s\n", v[i].ID, issueFieldValueName(&v[i]))
+		}
 	case *api.Article:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.IDReadable, truncate(v.Summary, 72), projectKey(v.Project))
@@ -341,6 +356,10 @@ func PrintPlain(out io.Writer, data any) error {
 			author = v.Author.Login
 		}
 		write(v.ID, author, commentText(v))
+	case []api.IssueFieldValue:
+		for i := range v {
+			write(v[i].ID, issueFieldValueName(&v[i]))
+		}
 	case *api.Article:
 		write(v.IDReadable, v.Summary, projectKey(v.Project))
 	case []api.Article:
