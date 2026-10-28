@@ -100,6 +100,8 @@ youtrack issue link type create --name N --source-to-target S --target-to-source
 ```bash
 youtrack issue attachment list <issueId>
 youtrack issue attachment add <issueId> --file <filepath>
+youtrack issue attachment download <issueId> <attachmentId> --output <path|->
+youtrack issue attachment download <issueId> --name <fileName> --output <path|->
 youtrack issue attachment delete <issueId> <attachmentId>
 ```
 

@@ -185,6 +185,19 @@ youtrack issue attachment delete DEMO-42 5-12
 
 `issue attachment delete` prompts for confirmation unless you pass `--force`.
 
+### Downloading an attachment {id="download-attachment"}
+
+Save an attachment by ID, or choose a unique file name with `--name`:
+
+```Shell
+youtrack issue attachment download DEMO-42 5-12 --output screenshot.png
+youtrack issue attachment download DEMO-42 --name screenshot.png --output screenshot.png
+```
+
+Pass `--output -` to write the bytes to stdout. Attachment URLs returned by
+`issue attachment list --json` and `issue attachment add --json` are signed links
+that work without a token; share the downloaded file and keep these links private.
+
 ## Applying a command {id="command"}
 
 A command is a space-delimited keyword-value instruction, the same one you type in YouTrack's Apply Command dialog. Apply one to one or more issues with `youtrack issue command`. Separate multiple issue IDs with commas and no spaces:
