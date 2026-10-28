@@ -78,10 +78,11 @@ youtrack field worktime set --minutes-a-day 8h
 
 ## Managing workflows {id="workflows"}
 
-List the workflows on the instance, create one, and delete it by ID:
+List the workflows on the instance, or only those whose name contains some text (case-insensitive), create one, and delete it by ID:
 
 ```Shell
 youtrack workflow list
+youtrack workflow list --name escalation
 youtrack workflow create --name custom-escalation --title "Escalation rules"
 youtrack workflow delete 8-2
 ```

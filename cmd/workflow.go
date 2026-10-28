@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
@@ -17,7 +19,8 @@ func newWorkflowCmd() *cobra.Command {
 }
 
 func newWorkflowListCmd() *cobra.Command {
-	return &cobra.Command{
+	var name string
+	cmd := &cobra.Command{
 		Use: "list", Short: "List all workflows",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -28,9 +31,25 @@ func newWorkflowListCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			return output.Print(cmd, workflows)
+			return output.Print(cmd, filterWorkflowsByName(workflows, name))
 		},
 	}
+	cmd.Flags().StringVar(&name, "name", "", "Show only workflows whose name contains this text (case-insensitive)")
+	return cmd
+}
+
+func filterWorkflowsByName(workflows []api.Workflow, substr string) []api.Workflow {
+	if substr == "" {
+		return workflows
+	}
+	needle := strings.ToLower(substr)
+	matched := []api.Workflow{}
+	for _, wf := range workflows {
+		if strings.Contains(strings.ToLower(wf.Name), needle) {
+			matched = append(matched, wf)
+		}
+	}
+	return matched
 }
 
 func newWorkflowCreateCmd() *cobra.Command {
