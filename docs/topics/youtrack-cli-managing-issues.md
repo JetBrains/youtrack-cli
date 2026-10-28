@@ -290,7 +290,7 @@ youtrack issue vcs detach DEMO-42 1a2b3c4d5e6f7081
 
 `detach` (aliases `delete`, `remove`) unlinks a change and accepts either the change ID or the commit hash. YouTrack offers two mechanisms and accepts only one of them per change, so the command picks it: a commit you attached by hand is deleted outright, while one that a VCS integration attached is detached instead, because the server refuses to delete those. YouTrack keeps a detached record only where it needs one to stop the integration re-attaching the commit — that is, when the commit message names the issue. Otherwise the change goes for good, and `attach` restores a record that survived.
 
-Writing to VCS changes requires the *Update Issue Private Fields* permission. Pass `--mute-notifications` to suppress notifications about the change, which additionally needs *Apply Commands Silently*.
+Writing to VCS changes requires the *Update Issue Private Fields* permission. Pass the global `--mute-notifications` flag to suppress notifications about the change, which additionally needs *Apply Commands Silently*.
 
 ## Restricting visibility {id="visibility"}
 

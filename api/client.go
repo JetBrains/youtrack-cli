@@ -23,7 +23,9 @@ const defaultTimeout = 30 * time.Second
 // maxErrorBodySize caps error-body reads so a misbehaving server can't balloon client memory.
 const maxErrorBodySize = 1 << 20 // 1 MiB
 
-// UserAgent is sent on every request; internal.GetClient sets it to the build version.
+// UserAgent is the default copied into each new Client.
+//
+// Deprecated: set Client.UserAgent to customize individual clients.
 var UserAgent = "youtrack-cli"
 
 // Client sends authenticated requests to a YouTrack instance.
@@ -31,9 +33,15 @@ type Client struct {
 	BaseURL    string
 	Token      string
 	HTTPClient *http.Client
+	UserAgent  string
 	Verbose    bool
 	Fields     string // when non-empty, extends the fields= query param on GET requests
-	ctx        context.Context
+	// MuteNotifications suppresses notifications on API writes.
+	MuteNotifications bool
+	// DryRun describes writes instead of sending them.
+	DryRun bool
+	Warn   io.Writer
+	ctx    context.Context
 }
 
 func NewClient(baseURL, token string) *Client {
@@ -41,6 +49,7 @@ func NewClient(baseURL, token string) *Client {
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		Token:      token,
 		HTTPClient: &http.Client{Timeout: defaultTimeout, CheckRedirect: sameOriginRedirect},
+		UserAgent:  UserAgent,
 		ctx:        context.Background(),
 	}
 }
@@ -128,7 +137,7 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	}
 	req.Header.Set("Authorization", "Bearer "+c.Token)
 	req.Header.Set("Accept", accept)
-	req.Header.Set("User-Agent", UserAgent)
+	req.Header.Set("User-Agent", c.UserAgent)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
@@ -280,6 +289,10 @@ func readOnly() bool {
 
 // prepareWrite applies the same write policy to JSON, streaming, and multipart requests.
 func (c *Client) prepareWrite(method, path string, body any) (string, error) {
+	path = c.applyMute(method, path)
+	if c.DryRun {
+		return path, newDryRunError(method, c.BaseURL+path, body)
+	}
 	if readOnly() {
 		return path, errReadOnly
 	}
@@ -326,6 +339,11 @@ func (c *Client) sendJSON(method, path string, body, result any) error {
 
 // Multipart uploads a file as a multipart/form-data attachment.
 func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any) error {
+	if c.DryRun {
+		if err := checkReadableFile(filePath); err != nil {
+			return err
+		}
+	}
 	path, err := c.prepareWrite("POST", path, map[string]string{"file": filePath, "fileName": fileName, "contentType": mimeType})
 	if err != nil {
 		return err
@@ -359,3 +377,25 @@ func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any
 // Content-Disposition line and inject part headers. Quotes and backslashes stay as-is: YouTrack reads raw quotes
 // leniently but treats a backslash as a path separator, so escaping them would corrupt the stored name.
 var headerBreakEscaper = strings.NewReplacer("\r", "%0D", "\n", "%0A")
+
+// checkReadableFile fails the way a real upload would on a missing, unreadable, or directory path, so a dry run doesn't report a request that cannot be sent.
+func checkReadableFile(filePath string) error {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return fmt.Errorf("read %s: is a directory", filePath)
+	}
+	return nil
+}
+
+// SetWriteOptions configures CLI write controls on a command-scoped client copy.
+func (c *Client) SetWriteOptions(dryRun, mute bool, warn io.Writer) {
+	c.DryRun, c.MuteNotifications, c.Warn = dryRun, mute, warn
+}

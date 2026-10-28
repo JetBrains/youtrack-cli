@@ -48,6 +48,7 @@ type AddCommentRequest struct {
 type ApplyCommandRequest struct {
 	Query  string  `json:"query"`
 	Issues []Issue `json:"issues"`
+	Silent bool    `json:"silent,omitempty"`
 }
 
 // readableIssueIDRe matches readable issue IDs such as FOO-42; database IDs such as 2-15 start with a digit.
@@ -592,6 +593,7 @@ func (c *Client) ApplyCommand(query string, issueIDs []string) error {
 	return c.Post(pathCommands, ApplyCommandRequest{
 		Query:  WrapUserValues(query),
 		Issues: issues,
+		Silent: c.MuteNotifications,
 	}, nil)
 }
 
@@ -720,12 +722,12 @@ func (c *Client) GetIssueVCSChange(issueID, changeID string) (*VCSChange, error)
 // integrations configured for the issue's project and answers 404 when none of
 // them knows the hash. A Generic VCS integration is the exception — it accepts
 // any hash and takes the commit message from text.
-func (c *Client) AttachIssueVCSChange(issueID, version, text string, mute bool) (*VCSChange, error) {
+func (c *Client) AttachIssueVCSChange(issueID, version, text string) (*VCSChange, error) {
 	state := VCSChangeStateManuallyAttached
 	body := VCSChange{Version: version, State: &state, Text: text}
 
 	var result VCSChange
-	path := fmt.Sprintf(pathIssueVCSChanges+"?fields="+vcsChangeFields, url.PathEscape(issueID)) + muteSuffix(mute)
+	path := fmt.Sprintf(pathIssueVCSChanges+"?fields="+vcsChangeFields, url.PathEscape(issueID))
 	if err := c.Post(path, body, &result); err != nil {
 		return nil, err
 	}
@@ -743,12 +745,9 @@ func (c *Client) AttachIssueVCSChange(issueID, version, text string, mute bool) 
 // commit message names the issue, and never for a Generic VCS integration. Asking
 // for fields therefore turns a successful detach into "HTTP 500: VcsChange[..]
 // was removed".
-func (c *Client) SetIssueVCSChangeState(issueID, changeID string, state int, mute bool) error {
+func (c *Client) SetIssueVCSChangeState(issueID, changeID string, state int) error {
 	body := VCSChange{State: &state}
 	path := fmt.Sprintf(pathIssueVCSChange, url.PathEscape(issueID), url.PathEscape(changeID))
-	if mute {
-		path += "?muteUpdateNotifications=true"
-	}
 	return c.Post(path, body, nil)
 }
 
@@ -757,15 +756,6 @@ func (c *Client) SetIssueVCSChangeState(issueID, changeID string, state int, mut
 // with SetIssueVCSChangeState instead.
 func (c *Client) DeleteIssueVCSChange(issueID, changeID string) error {
 	return c.Delete(fmt.Sprintf(pathIssueVCSChange, url.PathEscape(issueID), url.PathEscape(changeID)))
-}
-
-// muteUpdateNotifications suppresses issue-change notifications; it needs the
-// Apply Commands Silently permission in every affected project.
-func muteSuffix(mute bool) string {
-	if mute {
-		return "&muteUpdateNotifications=true"
-	}
-	return ""
 }
 
 var (
