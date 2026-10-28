@@ -17,16 +17,19 @@ func newIssueUpdateCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			summary, _ := cmd.Flags().GetString("summary")
-			description, _ := cmd.Flags().GetString("description")
+			description, descriptionSet, err := textFromFlags(cmd, "description", "description-file")
+			if err != nil {
+				return err
+			}
 
-			if !cmd.Flags().Changed("summary") && !cmd.Flags().Changed("description") {
-				return fmt.Errorf("at least one of --summary or --description must be provided")
+			if !cmd.Flags().Changed("summary") && !descriptionSet {
+				return fmt.Errorf("at least one of --summary, --description or --description-file must be provided")
 			}
 			req := api.UpdateIssueRequest{}
 			if cmd.Flags().Changed("summary") {
 				req.Summary = &summary
 			}
-			if cmd.Flags().Changed("description") {
+			if descriptionSet {
 				req.Description = &description
 			}
 
@@ -43,5 +46,6 @@ func newIssueUpdateCmd() *cobra.Command {
 	}
 	cmd.Flags().String("summary", "", "New summary")
 	cmd.Flags().String("description", "", "New description (an empty string clears it)")
+	addTextFileFlag(cmd, "description", "description-file", "the new description")
 	return cmd
 }

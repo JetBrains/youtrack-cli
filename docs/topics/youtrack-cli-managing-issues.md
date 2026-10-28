@@ -51,6 +51,13 @@ youtrack issue view DEMO-42
 youtrack issue view DEMO-42 --comments 5 -f idReadable,summary,reporter.login
 ```
 
+`-f` adds fields to the default projection. To fetch only the fields you name, add `--only-fields`. To keep the default projection but leave out a long description, add `--no-description`:
+
+```Shell
+youtrack issue view DEMO-42 --only-fields -f idReadable,summary,reporter --json
+youtrack issue view DEMO-42 --no-description --json
+```
+
 ## Creating an issue {id="create"}
 
 Create an issue with `youtrack issue create`. Specify the project by its short name and provide a summary:
@@ -66,7 +73,7 @@ youtrack issue create --project DEMO --summary "Release notes" --description-fil
 youtrack issue create --project DEMO --summary "Crash on startup" --custom-fields '{"Type":"Bug","Priority":"Critical"}'
 ```
 
-`--project` and `--summary` are required. The other flags are optional: `--description` and `--description-file` set the body (mutually exclusive); `--custom-fields` and `--custom-fields-file` take a JSON object of field values; `--parent` nests the issue under another issue ID; and `--asUser` creates it as another login.
+`--project` and `--summary` are required. The other flags are optional: `--description` and `--description-file` set the body (mutually exclusive; `--description-file -` reads standard input); `--custom-fields` and `--custom-fields-file` take a JSON object of field values; `--parent` nests the issue under another issue ID; and `--asUser` creates it as another login.
 
 Custom fields must be one complete JSON object with string values. Malformed JSON, trailing content, and non-string values (including `null`) are rejected before an issue is created.
 
@@ -82,9 +89,10 @@ Update the summary or description of an existing issue:
 youtrack issue update DEMO-42 --summary "Login button overlaps header"
 youtrack issue update DEMO-42 --description "Reproduced on iOS Safari."
 youtrack issue update DEMO-42 --description ""  # clear the description
+generate-notes | youtrack issue update DEMO-42 --description-file -
 ```
 
-Only fields whose flags are passed are changed. An explicit empty `--description` clears the description; omitting the flag preserves it.
+Only fields whose flags are passed are changed. An explicit empty `--description` clears the description; omitting the flag preserves it. `--description-file <path>` reads the description from a file, and `--description-file -` from standard input.
 
 To change fields such as State, Priority, or Assignee, apply a command (see [Applying a command](#command)) or set a field value directly (see [Setting custom fields](#fields)).
 
@@ -115,7 +123,11 @@ youtrack issue comment delete DEMO-42 4-17
 youtrack issue comment pin DEMO-42 4-17
 youtrack issue comment pin DEMO-42 4-17 --unpin
 youtrack issue comment create DEMO-42 --text "Triaged." --asUser jane.doe
+youtrack issue comment create DEMO-42 --text-file report.md
+git log -1 --format=%B | youtrack issue comment update DEMO-42 4-17 --text-file -
 ```
+
+`comment create` and `comment update` take the text either inline with `--text` or from a file with `--text-file`; `--text-file -` reads standard input, which keeps long markdown and shell-sensitive characters intact.
 
 ## Tagging issues {id="tags"}
 
@@ -178,6 +190,14 @@ youtrack issue command DEMO-1,DEMO-2 "assignee jane.doe Priority Critical"
 
 A single command can set several fields at once, add tags, or change the State.
 
+YouTrack creates a tag that does not exist yet when a command names it. Pass `--no-new-tags` to refuse such a command before anything is applied:
+
+```Shell
+youtrack issue command DEMO-42 "tag regression" --no-new-tags
+```
+
+The check reads the command preview from `youtrack issue command suggest`, which follows your YouTrack language; non-English or unverifiable previews are rejected without applying the command. The preview is a best-effort check, not an atomic server-side restriction: tags or settings can change before execution. For exact existing-tag association, use `issue tag add`.
+
 > When a command sets the assignee or reporter through `issue command`, YouTrack CLI automatically wraps a login containing a dot, hyphen, or `@` in braces for YouTrack's command parser, so `assignee jane.doe` becomes `assignee {jane.doe}`. Write the login as-is.
 >
 {style="note"}
@@ -216,7 +236,7 @@ youtrack issue draft submit 3-45
 youtrack issue draft delete 3-45
 ```
 
-`issue draft create` returns the draft ID (for example `3-45`). Pass it to `update`, `submit`, and `delete`. Both `create` and `update` accept `--description` and `--description-file`; `update` additionally accepts `--custom-fields` and `--custom-fields-file`. `issue draft delete` discards a draft you no longer need and prompts for confirmation unless you pass `--force`.
+`issue draft create` returns the draft ID (for example `3-45`). Pass it to `update`, `submit`, and `delete`. Both `create` and `update` accept `--description` and `--description-file` (`-` reads standard input); `update` additionally accepts `--custom-fields` and `--custom-fields-file`. `issue draft delete` discards a draft you no longer need and prompts for confirmation unless you pass `--force`.
 
 ## Viewing sprints {id="sprints"}
 

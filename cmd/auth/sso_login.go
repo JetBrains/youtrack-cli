@@ -3,7 +3,9 @@ package auth
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"maps"
 	"net"
 	"net/url"
@@ -34,6 +36,7 @@ type ssoOptions struct {
 	port        int
 	timeout     time.Duration
 	session     bool
+	web         bool
 	tokenName   string
 }
 
@@ -69,6 +72,7 @@ func ssoOptionsFromFlags(cmd *cobra.Command) ssoOptions {
 	opts.port, _ = cmd.Flags().GetInt("port")
 	opts.timeout, _ = cmd.Flags().GetDuration("timeout")
 	opts.session, _ = cmd.Flags().GetBool("session")
+	opts.web, _ = cmd.Flags().GetBool("web")
 	if name, _ := cmd.Flags().GetString("token-name"); name != "" {
 		opts.tokenName = name
 	}
@@ -125,6 +129,9 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 		raw, _ = cmd.Root().PersistentFlags().GetString("base-url")
 	}
 	if raw == "" {
+		if web, _ := cmd.Flags().GetBool("web"); web {
+			return "", fmt.Errorf("--web needs the instance: pass its URL or alias as the argument, or --base-url")
+		}
 		url, err := promptBaseURL(cmd, reader)
 		if err != nil {
 			return "", err
@@ -144,25 +151,33 @@ func resolveSSOBaseURL(cmd *cobra.Command, reader *bufio.Reader, args []string) 
 // runSSOFlow runs the full browser OAuth 2.0 + PKCE flow against the Hub serving baseURL and saves a permanent token, or the short-lived access token with --session.
 func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *ssoOptions) error {
 	stderr := cmd.ErrOrStderr()
-	interactive := term.IsTerminal(int(os.Stdin.Fd()))
-
-	if !interactive {
-		return fmt.Errorf("browser login needs an interactive terminal — pass --no-browser to paste a token, or set YOUTRACK_TOKEN\nnote: the OAuth callback goes to this machine's loopback, so the flow cannot work over plain SSH unless you forward the callback port")
+	if !opts.web && !term.IsTerminal(int(os.Stdin.Fd())) {
+		return fmt.Errorf("browser login needs an interactive terminal — pass --web to sign in through the browser without one, --no-browser to paste a token, or set YOUTRACK_TOKEN\nnote: the OAuth callback goes to this machine's loopback, so the flow cannot work over plain SSH unless you forward the callback port")
+	}
+	// With --web and JSON output, progress text is dropped so a calling app can parse stderr line by line.
+	progress := stderr
+	if opts.web && jsonOutput(cmd) {
+		progress = io.Discard
+	}
+	fallBack := func(reason string) error {
+		if opts.web {
+			return fmt.Errorf("browser sign-in is not available: %s", reason)
+		}
+		_, _ = fmt.Fprintf(stderr, "%s%s; falling back to the paste-token flow.\n\n", strings.ToUpper(reason[:1]), reason[1:])
+		return runPasteTokenFlow(cmd, reader, baseURL)
 	}
 
-	_, _ = fmt.Fprintf(stderr, "Discovering Hub configuration for %s...\n", baseURL)
+	_, _ = fmt.Fprintf(progress, "Discovering Hub configuration for %s...\n", baseURL)
 	hubURL, ytServiceID := discoverHub(cmd.Context(), baseURL)
 	if err := cmd.Context().Err(); err != nil {
 		return err
 	}
 	if ytServiceID == "" {
-		_, _ = fmt.Fprintf(stderr, "Could not discover the YouTrack service ID from %s (this instance may be too old for browser sign-in); falling back to the paste-token flow.\n\n", baseURL)
-		return runPasteTokenFlow(cmd, reader, baseURL)
+		return fallBack(fmt.Sprintf("could not discover the YouTrack service ID from %s (this instance may be too old for browser sign-in)", baseURL))
 	}
 	// Never hand an unvalidated server-advertised Hub URL to the browser; take the same paste-token fallback as a failed pre-flight.
 	if err := api.ValidateHubURL(baseURL, hubURL); err != nil {
-		_, _ = fmt.Fprintf(stderr, "Hub URL is not usable for browser sign-in (%v); falling back to the paste-token flow.\n\n", err)
-		return runPasteTokenFlow(cmd, reader, baseURL)
+		return fallBack(fmt.Sprintf("hub URL is not usable for browser sign-in (%v)", err))
 	}
 
 	endpoints, err := api.DiscoverOAuthEndpointsContext(cmd.Context(), hubURL)
@@ -208,11 +223,23 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		if contextErr := cmd.Context().Err(); contextErr != nil {
 			return contextErr
 		}
-		_, _ = fmt.Fprintf(stderr, "This Hub has no public CLI OAuth client (%q); falling back to the paste-token flow.\n\n", opts.clientID)
-		return runPasteTokenFlow(cmd, reader, baseURL)
+		return fallBack(fmt.Sprintf("this Hub has no public CLI OAuth client (%q)", opts.clientID))
 	}
 
-	_, _ = fmt.Fprintf(stderr, "Opening your browser to complete sign-in...\nIf it does not open, use this URL:\n  %s\n", hyperlink(authorizeURL))
+	switch {
+	case opts.web && jsonOutput(cmd):
+		line, err := json.Marshal(struct {
+			AuthorizationURL string `json:"authorizationUrl"`
+		}{authorizeURL})
+		if err != nil {
+			return err
+		}
+		_, _ = fmt.Fprintf(stderr, "%s\n", line)
+	case opts.web:
+		_, _ = fmt.Fprintf(stderr, "Opening your browser to complete sign-in. If it does not open, visit:\n%s\n", authorizeURL)
+	default:
+		_, _ = fmt.Fprintf(stderr, "Opening your browser to complete sign-in...\nIf it does not open, use this URL:\n  %s\n", hyperlink(authorizeURL))
+	}
 
 	res, err := browserflow.Run(cmd.Context(), browserflow.Options{
 		Listener: listener,
@@ -220,14 +247,14 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		OpenURL:  authorizeURL,
 		Timeout:  opts.timeout,
 		Warn: func(format string, args ...any) {
-			_, _ = fmt.Fprintf(stderr, format+"\n", args...)
+			_, _ = fmt.Fprintf(progress, format+"\n", args...)
 		},
 	})
 	if err != nil {
 		return err
 	}
 
-	_, _ = fmt.Fprintln(stderr, "Exchanging authorization code...")
+	_, _ = fmt.Fprintln(progress, "Exchanging authorization code...")
 	tok, err := api.ExchangeOAuthCodeContext(cmd.Context(), endpoints.TokenEndpoint, opts.clientID, res.Code, redirectURI, verifier)
 	if err != nil {
 		return fmt.Errorf("exchanging authorization code: %w", err)
@@ -236,7 +263,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return fmt.Errorf("token response contained invalid expires_in %d", tok.ExpiresIn)
 	}
 
-	_, _ = fmt.Fprintln(stderr, "Verifying token...")
+	_, _ = fmt.Fprintln(progress, "Verifying token...")
 	user, err := api.NewClient(baseURL, tok.AccessToken).WithContext(cmd.Context()).GetCurrentUser()
 	if err != nil {
 		return fmt.Errorf("token verification failed: %w", err)
@@ -261,7 +288,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	if opts.session {
 		result.ExpiresAt = time.Now().Unix() + tok.ExpiresIn - 60 // 60s clock skew margin
 	} else {
-		_, _ = fmt.Fprintln(stderr, "Creating permanent token...")
+		_, _ = fmt.Fprintln(progress, "Creating permanent token...")
 		perm, err := api.CreateHubTokenWithAccessTokenContext(cmd.Context(), hubURL, tok.AccessToken, opts.tokenName, scopes)
 		if err != nil {
 			return fmt.Errorf("creating permanent token: %w\nre-run with --session to save the ~1-hour access token instead", err)

@@ -46,7 +46,14 @@ when that token carries the same --token-name. With --session it saves the
 
 When the Hub has no OAuth client for the CLI, with --no-browser, or when stdin
 is not a terminal, the CLI prints the token page link and asks you to paste a
-permanent token. With --login and --password it creates the token through Hub
+permanent token.
+
+With --web the CLI signs in through the browser even when stdin is not a
+terminal, as when an app runs it, and never prompts: it needs the instance URL
+or alias as the argument or --base-url, and fails instead of falling back to
+pasting a token. The authorization URL goes to stderr on its own line, or with
+JSON output as a {"authorizationUrl": "..."} line, so the caller can open it
+when the browser does not. With --login and --password it creates the token through Hub
 basic auth instead (deprecated: the password passes through the CLI and SSO/2FA
 accounts cannot use it).
 
@@ -60,6 +67,9 @@ Use --json for machine-readable output.`,
   # Sign in to another instance, or renew the token of a configured alias
   youtrack auth login https://example.youtrack.cloud
   youtrack auth login work
+
+  # Sign in through the browser from an app or script, without a terminal
+  youtrack auth login https://example.youtrack.cloud --web --json
 
   # Paste a token instead of signing in through the browser
   youtrack auth login --base-url https://example.youtrack.cloud --no-browser
@@ -76,6 +86,7 @@ Use --json for machine-readable output.`,
 			}
 
 			noBrowser, _ := cmd.Flags().GetBool("no-browser")
+			web, _ := cmd.Flags().GetBool("web")
 			switch {
 			case flagChanged(cmd, "login") || flagChanged(cmd, "password"):
 				if err := requireNoSSOFlags(cmd, "with --login or --password", "no-browser"); err != nil {
@@ -87,7 +98,7 @@ Use --json for machine-readable output.`,
 					return err
 				}
 				return runPasteTokenFlow(cmd, reader, baseURL)
-			case !term.IsTerminal(int(os.Stdin.Fd())):
+			case !web && !term.IsTerminal(int(os.Stdin.Fd())):
 				if err := requireNoSSOFlags(cmd, "when stdin is not a terminal (a pasted token is read instead)", "scope", "token-name", "insecure"); err != nil {
 					return err
 				}
@@ -116,7 +127,11 @@ Use --json for machine-readable output.`,
 	cmd.Flags().String("alias", "", "Instance alias (derived from URL hostname if omitted; ignored when --save=false)")
 	cmd.Flags().Bool("show-token", false, showTokenUsage)
 	cmd.Flags().Bool("no-browser", false, "Paste a permanent token instead of signing in through the browser")
+	cmd.Flags().Bool("web", false, "Sign in through the browser without prompting, even when stdin is not a terminal")
 	addSSOFlags(cmd)
+	cmd.MarkFlagsMutuallyExclusive("web", "no-browser")
+	cmd.MarkFlagsMutuallyExclusive("web", "login")
+	cmd.MarkFlagsMutuallyExclusive("web", "password")
 	return cmd
 }
 

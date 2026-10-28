@@ -6,9 +6,19 @@ import (
 )
 
 func (c *Client) ListWorkflows() ([]Workflow, error) {
-	var result []Workflow
-	err := c.Get(pathAdminWorkflows+"?fields=id,name,title,rules(id,name,title)&$top=500", &result)
-	return result, err
+	const pageSize = 500
+	result := []Workflow{}
+	for skip := 0; ; skip += pageSize {
+		var page []Workflow
+		path := fmt.Sprintf(pathAdminWorkflows+"?fields=id,name,title,rules(id,name,title)&$top=%d&$skip=%d", pageSize, skip)
+		if err := c.Get(path, &page); err != nil {
+			return nil, err
+		}
+		result = append(result, page...)
+		if len(page) < pageSize {
+			return result, nil
+		}
+	}
 }
 
 func (c *Client) AddWorkflow(name, title string) (*Workflow, error) {

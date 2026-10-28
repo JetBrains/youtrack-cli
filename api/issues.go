@@ -2,6 +2,7 @@ package api
 
 import (
 	"fmt"
+	"html"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -10,8 +11,10 @@ import (
 	"time"
 )
 
-const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
-const issueDetailFields = issueFields + ",customFields(name,value(name,login,text,presentation))"
+const issueFieldsWithoutDescription = "id,idReadable,summary,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
+const issueFields = issueFieldsWithoutDescription + ",description"
+const issueDetailCustomFields = ",customFields(name,value(name,login,text,presentation))"
+const issueDetailFields = issueFields + issueDetailCustomFields
 
 // issueCustomFieldValues fetches custom fields with the sub-fields that identify each value type: enum/state/version/build
 // (name), user (login, fullName), text (text), period (presentation); number and date values are scalars.
@@ -106,8 +109,25 @@ func (c *Client) GetIssueDetail(id string) (*Issue, error) {
 }
 
 func (c *Client) GetIssue(id string) (*Issue, error) {
+	return c.GetIssueProjection(id, issueFields)
+}
+
+// IssueViewFields is the default issue view projection; detail adds custom field values for plain output.
+func IssueViewFields(detail, description bool) string {
+	fields := issueFieldsWithoutDescription
+	if description {
+		fields = issueFields
+	}
+	if detail {
+		fields += issueDetailCustomFields
+	}
+	return fields
+}
+
+// GetIssueProjection fetches an issue with exactly the given fields, plus any Client.Fields.
+func (c *Client) GetIssueProjection(id, fields string) (*Issue, error) {
 	var result Issue
-	path := fmt.Sprintf(pathIssue+"?fields=%s", url.PathEscape(id), issueFields)
+	path := fmt.Sprintf(pathIssue+"?fields=%s", url.PathEscape(id), fields)
 	err := c.Get(path, &result)
 	return &result, err
 }
@@ -486,7 +506,7 @@ func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]a
 	}
 	var result map[string]any
 	err = c.postQuery(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
-		map[string]any{"query": query, "issues": issues}, &result)
+		map[string]any{"query": WrapUserValues(query), "issues": issues}, &result)
 	return result, err
 }
 
@@ -531,13 +551,14 @@ func (c *Client) GetDraft(draftID string) (*IssueDraft, error) {
 	return &result, err
 }
 
-func (c *Client) UpdateDraft(draftID, summary, description string) (*IssueDraft, error) {
+// UpdateDraft sets a non-empty summary, and the description when it is not nil; an empty description clears it.
+func (c *Client) UpdateDraft(draftID, summary string, description *string) (*IssueDraft, error) {
 	body := map[string]any{}
 	if summary != "" {
 		body["summary"] = summary
 	}
-	if description != "" {
-		body["description"] = description
+	if description != nil {
+		body["description"] = *description
 	}
 	var result IssueDraft
 	path := fmt.Sprintf(pathUserDraft+"?fields=%s", "me", url.PathEscape(draftID), draftFields)
@@ -783,4 +804,54 @@ func muteSuffix(mute bool) string {
 		return "&muteUpdateNotifications=true"
 	}
 	return ""
+}
+
+var (
+	newTagCommandRe = regexp.MustCompile(`(?i)^add new tag\s+`)
+	htmlTagRe       = regexp.MustCompile(`<[^>]*>`)
+)
+
+// NewTagsInCommand returns the tags that applying query would create, read from the server's parsed-command
+// descriptions ("Add new tag X"). Refuse non-English profiles because the API exposes no tag-creation discriminator.
+func (c *Client) NewTagsInCommand(query string, issueIDs []string) ([]string, error) {
+	var profile struct {
+		Locale *struct {
+			Language string `json:"language"`
+		} `json:"locale"`
+	}
+	if err := c.Get("/api/users/me/profiles/general?fields=locale(language)", &profile); err != nil {
+		return nil, fmt.Errorf("cannot verify command preview language: %w", err)
+	}
+	if profile.Locale == nil || profile.Locale.Language != "en" {
+		return nil, fmt.Errorf("--no-new-tags requires an English YouTrack profile; use issue tag add for existing tags without command parsing; nothing was applied")
+	}
+
+	issues, err := c.commandIssues(issueIDs)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Commands []struct {
+			Description string `json:"description"`
+			Error       *bool  `json:"error"`
+		} `json:"commands"`
+	}
+	err = c.postQuery(pathCommandsAssist+"?fields=commands(description,error)",
+		map[string]any{"query": WrapUserValues(query), "issues": issues}, &result)
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Commands) == 0 {
+		return nil, fmt.Errorf("cannot verify an empty command preview; nothing was applied")
+	}
+	var tags []string
+	for _, cmd := range result.Commands {
+		if cmd.Error == nil || *cmd.Error || cmd.Description == "" {
+			return nil, fmt.Errorf("cannot verify command preview: %s; nothing was applied", cmd.Description)
+		}
+		if text := html.UnescapeString(htmlTagRe.ReplaceAllString(cmd.Description, "")); newTagCommandRe.MatchString(text) {
+			tags = append(tags, newTagCommandRe.ReplaceAllString(text, ""))
+		}
+	}
+	return tags, nil
 }

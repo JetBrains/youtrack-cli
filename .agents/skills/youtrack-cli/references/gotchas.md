@@ -5,6 +5,7 @@
 - **Opaque IDs for team commands** — `project team add-user` / `project team add-group` expect opaque IDs (`2-9`, `4-1`), not logins/names. Resolve with `youtrack user view <login> --json | jq .id`.
 - **`project create` requires `--leader`** — the YouTrack API rejects creation without it. Use `user current` to get the current login if none is specified.
 - **`issue command` logins** — the CLI auto-wraps logins with `.`, `-`, or `@` in braces. Write the login as-is.
+- **`issue command "tag X"` creates X if it does not exist** — pass `--no-new-tags` to refuse instead; nothing is applied. Non-English or unverifiable previews are refused. This is a best-effort preflight; prefer `issue tag add` for exact existing-tag association.
 - **Output format** — table on TTY, JSON when piped. Use `--json` / `--plain` to override.
 
 ## Known defaults
@@ -51,7 +52,7 @@ When the user asks to create a role, always create a new one with a unique name 
 ## Tips
 
 - Always run a lookup command first when you need an internal ID: `user view <login>`, `project list`, `role list`, `board list`, etc.
-- Use `--description-file` (issue/draft) to pass long content from a file instead of an inline string.
+- Use `--description-file` (issue create/update, draft) and `--text-file` (issue comment create/update) to pass long content from a file instead of an inline string. `-` reads standard input and, unlike `/dev/stdin`, works on Windows too; pipe long markdown in to keep shell-sensitive characters intact without a temp file.
 - `issue visibility` / `issue comment visibility` accept `--groups` / `--users` as comma-separated ID lists.
 - All boolean flags accept `true`/`false`, e.g. `--enabled=false`.
 - Run `youtrack <group> --help` or `youtrack <group> <subcommand> --help` to see a command's full flag list.

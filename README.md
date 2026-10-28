@@ -45,7 +45,7 @@ scoop install youtrack
 
 Package-manager releases may lag GitHub releases. If a package is unavailable, use an install script.
 
-`youtrack update` upgrades the CLI through the method that installed it. In a terminal, the CLI also offers the update before a command runs when a newer release is out. Set `YOUTRACK_NO_UPDATE=1` to turn off update checks.
+`youtrack update` upgrades the CLI through the method that installed it. Without a terminal it only reports the status; pass `--yes` (for example `youtrack update --yes --json` from an app) to upgrade anyway and get a non-zero exit code when the upgrade fails. In a terminal, the CLI also offers the update before a command runs when a newer release is out. Set `YOUTRACK_NO_UPDATE=1` to turn off update checks.
 
 **Windows (PowerShell):**
 ```powershell
@@ -97,6 +97,8 @@ youtrack auth login
 
 It asks for the YouTrack URL (pre-filled with `https://youtrack.jetbrains.com` or your active instance), opens your browser to sign in through Hub, and saves a permanent token. Pass `--no-browser` to paste a token instead.
 
+Apps and scripts without a terminal sign in through the browser with `--web`: `youtrack auth login https://example.youtrack.cloud --web --json`. It never prompts and fails at once when something is missing. The authorization URL goes to stderr as a `{"authorizationUrl": "..."}` line (a plain line without `--json`), so the caller can open it if the browser does not open.
+
 Auth commands mask the token in their output, JSON included. Pass `--show-token` when a script needs the full value, for example `youtrack auth login --save=false --json --show-token | jq -r .token`.
 
 Then:
@@ -111,6 +113,11 @@ youtrack issue list --query "project: DEMO #Unresolved" --fields "idReadable,sum
 # create an issue
 youtrack issue create --project DEMO --summary "Login button unresponsive on Safari"
 
+# long markdown from stdin, no shell quoting
+youtrack issue comment create DEMO-42 --text-file - <<'EOF'
+Repro: run `make` with "$HOME" unset.
+EOF
+
 # move it along
 youtrack issue command DEMO-42 "State In Progress"
 
@@ -121,8 +128,14 @@ youtrack issue view DEMO-42 --comments 5
 youtrack tag list --query release
 youtrack issue tag add DEMO-42 "release blocker"
 
+# only the fields you name, without the default projection or description
+youtrack issue view DEMO-42 --only-fields --fields idReadable,summary,reporter --json
+
 # what a command would do, without applying it
 youtrack issue command suggest DEMO-42 "State "
+
+# tag an issue, refusing to create the tag if it does not exist
+youtrack issue command DEMO-42 "tag regression" --no-new-tags
 
 # link a commit to an issue, and list what is linked
 youtrack issue vcs attach DEMO-42 1a2b3c4d5e6f7081

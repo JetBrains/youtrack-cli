@@ -150,7 +150,7 @@ The command discovers the instance's Hub, opens its authorization page, listens 
 
 To get the scope it needs for creating the token, the CLI also requests access to Hub itself. Pass `--session` to skip that and save the access token instead. It lasts about one hour and is not refreshed.
 
-Browser sign-in requires an interactive terminal. Passing a URL signs in to that instance, passing an existing alias (for example `youtrack auth login work`) renews that instance's token in place, and running the command with no argument asks for the URL.
+Browser sign-in requires an interactive terminal unless you pass `--web` (see [Signing in from an app or script](#sign-in-from-an-app)). Passing a URL signs in to that instance, passing an existing alias (for example `youtrack auth login work`) renews that instance's token in place, and running the command with no argument asks for the URL.
 
 Browser SSO works on `hub.jetbrains.com` and other Hub versions that provide the public loopback client. If the instance's Hub has no public loopback OAuth client, the command prints a notice and falls back to the permanent-token paste flow.
 
@@ -256,6 +256,18 @@ Skip browser sign-in and paste a permanent token instead.
 <tr>
 <td>
 
+`--web`
+
+</td>
+<td>
+
+Sign in through the browser without prompting, even when stdin is not a terminal. See [Signing in from an app or script](#sign-in-from-an-app).
+
+</td>
+</tr>
+<tr>
+<td>
+
 `--token-name`
 
 </td>
@@ -280,6 +292,24 @@ Save the ~1-hour OAuth access token instead of creating a permanent token.
 </table>
 
 The callback returns to the machine running the CLI, so remote SSH sessions require loopback port forwarding.
+
+### Signing in from an app or script {id="sign-in-from-an-app"}
+
+An app that runs the CLI without a terminal, such as a desktop app that manages your CLI tools, can still sign in through the browser with `--web`:
+
+```Shell
+youtrack auth login https://example.youtrack.cloud --web --json
+```
+
+With `--web`, the CLI never prompts. Pass the instance URL or a configured alias as the argument or with `--base-url`; without it, the command fails at once. When browser sign-in is not available, for example because the Hub has no public loopback OAuth client, the command fails with a non-zero exit code instead of falling back to the paste flow.
+
+The CLI opens the browser, waits for the callback, and saves the token as usual. It writes the authorization URL to stderr on its own line, so the caller can offer to open it when the browser does not open. With JSON output (`--json`, or the default when stdout is not a terminal), the CLI leaves out its progress messages and the URL arrives on stderr as a JSON line:
+
+```JSON
+{"authorizationUrl": "https://example.youtrack.cloud/hub/api/rest/oauth2/auth?..."}
+```
+
+The result goes to stdout as with any other sign-in. `--web` cannot be combined with `--no-browser`, `--login`, or `--password`.
 
 ## Managing multiple instances {id="instances"}
 
