@@ -77,6 +77,8 @@ youtrack issue create --project DEMO --summary "Crash on startup" --custom-field
 
 Custom fields must be one complete JSON object with string values. Malformed JSON, trailing content, and non-string values (including `null`) are rejected before an issue is created.
 
+Use `issue create --type Task --tag release --custom-fields '{"Priority":"Major","Assignee":"me"}'` to set project fields and existing tags in the initial create request, including required fields. `--tag` is repeatable and accepts a name or ID. Only the parent link is applied afterwards; a failed parent link rolls back the new issue.
+
 > Use `youtrack project list` to look up a project's short name.
 >
 {style="tip"}
