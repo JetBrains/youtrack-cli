@@ -284,24 +284,23 @@ func TestCmd_IssueCreateWithFieldsProjection(t *testing.T) {
 	}
 }
 
-// A failing --custom-fields must not leave a stray issue behind: create rolls back atomically.
-func TestCmd_IssueCreateRollsBackOnBadCustomField(t *testing.T) {
+// An unknown field is rejected before anything is created, so no issue number is burned.
+func TestCmd_IssueCreateRejectsUnknownFieldBeforeCreating(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)
 
 	out, err := runCmdFail(t, "issue", "create",
 		"--project", proj.ShortName,
-		"--summary", "rollback test",
+		"--summary", "unknown field",
 		"--custom-fields", `{"NonExistentField999":"Bug"}`,
 	)
 	require.Error(t, err)
-	require.Contains(t, out, "rolled back", "output: %s", out)
+	assert.Contains(t, out, "has no field")
+	assert.Contains(t, out, "NonExistentField999")
 
-	m := regexp.MustCompile(`issue ([A-Z0-9]+-\d+) was rolled back`).FindStringSubmatch(out)
-	require.Len(t, m, 2, "error should name the rolled-back issue: %s", out)
-
-	_, err = c.GetIssueDetail(m[1])
-	assert.Error(t, err, "rolled-back issue %s should no longer exist", m[1])
+	first := runJSON[api.Issue](t, "issue", "create", "--project", proj.ShortName, "--summary", "first", "--json")
+	t.Cleanup(func() { _ = c.DeleteIssue(first.ID) })
+	assert.Equal(t, proj.ShortName+"-1", first.IDReadable, "the rejected create must not have used an issue number")
 }
 
 func TestCmd_IssueCreateRejectsMalformedCustomFields(t *testing.T) {
