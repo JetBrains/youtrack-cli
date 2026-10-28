@@ -128,7 +128,22 @@ youtrack raw /api/issues/DEMO-42/comments \
   --body '{"text":"Deployed to staging"}'
 ```
 
+For long bodies, read the JSON from a file with `--body-file`, or from stdin with `--body-file -`. This also avoids the command-line length limit and quote escaping on Windows:
+
+```Shell
+youtrack raw /api/issues/DEMO-42 --method POST --body-file update.json
+jq -n --arg d "$(cat notes.md)" '{description: $d}' | youtrack raw /api/issues/DEMO-42 --method POST --body-file -
+```
+
 Raw responses are arbitrary JSON, so pass `--json` or pipe the output when you want to parse it.
+
+To keep a response exactly as the server sent it — an image, a file, or JSON you do not want reformatted — pass `--output` with a file path, or `-` for stdout. The body is not parsed as JSON:
+
+```Shell
+youtrack raw "/api/files/1-2?sign=..." --output screenshot.png
+```
+
+Without an explicit `$top`, YouTrack normally returns 42 items per collection page. When a list response has exactly 42 items and the path sets no `$top`, `raw` prints a warning on stderr.
 
 For collection endpoints, `--paginate` follows `$skip`/`$top` pages and emits
 one combined JSON array, or `[]` when the collection is empty. `--page-size` defaults to 100:
@@ -168,6 +183,26 @@ HTTP method: `GET` (default), `POST`, `PUT`, or `DELETE`.
 <td>
 
 JSON request body, sent with `POST` and `PUT`.
+</td>
+</tr>
+<tr>
+<td>
+
+`--body-file`
+</td>
+<td>
+
+Read the JSON request body from a file, or from stdin with `-`. Cannot be combined with `--body`.
+</td>
+</tr>
+<tr>
+<td>
+
+`--output`, `-o`
+</td>
+<td>
+
+Write the response body unchanged to a file, or to stdout with `-`, without parsing it as JSON.
 </td>
 </tr>
 <tr>
