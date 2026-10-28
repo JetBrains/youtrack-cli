@@ -96,6 +96,8 @@ save binary or non-JSON responses with `--output <path>`.
 - **Link a commit to an issue**: `youtrack issue vcs attach <id> <commitHash>` → `issue vcs list <id>` to confirm. The commit must be one a VCS integration on the project can see; YouTrack answers 404 otherwise. `detach` (alias `delete`) unlinks it, picking the mechanism YouTrack allows for that change: a hand-attached commit is deleted, an integration-attached one is detached.
 - **Add user to project**: `youtrack user view <login> --json | jq .id` → `youtrack project team add-user <proj> <userId>`
 
+- **Restricted attachment**: `youtrack issue attachment add <id> --file trace.log --visibility "<group>"` — sends file and visibility in one request; repeat `--visibility` for users and groups or use `--public`. Omitted flags retain multipart upload behavior.
+
 ## References
 
 - [Command Reference](references/commands.md) — full syntax, flags, auth flows, global options

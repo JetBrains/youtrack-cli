@@ -183,6 +183,8 @@ youtrack issue attachment list DEMO-42
 youtrack issue attachment delete DEMO-42 5-12
 ```
 
+Use `issue attachment add --file trace.log --visibility "Security Team"` to send the file and its restriction in one request. Repeat `--visibility` for group and user audiences; use `--public` for unrestricted attachment visibility within the issue. Omitted flags retain the normal multipart upload behavior. Explicit visibility encodes the file as base64 JSON in memory. A server that rejects this format causes the command to fail; there is no public-upload fallback. If the returned visibility differs, the command attempts to remove the attachment and reports an error. Cleanup cannot undo exposure caused by a server workflow overriding visibility.
+
 `issue attachment delete` prompts for confirmation unless you pass `--force`.
 
 ## Applying a command {id="command"}
