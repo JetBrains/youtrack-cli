@@ -44,6 +44,9 @@ jobs:
       - name: Run pure-function unit tests
         run: go test ./api/ ./internal/... -count=1
 
+      - name: Run concurrency tests
+        run: make concurrency
+
       - name: Scan for known Go vulnerabilities
         run: go run golang.org/x/vuln/cmd/govulncheck@v1.6.0 ./...
 
