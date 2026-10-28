@@ -308,3 +308,5 @@ youtrack role grant --user <userId>|--group <groupId> --role <roleId> [--project
 youtrack role revoke <assignedRoleId>
 youtrack role assignments [--holder <userId>]
 ```
+
+`issue create --type Task --tag release --custom-fields '{"Assignee":"me"}'` sends fields, type and existing tags in the initial create request. `--tag` is repeatable and accepts an exact tag name or ID. Invalid fields, tags and parent references are rejected before creation.

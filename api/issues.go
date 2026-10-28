@@ -25,11 +25,15 @@ const commentFields = "id,text,author(id,login,fullName),created,updated,deleted
 const draftFields = "id,summary,description,created,fields(id,name,$type)"
 
 // AddIssueRequest is the body for creating an issue.
+// Custom fields and tags are included in the initial create request.
 type AddIssueRequest struct {
 	Summary     string   `json:"summary"`
 	Description string   `json:"description,omitempty"`
 	Project     *Project `json:"project"`
 	Reporter    *User    `json:"reporter,omitempty"`
+
+	CustomFields []IssueCustomFieldValue `json:"customFields,omitempty"`
+	Tags         []Tag                   `json:"tags,omitempty"`
 }
 
 // UpdateIssueRequest contains only explicitly selected issue fields.
@@ -161,7 +165,7 @@ func (c *Client) ListIssuesPageWithCustomFields(query string, limit, offset int,
 	return result, err
 }
 
-func (c *Client) AddIssue(req AddIssueRequest) (*Issue, error) {
+func (c *Client) AddIssue(req AddIssueRequest) (*Issue, error) { //nolint:gocritic // kept by value so existing callers stay unchanged
 	var result Issue
 	err := c.Post(pathIssues+"?fields="+issueFields, req, &result)
 	return &result, err
