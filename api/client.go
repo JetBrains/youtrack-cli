@@ -112,16 +112,22 @@ func (c *Client) wait(delay time.Duration) error {
 	}
 }
 
-func (c *Client) doRequest(method, path string, body io.Reader, contentType string) (*http.Response, error) {
+// acceptJSON is sent by requests that decode the response; acceptAny by requests that pass it through unchanged.
+const (
+	acceptJSON = "application/json"
+	acceptAny  = "application/json, */*;q=0.8"
+)
+
+func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader, contentType, accept string) (*http.Response, error) {
 	if !validRequestPath(path) {
 		return nil, fmt.Errorf("request path must begin with a single slash")
 	}
-	req, err := http.NewRequestWithContext(c.context(), method, c.BaseURL+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.Token)
-	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept", accept)
 	req.Header.Set("User-Agent", UserAgent)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
@@ -145,12 +151,51 @@ func validRequestPath(path string) bool {
 
 // send performs one request and is the only place that closes a response body.
 func (c *Client) send(method, path string, body io.Reader, contentType string, result any) error {
-	resp, err := c.doRequest(method, path, body, contentType)
+	resp, err := c.doRequest(c.context(), method, path, body, contentType, acceptJSON)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	return handleResponse(resp, result)
+}
+
+// stream performs one request and copies a successful response body to w without decoding it.
+// The overall client timeout is lifted so large bodies can finish; instead the request is
+// canceled once the server sends nothing for defaultTimeout.
+func (c *Client) stream(method, path string, body io.Reader, contentType string, w io.Writer) error {
+	ctx, cancel := context.WithCancel(c.context())
+	defer cancel()
+	idle := time.AfterFunc(defaultTimeout, cancel)
+	defer idle.Stop()
+
+	httpClient := *c.HTTPClient
+	httpClient.Timeout = 0
+	streaming := *c
+	streaming.HTTPClient = &httpClient
+	resp, err := streaming.doRequest(ctx, method, path, body, contentType, acceptAny)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode >= 300 {
+		return handleResponse(resp, nil)
+	}
+	_, err = io.Copy(w, &idleReader{r: resp.Body, idle: idle})
+	return err
+}
+
+// idleReader pushes back the idle deadline every time the server delivers data.
+type idleReader struct {
+	r    io.Reader
+	idle *time.Timer
+}
+
+func (r *idleReader) Read(p []byte) (int, error) {
+	n, err := r.r.Read(p)
+	if n > 0 {
+		r.idle.Reset(defaultTimeout)
+	}
+	return n, err
 }
 
 // handleResponse reads the response body, checks for errors,
@@ -233,9 +278,18 @@ func readOnly() bool {
 	return os.Getenv(envReadOnly) == "1"
 }
 
-func (c *Client) Post(path string, body, result any) error {
+// prepareWrite applies the same write policy to JSON, streaming, and multipart requests.
+func (c *Client) prepareWrite(method, path string, body any) (string, error) {
 	if readOnly() {
-		return errReadOnly
+		return path, errReadOnly
+	}
+	return path, nil
+}
+
+func (c *Client) Post(path string, body, result any) error {
+	path, err := c.prepareWrite("POST", path, body)
+	if err != nil {
+		return err
 	}
 	return c.sendJSON("POST", path, body, result)
 }
@@ -247,15 +301,17 @@ func (c *Client) postQuery(path string, body, result any) error {
 }
 
 func (c *Client) Put(path string, body, result any) error {
-	if readOnly() {
-		return errReadOnly
+	path, err := c.prepareWrite("PUT", path, body)
+	if err != nil {
+		return err
 	}
 	return c.sendJSON("PUT", path, body, result)
 }
 
 func (c *Client) Delete(path string) error {
-	if readOnly() {
-		return errReadOnly
+	path, err := c.prepareWrite("DELETE", path, nil)
+	if err != nil {
+		return err
 	}
 	return c.send("DELETE", path, nil, "", nil)
 }
@@ -270,8 +326,9 @@ func (c *Client) sendJSON(method, path string, body, result any) error {
 
 // Multipart uploads a file as a multipart/form-data attachment.
 func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any) error {
-	if readOnly() {
-		return errReadOnly
+	path, err := c.prepareWrite("POST", path, map[string]string{"file": filePath, "fileName": fileName, "contentType": mimeType})
+	if err != nil {
+		return err
 	}
 	f, err := os.Open(filePath)
 	if err != nil {

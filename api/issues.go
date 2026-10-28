@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
@@ -410,53 +409,7 @@ func (c *Client) GetCustomFieldValue(issueID, fieldName string) (*IssueField, er
 }
 
 func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string) error {
-	var fields []struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-		Type string `json:"$type"`
-	}
-	path := fmt.Sprintf(pathIssueFields+"?fields=id,name,$type&$top=500", url.PathEscape(issueID))
-	if err := c.Get(path, &fields); err != nil {
-		return err
-	}
-	var fieldID, issueFieldType string
-	for _, f := range fields {
-		if f.Name == fieldName {
-			fieldID, issueFieldType = f.ID, f.Type
-			break
-		}
-	}
-	if fieldID == "" {
-		return fmt.Errorf("field '%s' not found on issue %s", fieldName, issueID)
-	}
-	var body map[string]any
-	switch fieldType {
-	case "period":
-		body = map[string]any{"value": map[string]any{"presentation": fieldValue}}
-	case "text":
-		body = map[string]any{"value": map[string]any{"text": fieldValue}}
-	case "user":
-		user, err := c.GetUser(fieldValue)
-		if err != nil {
-			return err
-		}
-		body = map[string]any{"value": map[string]any{"id": user.ID}}
-	case "int":
-		n, err := strconv.Atoi(fieldValue)
-		if err != nil {
-			return fmt.Errorf("invalid integer value '%s': %w", fieldValue, err)
-		}
-		body = map[string]any{"value": n}
-	case "string":
-		body = map[string]any{"value": fieldValue}
-	default:
-		body = map[string]any{"value": map[string]any{"name": fieldValue}}
-	}
-	if isMultiValueField(issueFieldType) {
-		// Multi-value fields (e.g. MultiEnumIssueCustomField) take an array; a single object is rejected with HTTP 500.
-		body["value"] = []any{body["value"]}
-	}
-	return c.Post(fmt.Sprintf(pathIssueField, url.PathEscape(issueID), url.PathEscape(fieldID)), body, nil)
+	return c.SetCustomFieldValues(issueID, fieldName, []string{fieldValue}, fieldType)
 }
 
 func (c *Client) UpdateComment(issueID, commentID, text string) (*Comment, error) {

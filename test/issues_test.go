@@ -1245,6 +1245,69 @@ func attachDefaultProjectFields(t *testing.T, c *api.Client, project *api.Projec
 	}
 }
 
+func TestCmd_IssueFieldSet_ValuesAndClear(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	attachDefaultProjectFields(t, c, proj, "Priority", "Assignee")
+
+	field := createProjectEnumField(t, c, proj, api.FieldTypeEnumMulti, "Alpha", "Platform. Auth & Licensing")
+	name := field.Name
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "field set values and clear test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	awaitIssueFields(t, c, issue.IDReadable, name)
+
+	valueNames := func() []string {
+		got, err := c.GetCustomFieldValue(issue.IDReadable, name)
+		require.NoError(t, err)
+		raw, err := json.Marshal(got.Value)
+		require.NoError(t, err)
+		var values []struct {
+			Name string `json:"name"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &values), "value of %s: %s", name, raw)
+		names := make([]string, len(values))
+		for i, v := range values {
+			names[i] = v.Name
+		}
+		return names
+	}
+
+	out := runCmd(t, "issue", "field", "set", issue.IDReadable, name, "--value", "Alpha", "--value", "Platform. Auth & Licensing")
+	assert.Contains(t, out, "updated field "+name)
+	assert.ElementsMatch(t, []string{"Alpha", "Platform. Auth & Licensing"}, valueNames())
+
+	issueField, err := c.GetCustomFieldValue(issue.IDReadable, name)
+	require.NoError(t, err)
+	runCmd(t, "issue", "field", "set", issue.IDReadable, issueField.ID, "--value", "Alpha")
+	assert.Equal(t, []string{"Alpha"}, valueNames(), "--value replaces the current values using an opaque field ID")
+
+	out = runCmd(t, "issue", "field", "set", issue.IDReadable, issueField.ID, "--clear")
+	assert.Contains(t, out, "cleared field "+issueField.ID)
+	assert.Empty(t, valueNames())
+
+	errOut := runCmdExpectError(t, "issue", "field", "set", issue.IDReadable, "Priority", "--value", "Major", "--value", "Minor")
+	assert.Contains(t, errOut, "holds a single value")
+	errOut = runCmdExpectError(t, "issue", "field", "set", issue.IDReadable, name, "Alpha", "--clear")
+	assert.Contains(t, errOut, "pass exactly one of")
+	errOut = runCmdExpectError(t, "issue", "field", "set", issue.IDReadable, name)
+	assert.Contains(t, errOut, "pass exactly one of")
+
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+	runCmd(t, "issue", "field", "set", issue.IDReadable, "Assignee", me.Login, "--type", "user")
+	assertIssueAssignee(t, c, issue.IDReadable, me.Login)
+	out = runCmd(t, "issue", "field", "set", issue.IDReadable, "Assignee", "--clear")
+	assert.Contains(t, out, "cleared field Assignee")
+	got, err := c.GetCustomFieldValue(issue.IDReadable, "Assignee")
+	require.NoError(t, err)
+	assert.Nil(t, got.Value)
+}
+
 func TestCmd_IssueVisibility(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)

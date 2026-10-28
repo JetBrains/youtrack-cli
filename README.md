@@ -121,6 +121,10 @@ EOF
 # move it along
 youtrack issue command DEMO-42 "State In Progress"
 
+# set several values of a multi-value field, or clear a field
+youtrack issue field set DEMO-42 Subsystem --value "Platform. Auth & Licensing" --value UI
+youtrack issue field set DEMO-42 Assignee --clear
+
 # view an issue with its five most recent comments
 youtrack issue view DEMO-42 --comments 5
 
@@ -143,6 +147,10 @@ youtrack issue command DEMO-42 "tag regression" --no-new-tags
 # link a commit to an issue, and list what is linked
 youtrack issue vcs attach DEMO-42 1a2b3c4d5e6f7081
 youtrack issue vcs list DEMO-42
+
+# call any REST endpoint: body from a file, response saved unparsed
+youtrack raw /api/issues/DEMO-42 --method POST --body-file update.json
+youtrack raw /api/issues/DEMO-42 --fields "id,summary,description" --output issue.json
 
 # keep the CLI itself up to date
 youtrack update
@@ -177,7 +185,7 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 | **whiteboard** | `list`, `view`, `create`, `delete`, `node`, `link` |
 | **auth** | `login` (`get-token`), `logout`, `status`, `refresh-token` |
 | **instance** | `add`, `login`, `list`, `use`, `version`, `delete`, `refresh-token` |
-| **raw** | Authenticated request to any REST endpoint |
+| **raw** | Authenticated request to any REST endpoint (`--body-file`, `--output`, `--paginate`) |
 | **update** | Check for a newer CLI release and upgrade through the detected install method |
 | **skill** | `list`, `install`, `update`, `remove` |
 

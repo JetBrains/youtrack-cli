@@ -107,6 +107,8 @@ youtrack issue attachment delete <issueId> <attachmentId>
 ```bash
 youtrack issue field view <issueId> <fieldName>   # alias: get
 youtrack issue field set <issueId> <fieldName> <value>
+youtrack issue field set <issueId> <fieldName> --value V [--value V...]   # multi-value; replaces current values
+youtrack issue field set <issueId> <fieldName> --clear
 youtrack issue reaction add <issueId> <commentId> <reaction>
 youtrack issue reaction delete <issueId> <commentId> <reactionId>
 youtrack issue draft create [--project P] [--summary S]
@@ -245,11 +247,15 @@ youtrack article untag <articleId> <tagId>
 ## raw API
 
 ```bash
-youtrack raw <path> [--method GET|POST|PUT|DELETE] [--body JSON] [--fields FIELDS]
+youtrack raw <path> [--method GET|POST|PUT|DELETE] [--body JSON | --body-file PATH|-] [--fields FIELDS]
+youtrack raw <path> --output PATH|-        # response body as-is, no JSON parsing
 youtrack raw <collection-path> --paginate [--page-size N]
 ```
 
 `--paginate` returns one combined JSON array, including `[]` for an empty collection.
+Without it YouTrack returns at most 42 items; `raw` warns on stderr when a list hits exactly 42.
+`--body-file` reads the body from a file (`-` for stdin) — use it for long bodies, which can exceed the Windows command-line limit.
+`--output` writes binary or non-JSON responses (images, files) unchanged; `-` writes them to stdout.
 
 ## dashboard
 

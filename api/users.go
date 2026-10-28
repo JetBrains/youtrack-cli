@@ -1,8 +1,11 @@
 package api
 
 import (
+	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"strings"
 	"time"
@@ -273,7 +276,7 @@ func (c *Client) SetUserProfileTips(id string, tips map[string]bool) error {
 }
 
 // RawRequest makes a raw authenticated API request and returns the decoded JSON result.
-func (c *Client) RawRequest(method, path string, body map[string]any) (any, error) {
+func (c *Client) RawRequest(method, path string, body any) (any, error) {
 	var result any
 	var err error
 	switch method {
@@ -287,6 +290,32 @@ func (c *Client) RawRequest(method, path string, body map[string]any) (any, erro
 		err = c.Post(path, body, &result)
 	}
 	return result, err
+}
+
+// RawStream makes a raw authenticated API request and copies the response body to w as-is,
+// so binary and non-JSON responses survive. Methods map to requests the same way as in RawRequest.
+func (c *Client) RawStream(method, path string, body any, w io.Writer) error {
+	if method == "GET" {
+		if c.Fields != "" {
+			path = mergeFieldsParam(path, c.Fields)
+		}
+		return c.stream("GET", path, nil, "", w)
+	}
+	if method != "DELETE" && method != "PUT" {
+		method = "POST"
+	}
+	path, err := c.prepareWrite(method, path, body)
+	if err != nil {
+		return err
+	}
+	if method == "DELETE" {
+		return c.stream(method, path, nil, "", w)
+	}
+	data, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	return c.stream(method, path, bytes.NewReader(data), "application/json", w)
 }
 
 func (c *Client) waitForUserDeletion(login, id string) error {
