@@ -214,6 +214,13 @@ youtrack issue field set DEMO-42 Estimation 2h --type period
 
 For non-enum fields, pass `--type` (`period`, `text`, `user`, `int`, or `string`) so the CLI interprets the value correctly. When omitted, the value is treated as an enum.
 
+Repeat `--value` to set several values of a multi-value field; the list replaces the current values. `--clear` empties a field. Values are sent as-is, so names with spaces or dots need no escaping:
+
+```Shell
+youtrack issue field set DEMO-42 Subsystem --value "Platform. Auth & Licensing" --value UI
+youtrack issue field set DEMO-42 Assignee --clear
+```
+
 ## Watching and voting {id="watch-vote"}
 
 Subscribe to notifications or register a vote on an issue:
