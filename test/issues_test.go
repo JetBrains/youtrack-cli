@@ -1615,3 +1615,65 @@ func TestCmd_IssueCreateWithParent(t *testing.T) {
 	}
 	assert.ElementsMatch(t, []string{first, second}, children)
 }
+
+func TestCmd_IssueAttachmentDownload(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "attachment download", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+
+	want := make([]byte, 4096)
+	for i := range want {
+		want[i] = byte(i * 31)
+	}
+	src := filepath.Join(t.TempDir(), "blob.bin")
+	require.NoError(t, os.WriteFile(src, want, 0o600))
+	attach, err := c.AddIssueAttachment(issue.IDReadable, src)
+	require.NoError(t, err)
+	require.Contains(t, attach.URL, "sign=")
+	_, signature, _ := strings.Cut(attach.URL, "sign=")
+	signature, _, _ = strings.Cut(signature, "&")
+
+	outPath := filepath.Join(t.TempDir(), "by-id.bin")
+	cmd := exec.Command(binaryPath, "issue", "attachment", "download", issue.IDReadable, attach.ID, "--output", outPath, "--verbose", "--json")
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
+	combined, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(combined))
+	assert.NotContains(t, string(combined), signature, "the signed download link must never be printed")
+	got, err := os.ReadFile(outPath)
+	require.NoError(t, err)
+	assert.Equal(t, want, got)
+
+	stdout := runCmd(t, "issue", "attachment", "download", issue.IDReadable, "--name", "blob.bin", "--output", "-")
+	assert.Equal(t, want, []byte(stdout))
+
+	missing := filepath.Join(t.TempDir(), "missing.bin")
+	stderr := runCmdExpectError(t, "issue", "attachment", "download", issue.IDReadable, "--name", "nope.bin", "--output", missing)
+	assert.Contains(t, stderr, "no attachment named")
+	assert.NoFileExists(t, missing)
+
+	stderr = runCmdExpectError(t, "issue", "attachment", "download", issue.IDReadable, attach.ID, "--name", "blob.bin", "--output", missing)
+	assert.Contains(t, stderr, "either an attachment ID or --name")
+}
+
+func TestCmd_IssueAttachmentDownloadAtServerLimit(t *testing.T) {
+	t.Parallel()
+	started := time.Now()
+	defer func() { t.Logf("500-attachment fixture and download checks took %s", time.Since(started)) }()
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	issue, err := c.AddIssue(api.AddIssueRequest{Summary: "attachment limit", Project: &api.Project{ID: proj.ID}})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.ID) })
+	file := filepath.Join(t.TempDir(), "same-name.txt")
+	require.NoError(t, os.WriteFile(file, []byte("last attachment content"), 0o600))
+	var last *api.IssueAttachment
+	for i := 0; i < 500; i++ {
+		last, err = c.AddIssueAttachment(issue.ID, file)
+		require.NoError(t, err)
+	}
+	assert.Equal(t, "last attachment content", runCmd(t, "issue", "attachment", "download", issue.IDReadable, last.ID, "--output", "-"))
+	out := runCmdExpectError(t, "issue", "attachment", "download", issue.IDReadable, "--name", "same-name.txt", "--output", "-")
+	assert.Contains(t, out, "500 attachments")
+}

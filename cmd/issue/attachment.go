@@ -15,6 +15,7 @@ func newIssueAttachmentCmd() *cobra.Command {
 	cmd.AddCommand(
 		newIssueAttachmentListCmd(),
 		newIssueAttachmentAddCmd(),
+		newIssueAttachmentDownloadCmd(),
 		newIssueAttachmentDeleteCmd(),
 	)
 	return cmd

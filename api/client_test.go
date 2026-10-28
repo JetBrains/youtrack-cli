@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -97,6 +98,63 @@ func TestSameOriginRedirectAuthorization(t *testing.T) {
 			}
 			if got := next.Header.Get("Authorization") != ""; got != c.keep {
 				t.Errorf("Authorization kept = %v, want %v", got, c.keep)
+			}
+		})
+	}
+}
+
+func TestRedactSignature(t *testing.T) {
+	cases := []struct{ in, out string }{
+		{"/api/files/1-2/sign=secret", "/api/files/1-2/sign=REDACTED"},
+		{"/api/files/1-2/%73ign%3Dsecret", "/api/files/1-2/sign=REDACTED"},
+		{"/api/files/1-2?%73ign=secret", "/api/files/1-2?sign=REDACTED"},
+		{"/api/files/1-2?sign=abc&updated=1", "/api/files/1-2?sign=REDACTED&updated=1"},
+		{"http://h/api/files/1-2?updated=1&sign=abc", "http://h/api/files/1-2?updated=1&sign=REDACTED"},
+		{"/api/issues?query=design", "/api/issues?query=design"},
+		{"/api/issues/FOO-1", "/api/issues/FOO-1"},
+	}
+	for _, c := range cases {
+		if got := redactSignature(c.in); got != c.out {
+			t.Errorf("redactSignature(%q) = %q, want %q", c.in, got, c.out)
+		}
+	}
+}
+
+func TestInstancePath(t *testing.T) {
+	cases := []struct {
+		name, baseURL, ref, out string
+		wantErr                 bool
+	}{
+		{"root-relative on a root instance", "https://yt.example.com", "/api/files/1-2?sign=s", "/api/files/1-2?sign=s", false},
+		{"root-relative with context path", "https://example.com/youtrack", "/youtrack/api/files/1-2?sign=s", "/api/files/1-2?sign=s", false},
+		{"api path without context path", "https://example.com/youtrack", "/api/files/1-2?sign=s", "/api/files/1-2?sign=s", false},
+		{"absolute on the instance", "https://yt.example.com", "https://yt.example.com/api/files/1-2?sign=s", "/api/files/1-2?sign=s", false},
+		{"absolute on another host", "https://yt.example.com", "https://evil.example.com/api/files/1-2?sign=s", "", true},
+		{"traversal fallback", "https://example.com/youtrack", "/api/../../admin", "", true},
+		{"escaped traversal", "https://example.com/youtrack", "/api/%2e%2e/%2e%2e/admin", "", true},
+		{"escaped slash traversal", "https://example.com/youtrack", "/api/%2e%2e%2f%2e%2e/admin", "", true},
+		{"context traversal", "https://example.com/youtrack", "/youtrack/api/../../admin", "", true},
+		{"other scheme", "https://example.com/youtrack", "http://example.com/api/files/1?sign=s", "", true},
+		{"other port", "https://example.com/youtrack", "https://example.com:444/api/files/1?sign=s", "", true},
+		{"default port", "https://example.com:443/youtrack", "https://example.com/youtrack/api/files/1?sign=s", "/api/files/1?sign=s", false},
+		{"host case", "https://EXAMPLE.com/youtrack", "https://example.COM/youtrack/api/files/1?sign=s", "/api/files/1?sign=s", false},
+		{"user info", "https://example.com/youtrack", "https://user@example.com/api/files/1?sign=s", "", true},
+		{"outside the context path", "https://example.com/youtrack", "/other/files/1-2", "", true},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := NewClient(c.baseURL, "").instancePath(c.ref)
+			if c.wantErr {
+				if err == nil {
+					t.Fatalf("instancePath(%q) = %q, want error", c.ref, got)
+				}
+				if strings.Contains(err.Error(), "sign=") {
+					t.Errorf("error leaks the signed URL: %v", err)
+				}
+				return
+			}
+			if err != nil || got != c.out {
+				t.Errorf("instancePath(%q) = %q, %v; want %q", c.ref, got, err, c.out)
 			}
 		})
 	}
