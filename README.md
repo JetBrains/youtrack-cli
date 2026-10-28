@@ -124,6 +124,10 @@ youtrack issue command DEMO-42 "State In Progress"
 # view an issue with its five most recent comments
 youtrack issue view DEMO-42 --comments 5
 
+# find a tag and tag an issue by its exact name
+youtrack tag list --query release
+youtrack issue tag add DEMO-42 "release blocker"
+
 # only the fields you name, without the default projection or description
 youtrack issue view DEMO-42 --only-fields --fields idReadable,summary,reporter --json
 

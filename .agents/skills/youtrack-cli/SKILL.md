@@ -57,7 +57,7 @@ Canonical verbs: `view`, `list`, `create`, `update`, `delete` (`get`/`add` still
 | Boards | `board list`, `view` (`get`), `create` (`add`), `update`, `delete` + `board sprint list/view(get)/create(add)/update/delete` |
 | Whiteboards | `whiteboard list`, `create` (`add`), `view` (`get`), `delete`, `reload` + `whiteboard node list/view(get)/create(add)`, `links`, `link` |
 | Articles | `article list`, `view` (`get`), `create` (`add`), `update`, `delete` + comments, attachments, tags |
-| Tags | `tag list`, `create` (`add`), `delete`, `tag issue list <tagId>` |
+| Tags | `tag list [--query Q] [--limit N]`, `create` (`add`), `delete`, `tag issue list <tagId>`; `issue tag add/remove` take a tag ID or exact name |
 | Dashboards | `dashboard list`, `create` (`add`), `update`, `delete` |
 | Saved searches | `search list`, `view` (`get`), `create` (`add`), `delete`, `share` |
 
