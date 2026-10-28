@@ -294,16 +294,28 @@ Writing to VCS changes requires the *Update Issue Private Fields* permission. Pa
 
 ## Restricting visibility {id="visibility"}
 
-Limit who can see an issue by passing permitted group or user IDs to `youtrack issue visibility`:
+Pass `--visibility <group|login>` (repeatable) to `issue create` to restrict the issue in its initial request, or `--public` for unrestricted project access.
+
+Limit who can see an issue, a comment, or an attachment by passing permitted groups and users. Groups take a name or an ID, users a login or an ID:
 
 ```Shell
-youtrack issue visibility DEMO-42 --groups 4-1
-youtrack issue visibility DEMO-42 --users 2-9
+youtrack issue visibility DEMO-42 --groups "Core Team" --users alice
+youtrack issue comment visibility DEMO-42 4-17 --users alice
+youtrack issue attachment visibility DEMO-42 12-8 --groups "Core Team"
+youtrack issue visibility DEMO-42 --public
 ```
 
-> `--groups` and `--users` expect opaque IDs, not group names or logins. Retrieve them first with `youtrack group view <name>` or `youtrack user view <login>`.
+Each call replaces both lists. A list you leave out is cleared, so `--users alice` alone makes the issue visible to alice only, even if a group had access before. `--public` removes the restriction. The command reads the visibility back after writing it and fails if the server reports something else.
+
+> Running the command with no group, user, or `--public` is an error: YouTrack treats empty lists as no restriction, which would make the issue public.
 >
 {style="warning"}
+
+To keep a comment private from the moment it is posted, pass the audience to `issue comment create` instead of restricting it afterwards. `--visibility` takes a group name or a user login and can be repeated; prefix the value with `group:` or `user:` when a group and a user share the name:
+
+```Shell
+youtrack issue comment create DEMO-42 --text "Internal note" --visibility "Core Team" --visibility user:alice
+```
 
 <seealso>
 <category ref="user-guide">

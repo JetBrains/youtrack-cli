@@ -61,7 +61,7 @@ func (c *Client) GetUser(login string) (*User, error) {
 			return &users[i], nil
 		}
 	}
-	return nil, fmt.Errorf("user '%s' not found", login)
+	return nil, fmt.Errorf("user '%s' %w", login, ErrNotFound)
 }
 
 func (c *Client) GetCurrentUser() (*User, error) {
