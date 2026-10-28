@@ -135,6 +135,9 @@ youtrack issue tag add DEMO-42 "release blocker"
 # only the fields you name, without the default projection or description
 youtrack issue view DEMO-42 --only-fields --fields idReadable,summary,reporter --json
 
+# comments with pinned state and visibility, deleted ones included
+youtrack issue comment list DEMO-42 --include-deleted --json
+
 # what a command would do, without applying it
 youtrack issue command suggest DEMO-42 "State "
 

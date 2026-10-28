@@ -7,6 +7,7 @@
 - **`issue command` logins** — the CLI auto-wraps logins with `.`, `-`, or `@` in braces. Write the login as-is.
 - **`issue command "tag X"` creates X if it does not exist** — pass `--no-new-tags` to refuse instead; nothing is applied. Non-English or unverifiable previews are refused. This is a best-effort preflight; prefer `issue tag add` for exact existing-tag association.
 - **Output format** — table on TTY, JSON when piped. Use `--json` / `--plain` to override.
+- **Issue comment deletion is recoverable** — `issue comment delete --force` marks the comment deleted, matching the web UI. Comment JSON includes `deleted`; table/plain output marks deleted comments as `[deleted]` because the API may still return their text. `issue comment list` leaves deleted comments out unless `--include-deleted` is passed.
 
 ## Known defaults
 

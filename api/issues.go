@@ -1,8 +1,10 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"html"
+	"net/http"
 	"net/url"
 	"path/filepath"
 	"regexp"
@@ -19,7 +21,7 @@ const issueDetailFields = issueFields + issueDetailCustomFields
 // (name), user (login, fullName), text (text), period (presentation); number and date values are scalars.
 // projectCustomField.emptyFieldText is what the UI shows for an unset value ("Unassigned", "No Fix versions").
 const issueCustomFieldValues = "customFields(name,value(name,login,fullName,text,presentation),projectCustomField(emptyFieldText))"
-const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,visibility"
+const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,pinned,visibility($type,permittedGroups(id,name),permittedUsers(id,login,fullName))"
 const draftFields = "id,summary,description,created,fields(id,name,$type)"
 
 // AddIssueRequest is the body for creating an issue.
@@ -202,8 +204,15 @@ func (c *Client) AddComment(issueID string, req AddCommentRequest) (*Comment, er
 }
 
 func (c *Client) DeleteComment(issueID, commentID string) error {
-	return c.Delete(fmt.Sprintf(pathIssueComment,
-		url.PathEscape(issueID), url.PathEscape(commentID)))
+	// DELETE permanently removes a comment and needs a stronger permission than
+	// the recoverable deletion offered by the web UI.
+	err := c.Post(fmt.Sprintf(pathIssueComment,
+		url.PathEscape(issueID), url.PathEscape(commentID)), map[string]bool{"deleted": true}, nil)
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("%w; check Delete Issue Comment for your own comments or Delete Not Own and Permanent Comment Delete for other users' comments", err)
+	}
+	return err
 }
 
 func (c *Client) GetIssueCount(query string) (int, error) {

@@ -129,6 +129,12 @@ git log -1 --format=%B | youtrack issue comment update DEMO-42 4-17 --text-file 
 
 `comment create` and `comment update` take the text either inline with `--text` or from a file with `--text-file`; `--text-file -` reads standard input, which keeps long markdown and shell-sensitive characters intact.
 
+`issue comment list` leaves deleted comments out. Pass `--include-deleted` to list them too, marked as deleted. Comment JSON includes `deleted`, `pinned`, and `visibility` with its permitted groups and users:
+
+```Shell
+youtrack issue comment list DEMO-42 --include-deleted --fields id,deleted,pinned,text
+```
+
 ## Tagging issues {id="tags"}
 
 Attach, list, and inspect tags with `youtrack issue tag`. `add` and `remove` accept a tag ID or the tag's exact name; `view` takes an ID:

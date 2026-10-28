@@ -42,7 +42,12 @@ func newIssueViewCmd() *cobra.Command {
 				if err != nil {
 					return err
 				}
-				output.PrintIssueDetail(cmd.OutOrStdout(), issue)
+				fields, _ := cmd.Root().PersistentFlags().GetString("fields")
+				if fields == "" {
+					output.PrintIssueDetail(cmd.OutOrStdout(), issue)
+				} else if err := output.Print(cmd, issue); err != nil {
+					return err
+				}
 				n, _ := cmd.Flags().GetInt("comments")
 				if n > 0 {
 					comments, err := client.ListRecentComments(args[0], n)
