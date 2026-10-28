@@ -12,8 +12,9 @@ A full YouTrack interaction guide is available as an agent skill — load it whe
 
 ```bash
 make build                                           # compile ./youtrack binary
-make check                                          # fmt-check + lint + build + unit + test — run before committing/pushing
+make check                                          # fmt-check + lint + build + unit + concurrency + test — run before committing/pushing
 make unit                                           # pure-function tests, no Docker required
+make concurrency                                    # concurrency tests (build tag `concurrency`), no Docker required
 make test                                            # Dockerized YouTrack E2E suite against a real local instance
 go run . issue list --query "assignee: me"           # run without building
 go test ./test/ -run TestCmd_IssueViewPlain -v        # run a single E2E test after loading .e2e/youtrack.env
@@ -74,8 +75,8 @@ CLI behavior is covered exclusively by end-to-end tests: no mocks, no fake trans
 `api.Client` conformance suite running in parallel with CLI coverage. The subject under test is the
 compiled `youtrack` binary against a real YouTrack instance.
 
-Two narrow, deliberately scoped exceptions live outside the E2E flow. Neither uses mocks or fake
-transport, and neither is a second product surface asserting client behavior:
+Three narrow, deliberately scoped exceptions live outside the E2E flow. None uses mocks or fake
+transport, and none is a second product surface asserting client behavior:
 
 - **Pure-function unit tests** (`api/*_test.go`, `internal/*_test.go`) — table tests for pure, branchy
   string helpers (`mergeFieldsParam`, `WrapUserValues`, `expandFields`, `SplitFields`) that
@@ -84,6 +85,12 @@ transport, and neither is a second product surface asserting client behavior:
 - **API drift detection** (`test/drift_test.go`, `TestAPIDrift`) — gated on `requireE2EEnv` and run
   inside the E2E job, it diffs our Go structs against the live server's OpenAPI spec to catch contract
   changes. It asserts no client behavior; it is a static schema-vs-struct guard, not a conformance suite.
+- **Concurrency tests** (`internal/**/*_test.go` behind the `//go:build concurrency` tag, test names contain
+  `Concurrent`) — for cross-process races that E2E cannot reproduce reliably, because process startup
+  takes far longer than the race window. They call package functions such as `config.Update` from many
+  goroutines against a real temp filesystem, with `HOME` and `XDG_CONFIG_HOME` set to `t.TempDir()` and the
+  keyring disabled. They touch no client and no network. The build tag keeps them out of `make unit` and
+  `make test`; run them with `make concurrency`.
 
 Run the full suite with `make test`. It boots or reuses the local Dockerized YouTrack harness, bootstraps credentials,
 and runs the entire `./test` package against that live instance. Each test is self-contained: it creates all needed

@@ -27,9 +27,9 @@ type Instance struct {
 	URL   string `json:"url"`
 	Token string `json:"token,omitempty"`
 
-	// tokenInKeyring marks the token as keyring-stored so Save omits it from the file.
+	// tokenInKeyring marks the token as keyring-stored so save omits it from the file.
 	tokenInKeyring bool
-	// tokenURLMissing marks a keyring token that has no URL entry, because an older version saved it, so Save binds it to the current URL.
+	// tokenURLMissing marks a keyring token that has no URL entry, because an older version saved it, so save binds it to the current URL.
 	tokenURLMissing bool
 	// tokenURL is the instance URL stored for the token in the keyring; empty for file tokens and for keyring tokens without a readable URL entry.
 	tokenURL string
@@ -113,14 +113,42 @@ func Load() (*Config, error) {
 	return &c, nil
 }
 
-// Save atomically writes the config to ConfigPath at 0600, creating its directory at 0700.
-// Uses write-to-temp + rename to avoid partial writes on crash.
-// Tokens go to the OS keyring when available (migrating older file tokens), else stay in the file on any keyring failure.
-func (c *Config) Save() error {
+// Update loads the config, applies fn, and saves the result while holding a cross-process lock,
+// so concurrent CLI processes never lose each other's changes. If fn returns an error, nothing is saved.
+// Keep fn short: other processes that write the config wait until it returns.
+func Update(fn func(*Config) error) (*Config, error) {
 	path, err := ConfigPath()
 	if err != nil {
-		return err
+		return nil, err
 	}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return nil, fmt.Errorf("creating config dir: %w", err)
+	}
+	lock, err := os.OpenFile(path+".lock", os.O_RDWR|os.O_CREATE, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("opening config lock: %w", err)
+	}
+	defer func() { _ = lock.Close() }()
+	if err := lockFile(lock); err != nil {
+		return nil, fmt.Errorf("locking config: %w", err)
+	}
+	c, err := Load()
+	if err != nil {
+		return nil, err
+	}
+	if err := fn(c); err != nil {
+		return nil, err
+	}
+	if err := c.save(path); err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+// save atomically writes the config to path at 0600; Update creates its directory.
+// Uses write-to-temp + rename to avoid partial writes on crash.
+// Tokens go to the OS keyring when available (migrating older file tokens), else stay in the file on any keyring failure.
+func (c *Config) save(path string) error {
 	for alias, inst := range c.Instances {
 		switch keyringWriteFor(&inst) {
 		case keyringWriteToken:
@@ -143,11 +171,16 @@ func (c *Config) Save() error {
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return fmt.Errorf("creating config dir: %w", err)
+	f, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp") // created at 0600
+	if err != nil {
+		return fmt.Errorf("writing config: %w", err)
 	}
-	tmp := path + ".tmp"
-	if err := os.WriteFile(tmp, append(data, '\n'), 0600); err != nil {
+	tmp := f.Name()
+	_, err = f.Write(append(data, '\n'))
+	if cerr := f.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
 		_ = os.Remove(tmp) // clean up any partial write
 		return fmt.Errorf("writing config: %w", err)
 	}
@@ -163,7 +196,7 @@ func (c *Config) Save() error {
 
 // migrateLegacy moves a legacy config to path when path does not exist yet and returns the file Load should read.
 // If the move fails and no other process has migrated it meanwhile, it returns the legacy path,
-// so the next Save writes path and removes the legacy file.
+// so the next Update writes path and removes the legacy file.
 func migrateLegacy(path string) string {
 	legacy, err := legacyConfigPath()
 	if err != nil {
@@ -184,7 +217,7 @@ func migrateLegacy(path string) string {
 	return legacy
 }
 
-// keyringWrite is what Save must write to the keyring for one instance.
+// keyringWrite is what save must write to the keyring for one instance.
 type keyringWrite int
 
 const (
@@ -193,7 +226,7 @@ const (
 	keyringWriteURL                // a keyring token saved by an older version: add its URL entry
 )
 
-// keyringWriteFor decides what Save writes for inst. A keyring token that already has a URL is never rewritten:
+// keyringWriteFor decides what save writes for inst. A keyring token that already has a URL is never rewritten:
 // binding it to the URL in the config file again would trust an edited file.
 func keyringWriteFor(inst *Instance) keyringWrite {
 	switch {
@@ -236,7 +269,7 @@ func (c *Config) TokenInKeyring(alias string) bool {
 
 // ActiveInstance returns a pointer to the active instance and its alias.
 // The returned pointer points to a detached copy — mutating it has no effect on Config.
-// Always call Save() after modifying instances through other methods.
+// Modify instances through Config methods inside Update.
 // Returns (nil, "") when no instance is configured as active.
 // Returns (nil, alias) when currentInstance names an alias that is missing from the map —
 // callers should treat this as a stale-pointer error.
@@ -284,7 +317,7 @@ func (c *Config) upsertInstance(alias, rawURL string, inst *Instance) string {
 	return final
 }
 
-// RemoveInstance drops the alias from the in-memory config (error if not found); it does not touch the keyring, so callers must Save() then PurgeKeyringToken(alias).
+// RemoveInstance drops the alias from the in-memory config (error if not found); it does not touch the keyring, so callers must call it inside Update, then PurgeKeyringToken(alias).
 func (c *Config) RemoveInstance(alias string) error {
 	if _, ok := c.Instances[alias]; !ok {
 		return fmt.Errorf("instance %q not found — run: youtrack instance list", alias)
@@ -293,7 +326,7 @@ func (c *Config) RemoveInstance(alias string) error {
 	return nil
 }
 
-// PurgeKeyringToken deletes the keyring token and URL entries for alias; call only after a successful Save().
+// PurgeKeyringToken deletes the keyring token and URL entries for alias; call only after a successful Update.
 // A missing entry or a disabled keyring is not an error.
 func PurgeKeyringToken(alias string) error {
 	for _, service := range []string{keyringService, keyringURLService} {

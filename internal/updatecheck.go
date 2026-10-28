@@ -49,26 +49,23 @@ func isUpdateCheckDisabled() bool {
 	return !term.IsTerminal(int(os.Stderr.Fd()))
 }
 
-// saveUpdateCheckTimestamp re-loads the config and saves the current timestamp
-// to avoid race conditions with concurrent config writes (e.g., from instance add).
+// saveUpdateCheckTimestamp saves the current timestamp.
 func saveUpdateCheckTimestamp(now int64) {
-	cfg, err := config.Load()
-	if err != nil {
-		return
-	}
-	cfg.LastUpdateCheck = now
-	_ = cfg.Save()
+	_, _ = config.Update(func(c *config.Config) error {
+		c.LastUpdateCheck = now
+		return nil
+	})
 }
 
-// RecordLatestVersion re-loads the config and records the newest release seen, for the
-// startup update prompt.
+// RecordLatestVersion records the newest release seen, for the startup update prompt.
 func RecordLatestVersion(version string) {
-	cfg, err := config.Load()
-	if err != nil || cfg.LatestVersion == version {
+	if cfg, err := config.Load(); err != nil || cfg.LatestVersion == version {
 		return
 	}
-	cfg.LatestVersion = version
-	_ = cfg.Save()
+	_, _ = config.Update(func(c *config.Config) error {
+		c.LatestVersion = version
+		return nil
+	})
 }
 
 // CheckForUpdateAsync decides synchronously whether a check is due and, if so, persists

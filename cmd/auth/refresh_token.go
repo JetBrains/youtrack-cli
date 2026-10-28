@@ -95,8 +95,10 @@ Use --json for machine-readable output.`,
 			}
 
 			// Upsert in-place: same alias + same URL = token update, no alias collision.
-			cfg.AddInstance(alias, inst.URL, token)
-			if err := cfg.Save(); err != nil {
+			if cfg, err = config.Update(func(c *config.Config) error {
+				c.AddInstance(alias, inst.URL, token)
+				return nil
+			}); err != nil {
 				return fmt.Errorf("saving config: %w", err)
 			}
 			path, _ := config.ConfigPath()

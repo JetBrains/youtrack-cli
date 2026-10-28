@@ -271,9 +271,8 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 
 	// Load before creating a permanent token, so a broken config fails before anything exists in Hub.
 	save, _ := cmd.Flags().GetBool("save")
-	var cfg *config.Config
 	if save {
-		if cfg, err = config.Load(); err != nil {
+		if _, err = config.Load(); err != nil {
 			return err
 		}
 	}
@@ -301,16 +300,19 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	alias := ""
 	if save {
 		alias, _ = cmd.Flags().GetString("alias")
-		previous := maps.Clone(cfg.Instances)
-		if opts.session {
-			alias = cfg.AddInstanceOAuth(alias, baseURL, result.Token, result.ExpiresAt)
-		} else {
-			alias = cfg.AddInstance(alias, baseURL, result.Token)
-		}
-		if cfg.CurrentInstance == "" {
-			cfg.CurrentInstance = alias
-		}
-		if err := cfg.Save(); err != nil {
+		var previous map[string]config.Instance
+		if _, err := config.Update(func(cfg *config.Config) error {
+			previous = maps.Clone(cfg.Instances)
+			if opts.session {
+				alias = cfg.AddInstanceOAuth(alias, baseURL, result.Token, result.ExpiresAt)
+			} else {
+				alias = cfg.AddInstance(alias, baseURL, result.Token)
+			}
+			if cfg.CurrentInstance == "" {
+				cfg.CurrentInstance = alias
+			}
+			return nil
+		}); err != nil {
 			return revokeUnsavedToken(cmd, hubURL, tok.AccessToken, newTokenID, opts.tokenName, fmt.Errorf("saving config: %w", err))
 		}
 		result.ConfigFile, _ = config.ConfigPath()

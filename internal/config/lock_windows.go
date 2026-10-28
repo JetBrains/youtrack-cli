@@ -1,0 +1,12 @@
+package config
+
+import (
+	"os"
+
+	"golang.org/x/sys/windows"
+)
+
+// lockFile blocks until this process holds an exclusive lock on f; closing f releases it.
+func lockFile(f *os.File) error {
+	return windows.LockFileEx(windows.Handle(f.Fd()), windows.LOCKFILE_EXCLUSIVE_LOCK, 0, 1, 0, &windows.Overlapped{})
+}
