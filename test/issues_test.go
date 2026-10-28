@@ -1055,6 +1055,120 @@ func awaitIssueFields(t *testing.T, c *api.Client, issueID string, names ...stri
 	}, 10*time.Second, 20*time.Millisecond, "issue %s fixture fields did not become ready", issueID)
 }
 
+func attachDefaultProjectFields(t *testing.T, c *api.Client, project *api.Project, names ...string) {
+	t.Helper()
+	prototypes, err := c.ListCustomFields()
+	require.NoError(t, err)
+	attached, err := c.GetProjectCustomFields(project.ShortName)
+	require.NoError(t, err)
+	for _, name := range names {
+		var fieldID string
+		for _, prototype := range prototypes {
+			if prototype.Name == name {
+				fieldID = prototype.ID
+				break
+			}
+		}
+		require.NotEmpty(t, fieldID, "missing default custom-field prototype %q", name)
+		var exists bool
+		for _, field := range attached {
+			if field.Field != nil && field.Field.ID == fieldID {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			require.NoError(t, c.AddProjectCustomField(project.ShortName, fieldID))
+		}
+	}
+}
+
+func TestCmd_IssueFieldSet_ValuesAndClear(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+	attachDefaultProjectFields(t, c, proj, "Priority", "Assignee")
+
+	name := "Multi-" + strconv.FormatInt(time.Now().UnixMilli(), 36)
+	field, err := c.AddCustomField(name, api.FieldTypeEnumMulti)
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteCustomField(field.ID) })
+	require.NoError(t, c.AddProjectCustomField(proj.ShortName, field.ID))
+
+	var projectFields []struct {
+		Field  api.CustomField `json:"field"`
+		Bundle api.Bundle      `json:"bundle"`
+	}
+	require.NoError(t, c.Get("/api/admin/projects/"+proj.ID+"/customFields?fields=field(id),bundle(id)&$top=500", &projectFields))
+	var bundleID string
+	for _, pf := range projectFields {
+		if pf.Field.ID == field.ID {
+			bundleID = pf.Bundle.ID
+		}
+	}
+	require.NotEmpty(t, bundleID, "project field for %s has no bundle", name)
+	for _, v := range []string{"Alpha", "Platform. Auth & Licensing"} {
+		require.NoError(t, c.AddBundleValue("enum", bundleID, v))
+	}
+
+	issue, err := c.AddIssue(api.AddIssueRequest{
+		Summary: "field set values and clear test",
+		Project: &api.Project{ID: proj.ID},
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
+	// A newly attached project field reaches existing issues asynchronously.
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		_, err := c.GetCustomFieldValue(issue.IDReadable, name)
+		assert.NoError(collect, err)
+	}, 10*time.Second, 50*time.Millisecond, "field %s did not appear on %s", name, issue.IDReadable)
+
+	valueNames := func() []string {
+		got, err := c.GetCustomFieldValue(issue.IDReadable, name)
+		require.NoError(t, err)
+		raw, err := json.Marshal(got.Value)
+		require.NoError(t, err)
+		var values []struct {
+			Name string `json:"name"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &values), "value of %s: %s", name, raw)
+		names := make([]string, len(values))
+		for i, v := range values {
+			names[i] = v.Name
+		}
+		return names
+	}
+
+	out := runCmd(t, "issue", "field", "set", issue.IDReadable, name, "--value", "Alpha", "--value", "Platform. Auth & Licensing")
+	assert.Contains(t, out, "updated field "+name)
+	assert.ElementsMatch(t, []string{"Alpha", "Platform. Auth & Licensing"}, valueNames())
+
+	issueField, err := c.GetCustomFieldValue(issue.IDReadable, name)
+	require.NoError(t, err)
+	runCmd(t, "issue", "field", "set", issue.IDReadable, issueField.ID, "--value", "Alpha")
+	assert.Equal(t, []string{"Alpha"}, valueNames(), "--value replaces the current values using an opaque field ID")
+
+	out = runCmd(t, "issue", "field", "set", issue.IDReadable, issueField.ID, "--clear")
+	assert.Contains(t, out, "cleared field "+issueField.ID)
+	assert.Empty(t, valueNames())
+
+	errOut := runCmdExpectError(t, "issue", "field", "set", issue.IDReadable, "Priority", "--value", "Major", "--value", "Minor")
+	assert.Contains(t, errOut, "holds a single value")
+	errOut = runCmdExpectError(t, "issue", "field", "set", issue.IDReadable, name, "Alpha", "--clear")
+	assert.Contains(t, errOut, "pass exactly one of")
+	errOut = runCmdExpectError(t, "issue", "field", "set", issue.IDReadable, name)
+	assert.Contains(t, errOut, "pass exactly one of")
+
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+	runCmd(t, "issue", "field", "set", issue.IDReadable, "Assignee", me.Login, "--type", "user")
+	assertIssueAssignee(t, c, issue.IDReadable, me.Login)
+	out = runCmd(t, "issue", "field", "set", issue.IDReadable, "Assignee", "--clear")
+	assert.Contains(t, out, "cleared field Assignee")
+	got, err := c.GetCustomFieldValue(issue.IDReadable, "Assignee")
+	require.NoError(t, err)
+	assert.Nil(t, got.Value)
+}
+
 func TestCmd_IssueVisibility(t *testing.T) {
 	c := newTestClient(t)
 	proj := createTempProject(t, c)

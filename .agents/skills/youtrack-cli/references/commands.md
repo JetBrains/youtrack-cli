@@ -107,6 +107,8 @@ youtrack issue attachment delete <issueId> <attachmentId>
 ```bash
 youtrack issue field view <issueId> <fieldName>   # alias: get
 youtrack issue field set <issueId> <fieldName> <value>
+youtrack issue field set <issueId> <fieldName> --value V [--value V...]   # multi-value; replaces current values
+youtrack issue field set <issueId> <fieldName> --clear
 youtrack issue reaction add <issueId> <commentId> <reaction>
 youtrack issue reaction delete <issueId> <commentId> <reactionId>
 youtrack issue draft create [--project P] [--summary S]

@@ -121,6 +121,10 @@ EOF
 # move it along
 youtrack issue command DEMO-42 "State In Progress"
 
+# set several values of a multi-value field, or clear a field
+youtrack issue field set DEMO-42 Subsystem --value "Platform. Auth & Licensing" --value UI
+youtrack issue field set DEMO-42 Assignee --clear
+
 # view an issue with its five most recent comments
 youtrack issue view DEMO-42 --comments 5
 
