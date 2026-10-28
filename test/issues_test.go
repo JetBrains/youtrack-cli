@@ -1272,7 +1272,7 @@ func TestCmd_IssueCommand_NoNewTags(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		_ = c.DeleteTag(tag.ID)
-		tags, _ := c.ListTags()
+		tags, _ := c.ListTags(missing, 100)
 		for _, tg := range tags {
 			if tg.Name == missing {
 				_ = c.DeleteTag(tg.ID)
@@ -1293,7 +1293,7 @@ func TestCmd_IssueCommand_NoNewTags(t *testing.T) {
 	assert.Contains(t, stderr, missing)
 	assert.Contains(t, stderr, "nothing was applied")
 	assert.Empty(t, issueTags(), "a refused command must not apply any part")
-	tags, err := c.ListTags()
+	tags, err := c.ListTags(missing, 100)
 	require.NoError(t, err)
 	for _, tg := range tags {
 		assert.NotEqual(t, missing, tg.Name, "--no-new-tags must not create the tag")
