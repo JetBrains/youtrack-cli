@@ -81,6 +81,10 @@ Each test is self-contained: it creates all entities it needs and registers `t.C
 
 Tests may use `api.Client` for fixture setup and teardown, but not as a separate conformance suite. Keep tests centered on observable CLI behavior.
 
+`TestEmbeddedCommands` builds `test/testdata/embedding` as a separate CLI using the
+public embedding API, then runs it against the same live YouTrack instance. See
+[Embedding the CLI](embedding.md) for the supported integration points.
+
 Run a single test by name after loading the harness credentials. Without credentials, live-server tests skip:
 
 ```bash

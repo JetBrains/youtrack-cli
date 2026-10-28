@@ -121,7 +121,7 @@ func Execute(fs embed.FS) error {
 				_, _ = fmt.Fprintln(root.ErrOrStderr(), "Canceled.")
 			}
 		} else {
-			output.RenderError(root.ErrOrStderr(), execErr, jsonMode, quiet)
+			execErr = RenderError(root, execErr)
 		}
 	}
 	// Suppress the plain-text update notice when a JSON error envelope was written to stderr, so that stream stays parseable.
