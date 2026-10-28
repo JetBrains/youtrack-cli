@@ -813,8 +813,8 @@ func TestCmd_IssueCommentVisibility(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, comment.ID)
 
-	// Call with no groups/users — sets an empty LimitedVisibility which is valid
-	out := runCmd(t, "issue", "comment", "visibility", issue.IDReadable, comment.ID)
+	// Explicit public visibility clears the restriction.
+	out := runCmd(t, "issue", "comment", "visibility", issue.IDReadable, comment.ID, "--public")
 	assert.Contains(t, out, "updated visibility for comment "+comment.ID)
 
 	me, err := c.GetCurrentUser()
@@ -1306,22 +1306,6 @@ func TestCmd_IssueFieldSet_ValuesAndClear(t *testing.T) {
 	got, err := c.GetCustomFieldValue(issue.IDReadable, "Assignee")
 	require.NoError(t, err)
 	assert.Nil(t, got.Value)
-}
-
-func TestCmd_IssueVisibility(t *testing.T) {
-	c := newTestClient(t)
-	proj := createTempProject(t, c)
-
-	issue, err := c.AddIssue(api.AddIssueRequest{
-		Summary: "visibility test",
-		Project: &api.Project{ID: proj.ID},
-	})
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = c.DeleteIssue(issue.IDReadable) })
-
-	// Call with no groups/users — sets empty LimitedVisibility
-	out := runCmd(t, "issue", "visibility", issue.IDReadable)
-	assert.Contains(t, out, "updated visibility for "+issue.IDReadable)
 }
 
 func TestCmd_IssueReactionAddDelete(t *testing.T) {

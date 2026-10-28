@@ -94,6 +94,8 @@ save binary or non-JSON responses with `--output <path>`.
 - **Bulk update**: `youtrack issue list --query Q --json | jq '.[].id'` → loop `issue command`
 - **Field values with spaces, dots or several values**: prefer `issue field set <id> <field> --value "Platform. Auth & Licensing" --value UI` over `issue command`, whose parser can split such values into separate commands. `--clear` empties a field.
 - **Link a commit to an issue**: `youtrack issue vcs attach <id> <commitHash>` → `issue vcs list <id>` to confirm. The commit must be one a VCS integration on the project can see; YouTrack answers 404 otherwise. `detach` (alias `delete`) unlinks it, picking the mechanism YouTrack allows for that change: a hand-attached commit is deleted, an integration-attached one is detached.
+- **Private issue**: `youtrack issue create --project P --summary S --visibility "<group>"` — restricts the initial create request. Use `user:` or `group:` to disambiguate principal names, and `--public` for project-wide visibility.
+- **Private comment**: `youtrack issue comment create <id> --text T --visibility "<group>" --visibility <login>` — restricted in the same request, never public. Change it later with `issue comment visibility <id> <commentId> --groups G --users U` (both lists are replaced) or `--public`.
 - **Add user to project**: `youtrack user view <login> --json | jq .id` → `youtrack project team add-user <proj> <userId>`
 
 ## References

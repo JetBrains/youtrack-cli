@@ -60,7 +60,9 @@ func newCommentCreateCmd() *cobra.Command {
 		Use:     "create <issueId>",
 		Aliases: []string{"add"},
 		Short:   "Create a comment on an issue",
-		Args:    cobra.ExactArgs(1),
+		Example: "  youtrack issue comment create FOO-1 --text \"Repro steps attached\"\n" +
+			"  youtrack issue comment create FOO-1 --text \"Internal note\" --visibility \"Core Team\" --visibility alice",
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			text, _, err := textFromFlags(cmd, "text", "text-file")
 			if err != nil {
@@ -72,18 +74,25 @@ func newCommentCreateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			req := api.AddCommentRequest{Text: text}
+			visibility, err := visibilityFromFlags(cmd, client)
+			if err != nil {
+				return err
+			}
+			req := api.AddCommentRequest{Text: text, Visibility: visibility}
 
 			if asUser != "" {
-				user, err := client.GetUser(asUser)
+				userID, err := resolveUserID(client, asUser)
 				if err != nil {
 					return err
 				}
-				req.Author = &api.User{ID: user.ID}
+				req.Author = &api.User{ID: userID}
 			}
 
 			comment, err := client.AddComment(args[0], req)
 			if err != nil {
+				return err
+			}
+			if err := checkCreatedVisibility(visibility, comment.Visibility, "", "comment "+comment.ID); err != nil {
 				return err
 			}
 			return output.Print(cmd, comment)
@@ -93,6 +102,7 @@ func newCommentCreateCmd() *cobra.Command {
 	addTextFileFlag(cmd, "text", "text-file", "the comment text")
 	cmd.MarkFlagsOneRequired("text", "text-file")
 	cmd.Flags().String("asUser", "", "Post as this user (login)")
+	addVisibilityFlags(cmd, "comment")
 	return cmd
 }
 
@@ -151,24 +161,19 @@ func newCommentUpdateCmd() *cobra.Command {
 func newCommentVisibilityCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "visibility <issueId> <commentId>",
-		Short: "Set visibility on a comment",
-		Args:  cobra.ExactArgs(2),
+		Short: "Set who can see a comment",
+		Long:  visibilityLong("comment"),
+		Example: "  youtrack issue comment visibility FOO-1 4-17 --groups \"Core Team\"\n" +
+			"  youtrack issue comment visibility FOO-1 4-17 --public",
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			groups, _ := cmd.Flags().GetStringSlice("groups")
-			users, _ := cmd.Flags().GetStringSlice("users")
-			client, err := internal.GetClient(cmd)
-			if err != nil {
-				return err
-			}
-			if err := client.UpdateCommentVisibility(args[0], args[1], groups, users); err != nil {
-				return err
-			}
-			output.PrintSuccess(cmd, "updated visibility for comment "+args[1])
-			return nil
+			return runSetVisibility(cmd, "comment "+args[1], func(c *api.Client, v api.VisibilityChange) (*api.Visibility, string, error) {
+				got, err := c.SetCommentVisibility(args[0], args[1], v)
+				return got, "", err
+			})
 		},
 	}
-	cmd.Flags().StringSlice("groups", nil, "Permitted group IDs (comma-separated)")
-	cmd.Flags().StringSlice("users", nil, "Permitted user IDs (comma-separated)")
+	addSetVisibilityFlags(cmd)
 	return cmd
 }
 

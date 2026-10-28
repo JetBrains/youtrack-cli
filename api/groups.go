@@ -1,6 +1,7 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -21,6 +22,11 @@ func (c *Client) GetGroup(identifier string) (*Group, error) {
 	path := fmt.Sprintf(pathGroup+"?fields=id,name", url.PathEscape(identifier))
 	if err := c.Get(path, &result); err == nil {
 		return &result, nil
+	} else {
+		var apiErr *APIError
+		if !errors.As(err, &apiErr) || apiErr.StatusCode != 404 {
+			return nil, err
+		}
 	}
 
 	groups, err := c.ListGroups(identifier)
@@ -32,7 +38,7 @@ func (c *Client) GetGroup(identifier string) (*Group, error) {
 			return &groups[i], nil
 		}
 	}
-	return nil, fmt.Errorf("group '%s' not found", identifier)
+	return nil, fmt.Errorf("group '%s' %w", identifier, ErrNotFound)
 }
 
 func (c *Client) AddGroup(name string) (*Group, error) {
