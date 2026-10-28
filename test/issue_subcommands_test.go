@@ -208,6 +208,8 @@ func TestCmd_IssueSuggest(t *testing.T) {
 	// a commands array (possibly empty) and the echoed query.
 	out := runCmd(t, "issue", "command", "suggest", issue.IDReadable, "State ", "--format", "json")
 	assert.Contains(t, out, "commands")
+	preview := runJSON[map[string]any](t, "issue", "command", "suggest", issue.IDReadable, "assignee non.existent", "--json")
+	assert.Equal(t, "assignee {non.existent}", preview["query"], "suggest must preview the same normalized query as apply")
 }
 
 func TestCmd_IssueCreateDescriptionFile(t *testing.T) {

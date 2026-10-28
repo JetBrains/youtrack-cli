@@ -5,6 +5,7 @@
 - **Opaque IDs for team commands** — `project team add-user` / `project team add-group` expect opaque IDs (`2-9`, `4-1`), not logins/names. Resolve with `youtrack user view <login> --json | jq .id`.
 - **`project create` requires `--leader`** — the YouTrack API rejects creation without it. Use `user current` to get the current login if none is specified.
 - **`issue command` logins** — the CLI auto-wraps logins with `.`, `-`, or `@` in braces. Write the login as-is.
+- **`issue command "tag X"` creates X if it does not exist** — pass `--no-new-tags` to refuse instead; nothing is applied. Non-English or unverifiable previews are refused. This is a best-effort preflight; prefer `issue tag add` for exact existing-tag association.
 - **Output format** — table on TTY, JSON when piped. Use `--json` / `--plain` to override.
 
 ## Known defaults
