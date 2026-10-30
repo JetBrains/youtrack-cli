@@ -185,6 +185,14 @@ func TestCmd_MuteNotificationsRefusesUnauthorizedWrite(t *testing.T) {
 	require.NoError(t, c.GrantRoleToUser(user.ID, projectAdminRole, privileged.ID, ""))
 	other, err := c.AddIssue(api.AddIssueRequest{Summary: "other mute probe", Project: &api.Project{ID: privileged.ID}})
 	require.NoError(t, err)
+	// Team membership and role changes can take time to reach the user's permissions.
+	require.EventuallyWithT(t, func(collect *assert.CollectT) {
+		_, err := userClient.GetIssue(other.IDReadable)
+		assert.NoError(collect, err)
+	}, 10*time.Second, 20*time.Millisecond, "privileged issue must be readable before the bulk command")
+	// Prove this project's silent permission works before testing the mixed batch.
+	runCmd(t, "issue", "command", other.IDReadable, "tag "+tag.Name, "--token", token.Token, "--mute-notifications")
+	runCmd(t, "issue", "tag", "remove", other.IDReadable, tag.ID, "--token", token.Token)
 	denied = runCmdExpectError(t, "issue", "command", other.IDReadable+","+issue.IDReadable, "tag "+tag.Name, "--token", token.Token, "--mute-notifications")
 	assert.Contains(t, strings.ToLower(denied), "apply commands silently")
 	// The privileged issue must remain untagged even though it is first in the batch.
