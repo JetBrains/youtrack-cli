@@ -5,6 +5,8 @@ import (
 	"net/url"
 )
 
+const workflowRuleFields = "id,name,title,type,script"
+
 func (c *Client) ListWorkflows() ([]Workflow, error) {
 	const pageSize = 500
 	result := []Workflow{}
@@ -38,10 +40,30 @@ func (c *Client) RestoreDefaultWorkflows() error {
 	return c.Post(pathAdminWorkflowsRestoreStatus, map[string]any{"isDefault": true}, nil)
 }
 
-func (c *Client) AddWorkflowRule(workflowID, ruleType, name string) error {
-	path := fmt.Sprintf(pathAdminWorkflowRules, url.PathEscape(workflowID))
-	return c.Post(path, map[string]any{
-		"$type": ruleType,
-		"name":  name,
-	}, nil)
+func (c *Client) AddWorkflowRule(workflowID, ruleType, name, script string) (*WorkflowRule, error) {
+	body := map[string]any{
+		"$type":  ruleType,
+		"name":   name,
+		"script": script,
+	}
+	var result WorkflowRule
+	path := fmt.Sprintf(pathAdminWorkflowRules+"?fields="+workflowRuleFields, url.PathEscape(workflowID))
+	if err := c.Post(path, body, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) GetWorkflowRule(workflowID, ruleID string) (*WorkflowRule, error) {
+	var result WorkflowRule
+	path := fmt.Sprintf(pathAdminWorkflowRule+"?fields="+workflowRuleFields, url.PathEscape(workflowID), url.PathEscape(ruleID))
+	if err := c.Get(path, &result); err != nil {
+		return nil, err
+	}
+	return &result, nil
+}
+
+func (c *Client) UpdateWorkflowRuleScript(workflowID, ruleID, script string) error {
+	path := fmt.Sprintf(pathAdminWorkflowRule+"?fields=id", url.PathEscape(workflowID), url.PathEscape(ruleID))
+	return c.Post(path, map[string]any{"script": script}, nil)
 }

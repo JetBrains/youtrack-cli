@@ -266,6 +266,18 @@ youtrack dashboard update <id> --name NAME
 youtrack dashboard delete <id>
 ```
 
+## workflow
+
+```bash
+youtrack workflow list
+youtrack workflow create --name NAME [--title T]       # alias: add
+youtrack workflow delete <id>
+youtrack workflow restore
+youtrack workflow rule create <workflowId> --name NAME --script-file <path|->
+youtrack workflow rule view <workflowId> <ruleId>      # includes the script; --json for the exact bytes
+youtrack workflow rule update <workflowId> <ruleId> --script-file <path|->   # re-reads and compares; exits non-zero on mismatch
+```
+
 ## tag
 
 ```bash
