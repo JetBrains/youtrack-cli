@@ -13,9 +13,12 @@ import (
 )
 
 // Confirm asks "<msg>" as a yes/no question on cmd's stderr (a huh field in a terminal, "[y/N]" on piped stdin), defaulting to no.
-// Skips the prompt and returns true immediately if --force is set on cmd.
+// Skips the prompt and returns true immediately if --force is set on cmd, or under --dry-run, which sends no write.
 func Confirm(cmd *cobra.Command, msg string) (bool, error) {
 	if force, _ := cmd.Flags().GetBool("force"); force {
+		return true, nil
+	}
+	if dryRun, _ := cmd.Root().PersistentFlags().GetBool("dry-run"); dryRun {
 		return true, nil
 	}
 	confirmed := false

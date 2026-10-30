@@ -33,6 +33,10 @@ youtrack instance delete [--force] <alias>       # alias: remove
 --base-url URL         Override YOUTRACK_BASE_URL
 --token TOKEN          Override YOUTRACK_TOKEN
 --verbose              Print HTTP requests/responses to stderr
+--dry-run              Print the first write (method, URL, body) instead of sending it; reads still run,
+                       confirmations are skipped, exit 0. Rejected for auth/instance/skill/update
+--mute-notifications   Add muteUpdateNotifications=true to every POST/PUT/DELETE
+                       (silent: true for issue command); needs Apply Commands Silently or HTTP 403
 ```
 
 (`--format json|table|plain` still works but is a deprecated, hidden alias for `--json`/`--plain`.)

@@ -235,6 +235,10 @@ youtrack issue list --query "assignee: me State: Open" --quiet \
 
 To see the underlying HTTP request and response while debugging a script, add `--verbose`. It writes the method, URL, and status to stderr, leaving stdout clean.
 
+To check a write before running it for real, add `--dry-run`. Reads still run, but the first write is printed to stdout instead of sent — as JSON (`dryRun`, `method`, `url`, `body`) when stdout is not a terminal — and the command exits 0 without changing anything. Commands that write more than once stop at the first write.
+
+For bulk edits that would otherwise email every watcher, add `--mute-notifications`. It adds the parameter to every POST, PUT, and DELETE request and needs the *Apply Commands Silently* permission in every affected project. Without it the write fails with HTTP 403 and nothing changes. Retry without the flag only if notifications are acceptable; workflow notifications are not muted.
+
 <seealso>
 <category ref="user-guide">
 <a href="youtrack-cli-managing-issues.md">Managing Issues</a>
