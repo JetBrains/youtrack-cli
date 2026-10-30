@@ -24,7 +24,15 @@ type jsonErrorBody struct {
 
 // RenderError writes err to w (stderr) — a {"error":{...}} envelope in JSON mode, "✗ Error: <msg>" otherwise; appends a Tip unless quiet.
 func RenderError(w io.Writer, err error, jsonMode, quiet bool) {
+	RenderErrorForCommand(w, err, jsonMode, quiet, "youtrack")
+}
+
+// RenderErrorForCommand uses the embedding application's command name in hints.
+func RenderErrorForCommand(w io.Writer, err error, jsonMode, quiet bool, commandName string) {
 	tip := tipFor(err)
+	if commandName != "" {
+		tip = strings.ReplaceAll(tip, "youtrack ", commandName+" ")
+	}
 	if jsonMode {
 		env := jsonErrorEnvelope{Error: jsonErrorBody{
 			Code:       errorCode(err),
