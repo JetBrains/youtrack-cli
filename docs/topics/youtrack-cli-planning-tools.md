@@ -2,7 +2,7 @@
 
 <show-structure for="chapter" depth="2"/>
 
-YouTrack CLI can work with YouTrack's planning surfaces: agile boards, sprints, Gantt charts, dashboards, and whiteboards. This surface is thinner than the issue commands — some entities support full create, update, and delete, others are read-mostly, and a few can only be created in the web interface. Each section states what the CLI can and can't do. These entities are identified by an opaque `id` that YouTrack returns, for example `126-0`; run the matching `list` command to look one up.
+YouTrack CLI can work with YouTrack's planning surfaces: agile boards, sprints, Gantt charts, and dashboards. This surface is thinner than the issue commands — some entities support full create, update, and delete, others are read-mostly, and a few can only be created in the web interface. Each section states what the CLI can and can't do. These entities are identified by an opaque `id` that YouTrack returns, for example `126-0`; run the matching `list` command to look one up.
 
 ## Working with agile boards {id="boards"}
 
@@ -139,89 +139,6 @@ youtrack dashboard delete 152-5
 The `--name` flag is required on both `create` and `update`. There is no `dashboard view` command; use `dashboard list` to find a dashboard's `id` and name.
 
 `dashboard delete` asks for confirmation. Add `--force` to skip the prompt in scripts.
-
-## Working with whiteboards {id="whiteboards"}
-
-A whiteboard is a free-form canvas of nodes connected by links, and has the fullest CLI coverage of the planning tools: you can create whiteboards, add nodes at coordinates, and draw links between them.
-
-> Whiteboards were previously called canvases. Use `whiteboard` — the `canvas` name is gone.
->
-{style="note"}
-
-### Managing whiteboards
-
-```Shell
-youtrack whiteboard list
-youtrack whiteboard view 173-0
-youtrack whiteboard create --name "Roadmap sketch" --owner jane.doe
-youtrack whiteboard reload 173-0
-youtrack whiteboard delete 173-0
-```
-
-On `create`, `--name` is required and `--owner` — a user login — is optional. The `reload` command refreshes a whiteboard's server-side state.
-
-`whiteboard delete` asks for confirmation. Add `--force` to skip the prompt in scripts.
-
-### Managing nodes
-
-A node is a card on the whiteboard. List the nodes, view one by its card `id`, or create one at explicit coordinates:
-
-```Shell
-youtrack whiteboard node list 173-0
-youtrack whiteboard node view 173-0 174-2
-youtrack whiteboard node create 173-0 --x 120 --y 240 --label "Discovery" --description "Research phase"
-```
-
-The `--x` and `--y` coordinates are required. The `--label` and `--description` flags are optional. Creating a node returns its card `id`, which you pass to `node view` and to the link commands.
-
-### Linking nodes
-
-List the links on a whiteboard, or draw a new link between two nodes:
-
-```Shell
-youtrack whiteboard links 173-0
-youtrack whiteboard link 173-0 --source 174-2 --target 174-5 --link-type TWO_WAY
-```
-
-<table>
-<tr><td>Flag</td><td>Description</td></tr>
-<tr><td>
-
-`--source`
-
-</td><td>
-
-Card `id` of the source node. Required.
-
-</td></tr>
-<tr><td>
-
-`--target`
-
-</td><td>
-
-Card `id` of the target node. Required.
-
-</td></tr>
-<tr><td>
-
-`--link-type`
-
-</td><td>
-
-One of `ONE_WAY`, `TWO_WAY`, or `PROTOTYPED`. Defaults to `ONE_WAY`.
-
-</td></tr>
-<tr><td>
-
-`--link-prototype`
-
-</td><td>
-
-Issue link type `id`. Required only when `--link-type` is `PROTOTYPED`.
-
-</td></tr>
-</table>
 
 ## Formatting output for scripts
 
