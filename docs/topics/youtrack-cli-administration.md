@@ -87,11 +87,25 @@ youtrack workflow create --name custom-escalation --title "Escalation rules"
 youtrack workflow delete 8-2
 ```
 
-`workflow delete` prompts for confirmation; pass `--force` to skip it. Add a rule to an existing workflow by passing the workflow ID:
+`workflow delete` prompts for confirmation; pass `--force` to skip it. Add a rule to an existing workflow by passing the workflow ID and the rule's JavaScript source. Rule names may contain only lowercase letters, digits, `-`, `_`, `.`, and `~`. YouTrack loads the script when you save it and rejects the rule if the script does not compile:
 
 ```Shell
-youtrack workflow rule create 8-2 --name "On state change" --type StateMachineRule
+youtrack workflow rule create 8-2 --name on-state-change --script-file on-state-change.js
 ```
+
+View a rule, including its script, and replace the script. Pass `-` to `--script-file` to read the script from stdin:
+
+```Shell
+youtrack workflow rule view 8-2 9-14
+youtrack workflow rule view 8-2 9-14 --json | jq -r .script > on-state-change.js
+youtrack workflow rule update 8-2 9-14 --script-file on-state-change.js
+```
+
+`workflow rule update` reads the rule back after the write and compares the stored script with the one it sent, byte for byte. When they differ, it reports the sent and stored byte counts and exits with a non-zero status. Verification confirms the stored script, not its bindings in each project; project requirements can still fail. A rule is shared by every project the workflow is attached to, so a script YouTrack rejects or changes affects all of them.
+
+> Table and plain output strip control characters such as carriage returns from the script. Use `--json` when you need the exact stored source.
+>
+{style="note"}
 
 To reset the instance to its shipped workflows, run `youtrack workflow restore`.
 
