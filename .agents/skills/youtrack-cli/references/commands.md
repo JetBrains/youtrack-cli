@@ -197,21 +197,6 @@ youtrack user profile timetracking view <login>
 | `articles` | `'{"showSidebar":true}'` |
 | `issues-list` | `'{"defaultQuery":"for: me"}'` |
 
-## whiteboard
-
-```bash
-youtrack whiteboard list
-youtrack whiteboard create --name NAME [--owner LOGIN]   # alias: add
-youtrack whiteboard view <id>                             # alias: get
-youtrack whiteboard delete <id>
-youtrack whiteboard reload <id>
-youtrack whiteboard node list <whiteboardId>
-youtrack whiteboard node view <whiteboardId> <cardId>      # alias: get
-youtrack whiteboard node create <whiteboardId> --x N --y N [--label L] [--description D]  # alias: add
-youtrack whiteboard links <whiteboardId>
-youtrack whiteboard link <whiteboardId> --source <cardId> --target <cardId> [--link-type ONE_WAY|TWO_WAY|PROTOTYPED] [--link-prototype <id>]
-```
-
 ## board
 
 ```bash
