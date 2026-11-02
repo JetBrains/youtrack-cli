@@ -54,7 +54,8 @@ When the user asks to create a role, always create a new one with a unique name 
 
 - Always run a lookup command first when you need an internal ID: `user view <login>`, `project list`, `role list`, `board list`, etc.
 - Use `--description-file` (issue create/update, draft) and `--text-file` (issue comment create/update) to pass long content from a file instead of an inline string. `-` reads standard input and, unlike `/dev/stdin`, works on Windows too; pipe long markdown in to keep shell-sensitive characters intact without a temp file.
-- `issue visibility` / `issue comment visibility` accept `--groups` / `--users` as comma-separated ID lists.
+- `issue visibility`, `issue comment visibility`, and `issue attachment visibility` take `--groups` (names or IDs) and `--users` (logins or IDs), or `--public`. Each call replaces both lists: `--users alice` alone leaves only alice, any group access is removed. A call with neither is rejected, because empty lists make the entity public. The visibility is re-read after the write and a mismatch is an error.
+- **Restricted issues and comments must be restricted at creation.** youtrack.jetbrains.com and other public instances notify watchers as soon as a comment is posted, so a comment posted public and restricted afterwards has already leaked. Pass `--visibility <group|login>` (repeatable, `group:`/`user:` prefix when a name is both) to `issue create` or `issue comment create`.
 - All boolean flags accept `true`/`false`, e.g. `--enabled=false`.
 - Run `youtrack <group> --help` or `youtrack <group> <subcommand> --help` to see a command's full flag list.
 - Bare `--json` returns every field the API sends; use `--fields` to project down to what you need.

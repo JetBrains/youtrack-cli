@@ -50,7 +50,7 @@ Declining a destructive-action confirmation exits `0` and reports `{"status":"ca
 youtrack issue view <issueId> [--comments N] [--no-description] [--only-fields]
                                        # alias: get; --only-fields makes --fields replace the default projection
 youtrack issue list --query Q [--limit N] [--offset N]
-youtrack issue create --project P --summary S [--description D | --description-file <path|->] [--parent <issueId>]
+youtrack issue create --project P --summary S [--description D | --description-file <path|->] [--parent <issueId>] [--visibility <group|login>]... [--public]
                                        # alias: add
 youtrack issue update <issueId> [--summary S] [--description D | --description-file <path|->]
                                        # --description "" clears it; omitted fields are preserved
@@ -74,17 +74,18 @@ youtrack issue unvote <issueId>
 youtrack issue tag list <issueId>
 youtrack issue tag add <issueId> <tagId|name>      # exact name; fails on no match or ambiguity, never creates
 youtrack issue tag remove <issueId> <tagId|name>   # name is matched among the issue's tags
-youtrack issue visibility <issueId> [flags]
+youtrack issue visibility <issueId> (--groups <names|ids> | --users <logins|ids> | --public)
+                                       # replaces both lists; an omitted list is cleared
 ```
 
 **comment**
 ```bash
 youtrack issue comment list <issueId> [--include-deleted]   # JSON includes deleted, pinned, visibility
-youtrack issue comment create <issueId> (--text "..." | --text-file <path|->)   # alias: add
+youtrack issue comment create <issueId> (--text "..." | --text-file <path|->) [--visibility <group|login>]... [--public]   # alias: add
 youtrack issue comment update <issueId> <commentId> (--text "..." | --text-file <path|->)
 youtrack issue comment delete <issueId> <commentId>
 youtrack issue comment pin <issueId> <commentId>
-youtrack issue comment visibility <issueId> <commentId> [flags]
+youtrack issue comment visibility <issueId> <commentId> (--groups <names|ids> | --users <logins|ids> | --public)
 ```
 
 **link**
@@ -101,6 +102,7 @@ youtrack issue link type create --name N --source-to-target S --target-to-source
 youtrack issue attachment list <issueId>
 youtrack issue attachment add <issueId> --file <filepath>
 youtrack issue attachment delete <issueId> <attachmentId>
+youtrack issue attachment visibility <issueId> <attachmentId> (--groups <names|ids> | --users <logins|ids> | --public)
 ```
 
 **field / reaction / draft / workitem**

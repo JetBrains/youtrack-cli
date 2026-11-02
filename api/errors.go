@@ -1,6 +1,12 @@
 package api
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
+
+// ErrNotFound marks a lookup that completed and found no match, as opposed to one that failed.
+var ErrNotFound = errors.New("not found")
 
 // APIError is returned by the API client for non-2xx HTTP responses.
 // Callers can use errors.As to inspect StatusCode for tip lookup or JSON error codes.

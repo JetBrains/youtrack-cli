@@ -78,7 +78,14 @@ func newIssueCreateCmd() *cobra.Command {
 				return err
 			}
 
+			visibility, err := visibilityFromFlags(cmd, client)
+			if err != nil {
+				return err
+			}
+
 			req := api.AddIssueRequest{
+				Visibility: visibility,
+
 				Summary:     summary,
 				Description: description,
 				Project:     &api.Project{ID: project.ID},
@@ -96,11 +103,11 @@ func newIssueCreateCmd() *cobra.Command {
 			}
 
 			if asUser != "" {
-				user, err := client.GetUser(asUser)
+				userID, err := resolveUserID(client, asUser)
 				if err != nil {
 					return err
 				}
-				req.Reporter = &api.User{ID: user.ID}
+				req.Reporter = &api.User{ID: userID}
 			}
 
 			issue, err := client.AddIssue(req)
@@ -132,6 +139,7 @@ func newIssueCreateCmd() *cobra.Command {
 	cmd.Flags().StringArray("tag", nil, "Tag the issue, by tag name or ID (repeatable)")
 	cmd.Flags().String("parent", "", "Parent issue ID (e.g. FOO-1)")
 	cmd.Flags().String("asUser", "", "Create as this user (login)")
+	addVisibilityFlags(cmd, "issue")
 	internal.MustMarkRequired(cmd, "project", "summary")
 	return cmd
 }
