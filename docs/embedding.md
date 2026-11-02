@@ -29,8 +29,9 @@ func main() {
 		return client, nil
 	})
 	if err := root.ExecuteContext(ctx); err != nil {
-		err = cmd.RenderError(root, err)
-		os.Exit(1)
+		if err := cmd.RenderError(root, err); err != nil {
+			os.Exit(1)
+		}
 	}
 }
 ```
@@ -46,6 +47,7 @@ The CLI shallow-copies a supplied client before applying the command context and
 and sets a versioned CLI User-Agent unless the client already has a custom one.
 The provider's original client is unchanged. Its `HTTPClient` and transport are
 shared, preserving their timeout, redirect, and credential-handling policies.
+When write controls are available, their flags also apply to the client copy.
 Configure those policies for the application's authentication model.
 
 This provider applies to commands using the normal client resolver. Authentication
@@ -59,12 +61,12 @@ one client does not alter other clients or the process-wide HTTP transport.
 
 For additional commands, use `cmd.PrintOutput(command, data)` to honor `--json`,
 `--plain`, `--fields`, automatic format selection, and `command.OutOrStdout()`.
-Use `cmd.OutputFormat(command)` to inspect the selected format and
-`cmd.RenderError(command, err)` to write the standard error envelope or terminal
+Use `cmd.OutputFormat(command)` to inspect the selected format. Automatic detection
+uses `command.OutOrStdout()`; buffers and other non-terminal writers default to
+JSON unless a format flag is supplied.
+Use `cmd.RenderError(command, err)` to write the standard error envelope or terminal
 message to `command.ErrOrStderr()`. The error wrapper preserves JSON error codes,
 suggestions, and `--quiet` behavior, using the root command's name in canned hints.
 
-Client setup copies the supplied client before applying command options. When
-write controls are available, the same setup applies their flags to that copy;
-the host can pass preview errors to `RenderError` and receives nil after a
-successful preview. The provider's original client remains unchanged.
+`RenderError` returns nil after printing a dry-run preview. Check its return value
+before choosing the host application's exit status.

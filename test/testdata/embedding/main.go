@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"errors"
@@ -31,6 +32,11 @@ func execute() error {
 	root.Use = "embedded-youtrack"
 	root.SetOut(os.Stdout)
 	root.SetErr(os.Stderr)
+	if path := os.Getenv("EMBED_BUFFER_OUTPUT"); path != "" {
+		var captured bytes.Buffer
+		root.SetOut(&captured)
+		defer func() { _ = os.WriteFile(path, captured.Bytes(), 0o600) }()
+	}
 	root.AddCommand(&cobra.Command{
 		Use: "embedded-output", GroupID: "util",
 		RunE: func(c *cobra.Command, _ []string) error {

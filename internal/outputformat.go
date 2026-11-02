@@ -1,13 +1,11 @@
 package internal
 
 import (
-	"os"
-
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 )
 
-// OutputFormat resolves --json, --plain, explicit --format, and finally stdout's
+// OutputFormat resolves --json, --plain, explicit --format, and finally the output writer's
 // terminal status, in that order. Keeping it here lets confirmations and entity
 // output share the same rules without an import cycle.
 func OutputFormat(cmd *cobra.Command) string {
@@ -22,8 +20,8 @@ func OutputFormat(cmd *cobra.Command) string {
 		format, _ := flags.GetString("format")
 		return format
 	}
-	if !term.IsTerminal(int(os.Stdout.Fd())) {
-		return "json"
+	if out, ok := cmd.OutOrStdout().(interface{ Fd() uintptr }); ok && term.IsTerminal(int(out.Fd())) {
+		return "table"
 	}
-	return "table"
+	return "json"
 }
