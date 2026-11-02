@@ -378,7 +378,7 @@ func (c *Client) AddIssueAttachmentWithVisibility(issueID, filePath string, visi
 		return nil, err
 	}
 	var result IssueAttachment
-	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,mimeType,created,"+visibilityFields, url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created,"+visibilityFields, url.PathEscape(issueID))
 	err = c.Post(path, map[string]any{
 		"name":          filepath.Base(filePath),
 		"base64Content": "data:application/octet-stream;base64," + base64.StdEncoding.EncodeToString(data),

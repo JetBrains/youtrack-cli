@@ -36,6 +36,7 @@ func TestCmd_AttachmentVisibilityOnUpload(t *testing.T) {
 			}
 			uploaded := runJSON[api.IssueAttachment](t, args...)
 			require.NotEmpty(t, uploaded.ID)
+			assert.NotEmpty(t, uploaded.URL, "visibility-aware uploads retain the attachment URL")
 			require.NotNil(t, uploaded.Visibility)
 			assert.Equal(t, "LimitedVisibility", uploaded.Visibility.Type)
 			stored := readVisibility(t, c, fmt.Sprintf("/api/issues/%s/attachments/%s", f.issue, uploaded.ID))
@@ -57,6 +58,7 @@ func TestCmd_AttachmentVisibilityOnUpload(t *testing.T) {
 		})
 	}
 	public := runJSON[api.IssueAttachment](t, "issue", "attachment", "add", f.issue, "--file", file, "--public", "--json")
+	assert.NotEmpty(t, public.URL, "explicitly public uploads retain the attachment URL")
 	require.NotNil(t, public.Visibility)
 	assert.Equal(t, "UnlimitedVisibility", public.Visibility.Type)
 	listed := runJSON[[]api.IssueAttachment](t, "--token", token, "issue", "attachment", "list", f.issue, "--json")
