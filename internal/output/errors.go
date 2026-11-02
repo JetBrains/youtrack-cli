@@ -49,6 +49,9 @@ func tipFor(err error) string {
 		case 401:
 			return "Run 'youtrack auth get-token' to re-authenticate"
 		case 403:
+			if strings.Contains(strings.ToLower(apiErr.Error()), "apply commands silently") {
+				return "--mute-notifications needs the Apply Commands Silently permission in each affected project; ask a project admin, or retry without the flag only if notifications are acceptable"
+			}
 			return "Check your permissions for this operation"
 		case 404:
 			return "Resource not found — verify the ID"
