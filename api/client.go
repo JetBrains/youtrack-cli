@@ -133,16 +133,43 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 		req.Header.Set("Content-Type", contentType)
 	}
 	if c.Verbose {
-		_, _ = fmt.Fprintf(os.Stderr, "> %s %s%s\n", method, c.BaseURL, path)
+		_, _ = fmt.Fprintf(os.Stderr, "> %s %s%s\n", method, c.BaseURL, redactSignature(path))
 	}
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			urlErr.URL = redactSignature(urlErr.URL)
+		}
 		return nil, err
 	}
 	if c.Verbose {
 		_, _ = fmt.Fprintf(os.Stderr, "< %d\n", resp.StatusCode)
 	}
 	return resp, nil
+}
+
+// redactSignature hides signed download credentials in query parameters and older path-style URLs.
+func redactSignature(rawURL string) string {
+	base, query, ok := strings.Cut(rawURL, "?")
+	segments := strings.Split(base, "/")
+	for i, segment := range segments {
+		if decoded, err := url.PathUnescape(segment); err == nil && strings.HasPrefix(decoded, "sign=") {
+			segments[i] = "sign=REDACTED"
+		}
+	}
+	base = strings.Join(segments, "/")
+	if !ok {
+		return base
+	}
+	params := strings.Split(query, "&")
+	for i, p := range params {
+		key, _, _ := strings.Cut(p, "=")
+		if decoded, err := url.QueryUnescape(key); err == nil && decoded == "sign" {
+			params[i] = "sign=REDACTED"
+		}
+	}
+	return base + "?" + strings.Join(params, "&")
 }
 
 func validRequestPath(path string) bool {
