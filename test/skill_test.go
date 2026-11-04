@@ -38,10 +38,13 @@ func TestSkill_InstallUpdateRemove(t *testing.T) {
 	assert.Contains(t, stdout, "installed youtrack-cli")
 	assert.Contains(t, stdout, "claude-code")
 
-	// Verify SKILL.md written to claude-code project-level dir
+	// SKILL.md is a stub pointing at skill guide; the pages stay in the binary
 	skillMD := filepath.Join(dir, ".claude", "skills", "youtrack-cli", "SKILL.md")
-	_, err = os.Stat(skillMD)
+	stub, err := os.ReadFile(skillMD)
 	require.NoError(t, err, "SKILL.md should exist after install")
+	assert.Contains(t, string(stub), "youtrack skill guide youtrack-cli")
+	_, err = os.Stat(filepath.Join(dir, ".claude", "skills", "youtrack-cli", "references"))
+	assert.True(t, os.IsNotExist(err), "references are served by skill guide, not installed")
 
 	// Update: already at latest version, should report up to date
 	stdout, _, err = runCmdInDir(t, dir, "skill", "update", "--agent", "claude-code", "--project")
@@ -79,4 +82,37 @@ func TestSkill_UpdateChecksEveryAgent(t *testing.T) {
 	skillMD := filepath.Join(dir, ".claude", "skills", "youtrack-cli", "SKILL.md")
 	_, err = os.Stat(skillMD)
 	require.NoError(t, err, "SKILL.md should exist for claude-code after update")
+}
+
+func TestSkill_Guide(t *testing.T) {
+	dir := t.TempDir()
+
+	stdout, _, err := runCmdInDir(t, dir, "skill", "guide")
+	require.NoError(t, err)
+	assert.Contains(t, stdout, "# YouTrack CLI")
+	assert.Contains(t, stdout, "youtrack skill guide youtrack-cli references/commands")
+	assert.Contains(t, stdout, "## Topics")
+
+	stdout, _, err = runCmdInDir(t, dir, "skill", "guide", "youtrack-cli", "gotchas")
+	require.NoError(t, err)
+	assert.NotContains(t, stdout, "## Topics")
+
+	stdout, _, err = runCmdInDir(t, dir, "skill", "guide", "youtrack-cli", "references/commands", "--json")
+	require.NoError(t, err)
+	var page struct {
+		Skill   string `json:"skill"`
+		Topic   string `json:"topic"`
+		Content string `json:"content"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(stdout), &page), "output was: %s", stdout)
+	assert.Equal(t, "references/commands", page.Topic)
+	assert.NotEmpty(t, page.Content)
+
+	_, stderr, err := runCmdInDir(t, dir, "skill", "guide", "nonexistent-skill")
+	require.Error(t, err)
+	assert.Contains(t, stderr, "unknown skill")
+
+	_, stderr, err = runCmdInDir(t, dir, "skill", "guide", "youtrack-cli", "nonexistent-topic")
+	require.Error(t, err)
+	assert.Contains(t, stderr, "unknown topic")
 }
