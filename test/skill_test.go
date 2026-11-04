@@ -92,6 +92,19 @@ func TestSkill_Guide(t *testing.T) {
 	assert.Contains(t, stdout, "# YouTrack CLI")
 	assert.Contains(t, stdout, "youtrack skill guide youtrack-cli references/commands")
 	assert.Contains(t, stdout, "## Topics")
+	markdown := stdout
+	for _, flags := range [][]string{{"--json"}, {"--format", "json"}} {
+		encoded, _, err := runCmdInDir(t, dir, append([]string{"skill", "guide"}, flags...)...)
+		require.NoError(t, err)
+		var document string
+		require.NoError(t, json.Unmarshal([]byte(encoded), &document))
+		assert.Equal(t, markdown, document)
+	}
+	for _, flags := range [][]string{{"--plain"}, {"--format", "plain"}, {"--format", "table"}} {
+		plain, _, err := runCmdInDir(t, dir, append([]string{"skill", "guide"}, flags...)...)
+		require.NoError(t, err)
+		assert.Equal(t, markdown, plain)
+	}
 
 	stdout, _, err = runCmdInDir(t, dir, "skill", "guide", "youtrack-cli", "gotchas")
 	require.NoError(t, err)

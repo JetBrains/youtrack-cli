@@ -201,6 +201,8 @@ youtrack skill guide      # print the guide that installed skills point to
 
 Installed skills are short stubs that tell the agent to run `youtrack skill guide`, so after a CLI upgrade agents read the instructions for the new version without reinstalling.
 
+The guide prints Markdown by default, including through a pipe. Use `--json` or `--format json` to receive that Markdown as a JSON string.
+
 or specifically for **Claude Code** via the GitHub CLI:
 ```bash
 gh skill install JetBrains/youtrack-cli youtrack-cli --allow-hidden-dirs --agent claude-code
