@@ -36,7 +36,12 @@ type Client struct {
 	UserAgent  string
 	Verbose    bool
 	Fields     string // when non-empty, extends the fields= query param on GET requests
-	ctx        context.Context
+	// MuteNotifications suppresses notifications on API writes.
+	MuteNotifications bool
+	// DryRun describes writes instead of sending them.
+	DryRun bool
+	Warn   io.Writer
+	ctx    context.Context
 }
 
 func NewClient(baseURL, token string) *Client {
@@ -137,16 +142,43 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 		req.Header.Set("Content-Type", contentType)
 	}
 	if c.Verbose {
-		_, _ = fmt.Fprintf(os.Stderr, "> %s %s%s\n", method, c.BaseURL, path)
+		_, _ = fmt.Fprintf(os.Stderr, "> %s %s%s\n", method, c.BaseURL, redactSignature(path))
 	}
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			urlErr.URL = redactSignature(urlErr.URL)
+		}
 		return nil, err
 	}
 	if c.Verbose {
 		_, _ = fmt.Fprintf(os.Stderr, "< %d\n", resp.StatusCode)
 	}
 	return resp, nil
+}
+
+// redactSignature hides signed download credentials in query parameters and older path-style URLs.
+func redactSignature(rawURL string) string {
+	base, query, ok := strings.Cut(rawURL, "?")
+	segments := strings.Split(base, "/")
+	for i, segment := range segments {
+		if decoded, err := url.PathUnescape(segment); err == nil && strings.HasPrefix(decoded, "sign=") {
+			segments[i] = "sign=REDACTED"
+		}
+	}
+	base = strings.Join(segments, "/")
+	if !ok {
+		return base
+	}
+	params := strings.Split(query, "&")
+	for i, p := range params {
+		key, _, _ := strings.Cut(p, "=")
+		if decoded, err := url.QueryUnescape(key); err == nil && decoded == "sign" {
+			params[i] = "sign=REDACTED"
+		}
+	}
+	return base + "?" + strings.Join(params, "&")
 }
 
 func validRequestPath(path string) bool {
@@ -284,6 +316,10 @@ func readOnly() bool {
 
 // prepareWrite applies the same write policy to JSON, streaming, and multipart requests.
 func (c *Client) prepareWrite(method, path string, body any) (string, error) {
+	path = c.applyMute(method, path)
+	if c.DryRun {
+		return path, newDryRunError(method, c.BaseURL+path, body)
+	}
 	if readOnly() {
 		return path, errReadOnly
 	}
@@ -330,6 +366,11 @@ func (c *Client) sendJSON(method, path string, body, result any) error {
 
 // Multipart uploads a file as a multipart/form-data attachment.
 func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any) error {
+	if c.DryRun {
+		if err := checkReadableFile(filePath); err != nil {
+			return err
+		}
+	}
 	path, err := c.prepareWrite("POST", path, map[string]string{"file": filePath, "fileName": fileName, "contentType": mimeType})
 	if err != nil {
 		return err
@@ -363,3 +404,25 @@ func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any
 // Content-Disposition line and inject part headers. Quotes and backslashes stay as-is: YouTrack reads raw quotes
 // leniently but treats a backslash as a path separator, so escaping them would corrupt the stored name.
 var headerBreakEscaper = strings.NewReplacer("\r", "%0D", "\n", "%0A")
+
+// checkReadableFile fails the way a real upload would on a missing, unreadable, or directory path, so a dry run doesn't report a request that cannot be sent.
+func checkReadableFile(filePath string) error {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return fmt.Errorf("read %s: is a directory", filePath)
+	}
+	return nil
+}
+
+// SetWriteOptions configures CLI write controls on a command-scoped client copy.
+func (c *Client) SetWriteOptions(dryRun, mute bool, warn io.Writer) {
+	c.DryRun, c.MuteNotifications, c.Warn = dryRun, mute, warn
+}

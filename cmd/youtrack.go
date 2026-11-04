@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"embed"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -55,7 +54,13 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 	}
 
 	rootCmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, _ []string) { maybePromptForUpdate(cmd) }
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if err := rejectLocalDryRun(cmd); err != nil {
+			return err
+		}
+		maybePromptForUpdate(cmd)
+		return nil
+	}
 
 	f := rootCmd.PersistentFlags()
 	f.String("format", "table", "Output format: table, json, or plain (deprecated: use --json or --plain)")
@@ -67,6 +72,8 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 	f.String("token", "", "Override YOUTRACK_TOKEN")
 	f.Bool("verbose", false, "Print HTTP request/response to stderr")
 	f.Bool("quiet", false, "Suppress tips and hints (useful for scripting)")
+	f.Bool("mute-notifications", false, "Don't notify watchers about writes; needs Apply Commands Silently in each affected project, otherwise the write fails with HTTP 403")
+	f.Bool("dry-run", false, "Print the first write request (method, URL, body) instead of sending it; reads still run")
 	_ = f.MarkHidden("format")
 
 	rootCmd.AddGroup(
@@ -111,19 +118,7 @@ func Execute(fs embed.FS) error {
 	execErr := root.ExecuteContext(ctx)
 	quiet, _ := root.PersistentFlags().GetBool("quiet")
 	jsonMode := output.Format(root) == "json"
-	if execErr != nil {
-		// A user-initiated Ctrl+C during an interactive prompt cancels the root
-		// context; that's not a failure worth an "✗ Error" — print a plain
-		// cancellation notice instead (skipped in JSON mode: there's no
-		// machine-readable "canceled" state worth emitting to a script).
-		if errors.Is(execErr, context.Canceled) {
-			if !jsonMode {
-				_, _ = fmt.Fprintln(root.ErrOrStderr(), "Canceled.")
-			}
-		} else {
-			execErr = RenderError(root, execErr)
-		}
-	}
+	execErr = RenderError(root, execErr)
 	// Suppress the plain-text update notice when a JSON error envelope was written to stderr, so that stream stays parseable.
 	jsonErrEmitted := jsonMode && execErr != nil
 	if quiet || jsonErrEmitted {
@@ -201,4 +196,21 @@ func printNextSteps(w io.Writer, about string, configured bool) {
 		_, _ = fmt.Fprintf(tw, "  %s\t%s\n", s[0], s[1])
 	}
 	_ = tw.Flush()
+}
+
+// localStateGroups change credentials, config, installed skills, or the binary itself without the API client, so --dry-run cannot hold them back.
+var localStateGroups = map[string]bool{"auth": true, "instance": true, "skill": true, "update": true}
+
+func rejectLocalDryRun(cmd *cobra.Command) error {
+	if dryRun, _ := cmd.Root().PersistentFlags().GetBool("dry-run"); !dryRun {
+		return nil
+	}
+	top := cmd
+	for top.HasParent() && top.Parent().HasParent() {
+		top = top.Parent()
+	}
+	if top.HasParent() && localStateGroups[top.Name()] {
+		return fmt.Errorf("--dry-run covers YouTrack API writes only; %q changes local state and does not support it", cmd.CommandPath())
+	}
+	return nil
 }

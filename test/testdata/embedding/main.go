@@ -49,7 +49,7 @@ func execute() error {
 	cancelPrevious()
 	client.WithContext(previousContext)
 	client.Fields = "id"
-	client.Verbose = true
+	client.Verbose = os.Getenv("EMBED_MODE") == "verbose"
 	client.UserAgent = "embedding-fixture"
 	client.HTTPClient = &http.Client{Timeout: 30 * time.Second}
 	if os.Getenv("EMBED_MODE") == "timeout" {
@@ -84,7 +84,7 @@ func execute() error {
 		cancel()
 	}
 	err := root.ExecuteContext(ctx)
-	if client.Fields != "id" || !client.Verbose || client.UserAgent != "embedding-fixture" {
+	if client.Fields != "id" || client.Verbose != (os.Getenv("EMBED_MODE") == "verbose") || client.UserAgent != "embedding-fixture" {
 		err = errors.New("provider client was mutated")
 	}
 	if http.DefaultTransport != defaultTransport || api.NewClient("", "").UserAgent != defaultUserAgent {
@@ -113,7 +113,7 @@ func execute() error {
 		second.SetErr(os.Stderr)
 		second.SetArgs([]string{"user", "current", "--json"})
 		if err := second.ExecuteContext(context.Background()); err != nil {
-			cmd.RenderError(second, err)
+			_ = cmd.RenderError(second, err)
 			return err
 		}
 		return fmt.Errorf("separate execution unexpectedly authenticated")

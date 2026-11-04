@@ -36,37 +36,22 @@ func main() {
 }
 ```
 
-`WithClientProvider` scopes the provider to the supplied execution context. It
-runs before the normal flags, environment, and saved-instance credential
-resolution. Returning `(nil, nil)` uses that normal resolution; returning an
-error stops the command. The provider decides when to honor application sessions
-or defer to explicitly supplied CLI credentials.
+`WithClientProvider` runs before normal credential resolution. Return `(nil, nil)`
+to fall back to CLI flags, environment, and saved instances, or an error to stop.
+Authentication and instance-management commands may create their own clients.
 
-The CLI shallow-copies a supplied client before applying the command context and
-`--verbose`. It appends `--fields` to the client's existing additional `Fields`
-and sets a versioned CLI User-Agent unless the client already has a custom one.
-The provider's original client is unchanged. Its `HTTPClient` and transport are
-shared, preserving their timeout, redirect, and credential-handling policies.
-When write controls are available, their flags also apply to the client copy.
-Configure those policies for the application's authentication model.
+The CLI copies the supplied client, applies the execution context, appends
+`--fields`, and sets a versioned User-Agent unless the client has a custom one.
+Explicit `--verbose` (including `--verbose=false`) overrides provider verbosity;
+otherwise it is preserved. Write-control flags apply to the copy. The original
+client stays unchanged; its HTTP client and transport remain shared.
 
-This provider applies to commands using the normal client resolver. Authentication
-flows and saved-instance management can create clients for specific instances;
-they keep their existing behavior. An embedding application can remove or replace
-those commands when it manages authentication itself.
+For added commands, `cmd.PrintOutput(command, data)` honors format and projection
+flags and the configured output writer. `cmd.OutputFormat(command)` returns the
+effective format; automatic detection uses the output writer, so buffers default
+to JSON.
 
-`api.NewClient` copies the deprecated package-level `api.UserAgent` default when
-constructing a client. Prefer `client.UserAgent` for independent clients; changing
-one client does not alter other clients or the process-wide HTTP transport.
-
-For additional commands, use `cmd.PrintOutput(command, data)` to honor `--json`,
-`--plain`, `--fields`, automatic format selection, and `command.OutOrStdout()`.
-Use `cmd.OutputFormat(command)` to inspect the selected format. Automatic detection
-uses `command.OutOrStdout()`; buffers and other non-terminal writers default to
-JSON unless a format flag is supplied.
-Use `cmd.RenderError(command, err)` to write the standard error envelope or terminal
-message to `command.ErrOrStderr()`. The error wrapper preserves JSON error codes,
-suggestions, and `--quiet` behavior, using the root command's name in canned hints.
-
-`RenderError` returns nil after printing a dry-run preview. Check its return value
-before choosing the host application's exit status.
+`cmd.RenderError(command, err)` writes the usual errors and uses the host
+command name in canned hints. Check its return value before choosing an exit status:
+dry-run previews return nil on success; cancellation returns the original error
+and prints only `Canceled.` in non-JSON formats.

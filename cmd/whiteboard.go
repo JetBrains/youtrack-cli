@@ -14,6 +14,8 @@ func newWhiteboardCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "whiteboard",
 		Short: "Manage whiteboards",
+		// Hidden: the planningCanvases endpoints are internal API without a compatibility contract.
+		Hidden: true,
 	}
 	internal.RequireSubcommand(cmd)
 	cmd.AddCommand(newWhiteboardListCmd())

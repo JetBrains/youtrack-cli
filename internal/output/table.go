@@ -108,6 +108,11 @@ func PrintTable(out io.Writer, data any) error {
 		for _, wf := range v {
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", wf.ID, wf.Name, wf.Title)
 		}
+	case *api.WorkflowRule:
+		_, _ = fmt.Fprintln(w, "ID\tNAME\tTYPE\tTITLE")
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", v.ID, v.Name, v.Type, v.Title)
+		_ = tw.Flush()
+		printRuleScript(safeWriter{out}, v.Script)
 	case *api.CustomField:
 		_, _ = fmt.Fprintln(w, "ID\tNAME\tTYPE")
 		typeID := ""
@@ -373,6 +378,9 @@ func PrintPlain(out io.Writer, data any) error {
 		for _, wf := range v {
 			write(wf.ID, wf.Name, wf.Title)
 		}
+	case *api.WorkflowRule:
+		write(v.ID, v.Name, v.Type, v.Title)
+		printRuleScript(out, v.Script)
 	case *api.CustomField:
 		typeID := ""
 		if v.FieldType != nil {
@@ -705,4 +713,14 @@ func vcsChangeSummary(ch *api.VCSChange) string {
 		line = strings.TrimSpace(line[:idx])
 	}
 	return truncate(line, 60)
+}
+
+func printRuleScript(w io.Writer, script string) {
+	if script == "" {
+		return
+	}
+	_, _ = fmt.Fprintf(w, "\n%s", script)
+	if !strings.HasSuffix(script, "\n") {
+		_, _ = fmt.Fprintln(w)
+	}
 }

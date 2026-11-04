@@ -3,7 +3,7 @@ package cmd
 import (
 	"context"
 	"errors"
-	"io"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -19,8 +19,8 @@ import (
 // create their own clients and are not redirected by this provider.
 //
 // The CLI copies a supplied client before applying the command context, verbose
-// flag, additional fields projection, and default CLI User-Agent. Existing Fields
-// and a custom UserAgent are kept.
+// flag when explicitly set, additional fields projection, and default CLI
+// User-Agent. Existing Fields, default verbosity, and a custom UserAgent are kept.
 // The HTTPClient and its transport are shared with the supplied client, so their
 // redirect, timeout, and credential-handling policies remain the provider's.
 func WithClientProvider(ctx context.Context, provider func(*cobra.Command) (*api.Client, error)) context.Context {
@@ -44,12 +44,21 @@ func RenderError(command *cobra.Command, err error) error {
 	if err == nil {
 		return nil
 	}
-	// Optional preview errors can be rendered without depending on write controls.
-	var preview interface{ RenderPreview(io.Writer, bool) error }
+	jsonMode := OutputFormat(command) == "json"
+	var preview *api.DryRunError
 	if errors.As(err, &preview) {
-		return preview.RenderPreview(command.OutOrStdout(), OutputFormat(command) == "json")
+		err = output.RenderDryRun(command.OutOrStdout(), preview, jsonMode)
+		if err == nil {
+			return nil
+		}
+	}
+	if errors.Is(err, context.Canceled) {
+		if !jsonMode {
+			_, _ = fmt.Fprintln(command.ErrOrStderr(), "Canceled.")
+		}
+		return err
 	}
 	quiet, _ := command.Root().PersistentFlags().GetBool("quiet")
-	output.RenderErrorForCommand(command.ErrOrStderr(), err, OutputFormat(command) == "json", quiet, command.Root().Name())
+	output.RenderErrorForCommand(command.ErrOrStderr(), err, jsonMode, quiet, command.Root().Name())
 	return err
 }
