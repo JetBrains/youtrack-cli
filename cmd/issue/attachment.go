@@ -51,14 +51,27 @@ func newIssueAttachmentAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			attachment, err := client.AddIssueAttachment(args[0], filePath)
+			visibility, err := visibilityFromFlags(cmd, client)
 			if err != nil {
 				return err
+			}
+			attachment, err := client.AddIssueAttachmentWithVisibility(args[0], filePath, visibility)
+			if err != nil {
+				return err
+			}
+			if visibility != nil && !visibility.MatchesAllowing(attachment.Visibility, "") {
+				mismatch := fmt.Errorf("attachment %s was created with visibility %s instead of the one requested",
+					attachment.ID, api.DescribeVisibility(attachment.Visibility))
+				if cleanupErr := client.DeleteIssueAttachment(args[0], attachment.ID); cleanupErr != nil {
+					return fmt.Errorf("%w; could not remove attachment: %w; fix it with the visibility command", mismatch, cleanupErr)
+				}
+				return fmt.Errorf("%w; attachment removed", mismatch)
 			}
 			return output.Print(cmd, attachment)
 		},
 	}
 	cmd.Flags().String("file", "", "Path to file (required)")
+	addVisibilityFlags(cmd, "attachment")
 	internal.MustMarkRequired(cmd, "file")
 	return cmd
 }

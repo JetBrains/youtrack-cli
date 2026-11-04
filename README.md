@@ -155,6 +155,9 @@ youtrack issue vcs list DEMO-42
 youtrack raw /api/issues/DEMO-42 --method POST --body-file update.json
 youtrack raw /api/issues/DEMO-42 --fields "id,summary,description" --output issue.json
 
+# restrict an attachment in its initial upload request
+youtrack issue attachment add DEMO-42 --file report.txt --visibility user:alice
+
 # keep the CLI itself up to date
 youtrack update
 ```
@@ -171,6 +174,7 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 |---|---|
 | **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field` (+ `field list-values`), `reaction`, `draft`, `workitem`, `activity`, `vcs` |
 | **project** | `list`, `view`, `create`, `update`, `delete`, `archive`, `team`, `field`, `template`, `timetrack`, `workflow` |
+| **issue attachment add** | Upload a file; `--visibility` restricts its initial audience and `--public` explicitly removes restrictions |
 | **article** | `list`, `view`, `create`, `update`, `delete`, `comment`, `attachment`, `tag` |
 | **board** | `list`, `view`, `create`, `update`, `delete`, `sprint` |
 | **tag** | `list`, `create`, `delete`, `issue` |

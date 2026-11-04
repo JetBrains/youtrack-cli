@@ -101,6 +101,8 @@ save binary or non-JSON responses with `--output <path>`.
 - **Private comment**: `youtrack issue comment create <id> --text T --visibility "<group>" --visibility <login>` — restricted in the same request, never public. Change it later with `issue comment visibility <id> <commentId> --groups G --users U` (both lists are replaced) or `--public`.
 - **Add user to project**: `youtrack user view <login> --json | jq .id` → `youtrack project team add-user <proj> <userId>`
 
+- **Restricted attachment**: `youtrack issue attachment add <id> --file trace.log --visibility "<group>"` — sends file and visibility in one request; repeat `--visibility` for users and groups or use `--public`. Omitted flags retain multipart upload behavior.
+
 ## References
 
 - [Command Reference](references/commands.md) — full syntax, flags, auth flows, global options

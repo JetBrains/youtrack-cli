@@ -1,11 +1,13 @@
 package api
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"html"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -384,6 +386,38 @@ func (c *Client) AddIssueAttachment(issueID, filePath string) (*IssueAttachment,
 		return nil, fmt.Errorf("attachment upload returned empty response")
 	}
 	return &result[0], nil
+}
+
+// AddIssueAttachmentWithVisibility sends content and its audience in the same create request.
+// Servers that reject JSON attachment creation return an error; never fall back to an unrestricted upload.
+func (c *Client) AddIssueAttachmentWithVisibility(issueID, filePath string, visibility *VisibilityChange) (*IssueAttachment, error) {
+	if visibility == nil {
+		return c.AddIssueAttachment(issueID, filePath)
+	}
+	if c.DryRun {
+		if err := checkReadableFile(filePath); err != nil {
+			return nil, err
+		}
+	}
+	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created,"+visibilityFields, url.PathEscape(issueID))
+	path, err := c.prepareWrite("POST", path, map[string]any{
+		"file": filePath, "fileName": filepath.Base(filePath),
+		"contentType": "application/octet-stream", "visibility": visibility,
+	})
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	var result IssueAttachment
+	err = c.sendJSON("POST", path, map[string]any{
+		"name":          filepath.Base(filePath),
+		"base64Content": "data:application/octet-stream;base64," + base64.StdEncoding.EncodeToString(data),
+		"visibility":    visibility,
+	}, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteIssueAttachment(issueID, attachmentID string) error {
