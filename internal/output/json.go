@@ -20,9 +20,22 @@ func Format(cmd *cobra.Command) string {
 	return internal.OutputFormat(cmd)
 }
 
+// Markdown is a document rendered verbatim by default, including when piped.
+// Explicit JSON output encodes it as a JSON string.
+type Markdown string
+
 // Print writes data using the resolved output format.
 func Print(cmd *cobra.Command, data any) error {
 	w := cmd.OutOrStdout()
+	if document, ok := data.(Markdown); ok {
+		flags := cmd.Root().PersistentFlags()
+		jsonFlag, _ := flags.GetBool("json")
+		if Format(cmd) == "json" && (jsonFlag || flags.Changed("format")) {
+			return printJSON(w, document)
+		}
+		_, err := fmt.Fprint(w, document)
+		return err
+	}
 	fields, _ := cmd.Root().PersistentFlags().GetString("fields")
 	switch Format(cmd) {
 	case "plain":

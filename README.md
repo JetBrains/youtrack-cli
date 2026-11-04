@@ -186,7 +186,7 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 | **instance** | `add`, `login`, `list`, `use`, `version`, `delete`, `refresh-token` |
 | **raw** | Authenticated request to any REST endpoint (`--body-file`, `--output`, `--paginate`) |
 | **update** | Check for a newer CLI release and upgrade through the detected install method |
-| **skill** | `list`, `install`, `update`, `remove` |
+| **skill** | `list`, `install`, `update`, `remove`, `guide` |
 
 ## For AI agents
 
@@ -196,7 +196,12 @@ The CLI ships with an [Agent Skill](https://agentskills.io) that teaches coding 
 youtrack skill install    # install the bundled skill for detected agents
 youtrack skill update     # update to the version bundled with this release
 youtrack skill remove     # uninstall
+youtrack skill guide      # print the guide that installed skills point to
 ```
+
+Installed skills are short stubs that tell the agent to run `youtrack skill guide`, so after a CLI upgrade agents read the instructions for the new version without reinstalling.
+
+The guide prints Markdown by default, including through a pipe. Use `--json` or `--format json` to receive that Markdown as a JSON string.
 
 or specifically for **Claude Code** via the GitHub CLI:
 ```bash
