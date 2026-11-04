@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/oauth2"
 	"golang.org/x/term"
 
 	"github.com/JetBrains/youtrack-cli/api"
@@ -185,10 +186,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 		return err
 	}
 
-	verifier, err := api.GeneratePKCEVerifier()
-	if err != nil {
-		return err
-	}
+	verifier := oauth2.GenerateVerifier()
 	state, err := browserflow.GenerateState()
 	if err != nil {
 		return err
@@ -213,7 +211,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 	q.Set("redirect_uri", redirectURI)
 	q.Set("scope", strings.Join(requested, " "))
 	q.Set("state", state)
-	q.Set("code_challenge", api.PKCEChallengeS256(verifier))
+	q.Set("code_challenge", oauth2.S256ChallengeFromVerifier(verifier))
 	q.Set("code_challenge_method", "S256")
 	authorizeURL := endpoints.AuthorizationEndpoint + "?" + q.Encode()
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/oauth2"
 
 	"github.com/JetBrains/youtrack-cli/api"
 )
@@ -15,15 +16,13 @@ import (
 func TestPKCEChallengeS256(t *testing.T) {
 	assert.Equal(t,
 		"E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM",
-		api.PKCEChallengeS256("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
+		oauth2.S256ChallengeFromVerifier("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"),
 	)
 }
 
 func TestGeneratePKCEVerifier(t *testing.T) {
-	v1, err := api.GeneratePKCEVerifier()
-	require.NoError(t, err)
-	v2, err := api.GeneratePKCEVerifier()
-	require.NoError(t, err)
+	v1 := oauth2.GenerateVerifier()
+	v2 := oauth2.GenerateVerifier()
 
 	assert.Len(t, v1, 43) // 32 bytes, unpadded base64url
 	assert.NotEqual(t, v1, v2)
