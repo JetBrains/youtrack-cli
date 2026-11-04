@@ -39,13 +39,6 @@ globally for the current user or locally into a project.`,
 	return cmd
 }
 
-// SkillGuide is the JSON representation of a guide page.
-type SkillGuide struct {
-	Skill   string `json:"skill"`
-	Topic   string `json:"topic"`
-	Content string `json:"content"`
-}
-
 // SkillInfo is the JSON/table representation of a bundled skill.
 type SkillInfo struct {
 	Name    string `json:"name"`
@@ -104,8 +97,7 @@ func newSkillGuideCmd(fs embed.FS) *cobra.Command {
 
 Installed skills are short stubs that tell agents to run this command, so the
 guide always matches this youtrack release. Without a topic, prints the overview
-followed by its topics. Without a skill, uses the default skill (youtrack-cli).
-With --json, prints the page as {"skill", "topic", "content"}.`,
+followed by its topics. Without a skill, uses the default skill (youtrack-cli).`,
 		Example: `  youtrack skill guide
   youtrack skill guide youtrack-cli references/commands
   youtrack skill guide youtrack-cli gotchas`,
@@ -134,10 +126,7 @@ With --json, prints the page as {"skill", "topic", "content"}.`,
 			if err != nil {
 				return err
 			}
-			// Agents read the guide through a pipe, so only an explicit --json switches to JSON.
-			if jsonFlag, _ := cmd.Root().PersistentFlags().GetBool("json"); jsonFlag {
-				return output.Print(cmd, SkillGuide{Skill: skill, Topic: topic, Content: page})
-			}
+			// The guide is Markdown for agents, which read it through a pipe, so it bypasses the JSON-when-piped default.
 			_, err = fmt.Fprint(cmd.OutOrStdout(), page)
 			return err
 		},

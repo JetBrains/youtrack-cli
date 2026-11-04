@@ -97,17 +97,6 @@ func TestSkill_Guide(t *testing.T) {
 	require.NoError(t, err)
 	assert.NotContains(t, stdout, "## Topics")
 
-	stdout, _, err = runCmdInDir(t, dir, "skill", "guide", "youtrack-cli", "references/commands", "--json")
-	require.NoError(t, err)
-	var page struct {
-		Skill   string `json:"skill"`
-		Topic   string `json:"topic"`
-		Content string `json:"content"`
-	}
-	require.NoError(t, json.Unmarshal([]byte(stdout), &page), "output was: %s", stdout)
-	assert.Equal(t, "references/commands", page.Topic)
-	assert.NotEmpty(t, page.Content)
-
 	_, stderr, err := runCmdInDir(t, dir, "skill", "guide", "nonexistent-skill")
 	require.Error(t, err)
 	assert.Contains(t, stderr, "unknown skill")
