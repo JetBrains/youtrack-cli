@@ -1,11 +1,14 @@
 package api_test
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +22,12 @@ func TestCmd_AttachmentVisibilityOnUpload(t *testing.T) {
 	_, err := c.AddUserToProjectTeam(project, f.user.ID)
 	require.NoError(t, err)
 	token := visibilityUserToken(t, c, f.user)
+	// Team permissions propagate asynchronously through Hub.
+	reader := api.NewClient(c.BaseURL, token)
+	require.Eventually(t, func() bool {
+		_, err := reader.GetIssue(f.issue)
+		return err == nil
+	}, 30*time.Second, 250*time.Millisecond, "reader must gain access to the parent issue")
 	// Establish that this reader can see the parent, so denial proves the attachment restriction.
 	parent := runJSON[api.Issue](t, "--token", token, "issue", "view", f.issue, "--json")
 	assert.Equal(t, f.issue, parent.IDReadable)
@@ -70,4 +79,48 @@ func TestCmd_AttachmentVisibilityOnUpload(t *testing.T) {
 	after, err := c.GetIssueAttachments(f.issue)
 	require.NoError(t, err)
 	assert.Len(t, after, len(before), "invalid audiences must not leave an unrestricted upload")
+}
+
+func TestCmd_AttachmentVisibilityDryRun(t *testing.T) {
+	c, issueID := createWriteOptionsIssue(t)
+	me, err := c.GetCurrentUser()
+	require.NoError(t, err)
+	file := filepath.Join(t.TempDir(), "private.txt")
+	content := "private content must not appear in a dry-run preview"
+	require.NoError(t, os.WriteFile(file, []byte(content), 0o600))
+	for _, flags := range [][]string{{"--visibility", "user:" + me.ID}, {"--public"}} {
+		t.Run(flags[0], func(t *testing.T) {
+			args := append([]string{"issue", "attachment", "add", issueID, "--file", file, "--dry-run", "--json"}, flags...)
+			out := runCmd(t, args...)
+			var preview struct {
+				DryRun bool   `json:"dryRun"`
+				Method string `json:"method"`
+				Body   struct {
+					File       string         `json:"file"`
+					FileName   string         `json:"fileName"`
+					Visibility api.Visibility `json:"visibility"`
+				} `json:"body"`
+			}
+			require.NoError(t, json.Unmarshal([]byte(out), &preview))
+			assert.True(t, preview.DryRun)
+			assert.Equal(t, "POST", preview.Method)
+			assert.Equal(t, file, preview.Body.File)
+			assert.Equal(t, filepath.Base(file), preview.Body.FileName)
+			if flags[0] == "--public" {
+				assert.Equal(t, "UnlimitedVisibility", preview.Body.Visibility.Type)
+			} else {
+				assert.Equal(t, "LimitedVisibility", preview.Body.Visibility.Type)
+				require.Len(t, preview.Body.Visibility.PermittedUsers, 1)
+				assert.Equal(t, me.ID, preview.Body.Visibility.PermittedUsers[0].ID)
+			}
+			assert.NotContains(t, out, "base64Content")
+			assert.NotContains(t, out, content)
+			assert.NotContains(t, out, base64.StdEncoding.EncodeToString([]byte(content)))
+		})
+	}
+	attachments, err := c.GetIssueAttachments(issueID)
+	require.NoError(t, err)
+	assert.Empty(t, attachments, "dry-run must not upload any attachment")
+	missing := runCmdExpectError(t, "issue", "attachment", "add", issueID, "--file", file+".missing", "--public", "--dry-run")
+	assert.Contains(t, missing, "no such file")
 }

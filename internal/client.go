@@ -25,9 +25,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 
 	baseURL, _ := flags.GetString("base-url")
 	token, _ := flags.GetString("token")
-	verbose, _ := flags.GetBool("verbose")
 	serverAlias, _ := flags.GetString("server")
-	fields, _ := flags.GetString("fields")
 
 	// savedTokenAlias/savedTokenURL record which saved profile supplied the token, so it is only ever sent to that profile's origin.
 	var savedTokenAlias, savedTokenURL string
@@ -119,12 +117,7 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 			"warning: %s uses plain http — the token is sent unencrypted; switch the instance URL to https\n", baseURL)
 	}
 
-	api.UserAgent = "youtrack-cli/" + Version
-
-	c := api.NewClient(baseURL, token).WithContext(cmd.Context())
-	c.Verbose = verbose
-	c.Fields = expandFields(fields)
-	return c, nil
+	return configureClient(cmd, api.NewClient(baseURL, token)), nil
 }
 
 // RequireTokenURL refuses to sign in again for a saved profile whose config-file URL has another origin than the URL its keyring token is bound to.
