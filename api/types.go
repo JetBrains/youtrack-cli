@@ -204,9 +204,11 @@ type Workflow struct {
 }
 
 type WorkflowRule struct {
-	ID    string `json:"id,omitempty"`
-	Name  string `json:"name,omitempty"`
-	Title string `json:"title,omitempty"`
+	ID     string `json:"id,omitempty"`
+	Name   string `json:"name,omitempty"`
+	Title  string `json:"title,omitempty"`
+	Type   string `json:"type,omitempty"`
+	Script string `json:"script,omitempty"`
 }
 
 type FieldType struct {
@@ -238,11 +240,12 @@ type IssueLink struct {
 }
 
 type IssueAttachment struct {
-	ID       string `json:"id,omitempty"`
-	Name     string `json:"name,omitempty"`
-	URL      string `json:"url,omitempty"`
-	MimeType string `json:"mimeType,omitempty"`
-	Created  int64  `json:"created,omitempty"`
+	ID         string      `json:"id,omitempty"`
+	Name       string      `json:"name,omitempty"`
+	URL        string      `json:"url,omitempty"`
+	MimeType   string      `json:"mimeType,omitempty"`
+	Created    int64       `json:"created,omitempty"`
+	Visibility *Visibility `json:"visibility,omitempty"`
 }
 
 type WorkItem struct {

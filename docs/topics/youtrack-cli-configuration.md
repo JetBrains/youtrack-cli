@@ -254,6 +254,30 @@ Print the HTTP request and response to stderr. Useful for debugging.
 
 </td>
 </tr>
+<tr>
+<td>
+
+`--dry-run`
+
+</td>
+<td>
+
+Print the first write request (method, URL, and JSON body) to stdout instead of sending it, and exit 0. Password, token, and secret fields are masked recursively. Reads still run, so a command that looks something up before writing shows the real request. The command stops at that first write: later steps that depend on its result are not shown, and nothing is changed. Delete confirmations are skipped, since nothing is sent. The `auth`, `instance`, `skill`, and `update` commands change local state rather than YouTrack data and reject `--dry-run`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--mute-notifications`
+
+</td>
+<td>
+
+Add `muteUpdateNotifications=true` to every POST, PUT, and DELETE request, including tags and cleanup deletes. `issue command` also sends `silent: true`. This needs the *Apply Commands Silently* permission in every affected project. Without that permission, YouTrack refuses the write with HTTP 403 and nothing changes; it does not fall back to notifying watchers. Retry without the flag only if notifications are acceptable. Workflow rules still run and notifications sent by workflows are not muted. Changes and their history entries are kept.
+
+</td>
+</tr>
 </table>
 
 For how to combine `--json`, `--plain`, and `--fields` in scripts, see [Scripting and Automation](youtrack-cli-scripting.md).

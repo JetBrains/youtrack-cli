@@ -77,6 +77,8 @@ youtrack issue create --project DEMO --summary "Crash on startup" --custom-field
 
 Custom fields must be one complete JSON object with string values. Malformed JSON, trailing content, and non-string values (including `null`) are rejected before an issue is created.
 
+Use `issue create --type Task --tag release --custom-fields '{"Priority":"Major","Assignee":"me"}'` to set project fields and existing tags in the initial create request, including required fields. `--tag` is repeatable and accepts a name or ID. Only the parent link is applied afterwards; a failed parent link rolls back the new issue.
+
 > Use `youtrack project list` to look up a project's short name.
 >
 {style="tip"}
@@ -184,6 +186,19 @@ youtrack issue attachment delete DEMO-42 5-12
 ```
 
 `issue attachment delete` prompts for confirmation unless you pass `--force`.
+
+### Downloading an attachment {id="download-attachment"}
+
+Save an attachment by ID, or choose a unique file name with `--name`:
+
+```Shell
+youtrack issue attachment download DEMO-42 5-12 --output screenshot.png
+youtrack issue attachment download DEMO-42 --name screenshot.png --output screenshot.png
+```
+
+Pass `--output -` to write the bytes to stdout. Attachment URLs returned by
+`issue attachment list --json` and `issue attachment add --json` are signed links
+that work without a token; share the downloaded file and keep these links private.
 
 ## Applying a command {id="command"}
 
@@ -300,20 +315,32 @@ youtrack issue vcs detach DEMO-42 1a2b3c4d5e6f7081
 
 `detach` (aliases `delete`, `remove`) unlinks a change and accepts either the change ID or the commit hash. YouTrack offers two mechanisms and accepts only one of them per change, so the command picks it: a commit you attached by hand is deleted outright, while one that a VCS integration attached is detached instead, because the server refuses to delete those. YouTrack keeps a detached record only where it needs one to stop the integration re-attaching the commit — that is, when the commit message names the issue. Otherwise the change goes for good, and `attach` restores a record that survived.
 
-Writing to VCS changes requires the *Update Issue Private Fields* permission. Pass `--mute-notifications` to suppress notifications about the change, which additionally needs *Apply Commands Silently*.
+Writing to VCS changes requires the *Update Issue Private Fields* permission. Pass the global `--mute-notifications` flag to suppress notifications about the change, which additionally needs *Apply Commands Silently*.
 
 ## Restricting visibility {id="visibility"}
 
-Limit who can see an issue by passing permitted group or user IDs to `youtrack issue visibility`:
+Pass `--visibility <group|login>` (repeatable) to `issue create` to restrict the issue in its initial request, or `--public` for unrestricted project access.
+
+Limit who can see an issue, a comment, or an attachment by passing permitted groups and users. Groups take a name or an ID, users a login or an ID:
 
 ```Shell
-youtrack issue visibility DEMO-42 --groups 4-1
-youtrack issue visibility DEMO-42 --users 2-9
+youtrack issue visibility DEMO-42 --groups "Core Team" --users alice
+youtrack issue comment visibility DEMO-42 4-17 --users alice
+youtrack issue attachment visibility DEMO-42 12-8 --groups "Core Team"
+youtrack issue visibility DEMO-42 --public
 ```
 
-> `--groups` and `--users` expect opaque IDs, not group names or logins. Retrieve them first with `youtrack group view <name>` or `youtrack user view <login>`.
+Each call replaces both lists. A list you leave out is cleared, so `--users alice` alone makes the issue visible to alice only, even if a group had access before. `--public` removes the restriction. The command reads the visibility back after writing it and fails if the server reports something else.
+
+> Running the command with no group, user, or `--public` is an error: YouTrack treats empty lists as no restriction, which would make the issue public.
 >
 {style="warning"}
+
+To keep a comment private from the moment it is posted, pass the audience to `issue comment create` instead of restricting it afterwards. `--visibility` takes a group name or a user login and can be repeated; prefix the value with `group:` or `user:` when a group and a user share the name:
+
+```Shell
+youtrack issue comment create DEMO-42 --text "Internal note" --visibility "Core Team" --visibility user:alice
+```
 
 <seealso>
 <category ref="user-guide">

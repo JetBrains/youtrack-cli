@@ -116,7 +116,6 @@ func newIssueVCSViewCmd() *cobra.Command {
 
 func newIssueVCSAttachCmd() *cobra.Command {
 	var message string
-	var mute bool
 
 	cmd := &cobra.Command{
 		Use:   "attach <issueId> <commitHash>",
@@ -149,14 +148,14 @@ func newIssueVCSAttachCmd() *cobra.Command {
 				if existing.State == nil || *existing.State != api.VCSChangeStateDetached {
 					return fmt.Errorf("%s is already attached to %s", ref, issueID)
 				}
-				if err := client.SetIssueVCSChangeState(issueID, existing.ID, api.VCSChangeStateDefault, mute); err != nil {
+				if err := client.SetIssueVCSChangeState(issueID, existing.ID, api.VCSChangeStateDefault); err != nil {
 					return err
 				}
 				output.PrintSuccess(cmd, "re-attached VCS change "+existing.ID+" to "+issueID)
 				return nil
 			}
 
-			change, err := client.AttachIssueVCSChange(issueID, ref, message, mute)
+			change, err := client.AttachIssueVCSChange(issueID, ref, message)
 			if err != nil {
 				return err
 			}
@@ -165,13 +164,10 @@ func newIssueVCSAttachCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&message, "message", "", "commit message; used only by a Generic VCS integration")
-	addMuteFlag(cmd, &mute)
 	return cmd
 }
 
 func newIssueVCSDetachCmd() *cobra.Command {
-	var mute bool
-
 	cmd := &cobra.Command{
 		Use:     "detach <issueId> <changeIdOrHash>",
 		Aliases: []string{"delete", "remove"},
@@ -213,7 +209,7 @@ func newIssueVCSDetachCmd() *cobra.Command {
 				return nil
 			}
 
-			if err := client.SetIssueVCSChangeState(issueID, target.ID, api.VCSChangeStateDetached, mute); err != nil {
+			if err := client.SetIssueVCSChangeState(issueID, target.ID, api.VCSChangeStateDetached); err != nil {
 				return err
 			}
 			output.PrintSuccess(cmd, "detached VCS change "+target.ID+" from "+issueID)
@@ -221,11 +217,5 @@ func newIssueVCSDetachCmd() *cobra.Command {
 		},
 	}
 
-	addMuteFlag(cmd, &mute)
 	return cmd
-}
-
-func addMuteFlag(cmd *cobra.Command, mute *bool) {
-	cmd.Flags().BoolVar(mute, "mute-notifications", false,
-		"suppress issue-change notifications; needs Apply Commands Silently permission")
 }

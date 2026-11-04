@@ -345,16 +345,15 @@ func runPasteTokenFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string)
 func saveCredentials(cmd *cobra.Command, _ *bufio.Reader, baseURL, token string, res *getTokenResult) (string, error) {
 	alias, _ := cmd.Flags().GetString("alias")
 
-	cfg, err := config.Load()
+	var finalAlias string
+	cfg, err := config.Update(func(c *config.Config) error {
+		finalAlias = c.AddInstance(alias, baseURL, token)
+		if c.CurrentInstance == "" {
+			c.CurrentInstance = finalAlias
+		}
+		return nil
+	})
 	if err != nil {
-		return "", err
-	}
-
-	finalAlias := cfg.AddInstance(alias, baseURL, token)
-	if cfg.CurrentInstance == "" {
-		cfg.CurrentInstance = finalAlias
-	}
-	if err := cfg.Save(); err != nil {
 		return "", fmt.Errorf("saving config: %w", err)
 	}
 

@@ -25,11 +25,17 @@ const commentFields = "id,text,author(id,login,fullName),created,updated,deleted
 const draftFields = "id,summary,description,created,fields(id,name,$type)"
 
 // AddIssueRequest is the body for creating an issue.
+// Custom fields and tags are included in the initial create request.
 type AddIssueRequest struct {
+	Visibility *VisibilityChange `json:"visibility,omitempty"`
+
 	Summary     string   `json:"summary"`
 	Description string   `json:"description,omitempty"`
 	Project     *Project `json:"project"`
 	Reporter    *User    `json:"reporter,omitempty"`
+
+	CustomFields []IssueCustomFieldValue `json:"customFields,omitempty"`
+	Tags         []Tag                   `json:"tags,omitempty"`
 }
 
 // UpdateIssueRequest contains only explicitly selected issue fields.
@@ -40,14 +46,16 @@ type UpdateIssueRequest struct {
 
 // AddCommentRequest is the body for creating a comment.
 type AddCommentRequest struct {
-	Text   string `json:"text"`
-	Author *User  `json:"author,omitempty"`
+	Text       string            `json:"text"`
+	Author     *User             `json:"author,omitempty"`
+	Visibility *VisibilityChange `json:"visibility,omitempty"`
 }
 
 // ApplyCommandRequest is the body for the /api/commands endpoint.
 type ApplyCommandRequest struct {
 	Query  string  `json:"query"`
 	Issues []Issue `json:"issues"`
+	Silent bool    `json:"silent,omitempty"`
 }
 
 // readableIssueIDRe matches readable issue IDs such as FOO-42; database IDs such as 2-15 start with a digit.
@@ -161,10 +169,23 @@ func (c *Client) ListIssuesPageWithCustomFields(query string, limit, offset int,
 	return result, err
 }
 
-func (c *Client) AddIssue(req AddIssueRequest) (*Issue, error) {
+func (c *Client) AddIssue(req AddIssueRequest) (*Issue, error) { //nolint:gocritic // kept by value so existing callers stay unchanged
 	var result Issue
-	err := c.Post(pathIssues+"?fields="+issueFields, req, &result)
-	return &result, err
+	fields := issueFields
+	if req.Visibility != nil {
+		fields += "," + visibilityFields
+	}
+	if err := c.Post(pathIssues+"?fields="+fields, req, &result); err != nil {
+		return &result, err
+	}
+	var reporterID string
+	if result.Reporter != nil {
+		reporterID = result.Reporter.ID
+	}
+	if req.Visibility != nil && !req.Visibility.MatchesAllowing(result.Visibility, reporterID) {
+		return &result, fmt.Errorf("issue %s was created, but its visibility is %s instead of the one requested; fix it with the visibility command", result.IDReadable, DescribeVisibility(result.Visibility))
+	}
+	return &result, nil
 }
 
 func (c *Client) UpdateIssue(id string, req UpdateIssueRequest) (*Issue, error) {
@@ -348,7 +369,7 @@ func (c *Client) GetIssueTag(issueID, tagID string) (*Tag, error) {
 
 func (c *Client) GetIssueAttachments(issueID string) ([]IssueAttachment, error) {
 	var result []IssueAttachment
-	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created&$top=500", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created,%s&$top=500", url.PathEscape(issueID), visibilityFields)
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -419,46 +440,9 @@ func (c *Client) UpdateComment(issueID, commentID, text string) (*Comment, error
 	return &result, err
 }
 
-func (c *Client) UpdateCommentVisibility(issueID, commentID string, groupIDs, userIDs []string) error {
-	groups := make([]map[string]any, len(groupIDs))
-	for i, id := range groupIDs {
-		groups[i] = map[string]any{"id": id}
-	}
-	users := make([]map[string]any, len(userIDs))
-	for i, id := range userIDs {
-		users[i] = map[string]any{"id": id}
-	}
-	body := map[string]any{
-		"visibility": map[string]any{
-			"$type":           "LimitedVisibility",
-			"permittedGroups": groups,
-			"permittedUsers":  users,
-		},
-	}
-	return c.Post(fmt.Sprintf(pathIssueComment, url.PathEscape(issueID), url.PathEscape(commentID)), body, nil)
-}
-
 func (c *Client) PinComment(issueID, commentID string, pinned bool) error {
 	return c.Post(fmt.Sprintf(pathIssueComment, url.PathEscape(issueID), url.PathEscape(commentID)),
 		map[string]any{"pinned": pinned}, nil)
-}
-
-func (c *Client) UpdateIssueVisibility(issueID string, groupIDs, userIDs []string) error {
-	groups := make([]map[string]any, len(groupIDs))
-	for i, id := range groupIDs {
-		groups[i] = map[string]any{"id": id}
-	}
-	users := make([]map[string]any, len(userIDs))
-	for i, id := range userIDs {
-		users[i] = map[string]any{"id": id}
-	}
-	return c.Post(fmt.Sprintf(pathIssue, url.PathEscape(issueID)), map[string]any{
-		"visibility": map[string]any{
-			"$type":           "LimitedVisibility",
-			"permittedGroups": groups,
-			"permittedUsers":  users,
-		},
-	}, nil)
 }
 
 func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]any, error) {
@@ -592,6 +576,7 @@ func (c *Client) ApplyCommand(query string, issueIDs []string) error {
 	return c.Post(pathCommands, ApplyCommandRequest{
 		Query:  WrapUserValues(query),
 		Issues: issues,
+		Silent: c.MuteNotifications,
 	}, nil)
 }
 
@@ -720,12 +705,12 @@ func (c *Client) GetIssueVCSChange(issueID, changeID string) (*VCSChange, error)
 // integrations configured for the issue's project and answers 404 when none of
 // them knows the hash. A Generic VCS integration is the exception — it accepts
 // any hash and takes the commit message from text.
-func (c *Client) AttachIssueVCSChange(issueID, version, text string, mute bool) (*VCSChange, error) {
+func (c *Client) AttachIssueVCSChange(issueID, version, text string) (*VCSChange, error) {
 	state := VCSChangeStateManuallyAttached
 	body := VCSChange{Version: version, State: &state, Text: text}
 
 	var result VCSChange
-	path := fmt.Sprintf(pathIssueVCSChanges+"?fields="+vcsChangeFields, url.PathEscape(issueID)) + muteSuffix(mute)
+	path := fmt.Sprintf(pathIssueVCSChanges+"?fields="+vcsChangeFields, url.PathEscape(issueID))
 	if err := c.Post(path, body, &result); err != nil {
 		return nil, err
 	}
@@ -743,12 +728,9 @@ func (c *Client) AttachIssueVCSChange(issueID, version, text string, mute bool) 
 // commit message names the issue, and never for a Generic VCS integration. Asking
 // for fields therefore turns a successful detach into "HTTP 500: VcsChange[..]
 // was removed".
-func (c *Client) SetIssueVCSChangeState(issueID, changeID string, state int, mute bool) error {
+func (c *Client) SetIssueVCSChangeState(issueID, changeID string, state int) error {
 	body := VCSChange{State: &state}
 	path := fmt.Sprintf(pathIssueVCSChange, url.PathEscape(issueID), url.PathEscape(changeID))
-	if mute {
-		path += "?muteUpdateNotifications=true"
-	}
 	return c.Post(path, body, nil)
 }
 
@@ -757,15 +739,6 @@ func (c *Client) SetIssueVCSChangeState(issueID, changeID string, state int, mut
 // with SetIssueVCSChangeState instead.
 func (c *Client) DeleteIssueVCSChange(issueID, changeID string) error {
 	return c.Delete(fmt.Sprintf(pathIssueVCSChange, url.PathEscape(issueID), url.PathEscape(changeID)))
-}
-
-// muteUpdateNotifications suppresses issue-change notifications; it needs the
-// Apply Commands Silently permission in every affected project.
-func muteSuffix(mute bool) string {
-	if mute {
-		return "&muteUpdateNotifications=true"
-	}
-	return ""
 }
 
 var (

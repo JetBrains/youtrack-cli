@@ -75,10 +75,3 @@ youtrack project team add-group MYPROJ <groupId>
 youtrack issue create --project MYPROJ --summary "New feature"
 youtrack issue command MYPROJ-1 "Type Feature"
 ```
-
-**Work with whiteboards:**
-```bash
-youtrack whiteboard create --name "Sprint Planning"
-youtrack whiteboard node create <wbId> --x 100 --y 100 --label "Start here"
-youtrack whiteboard link <wbId> --source <nodeA> --target <nodeB> --link-type TWO_WAY
-```

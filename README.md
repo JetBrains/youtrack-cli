@@ -185,7 +185,6 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 | **app** | `list`, `plugin`, `deactivate`, `delete` |
 | **dashboard** | `list`, `create`, `update`, `delete` |
 | **gantt** | `list`, `update`, `delete`, `settings`, `member` |
-| **whiteboard** | `list`, `view`, `create`, `delete`, `node`, `link` |
 | **auth** | `login` (`get-token`), `logout`, `status`, `refresh-token` |
 | **instance** | `add`, `login`, `list`, `use`, `version`, `delete`, `refresh-token` |
 | **raw** | Authenticated request to any REST endpoint (`--body-file`, `--output`, `--paginate`) |

@@ -65,14 +65,13 @@ Use --json for machine-readable output.`,
 				}
 				return output.Print(cmd, res)
 			}
-			wasActive := cfg.CurrentInstance == targetAlias
-			if err := cfg.RemoveInstance(targetAlias); err != nil {
-				return err
-			}
-			if wasActive {
-				cfg.CurrentInstance = ""
-			}
-			if err := cfg.Save(); err != nil {
+			// Re-read under the lock: another process may have changed the config while the prompt was open.
+			if _, err := config.Update(func(cfg *config.Config) error {
+				if cfg.CurrentInstance == targetAlias {
+					cfg.CurrentInstance = ""
+				}
+				return cfg.RemoveInstance(targetAlias)
+			}); err != nil {
 				return err
 			}
 			if err := config.PurgeKeyringToken(targetAlias); err != nil {

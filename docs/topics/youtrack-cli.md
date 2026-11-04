@@ -128,7 +128,6 @@ Tools for tracking and visualizing work. See [Planning Tools](youtrack-cli-plann
 
 - `dashboard` — manage dashboards.
 - `gantt` — manage Gantt charts.
-- `whiteboard` — manage whiteboards.
 
 ### Access
 

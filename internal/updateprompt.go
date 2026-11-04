@@ -28,10 +28,8 @@ func UpdatePromptEnabled() bool {
 
 // DismissUpdate records version as skipped, so the startup prompt stays quiet until a newer release.
 func DismissUpdate(version string) {
-	cfg, err := config.Load()
-	if err != nil {
-		return
-	}
-	cfg.DismissedVersion = version
-	_ = cfg.Save()
+	_, _ = config.Update(func(c *config.Config) error {
+		c.DismissedVersion = version
+		return nil
+	})
 }
