@@ -32,7 +32,7 @@ func (c *Client) SetCustomFieldValues(issueID, fieldName string, values []string
 	}
 	err = c.Post(fmt.Sprintf(pathIssueField, url.PathEscape(issueID), url.PathEscape(field.ID)),
 		map[string]any{"value": value}, nil)
-	return c.customFieldValueError(err, issueID, field, fieldType)
+	return err
 }
 
 // customFieldWriteValue converts a CLI value to the request shape for a --type, as SetCustomField does.

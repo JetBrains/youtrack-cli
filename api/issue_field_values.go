@@ -2,9 +2,7 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 )
@@ -44,9 +42,6 @@ func (v *IssueFieldValue) MarshalJSON() ([]byte, error) {
 // instance's possibleValues endpoint; unavailable or forbidden discovery is
 // reported rather than falling back to a project's unrestricted bundle.
 func (c *Client) ListIssueFieldValues(issueID, field string, limit, offset int) ([]IssueFieldValue, error) {
-	if limit <= 0 || offset < 0 {
-		return nil, fmt.Errorf("limit must be positive and offset must not be negative")
-	}
 	metadata, err := c.resolveIssueField(issueID, field)
 	if err != nil {
 		return nil, err
@@ -59,51 +54,14 @@ func (c *Client) ListIssueFieldValues(issueID, field string, limit, offset int) 
 
 func (c *Client) listIssueFieldValues(issueID, fieldID string, limit, offset int) ([]IssueFieldValue, error) {
 	var result []IssueFieldValue
-	path := fmt.Sprintf("/api/issues/%s/customFields/%s/possibleValues?fields=%s&$top=%d&$skip=%d",
+	path := fmt.Sprintf(pathIssueField+"/possibleValues?fields=%s&$top=%d&$skip=%d",
 		url.PathEscape(issueID), url.PathEscape(fieldID), issueFieldValueFields, limit, offset)
 	err := c.Get(path, &result)
 	return result, err
 }
 
 func hasIssueFieldChoices(fieldType string) bool {
-	switch fieldType {
-	case "SingleEnumIssueCustomField", "MultiEnumIssueCustomField", "StateIssueCustomField",
-		"SingleVersionIssueCustomField", "MultiVersionIssueCustomField",
-		"SingleBuildIssueCustomField", "MultiBuildIssueCustomField",
-		"SingleOwnedIssueCustomField", "MultiOwnedIssueCustomField",
-		"SingleUserIssueCustomField", "MultiUserIssueCustomField":
-		return true
-	default:
-		return false
-	}
-}
-
-func (c *Client) customFieldValueError(err error, issueID string, field *issueFieldMetadata, fieldType string) error {
-	var response *APIError
-	if !errors.As(err, &response) || response.StatusCode != http.StatusBadRequest || fieldType != "" || !hasIssueFieldChoices(field.Type) {
-		return err
-	}
-	const maxChoices = 10
-	values, lookupErr := c.listIssueFieldValues(issueID, field.ID, maxChoices+1, 0)
-	if lookupErr != nil || len(values) == 0 {
-		return err
-	}
-	more := len(values) > maxChoices
-	if more {
-		values = values[:maxChoices]
-	}
-	var names []string
-	for _, value := range values {
-		if value.Name != "" {
-			names = append(names, fmt.Sprintf("%q", value.Name))
-		}
-	}
-	if len(names) == 0 {
-		return err
-	}
-	suffix := ""
-	if more {
-		suffix = ", ..."
-	}
-	return fmt.Errorf("%w; accessible values for %q: %s%s; use issue field values to list choices", err, field.Name, strings.Join(names, ", "), suffix)
+	return draftFieldValueType(fieldType) != "" ||
+		strings.HasSuffix(fieldType, "UserIssueCustomField") ||
+		strings.HasSuffix(fieldType, "GroupIssueCustomField")
 }

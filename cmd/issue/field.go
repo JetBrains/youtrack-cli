@@ -2,6 +2,7 @@ package issue
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -21,15 +22,21 @@ func newIssueFieldCmd() *cobra.Command {
 func newIssueFieldValuesCmd() *cobra.Command {
 	var limit, offset int
 	cmd := &cobra.Command{
-		Use:   "values <issueId> <field>",
+		Use:   "list-values <issueId> <field>",
 		Short: "List selectable values for an issue field",
 		Long: "List one page of values visible in this issue's field context. The field accepts its name or opaque ID.\n\n" +
-			"Requires an instance that exposes issue-field possibleValues. Server errors are returned without falling back to administrative bundles.\n" +
+			"Requires an instance that supports issue-field value discovery.\n" +
 			"Scalar fields and state-machine transitions are not supported.",
-		Example: "  youtrack issue field values DEMO-42 State\n" +
-			"  youtrack issue field values DEMO-42 Priority --limit 50 --offset 50 --json",
+		Example: "  youtrack issue field list-values DEMO-42 State\n" +
+			"  youtrack issue field list-values DEMO-42 Priority --limit 50 --offset 50 --json",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit <= 0 {
+				return fmt.Errorf("--limit must be positive, got %d", limit)
+			}
+			if offset < 0 {
+				return fmt.Errorf("--offset must not be negative, got %d", offset)
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err

@@ -229,7 +229,7 @@ Read or set a single custom field value with `youtrack issue field`:
 
 ```Shell
 youtrack issue field view DEMO-42 State
-youtrack issue field values DEMO-42 State --limit 50
+youtrack issue field list-values DEMO-42 State --limit 50
 youtrack issue field set DEMO-42 State Fixed
 youtrack issue field set DEMO-42 Estimation 2h --type period
 ```
@@ -243,14 +243,14 @@ youtrack issue field set DEMO-42 Subsystem --value "Platform. Auth & Licensing" 
 youtrack issue field set DEMO-42 Assignee --clear
 ```
 
-Use `issue field values <issueId> <field>` to list choices visible in the issue's context. The field accepts its name or opaque ID. Results support `--json`, `--plain`, and `--fields`; page with `--limit` (default 50) and `--offset`. For example:
+Use `issue field list-values <issueId> <field>` to list choices visible in the issue's context. The field accepts its name or opaque ID. Results support `--json`, `--plain`, and `--fields`; page with `--limit` (default 50) and `--offset`. For example:
 
 ```Shell
-youtrack issue field values DEMO-42 Priority --limit 50 --offset 50 --json
-youtrack issue field values DEMO-42 State --fields id,name --plain
+youtrack issue field list-values DEMO-42 Priority --limit 50 --offset 50 --json
+youtrack issue field list-values DEMO-42 State --fields id,name --plain
 ```
 
-This command uses the issue-field `possibleValues` endpoint, verified against YouTrack 2026.2. It returns the server's permission or availability error if discovery is unavailable, and never substitutes an administrative bundle. Scalar fields and state-machine transitions are not supported. When setting a named choice fails with HTTP 400, the CLI attempts to append up to ten accessible choices; if discovery fails, the original error is preserved.
+Scalar fields and state-machine transitions are not supported. If discovery is unavailable or forbidden, the server error is returned. User choices display logins, which can be passed to `issue field set` with `--type user`.
 
 ## Watching and voting {id="watch-vote"}
 

@@ -122,7 +122,7 @@ EOF
 youtrack issue command DEMO-42 "State In Progress"
 
 # discover selectable values in this issue's field context
-youtrack issue field values DEMO-42 Priority --json
+youtrack issue field list-values DEMO-42 Priority --json
 
 # set several values of a multi-value field, or clear a field
 youtrack issue field set DEMO-42 Subsystem --value "Platform. Auth & Licensing" --value UI
@@ -169,7 +169,7 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 
 | Group | Commands |
 |---|---|
-| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field` (+ `field values`), `reaction`, `draft`, `workitem`, `activity`, `vcs` |
+| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field` (+ `field list-values`), `reaction`, `draft`, `workitem`, `activity`, `vcs` |
 | **project** | `list`, `view`, `create`, `update`, `delete`, `archive`, `team`, `field`, `template`, `timetrack`, `workflow` |
 | **article** | `list`, `view`, `create`, `update`, `delete`, `comment`, `attachment`, `tag` |
 | **board** | `list`, `view`, `create`, `update`, `delete`, `sprint` |

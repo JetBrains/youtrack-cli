@@ -20,11 +20,11 @@ func commentText(comment *api.Comment) string {
 }
 
 func issueFieldValueName(value *api.IssueFieldValue) string {
-	if value.Name != "" {
-		return value.Name
-	}
 	if value.Login != "" {
 		return value.Login
+	}
+	if value.Name != "" {
+		return value.Name
 	}
 	return value.FullName
 }
