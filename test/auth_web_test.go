@@ -87,7 +87,7 @@ func TestAuthLogin_WebFailsInsteadOfPrompting(t *testing.T) {
 		"no browser":  {[]string{"auth", "login", "https://youtrack.invalid", "--web", "--no-browser"}, "[no-browser web] were all set", false},
 		"basic auth":  {[]string{"auth", "login", "https://youtrack.invalid", "--web", "--login", "x"}, "[login web] were all set", false},
 		// The harness Hub has no "localhost-auth" client, so a terminal run would fall back to pasting a token here.
-		"no oauth client": {[]string{"auth", "login", "--web"}, "browser sign-in is not available: this Hub has no public CLI OAuth client", true},
+		"no oauth client": {[]string{"auth", "login", "--web"}, "browser sign-in is not available: hub did not accept OAuth client", true},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

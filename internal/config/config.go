@@ -1,12 +1,14 @@
 package config
 
 import (
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 )
@@ -16,6 +18,9 @@ type Config struct {
 	CurrentInstance string              `json:"currentInstance"`
 	Instances       map[string]Instance `json:"instances"`
 	LastUpdateCheck int64               `json:"lastUpdateCheck,omitempty"`
+
+	// staleRefresh lists aliases whose OAuth session was replaced by a permanent token; Save drops their OAuth session keyring entries.
+	staleRefresh []string
 	// LatestVersion is the newest release seen by the last update check; the startup prompt reads it.
 	LatestVersion string `json:"latestVersion,omitempty"`
 	// DismissedVersion is the release the user chose to skip in the startup prompt.
@@ -27,16 +32,52 @@ type Instance struct {
 	URL   string `json:"url"`
 	Token string `json:"token,omitempty"`
 
-	// tokenInKeyring marks the token as keyring-stored so save omits it from the file.
+	// tokenInKeyring marks the token as keyring-stored so Save omits it from the file.
 	tokenInKeyring bool
-	// tokenURLMissing marks a keyring token that has no URL entry, because an older version saved it, so save binds it to the current URL.
+	// tokenURLMissing marks a keyring token that has no URL entry, because an older version saved it, so Save binds it to the current URL.
 	tokenURLMissing bool
-	// tokenURL is the instance URL stored for the token in the keyring; empty for file tokens and for keyring tokens without a readable URL entry.
+	// tokenURLUnreadable marks a keyring token whose URL entry could not be read (not a confirmed missing one), so the token is not sent anywhere.
+	tokenURLUnreadable bool
+	// tokenURL is the instance URL stored for the token or the OAuth session in the keyring; empty for file tokens and for keyring tokens without a readable URL entry.
 	tokenURL string
 	// AuthMethod records how the token was obtained ("oauth" for browser SSO; empty for permanent tokens).
 	AuthMethod string `json:"authMethod,omitempty"`
 	// TokenExpiresAt is the unix timestamp after which the token expires; zero means never (permanent token).
 	TokenExpiresAt int64 `json:"tokenExpiresAt,omitempty"`
+
+	// RefreshToken renews an OAuth access token; like Token, it is empty in the file when it lives in the OS keyring.
+	RefreshToken string `json:"refreshToken,omitempty"`
+	// RefreshTokenInKeyring records in the file that the refresh token lives in the keyring session entry. Without it an empty
+	// RefreshToken means the session has none, so an entry left from an earlier sign-in (a failed keyring write) is never read back.
+	RefreshTokenInKeyring bool `json:"refreshTokenInKeyring,omitempty"`
+	// oauthInKeyring marks the refresh token as stored in the keyring session entry (see oauthSecret), so Save omits it from the file.
+	oauthInKeyring bool
+	// oauthBound marks TokenEndpoint and tokenURL as read from the keyring session entry, independent of where the refresh token lives.
+	oauthBound bool
+	// SessionID is new for each sign-in and kept across refreshes. Load ignores a keyring session entry with another ID,
+	// and a refresh refuses a profile whose ID changed, so the tokens of two sign-ins are never mixed.
+	SessionID string `json:"sessionId,omitempty"`
+	// OAuth session metadata recorded at sign-in so the access token can be refreshed without re-discovery.
+	TokenType     string `json:"tokenType,omitempty"`
+	Scope         string `json:"scope,omitempty"`
+	HubURL        string `json:"hubUrl,omitempty"`
+	ClientID      string `json:"clientId,omitempty"`
+	TokenEndpoint string `json:"tokenEndpoint,omitempty"`
+}
+
+// AuthMethodOAuth marks an instance whose token came from the browser OAuth flow.
+const AuthMethodOAuth = "oauth"
+
+// OAuthSession is everything a browser sign-in yields that must be persisted for refresh and logout.
+type OAuthSession struct {
+	AccessToken   string
+	RefreshToken  string
+	ExpiresAt     int64
+	TokenType     string
+	Scope         string
+	HubURL        string
+	ClientID      string
+	TokenEndpoint string
 }
 
 // ConfigDir returns the youtrack-cli config directory ($XDG_CONFIG_HOME/youtrack or ~/.config/youtrack).
@@ -93,99 +134,134 @@ func Load() (*Config, error) {
 	if c.Instances == nil {
 		c.Instances = map[string]Instance{}
 	}
-	for alias, inst := range c.Instances {
-		if inst.Token != "" {
-			continue
-		}
-		if tok, err := keyringGet(keyringService, alias); err == nil && tok != "" {
-			inst.Token = tok
-			inst.tokenInKeyring = true
-			// Only a confirmed missing URL entry is bound later; a failed read leaves the token bound to the file URL without rebinding it.
-			switch u, err := keyringGet(keyringURLService, alias); {
-			case err == nil && u != "":
-				inst.tokenURL = u
-			case err == nil || errors.Is(err, errKeyringNotFound):
-				inst.tokenURLMissing = true
+	for alias := range c.Instances {
+		inst := c.Instances[alias]
+		if inst.Token == "" {
+			if tok, err := keyringGet(keyringService, alias); err == nil && tok != "" {
+				inst.Token = tok
+				inst.tokenInKeyring = true
+				// Only a confirmed missing URL entry is bound later; after a failed read the token is unusable, since the file URL may be edited.
+				switch u, err := keyringGet(keyringURLService, alias); {
+				case err == nil && u != "":
+					inst.tokenURL = u
+				case err == nil || errors.Is(err, errKeyringNotFound):
+					inst.tokenURLMissing = true
+				default:
+					inst.tokenURLUnreadable = true
+				}
 			}
-			c.Instances[alias] = inst
 		}
+		// Only OAuth sessions have a keyring session entry; skip the round trip for permanent-token instances.
+		if inst.AuthMethod == AuthMethodOAuth {
+			var s oauthSecret
+			if raw, err := keyringGet(keyringOAuthService, alias); err == nil && json.Unmarshal([]byte(raw), &s) == nil && s.SessionID == inst.SessionID {
+				// The keyring endpoint and URL win over the file; a refresh token left in the file (keyring was down at the last Save) is newer.
+				inst.TokenEndpoint, inst.oauthBound = s.TokenEndpoint, true
+				if s.URL != "" {
+					inst.tokenURL, inst.tokenURLUnreadable = s.URL, false
+				}
+				// The keyring refresh token is taken only when the file says it was saved there, never for a session saved without one.
+				if inst.RefreshToken == s.RefreshToken || (inst.RefreshToken == "" && inst.RefreshTokenInKeyring) {
+					inst.RefreshToken = s.RefreshToken
+					inst.oauthInKeyring = true
+				}
+			}
+		}
+		c.Instances[alias] = inst
 	}
 	return &c, nil
 }
 
-// Update loads the config, applies fn, and saves the result while holding a cross-process lock,
-// so concurrent CLI processes never lose each other's changes. If fn returns an error, nothing is saved.
-// Keep fn short: other processes that write the config wait until it returns.
-func Update(fn func(*Config) error) (*Config, error) {
+// Save atomically writes the config to ConfigPath at 0600, creating its directory at 0700.
+// Uses write-to-temp + rename to avoid partial writes on crash (and so a rotated refresh token is never half-written).
+// Tokens go to the OS keyring when available (migrating older file tokens), else stay in the file on any keyring failure.
+func (c *Config) Save() error {
 	path, err := ConfigPath()
 	if err != nil {
-		return nil, err
+		return err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		return nil, fmt.Errorf("creating config dir: %w", err)
-	}
-	lock, err := os.OpenFile(path+".lock", os.O_RDWR|os.O_CREATE, 0600)
-	if err != nil {
-		return nil, fmt.Errorf("opening config lock: %w", err)
-	}
-	defer func() { _ = lock.Close() }()
-	if err := lockFile(lock); err != nil {
-		return nil, fmt.Errorf("locking config: %w", err)
-	}
-	c, err := Load()
-	if err != nil {
-		return nil, err
-	}
-	if err := fn(c); err != nil {
-		return nil, err
-	}
-	if err := c.save(path); err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
-// save atomically writes the config to path at 0600; Update creates its directory.
-// Uses write-to-temp + rename to avoid partial writes on crash.
-// Tokens go to the OS keyring when available (migrating older file tokens), else stay in the file on any keyring failure.
-func (c *Config) save(path string) error {
-	for alias, inst := range c.Instances {
+	for alias := range c.Instances {
+		inst := c.Instances[alias]
+		// Decided before the token moves to the keyring: endpoints are bound only while they are trusted.
+		bindOAuth := inst.AuthMethod == AuthMethodOAuth && !inst.oauthInKeyring && inst.OAuthEndpointsTrusted() && (inst.Token != "" || inst.RefreshToken != "")
 		switch keyringWriteFor(&inst) {
 		case keyringWriteToken:
 			// The URL goes first, so the keyring never holds a new token without its URL; on any failure the token stays in the file.
-			if keyringSet(keyringURLService, alias, inst.URL) != nil || keyringSet(keyringService, alias, inst.Token) != nil {
-				continue
+			if keyringSet(keyringURLService, alias, inst.URL) == nil && keyringSet(keyringService, alias, inst.Token) == nil {
+				inst.tokenInKeyring, inst.tokenURLMissing, inst.tokenURLUnreadable, inst.tokenURL = true, false, false, inst.URL
 			}
-			inst.tokenInKeyring, inst.tokenURLMissing, inst.tokenURL = true, false, inst.URL
 		case keyringWriteURL:
-			if keyringSet(keyringURLService, alias, inst.URL) != nil {
-				continue
+			if keyringSet(keyringURLService, alias, inst.URL) == nil {
+				inst.tokenURLMissing, inst.tokenURL = false, inst.URL
 			}
-			inst.tokenURLMissing, inst.tokenURL = false, inst.URL
-		default:
-			continue
+		}
+		if bindOAuth {
+			// The entry is written even without a refresh token, so one left from an earlier sign-in is replaced.
+			s, _ := json.Marshal(oauthSecret{RefreshToken: inst.RefreshToken, TokenEndpoint: inst.TokenEndpoint, URL: inst.TokenURL(), SessionID: inst.SessionID})
+			if keyringSet(keyringOAuthService, alias, string(s)) == nil {
+				inst.oauthInKeyring, inst.oauthBound = true, true
+			}
 		}
 		c.Instances[alias] = inst
 	}
-	data, err := json.MarshalIndent(c.fileView(), "", "  ")
+	view := c.fileView()
+	data, err := json.MarshalIndent(view, "", "  ")
 	if err != nil {
 		return fmt.Errorf("marshaling config: %w", err)
 	}
-	f, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp") // created at 0600
+	if err := writeFileAtomic(path, append(data, '\n'), view.holdsSecrets()); err != nil {
+		return err
+	}
+	for _, alias := range c.staleRefresh {
+		purgeKeyringOAuth(alias)
+	}
+	c.staleRefresh = nil
+	return nil
+}
+
+// writeFileAtomic writes data to a fresh 0600 temp file beside path and renames it over path.
+// A unique temp name keeps concurrent writers from clobbering each other's partial file, and a
+// pre-existing, more permissive temp file can never be reused. When the data holds secrets, it
+// refuses to proceed if the file permissions cannot be restricted to the owner.
+func writeFileAtomic(path string, data []byte, secret bool) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return fmt.Errorf("creating config dir: %w", err)
+	}
+	f, err := os.CreateTemp(filepath.Dir(path), filepath.Base(path)+".*.tmp")
 	if err != nil {
 		return fmt.Errorf("writing config: %w", err)
 	}
 	tmp := f.Name()
-	_, err = f.Write(append(data, '\n'))
-	if cerr := f.Close(); err == nil {
-		err = cerr
+	cleanup := func() { _ = os.Remove(tmp) }
+	if err := f.Chmod(0600); err != nil && runtime.GOOS != "windows" {
+		_ = f.Close()
+		cleanup()
+		return fmt.Errorf("restricting config permissions: %w", err)
 	}
-	if err != nil {
-		_ = os.Remove(tmp) // clean up any partial write
+	if secret && runtime.GOOS != "windows" {
+		// Some filesystems (e.g. network or foreign mounts) silently ignore chmod; never leave a token world-readable there.
+		if fi, err := f.Stat(); err != nil || fi.Mode().Perm()&0o077 != 0 {
+			_ = f.Close()
+			cleanup()
+			return fmt.Errorf("refusing to store credentials in %s: cannot restrict its permissions to 0600 — enable the OS keyring or move HOME to a filesystem that supports permissions", path)
+		}
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		cleanup()
+		return fmt.Errorf("writing config: %w", err)
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		cleanup()
+		return fmt.Errorf("writing config: %w", err)
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
 		return fmt.Errorf("writing config: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
-		_ = os.Remove(tmp)
+		cleanup()
 		return fmt.Errorf("saving config: %w", err)
 	}
 	if legacy, err := legacyConfigPath(); err == nil {
@@ -196,7 +272,7 @@ func (c *Config) save(path string) error {
 
 // migrateLegacy moves a legacy config to path when path does not exist yet and returns the file Load should read.
 // If the move fails and no other process has migrated it meanwhile, it returns the legacy path,
-// so the next Update writes path and removes the legacy file.
+// so the next Save writes path and removes the legacy file.
 func migrateLegacy(path string) string {
 	legacy, err := legacyConfigPath()
 	if err != nil {
@@ -217,7 +293,7 @@ func migrateLegacy(path string) string {
 	return legacy
 }
 
-// keyringWrite is what save must write to the keyring for one instance.
+// keyringWrite is what Save must write to the keyring for one instance.
 type keyringWrite int
 
 const (
@@ -226,7 +302,7 @@ const (
 	keyringWriteURL                // a keyring token saved by an older version: add its URL entry
 )
 
-// keyringWriteFor decides what save writes for inst. A keyring token that already has a URL is never rewritten:
+// keyringWriteFor decides what Save writes for inst. A keyring token that already has a URL is never rewritten:
 // binding it to the URL in the config file again would trust an edited file.
 func keyringWriteFor(inst *Instance) keyringWrite {
 	switch {
@@ -245,13 +321,45 @@ func keyringWriteFor(inst *Instance) keyringWrite {
 func (c *Config) fileView() Config {
 	out := *c
 	out.Instances = make(map[string]Instance, len(c.Instances))
-	for alias, inst := range c.Instances {
+	for alias := range c.Instances {
+		inst := c.Instances[alias]
 		if inst.tokenInKeyring {
 			inst.Token = ""
 		}
+		switch {
+		case inst.oauthInKeyring:
+			inst.RefreshTokenInKeyring = inst.RefreshToken != ""
+			inst.RefreshToken = ""
+		case inst.RefreshToken != "":
+			inst.RefreshTokenInKeyring = false // the file holds the refresh token
+		}
+		// Otherwise the session entry was not read (keyring outage): the marker stays as loaded, so the refresh token is
+		// read back once the keyring recovers. SetOAuthTokens and ClearOAuthTokens clear it when the session changes.
 		out.Instances[alias] = inst
 	}
 	return out
+}
+
+// holdsSecrets reports whether any token is kept in the file itself rather than the keyring.
+func (c *Config) holdsSecrets() bool {
+	for alias := range c.Instances {
+		if inst := c.Instances[alias]; inst.Token != "" || inst.RefreshToken != "" {
+			return true
+		}
+	}
+	return false
+}
+
+// RefreshTokenInKeyring reports whether the refresh token for alias is stored in the OS keyring.
+func (c *Config) RefreshTokenInKeyring(alias string) bool {
+	inst := c.Instances[alias]
+	return inst.oauthInKeyring && inst.RefreshToken != ""
+}
+
+// OAuthEndpointsTrusted reports whether TokenEndpoint may receive this instance's refresh token:
+// it comes from the keyring entry bound at sign-in, or no token lives in the keyring (so the file holds both and an edit redirects nothing new).
+func (i *Instance) OAuthEndpointsTrusted() bool {
+	return i.oauthBound || !i.tokenInKeyring
 }
 
 // TokenURL returns the URL the token is bound to: the URL saved for it in the keyring, else the URL from the config file.
@@ -262,6 +370,11 @@ func (i *Instance) TokenURL() string {
 	return i.URL
 }
 
+// TokenURLUnreadable reports whether the token lives in the keyring but the URL it is bound to could not be read from there.
+func (i *Instance) TokenURLUnreadable() bool {
+	return i.tokenURLUnreadable
+}
+
 // TokenInKeyring reports whether the token for alias is stored in the OS keyring.
 func (c *Config) TokenInKeyring(alias string) bool {
 	return c.Instances[alias].tokenInKeyring
@@ -269,7 +382,7 @@ func (c *Config) TokenInKeyring(alias string) bool {
 
 // ActiveInstance returns a pointer to the active instance and its alias.
 // The returned pointer points to a detached copy — mutating it has no effect on Config.
-// Modify instances through Config methods inside Update.
+// Always call Save() after modifying instances through other methods.
 // Returns (nil, "") when no instance is configured as active.
 // Returns (nil, alias) when currentInstance names an alias that is missing from the map —
 // callers should treat this as a stale-pointer error.
@@ -291,14 +404,49 @@ func (c *Config) AddInstance(alias, rawURL, token string) string {
 	return c.upsertInstance(alias, rawURL, &Instance{URL: rawURL, Token: token})
 }
 
-// AddInstanceOAuth upserts an instance holding a short-lived OAuth access token that expires at the given unix timestamp.
-func (c *Config) AddInstanceOAuth(alias, rawURL, token string, expiresAt int64) string {
+// AddInstanceOAuth upserts an instance holding an OAuth session: a short-lived access token plus, when Hub issued one, a refresh token.
+func (c *Config) AddInstanceOAuth(alias, rawURL string, sess *OAuthSession) string {
 	return c.upsertInstance(alias, rawURL, &Instance{
 		URL:            rawURL,
-		Token:          token,
-		AuthMethod:     "oauth",
-		TokenExpiresAt: expiresAt,
+		Token:          sess.AccessToken,
+		AuthMethod:     AuthMethodOAuth,
+		TokenExpiresAt: sess.ExpiresAt,
+		RefreshToken:   sess.RefreshToken,
+		TokenType:      sess.TokenType,
+		Scope:          sess.Scope,
+		HubURL:         sess.HubURL,
+		ClientID:       sess.ClientID,
+		TokenEndpoint:  sess.TokenEndpoint,
+		SessionID:      rand.Text(),
 	})
+}
+
+// SetOAuthTokens replaces the access token (and the refresh token, when Hub rotated it) of an existing OAuth instance; Save persists both.
+func (c *Config) SetOAuthTokens(alias, accessToken, refreshToken string, expiresAt int64) {
+	inst, ok := c.Instances[alias]
+	if !ok {
+		return
+	}
+	inst.Token = accessToken
+	inst.tokenInKeyring = false // force Save to write the new value to the keyring
+	inst.TokenExpiresAt = expiresAt
+	if refreshToken != inst.RefreshToken {
+		inst.RefreshToken = refreshToken
+		inst.oauthInKeyring, inst.RefreshTokenInKeyring = false, false
+	}
+	c.Instances[alias] = inst
+}
+
+// ClearOAuthTokens drops the tokens of an OAuth instance whose session is dead, keeping its URL and alias for re-login; call Save, then PurgeKeyringToken.
+func (c *Config) ClearOAuthTokens(alias string) {
+	inst, ok := c.Instances[alias]
+	if !ok {
+		return
+	}
+	// Expiry 1 (not 0 = never): if the keyring purge fails and Load re-imports the dead tokens, they are refreshed (and rejected) rather than used as-is.
+	inst.Token, inst.RefreshToken, inst.TokenExpiresAt, inst.RefreshTokenInKeyring = "", "", 1, false
+	inst.tokenInKeyring, inst.oauthInKeyring, inst.oauthBound, inst.tokenURLMissing, inst.tokenURLUnreadable, inst.tokenURL = false, false, false, false, false, ""
+	c.Instances[alias] = inst
 }
 
 func (c *Config) upsertInstance(alias, rawURL string, inst *Instance) string {
@@ -313,11 +461,14 @@ func (c *Config) upsertInstance(alias, rawURL string, inst *Instance) string {
 		}
 		final = fmt.Sprintf("%s-%d", alias, i)
 	}
+	if prev, ok := c.Instances[final]; ok && prev.AuthMethod == AuthMethodOAuth && inst.AuthMethod != AuthMethodOAuth {
+		c.staleRefresh = append(c.staleRefresh, final)
+	}
 	c.Instances[final] = *inst
 	return final
 }
 
-// RemoveInstance drops the alias from the in-memory config (error if not found); it does not touch the keyring, so callers must call it inside Update, then PurgeKeyringToken(alias).
+// RemoveInstance drops the alias from the in-memory config (error if not found); it does not touch the keyring, so callers must Save() then PurgeKeyringToken(alias).
 func (c *Config) RemoveInstance(alias string) error {
 	if _, ok := c.Instances[alias]; !ok {
 		return fmt.Errorf("instance %q not found — run: youtrack instance list", alias)
@@ -326,17 +477,23 @@ func (c *Config) RemoveInstance(alias string) error {
 	return nil
 }
 
-// PurgeKeyringToken deletes the keyring token and URL entries for alias; call only after a successful Update.
+// PurgeKeyringToken deletes the keyring entries (access token, its URL, OAuth session) for alias; call only after a successful Save(),
+// or inside Update when the same call removes alias.
 // A missing entry or a disabled keyring is not an error.
 func PurgeKeyringToken(alias string) error {
-	for _, service := range []string{keyringService, keyringURLService} {
-		err := keyringDelete(service, alias)
+	var errs []error
+	for _, e := range []struct{ service, user string }{
+		{keyringService, alias},
+		{keyringURLService, alias},
+		{keyringOAuthService, alias},
+	} {
+		err := keyringDelete(e.service, e.user)
 		if err == nil || errors.Is(err, errKeyringDisabled) || errors.Is(err, errKeyringNotFound) {
 			continue
 		}
-		return fmt.Errorf("could not remove the token for %q from the OS keyring: %w — remove the %q entry for service %q manually", alias, err, alias, service)
+		errs = append(errs, fmt.Errorf("could not remove the token for %q from the OS keyring: %w — remove the %q entry for service %q manually", alias, err, e.user, e.service))
 	}
-	return nil
+	return errors.Join(errs...)
 }
 
 // Aliases returns all configured instance aliases in sorted order.
@@ -362,4 +519,9 @@ func DeriveAlias(rawURL string) string {
 		return host[:idx]
 	}
 	return host
+}
+
+// purgeKeyringOAuth deletes only the OAuth session keyring entry for alias, after its session was replaced by a permanent token.
+func purgeKeyringOAuth(alias string) {
+	_ = keyringDelete(keyringOAuthService, alias)
 }

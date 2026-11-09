@@ -29,19 +29,39 @@ func newDeleteCmd() *cobra.Command {
 			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf("Delete instance %q (%s)?", alias, inst.URL)); abort {
 				return err
 			}
-			// Re-read under the lock: another process may have changed the config while the prompt was open.
+			// The prompt runs unlocked; the removal re-reads the config under the lock so it cannot drop a concurrent refresh.
 			wasActive := false
-			if _, err := config.Update(func(cfg *config.Config) error {
+			var purgeErr error
+			err = func() error {
+				unlock, err := config.Lock(cmd.Context())
+				if err != nil {
+					return err
+				}
+				defer unlock()
+				cfg, err := config.Load()
+				if err != nil {
+					return err
+				}
 				wasActive = cfg.CurrentInstance == alias
+				if err := cfg.RemoveInstance(alias); err != nil {
+					return err
+				}
 				if wasActive {
 					cfg.CurrentInstance = ""
 				}
-				return cfg.RemoveInstance(alias)
-			}); err != nil {
+				if err := cfg.Save(); err != nil {
+					return err
+				}
+				// Purged only after the save succeeds, so a failed save keeps the profile usable, and before the lock is
+				// released, so a concurrent login that recreates alias keeps its new credentials.
+				purgeErr = config.PurgeKeyringToken(alias)
+				return nil
+			}()
+			if err != nil {
 				return err
 			}
-			if err := config.PurgeKeyringToken(alias); err != nil {
-				output.PrintWarn(cmd, err.Error())
+			if purgeErr != nil {
+				output.PrintWarn(cmd, purgeErr.Error())
 			}
 			message := fmt.Sprintf("instance %q deleted", alias)
 			if wasActive {

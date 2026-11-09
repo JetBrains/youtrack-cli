@@ -17,7 +17,8 @@ func newUseCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			alias := args[0]
-			if _, err := config.Update(func(cfg *config.Config) error {
+			// A locked update keeps this write from overwriting a token another process refreshes concurrently.
+			err := config.Update(cmd.Context(), func(cfg *config.Config) error {
 				if _, ok := cfg.Instances[alias]; !ok {
 					return fmt.Errorf(
 						"instance %q not found — run: youtrack instance list\nKnown: %s",
@@ -26,7 +27,8 @@ func newUseCmd() *cobra.Command {
 				}
 				cfg.CurrentInstance = alias
 				return nil
-			}); err != nil {
+			})
+			if err != nil {
 				return err
 			}
 			output.PrintSuccess(cmd, fmt.Sprintf("switched to instance %q", alias))

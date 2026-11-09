@@ -25,7 +25,7 @@ func newRefreshTokenCmd() *cobra.Command {
 	cmd.Long = `Replaces the saved token for a configured instance using any available
 authentication method:
 
-  1) Basic auth   — login + password via Hub API
+  1) Basic auth   — login + password via Hub API (deprecated: no SSO/2FA)
   2) Web browser  — open the token page in a browser, then paste the token
   3) Paste token  — enter a token directly without opening a browser
 
