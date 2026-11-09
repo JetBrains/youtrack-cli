@@ -125,6 +125,43 @@ func TestReplacementSessionIgnoresStaleKeyringRefreshToken(t *testing.T) {
 	}
 }
 
+func TestSaveDuringKeyringOutageKeepsRefreshToken(t *testing.T) {
+	isolate(t)
+	gokeyring.MockInit()
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "")
+	cfg, _ := Load()
+	cfg.AddInstanceOAuth("work", "https://work.example.com", &OAuthSession{AccessToken: "at", RefreshToken: "rt", ExpiresAt: 1234,
+		HubURL: "https://work.example.com/hub", ClientID: "cli", TokenEndpoint: "https://work.example.com/hub/api/rest/oauth2/token"})
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	// An unrelated save (e.g. the update check) while the keyring cannot be read must not drop the session's refresh token.
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "1")
+	cfg, _ = Load()
+	cfg.LastUpdateCheck = 1
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "")
+	if got, _ := Load(); got.Instances["work"].RefreshToken != "rt" {
+		t.Fatalf("refresh token lost after a save during a keyring outage: %+v", got.Instances["work"])
+	}
+
+	// Clearing the session during an outage must not let its refresh token come back when the keyring recovers.
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "1")
+	cfg, _ = Load()
+	cfg.ClearOAuthTokens("work")
+	if err := cfg.Save(); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("YOUTRACK_DISABLE_KEYRING", "")
+	if got, _ := Load(); got.Instances["work"].RefreshToken != "" {
+		t.Fatalf("cleared refresh token read back from the keyring: %+v", got.Instances["work"])
+	}
+}
+
 func TestReplacementSessionIgnoresStaleKeyringEndpoint(t *testing.T) {
 	isolate(t)
 	gokeyring.MockInit()

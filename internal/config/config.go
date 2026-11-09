@@ -326,10 +326,15 @@ func (c *Config) fileView() Config {
 		if inst.tokenInKeyring {
 			inst.Token = ""
 		}
-		inst.RefreshTokenInKeyring = inst.oauthInKeyring && inst.RefreshToken != ""
-		if inst.oauthInKeyring {
+		switch {
+		case inst.oauthInKeyring:
+			inst.RefreshTokenInKeyring = inst.RefreshToken != ""
 			inst.RefreshToken = ""
+		case inst.RefreshToken != "":
+			inst.RefreshTokenInKeyring = false // the file holds the refresh token
 		}
+		// Otherwise the session entry was not read (keyring outage): the marker stays as loaded, so the refresh token is
+		// read back once the keyring recovers. SetOAuthTokens and ClearOAuthTokens clear it when the session changes.
 		out.Instances[alias] = inst
 	}
 	return out
@@ -427,7 +432,7 @@ func (c *Config) SetOAuthTokens(alias, accessToken, refreshToken string, expires
 	inst.TokenExpiresAt = expiresAt
 	if refreshToken != inst.RefreshToken {
 		inst.RefreshToken = refreshToken
-		inst.oauthInKeyring = false
+		inst.oauthInKeyring, inst.RefreshTokenInKeyring = false, false
 	}
 	c.Instances[alias] = inst
 }
@@ -439,7 +444,7 @@ func (c *Config) ClearOAuthTokens(alias string) {
 		return
 	}
 	// Expiry 1 (not 0 = never): if the keyring purge fails and Load re-imports the dead tokens, they are refreshed (and rejected) rather than used as-is.
-	inst.Token, inst.RefreshToken, inst.TokenExpiresAt = "", "", 1
+	inst.Token, inst.RefreshToken, inst.TokenExpiresAt, inst.RefreshTokenInKeyring = "", "", 1, false
 	inst.tokenInKeyring, inst.oauthInKeyring, inst.oauthBound, inst.tokenURLMissing, inst.tokenURLUnreadable, inst.tokenURL = false, false, false, false, false, ""
 	c.Instances[alias] = inst
 }
