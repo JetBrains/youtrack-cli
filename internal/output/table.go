@@ -12,6 +12,23 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal"
 )
 
+func commentText(comment *api.Comment) string {
+	if comment.Deleted {
+		return "[deleted]"
+	}
+	return comment.Text
+}
+
+func issueFieldValueName(value *api.IssueFieldValue) string {
+	if value.Login != "" {
+		return value.Login
+	}
+	if value.Name != "" {
+		return value.Name
+	}
+	return value.FullName
+}
+
 // PrintTable renders data as a human-readable table. Falls back to JSON for unknown types.
 func PrintTable(out io.Writer, data any) error {
 	tw := tabwriter.NewWriter(out, 0, 0, 2, ' ', 0)
@@ -50,7 +67,19 @@ func PrintTable(out io.Writer, data any) error {
 			if c.Author != nil {
 				author = c.Author.Login
 			}
-			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, author, truncate(c.Text, 60))
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", c.ID, author, truncate(commentText(&c), 60))
+		}
+	case *api.Comment:
+		_, _ = fmt.Fprintln(w, "ID\tAUTHOR\tTEXT")
+		author := ""
+		if v.Author != nil {
+			author = v.Author.Login
+		}
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.ID, author, truncate(commentText(v), 60))
+	case []api.IssueFieldValue:
+		_, _ = fmt.Fprintln(w, "ID\tVALUE")
+		for i := range v {
+			_, _ = fmt.Fprintf(w, "%s\t%s\n", v[i].ID, issueFieldValueName(&v[i]))
 		}
 	case *api.Article:
 		_, _ = fmt.Fprintln(w, "ID\tSUMMARY\tPROJECT")
@@ -94,6 +123,11 @@ func PrintTable(out io.Writer, data any) error {
 		for _, wf := range v {
 			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", wf.ID, wf.Name, wf.Title)
 		}
+	case *api.WorkflowRule:
+		_, _ = fmt.Fprintln(w, "ID\tNAME\tTYPE\tTITLE")
+		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", v.ID, v.Name, v.Type, v.Title)
+		_ = tw.Flush()
+		printRuleScript(safeWriter{out}, v.Script)
 	case *api.CustomField:
 		_, _ = fmt.Fprintln(w, "ID\tNAME\tTYPE")
 		typeID := ""
@@ -319,14 +353,18 @@ func PrintPlain(out io.Writer, data any) error {
 			if c.Author != nil {
 				author = c.Author.Login
 			}
-			write(c.ID, author, c.Text)
+			write(c.ID, author, commentText(&c))
 		}
 	case *api.Comment:
 		author := ""
 		if v.Author != nil {
 			author = v.Author.Login
 		}
-		write(v.ID, author, v.Text)
+		write(v.ID, author, commentText(v))
+	case []api.IssueFieldValue:
+		for i := range v {
+			write(v[i].ID, issueFieldValueName(&v[i]))
+		}
 	case *api.Article:
 		write(v.IDReadable, v.Summary, projectKey(v.Project))
 	case []api.Article:
@@ -359,6 +397,9 @@ func PrintPlain(out io.Writer, data any) error {
 		for _, wf := range v {
 			write(wf.ID, wf.Name, wf.Title)
 		}
+	case *api.WorkflowRule:
+		write(v.ID, v.Name, v.Type, v.Title)
+		printRuleScript(out, v.Script)
 	case *api.CustomField:
 		typeID := ""
 		if v.FieldType != nil {
@@ -691,4 +732,14 @@ func vcsChangeSummary(ch *api.VCSChange) string {
 		line = strings.TrimSpace(line[:idx])
 	}
 	return truncate(line, 60)
+}
+
+func printRuleScript(w io.Writer, script string) {
+	if script == "" {
+		return
+	}
+	_, _ = fmt.Fprintf(w, "\n%s", script)
+	if !strings.HasSuffix(script, "\n") {
+		_, _ = fmt.Fprintln(w)
+	}
 }

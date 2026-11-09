@@ -1,6 +1,7 @@
 package issue
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,7 +15,8 @@ func newIssueCommandCmd() *cobra.Command {
 		Use:   "command <issueId[,issueId...]> <query>",
 		Short: "Apply a YouTrack command to one or more issues",
 		Example: `  youtrack issue command FOO-42 "State Fixed"
-  youtrack issue command FOO-1,FOO-2 "assignee alice Priority Critical"`,
+  youtrack issue command FOO-1,FOO-2 "assignee alice Priority Critical"
+  youtrack issue command FOO-42 "tag regression" --no-new-tags`,
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			issueIDs := strings.Split(args[0], ",")
@@ -25,6 +27,15 @@ func newIssueCommandCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if noNewTags, _ := cmd.Flags().GetBool("no-new-tags"); noNewTags {
+				tags, err := client.NewTagsInCommand(args[1], issueIDs)
+				if err != nil {
+					return err
+				}
+				if len(tags) > 0 {
+					return fmt.Errorf("command would create new tag(s) %q; nothing was applied", tags)
+				}
+			}
 			if err := client.ApplyCommand(args[1], issueIDs); err != nil {
 				return err
 			}
@@ -32,6 +43,7 @@ func newIssueCommandCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().Bool("no-new-tags", false, "Refuse to apply the command if it would create a tag that does not exist yet")
 	cmd.AddCommand(newIssueCommandSuggestCmd())
 	return cmd
 }

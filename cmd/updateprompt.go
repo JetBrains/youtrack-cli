@@ -60,8 +60,12 @@ func maybePromptForUpdate(cmd *cobra.Command) {
 			output.PrintWarn(cmd, fmt.Sprintf("update failed: %v; run: %s", err, method.UpgradeCommand()))
 			return
 		}
-		_, _ = fmt.Fprintf(errOut, "%s Updated to %s. This command runs on the current version.\n\n",
-			color.GreenString("✓"), internal.FormatVersion(latest))
+		note := " This command runs on the current version."
+		if !cmd.HasParent() { // bare `youtrack` stops after the prompt, so no command runs
+			note = ""
+		}
+		_, _ = fmt.Fprintf(errOut, "%s Updated to %s.%s\n\n",
+			color.GreenString("✓"), internal.FormatVersion(latest), note)
 	case "3":
 		internal.DismissUpdate(latest)
 		_, _ = fmt.Fprintln(errOut)

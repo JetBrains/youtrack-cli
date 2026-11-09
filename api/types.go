@@ -57,10 +57,35 @@ func (i *Issue) MarshalJSON() ([]byte, error) {
 
 // Comment on an issue or article.
 type Comment struct {
-	ID      string `json:"id,omitempty"`
-	Text    string `json:"text,omitempty"`
-	Author  *User  `json:"author,omitempty"`
-	Created int64  `json:"created,omitempty"`
+	ID         string      `json:"id,omitempty"`
+	Text       string      `json:"text,omitempty"`
+	Author     *User       `json:"author,omitempty"`
+	Created    int64       `json:"created,omitempty"`
+	Updated    int64       `json:"updated,omitempty"`
+	Deleted    bool        `json:"deleted"`
+	Pinned     bool        `json:"pinned"`
+	Visibility *Visibility `json:"visibility,omitempty"`
+
+	// raw preserves fields requested through --fields, including fields the
+	// server returns for deleted comments whose text may still be present.
+	raw json.RawMessage
+}
+
+func (c *Comment) UnmarshalJSON(data []byte) error {
+	type commentAlias Comment
+	if err := json.Unmarshal(data, (*commentAlias)(c)); err != nil {
+		return err
+	}
+	c.raw = append(json.RawMessage(nil), data...)
+	return nil
+}
+
+func (c *Comment) MarshalJSON() ([]byte, error) {
+	if c.raw != nil {
+		return c.raw, nil
+	}
+	type commentAlias Comment
+	return json.Marshal((*commentAlias)(c))
 }
 
 // Project is a YouTrack project.
@@ -179,9 +204,11 @@ type Workflow struct {
 }
 
 type WorkflowRule struct {
-	ID    string `json:"id,omitempty"`
-	Name  string `json:"name,omitempty"`
-	Title string `json:"title,omitempty"`
+	ID     string `json:"id,omitempty"`
+	Name   string `json:"name,omitempty"`
+	Title  string `json:"title,omitempty"`
+	Type   string `json:"type,omitempty"`
+	Script string `json:"script,omitempty"`
 }
 
 type FieldType struct {
@@ -213,11 +240,12 @@ type IssueLink struct {
 }
 
 type IssueAttachment struct {
-	ID       string `json:"id,omitempty"`
-	Name     string `json:"name,omitempty"`
-	URL      string `json:"url,omitempty"`
-	MimeType string `json:"mimeType,omitempty"`
-	Created  int64  `json:"created,omitempty"`
+	ID         string      `json:"id,omitempty"`
+	Name       string      `json:"name,omitempty"`
+	URL        string      `json:"url,omitempty"`
+	MimeType   string      `json:"mimeType,omitempty"`
+	Created    int64       `json:"created,omitempty"`
+	Visibility *Visibility `json:"visibility,omitempty"`
 }
 
 type WorkItem struct {

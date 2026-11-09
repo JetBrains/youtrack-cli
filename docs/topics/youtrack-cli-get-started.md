@@ -11,6 +11,14 @@ YouTrack CLI ships as a single binary for macOS, Linux, and Windows. Choose the 
 <tabs>
 <tab title="macOS and Linux">
 
+**Homebrew (recommended):**
+
+```Shell
+brew install jetbrains/utils/youtrack
+```
+
+**Install script:**
+
 Run the install script. It downloads the latest release and places the `youtrack` binary on your `PATH`:
 
 ```Shell
@@ -48,13 +56,34 @@ Replace `amd64` with `arm64` for ARM machines.
 </tab>
 <tab title="Windows">
 
-In PowerShell:
+**Winget (recommended):**
+
+```PowerShell
+winget install JetBrains.YouTrackCLI
+```
+
+**Chocolatey:**
+
+```PowerShell
+choco install youtrackcli
+```
+
+**Scoop:**
+
+```PowerShell
+scoop bucket add jetbrains https://github.com/JetBrains/scoop-utils
+scoop install youtrack
+```
+
+Package-manager releases may lag GitHub releases. If a package is unavailable, use an install script.
+
+**PowerShell (install script):**
 
 ```PowerShell
 irm https://jb.gg/youtrack-cli/install.ps1 | iex
 ```
 
-In CMD:
+**CMD (install script):**
 
 ```Shell
 curl -fsSL https://jb.gg/youtrack-cli/install.cmd -o install.cmd && install.cmd && del install.cmd

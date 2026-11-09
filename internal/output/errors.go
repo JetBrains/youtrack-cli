@@ -49,6 +49,9 @@ func tipFor(err error) string {
 		case 401:
 			return "Run 'youtrack auth get-token' to re-authenticate"
 		case 403:
+			if strings.Contains(strings.ToLower(apiErr.Error()), "apply commands silently") {
+				return "--mute-notifications needs the Apply Commands Silently permission in each affected project; ask a project admin, or retry without the flag only if notifications are acceptable"
+			}
 			return "Check your permissions for this operation"
 		case 404:
 			return "Resource not found — verify the ID"
@@ -58,6 +61,9 @@ func tipFor(err error) string {
 	}
 	var unexpectedErr *api.UnexpectedResponseError
 	if errors.As(err, &unexpectedErr) {
+		if isBinaryContentType(unexpectedErr.ContentType) {
+			return "The endpoint returned a file, not JSON — save it with 'youtrack raw <path> --output <file>'"
+		}
 		return "Run 'youtrack auth status' or retry with '--verbose' to confirm which configured instance is being used"
 	}
 	msg := err.Error()
@@ -78,6 +84,12 @@ func tipFor(err error) string {
 		return "Run 'youtrack instance use <alias>' to set one, or pass the alias directly"
 	}
 	return ""
+}
+
+// isBinaryContentType reports whether a response is a file rather than a misrouted page: an HTML or JSON body points at the wrong server instead.
+func isBinaryContentType(contentType string) bool {
+	ct := strings.ToLower(contentType)
+	return ct != "" && !strings.Contains(ct, "json") && !strings.HasPrefix(ct, "text/html")
 }
 
 func errorCode(err error) string {

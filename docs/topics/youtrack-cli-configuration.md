@@ -254,6 +254,30 @@ Print the HTTP request and response to stderr. Useful for debugging.
 
 </td>
 </tr>
+<tr>
+<td>
+
+`--dry-run`
+
+</td>
+<td>
+
+Print the first write request (method, URL, and JSON body) to stdout instead of sending it, and exit 0. Password, token, and secret fields are masked recursively. Reads still run, so a command that looks something up before writing shows the real request. The command stops at that first write: later steps that depend on its result are not shown, and nothing is changed. Delete confirmations are skipped, since nothing is sent. The `auth`, `instance`, `skill`, and `update` commands change local state rather than YouTrack data and reject `--dry-run`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--mute-notifications`
+
+</td>
+<td>
+
+Add `muteUpdateNotifications=true` to every POST, PUT, and DELETE request, including tags and cleanup deletes. `issue command` also sends `silent: true`. This needs the *Apply Commands Silently* permission in every affected project. Without that permission, YouTrack refuses the write with HTTP 403 and nothing changes; it does not fall back to notifying watchers. Retry without the flag only if notifications are acceptable. Workflow rules still run and notifications sent by workflows are not muted. Changes and their history entries are kept.
+
+</td>
+</tr>
 </table>
 
 For how to combine `--json`, `--plain`, and `--fields` in scripts, see [Scripting and Automation](youtrack-cli-scripting.md).
@@ -283,7 +307,9 @@ Release notes: https://github.com/JetBrains/youtrack-cli/releases/tag/v<latest>
 - **2** runs your command. The CLI asks again on the next run.
 - **3** records the release in `dismissedVersion`. The CLI does not ask again until a newer release is out.
 
-The CLI asks only when stdin, stdout, and stderr are terminals and the output format is a table, so scripts and AI agents never see the prompt. It does not ask for `youtrack update`, `help`, or shell completion, for `--quiet`, or when the install method has no automated upgrade (apt, rpm, AUR, or an undetected install). The same settings that skip the network check also turn off the prompt.
+For `youtrack` without arguments, the CLI shows only the prompt: no logo, next steps, or tips. Run `youtrack` again to see the start screen.
+
+The CLI asks only when stdin, stdout, and stderr are terminals and the output format is a table, so scripts and AI agents never see the prompt. To upgrade from a script or an app, run `youtrack update --yes`: it upgrades without a terminal and exits with an error when the upgrade fails or the install method has no automated upgrade. With JSON output, the package manager's output goes to stderr and stdout gets the status with `"upgraded": true`. It does not ask for `youtrack update`, `help`, or shell completion, for `--quiet`, or when the install method has no automated upgrade (apt, rpm, AUR, or an undetected install). The same settings that skip the network check also turn off the prompt.
 
 To silence the notice, pass `--quiet`, which also suppresses tips and hints:
 

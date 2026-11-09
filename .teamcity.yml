@@ -1,9 +1,10 @@
 version: 1
 parameters:
+  env.GOTOOLCHAIN: go1.27.3+auto
   env.SIGN: 'true'
   env.FINGERPRINT: B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501
-  env.CODESIGN_SHA256_AMD64: ce5c7b8432e2009af2eb3b7c26cdaeac2204f66960c67708f9d848bf8b88b2b8
-  env.CODESIGN_SHA256_ARM64: c94eb9ca7a18cfec232ba76f6c5c781853b896180e8d54f69fc948e9bc073835
+  env.CODESIGN_SHA256_AMD64: b71cdc4fcb9f8c83067690c3d846600cd980f7da8be373bae8ce31e1c829d4ab
+  env.CODESIGN_SHA256_ARM64: d5148833bbfb4f58282b5d2800813e21e35a4d0f3bc391d000ce0ad3da2fe533
   env.CHOCO_VERSION: 2.4.3
   env.CHOCO_SHA256: 5b1e52185afc6573ea88376fff3fe093b2e33ef16397f5e81626126c208df335
   env.WINGET_FORK_OWNER: tiulpin
@@ -24,18 +25,13 @@ jobs:
     steps:
       - type: script
         name: Sign and publish GitHub, Homebrew, Scoop, Chocolatey, and WinGet
-        docker-image: goreleaser/goreleaser-pro:latest
+        docker-image: goreleaser/goreleaser-pro:v2.19.0
         docker-run-parameters: --user 0
         script-content: |-
           set -eu
-          : "${GITHUB_TOKEN:?Add the env.GITHUB_TOKEN pipeline secret}"
-          : "${GORELEASER_KEY:?Add the env.GORELEASER_KEY pipeline secret}"
-          : "${SERVICE_ACCOUNT_NAME:?Add the env.SERVICE_ACCOUNT_NAME pipeline secret}"
-          : "${SERVICE_ACCOUNT_TOKEN:?Add the env.SERVICE_ACCOUNT_TOKEN pipeline secret}"
-          : "${CHOCOLATEY_API_KEY:?Add the env.CHOCOLATEY_API_KEY pipeline secret}"
-          : "${WINGET_GITHUB_TOKEN:?Add the env.WINGET_GITHUB_TOKEN pipeline secret}"
           apk add --no-cache curl coreutils mono
           git config --global --add safe.directory "$(pwd)"
+          git fetch --tags origin
           case "$(uname -m)" in
             x86_64) arch=amd64; hash="$CODESIGN_SHA256_AMD64" ;;
             aarch64|arm64) arch=arm64; hash="$CODESIGN_SHA256_ARM64" ;;
@@ -56,6 +52,7 @@ jobs:
           export PATH="$HOME/.local/bin:$PATH"
           export HOMEBREW_TAP_GITHUB_TOKEN="$GITHUB_TOKEN"
           export SCOOP_GITHUB_TOKEN="$GITHUB_TOKEN"
+          go version
           goreleaser release --clean --skip=aur,npm
 secrets:
   env.GORELEASER_KEY: credentialsJSON:3d85f71e-e2f5-4878-8741-cd5867b7e170

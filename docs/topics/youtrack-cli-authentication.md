@@ -133,7 +133,7 @@ Comma-separated Hub services to include in the token besides YouTrack: service I
 </td>
 <td>
 
-Save credentials to the [config file](youtrack-cli-configuration.md#config-file) (`~/.config/youtrack/config.json`). Enabled by default; pass `--save=false` to verify a token without storing it.
+Save credentials to the [config file](youtrack-cli-configuration.md#config-file) (`~/.config/youtrack/config.json`). Enabled by default. With `--save=false`, the CLI stores nothing locally. Browser sign-in without `--session` still creates a permanent token in Hub, which stays valid until you revoke it. Add `--show-token` to print the full token.
 
 </td>
 </tr>
@@ -153,9 +153,9 @@ The command discovers the instance's Hub, opens its authorization page, listens 
 
 To get the scope it needs for creating the token, the CLI also requests access to Hub itself. Pass `--session` to skip that and save an OAuth session instead: a short-lived access token plus a refresh token, which every command renews automatically (see [Automatic refresh](#oauth-refresh)). The authorization request then uses `access_type=offline`, so Hub issues the refresh token.
 
-Browser sign-in requires an interactive terminal, except `--session --no-browser`. Passing a URL signs in to that instance, passing an existing alias (for example `youtrack auth login work`) renews that instance's token in place, and running the command with no argument asks for the URL.
+Browser sign-in requires an interactive terminal unless you pass `--web` (see [Signing in from an app or script](#sign-in-from-an-app)) or `--session --no-browser`. Passing a URL signs in to that instance, passing an existing alias (for example `youtrack auth login work`) renews that instance's token in place, and running the command with no argument asks for the URL.
 
-The browser shows a static page that tells you to return to the terminal. Passing a URL signs in to a new instance, and passing an existing alias renews that instance's session in place. With no argument, the command prompts for the instance. Press `Ctrl+C` to cancel; the loopback port is released immediately.
+The browser shows a static page that tells you to return to the terminal. Press `Ctrl+C` to cancel; the loopback port is released immediately.
 
 The instance and Hub URLs must use `https`. Plain `http` works only for a local development instance on `http://localhost`, `http://127.0.0.1` or `http://[::1]`. Remote `http` URLs are always refused.
 
@@ -218,7 +218,7 @@ Description
 </td>
 <td>
 
-Save the resulting session. Enabled by default; pass `--save=false` to only verify that sign-in works — nothing is stored and no token is printed.
+Save the resulting token or session. Enabled by default. With `--save=false`, the CLI stores nothing locally, but without `--session` it still creates a permanent token in Hub. The output masks the token unless you pass `--show-token`.
 
 </td>
 </tr>
@@ -309,6 +309,18 @@ Skip browser sign-in and paste a permanent token instead. With `--session`, prin
 <tr>
 <td>
 
+`--web`
+
+</td>
+<td>
+
+Sign in through the browser without prompting, even when stdin is not a terminal. See [Signing in from an app or script](#sign-in-from-an-app).
+
+</td>
+</tr>
+<tr>
+<td>
+
 `--token-name`
 
 </td>
@@ -344,6 +356,24 @@ With `--login`, allow basic auth over plain `http` to a host other than `localho
 </tr>
 </table>
 
+
+### Signing in from an app or script {id="sign-in-from-an-app"}
+
+An app that runs the CLI without a terminal, such as a desktop app that manages your CLI tools, can still sign in through the browser with `--web`:
+
+```Shell
+youtrack auth login https://example.youtrack.cloud --web --json
+```
+
+With `--web`, the CLI never prompts. Pass the instance URL or a configured alias as the argument or with `--base-url`; without it, the command fails at once. When browser sign-in is not available, for example because the Hub has no public loopback OAuth client, the command fails with a non-zero exit code instead of falling back to the paste flow.
+
+The CLI opens the browser, waits for the callback, and saves the token as usual. It writes the authorization URL to stderr on its own line, so the caller can offer to open it when the browser does not open. With JSON output (`--json`, or the default when stdout is not a terminal), the CLI leaves out its progress messages and the URL arrives on stderr as a JSON line:
+
+```JSON
+{"authorizationUrl": "https://example.youtrack.cloud/hub/api/rest/oauth2/auth?..."}
+```
+
+The result goes to stdout as with any other sign-in. `--web` cannot be combined with `--no-browser`, `--login`, or `--password`.
 
 ## Managing multiple instances {id="instances"}
 
@@ -414,7 +444,7 @@ When you run a command, the CLI resolves the base URL and token independently, e
 3. The `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` environment variables.
 4. The active instance saved with `instance use`.
 
-An explicitly provided token (`--token`, or `YOUTRACK_TOKEN`) always takes precedence over a saved OAuth session, and never triggers a refresh of it. If nothing provides a token, the command fails and tells you how to sign in.
+The `--token` flag always takes precedence over a saved OAuth session and never triggers a refresh of it. `YOUTRACK_TOKEN` takes precedence over the active instance, but not over a profile selected with `--server`: with both, the command uses the token saved in that profile when it has one, and refreshes its session when necessary. If nothing provides a token, the command fails and tells you how to sign in.
 
 Because the two values are resolved separately, you can mix sources — for example, take the base URL from the active instance while overriding only the token with `YOUTRACK_TOKEN`.
 
@@ -432,7 +462,7 @@ The keyring service is `youtrack-cli`, keyed by instance alias. For an OAuth ses
 
 If the keyring is unavailable, for example in a headless container or with a locked keychain, the CLI falls back to writing the tokens to the config file with mode `0600` and prints a warning to stderr. Every write goes to a new temporary file that is renamed into place, so a crash can't leave a half-written file. If the file system can't restrict the file to its owner, the CLI refuses to write tokens there. Existing file-stored tokens migrate to the keyring on a later successful save. Set `YOUTRACK_DISABLE_KEYRING=1` to request file storage explicitly.
 
-The `YOUTRACK_TOKEN` environment variable and the `--token` flag bypass the config file entirely. Prefer them in CI and containers, where writing a token to disk is undesirable — pass `--save=false` to `auth login` if you want to verify a token without saving it.
+The `YOUTRACK_TOKEN` environment variable and the `--token` flag bypass the config file entirely. Prefer them in CI and containers, where writing a token to disk is undesirable — `auth login --save=false` stores nothing locally, but browser sign-in without `--session` still creates a permanent token in Hub.
 
 > If the CLI reports that it used file fallback, protect the config file the way you would protect an SSH private key. Never commit it to version control or copy it to a shared machine.
 >

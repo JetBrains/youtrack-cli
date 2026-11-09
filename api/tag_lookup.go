@@ -1,0 +1,95 @@
+package api
+
+import (
+	"fmt"
+	"net/url"
+	"regexp"
+	"strings"
+)
+
+const tagFields = "id,name,owner(id,login,fullName),color,untagOnResolve"
+
+var tagIDPattern = regexp.MustCompile(`^\d+-\d+$`)
+
+// IsTagID reports whether ref has the shape of a tag database ID such as 6-12.
+func IsTagID(ref string) bool {
+	return tagIDPattern.MatchString(ref)
+}
+
+// ResolveTagID returns ref unchanged when it looks like a tag ID; otherwise it finds the single visible tag named exactly ref.
+func (c *Client) ResolveTagID(ref string) (string, error) {
+	if ref == "" {
+		return "", fmt.Errorf("tag name or ID must not be empty")
+	}
+	if IsTagID(ref) {
+		return ref, nil
+	}
+	candidates, err := c.allTagPages(pathTags + "?fields=" + tagFields + "&query=" + url.QueryEscape(ref))
+	if err != nil {
+		return "", err
+	}
+	return pickTagByName(candidates, ref, "visible to you")
+}
+
+// ResolveIssueTagID returns ref unchanged when it looks like a tag ID; otherwise it finds the single tag on the issue named exactly ref.
+func (c *Client) ResolveIssueTagID(issueID, ref string) (string, error) {
+	if ref == "" {
+		return "", fmt.Errorf("tag name or ID must not be empty")
+	}
+	if IsTagID(ref) {
+		return ref, nil
+	}
+	tags, err := c.allTagPages(fmt.Sprintf(pathIssueTags, url.PathEscape(issueID)) + "?fields=" + tagFields)
+	if err != nil {
+		return "", err
+	}
+	return pickTagByName(tags, ref, "on issue "+issueID)
+}
+
+func (c *Client) allTagPages(path string) ([]Tag, error) {
+	const pageSize = 500
+	var all []Tag
+	for skip := 0; ; skip += pageSize {
+		var page []Tag
+		if err := c.Get(fmt.Sprintf("%s&$top=%d&$skip=%d", path, pageSize, skip), &page); err != nil {
+			return nil, err
+		}
+		all = append(all, page...)
+		if len(page) < pageSize {
+			return all, nil
+		}
+	}
+}
+
+func pickTagByName(tags []Tag, name, scope string) (string, error) {
+	var matches []Tag
+	for _, t := range tags {
+		if t.Name == name {
+			matches = append(matches, t)
+		}
+	}
+	switch len(matches) {
+	case 0:
+		var similar []string
+		for _, t := range tags {
+			if strings.EqualFold(t.Name, name) {
+				similar = append(similar, fmt.Sprintf("%q (%s)", t.Name, t.ID))
+			}
+		}
+		if len(similar) > 0 {
+			return "", fmt.Errorf("no tag named exactly %q %s; names differing only in case: %s", name, scope, strings.Join(similar, ", "))
+		}
+		return "", fmt.Errorf("no tag named %q %s; pass a tag ID or create the tag with 'youtrack tag create'", name, scope)
+	case 1:
+		return matches[0].ID, nil
+	}
+	described := make([]string, 0, len(matches))
+	for _, t := range matches {
+		owner := "unknown owner"
+		if t.Owner != nil && t.Owner.Login != "" {
+			owner = "owner " + t.Owner.Login
+		}
+		described = append(described, fmt.Sprintf("%s (%s)", t.ID, owner))
+	}
+	return "", fmt.Errorf("%d tags named %q %s: %s; pass a tag ID instead", len(matches), name, scope, strings.Join(described, ", "))
+}

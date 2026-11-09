@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,6 +24,7 @@ func TestCmd_UserListsBeyondTen(t *testing.T) {
 	t.Cleanup(func() { _ = c.DeleteGroup(group.ID, successor.ID) })
 
 	var users []api.User
+	var logins []string
 	for i := range 11 {
 		login := fmt.Sprintf("%s-%02d", prefix, i)
 		user, err := c.AddUser(&api.AddUserRequest{
@@ -34,14 +36,17 @@ func TestCmd_UserListsBeyondTen(t *testing.T) {
 		_, err = c.AddUserToProjectTeam(proj.ShortName, user.ID)
 		require.NoError(t, err)
 		users = append(users, *user)
+		logins = append(logins, login)
 	}
+	// A bare query matches substrings of any login or full name; an exact login list cannot pick up other users.
+	query := "login: " + strings.Join(logins, ", ")
 
 	cases := []struct {
 		name       string
 		args       []string
 		exactCount bool
 	}{
-		{"user list", []string{"user", "list", "--query", prefix, "--limit", "11", "--json"}, true},
+		{"user list", []string{"user", "list", "--query", query, "--limit", "11", "--json"}, true},
 		{"group members", []string{"group", "member", "list", group.ID, "--json"}, true},
 		{"project team", []string{"project", "team", "list-users", proj.ShortName, "--json"}, false},
 		{"raw pagination", []string{"raw", "/api/users", "--fields", "id,login", "--paginate", "--page-size", "5"}, false},

@@ -2,7 +2,7 @@ BINARY := youtrack
 GO ?= go
 GOFMT ?= gofmt
 GO_VERSION ?= $(shell $(GO) env GOVERSION)
-GOLANGCI_LINT ?= GOTOOLCHAIN=$(GO_VERSION) $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.11.4
+GOLANGCI_LINT ?= GOTOOLCHAIN=$(GO_VERSION) $(GO) run github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.15.0
 VERSION ?= dev
 COMMIT  := $(shell git rev-parse --short HEAD 2>/dev/null || echo unknown)
 DATE    := $(shell date -u +%Y-%m-%d)
@@ -30,10 +30,13 @@ fmt-check:
 lint:
 	$(GOLANGCI_LINT) run ./...
 
-check: fmt-check lint build unit test
+check: fmt-check lint build unit concurrency test
 
 unit:
 	$(GO) test ./api/ ./internal/... -count=1
+
+concurrency:
+	$(GO) test -tags concurrency -run Concurrent ./internal/... -count=1
 
 test:
 	$(E2E_SCRIPT)
@@ -54,4 +57,4 @@ clean:
 	rm -f $(BINARY)
 	rm -rf dist/
 
-.PHONY: build fmt fmt-check lint check unit test e2e-up e2e-down e2e-logs snapshot clean
+.PHONY: build fmt fmt-check lint check unit concurrency test e2e-up e2e-down e2e-logs snapshot clean

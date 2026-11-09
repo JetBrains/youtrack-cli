@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
+	"slices"
 	"text/tabwriter"
 
 	"github.com/spf13/cobra"
@@ -33,6 +35,7 @@ globally for the current user or locally into a project.`,
 	cmd.AddCommand(newSkillInstallCmd(fs))
 	cmd.AddCommand(newSkillUpdateCmd(fs))
 	cmd.AddCommand(newSkillRemoveCmd(fs))
+	cmd.AddCommand(newSkillGuideCmd(fs))
 	return cmd
 }
 
@@ -86,6 +89,49 @@ func printSkillTable(w io.Writer, infos []SkillInfo) error {
 	return nil
 }
 
+func newSkillGuideCmd(fs embed.FS) *cobra.Command {
+	return &cobra.Command{
+		Use:   "guide [skill] [topic]",
+		Short: "Print a skill's guide for AI coding agents",
+		Long: `Print the guide of a bundled skill as Markdown.
+
+Installed skills are short stubs that tell agents to run this command, so the
+guide always matches this youtrack release. Without a topic, prints the overview
+followed by its topics. Without a skill, uses the default skill (youtrack-cli).
+Use --json or --format json to encode the Markdown as a JSON string.`,
+		Example: `  youtrack skill guide
+  youtrack skill guide youtrack-cli references/commands
+  youtrack skill guide youtrack-cli gotchas`,
+		Args: cobra.MaximumNArgs(2),
+		ValidArgsFunction: func(_ *cobra.Command, args []string, _ string) ([]string, cobra.ShellCompDirective) {
+			switch len(args) {
+			case 0:
+				return slices.Sorted(maps.Keys(bundledVersions(fs))), cobra.ShellCompDirectiveNoFileComp
+			case 1:
+				return instill.Topics(fs, args[0]), cobra.ShellCompDirectiveNoFileComp
+			}
+			return nil, cobra.ShellCompDirectiveNoFileComp
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			skill, topic := defaultSkill, ""
+			if len(args) > 0 {
+				skill = args[0]
+			}
+			if len(args) > 1 {
+				topic = args[1]
+			}
+			if _, ok := bundledVersions(fs)[skill]; !ok {
+				return fmt.Errorf("unknown skill %q; run 'youtrack skill list' to see available skills", skill)
+			}
+			page, err := instill.Guide(fs, cmd.Root().Name(), skill, topic)
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, output.Markdown(page))
+		},
+	}
+}
+
 func newSkillInstallCmd(fs embed.FS) *cobra.Command {
 	opts := &skillOptions{}
 	cmd := &cobra.Command{
@@ -93,6 +139,8 @@ func newSkillInstallCmd(fs embed.FS) *cobra.Command {
 		Short: "Install skills for AI coding agents",
 		Long: `Install YouTrack skills so AI coding agents can use youtrack commands.
 
+Each skill is installed as a short stub that tells the agent to run
+'youtrack skill guide <skill>', so instructions follow the installed youtrack.
 When no skill name is given, installs the default skill (youtrack-cli).
 Use --all to install every bundled skill.
 Installs globally by default. Use --project to install to the current project only.
@@ -180,30 +228,50 @@ func runSkillInstall(cmd *cobra.Command, fs embed.FS, opts *skillOptions, args [
 		Skills:     names,
 		ProjectDir: ".",
 		Global:     !opts.project,
+		Command:    cmd.Root().Name(),
 	}
-	if checkVersion {
-		allUpToDate := true
-		for _, name := range names {
-			installed, err := instill.InstalledVersion(name, instillOpts)
+	if !checkVersion {
+		results, err := instill.Install(fs, instillOpts)
+		if err != nil {
+			return err
+		}
+		printInstallResults(cmd, results, versions)
+		return nil
+	}
+	// InstalledVersion returns the first version found across all targets,
+	// so each agent is checked on its own to find missing or stale copies.
+	for _, name := range names {
+		var stale []string
+		for _, agent := range agents {
+			installed, err := instill.InstalledVersion(name, instill.Options{
+				Agents:     []string{agent},
+				ProjectDir: instillOpts.ProjectDir,
+				Global:     instillOpts.Global,
+			})
 			if err != nil {
 				return err
 			}
 			if installed != versions[name] {
-				allUpToDate = false
-				break
+				stale = append(stale, agent)
 			}
 		}
-		if allUpToDate {
-			for _, name := range names {
-				output.PrintSuccess(cmd, fmt.Sprintf("skill %s already up to date (%s)", name, versions[name]))
-			}
-			return nil
+		if len(stale) == 0 {
+			output.PrintSuccess(cmd, fmt.Sprintf("skill %s already up to date (%s)", name, versions[name]))
+			continue
 		}
+		skillOpts := instillOpts
+		skillOpts.Agents = stale
+		skillOpts.Skills = []string{name}
+		results, err := instill.Install(fs, skillOpts)
+		if err != nil {
+			return err
+		}
+		printInstallResults(cmd, results, versions)
 	}
-	results, err := instill.Install(fs, instillOpts)
-	if err != nil {
-		return err
-	}
+	return nil
+}
+
+func printInstallResults(cmd *cobra.Command, results []instill.Result, versions map[string]string) {
 	for _, r := range results {
 		bundled := versions[r.Skill]
 		switch {
@@ -217,7 +285,6 @@ func runSkillInstall(cmd *cobra.Command, fs embed.FS, opts *skillOptions, args [
 			output.PrintSuccess(cmd, fmt.Sprintf("reinstalled %s for %s (%s)", r.Skill, r.Agent, bundled))
 		}
 	}
-	return nil
 }
 
 func runSkillRemove(cmd *cobra.Command, fs embed.FS, opts *skillOptions, args []string) error {

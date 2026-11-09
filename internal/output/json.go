@@ -20,9 +20,22 @@ func Format(cmd *cobra.Command) string {
 	return internal.OutputFormat(cmd)
 }
 
+// Markdown is a document rendered verbatim by default, including when piped.
+// Explicit JSON output encodes it as a JSON string.
+type Markdown string
+
 // Print writes data using the resolved output format.
 func Print(cmd *cobra.Command, data any) error {
 	w := cmd.OutOrStdout()
+	if document, ok := data.(Markdown); ok {
+		flags := cmd.Root().PersistentFlags()
+		jsonFlag, _ := flags.GetBool("json")
+		if Format(cmd) == "json" && (jsonFlag || flags.Changed("format")) {
+			return printJSON(w, document)
+		}
+		_, err := fmt.Fprint(w, document)
+		return err
+	}
 	fields, _ := cmd.Root().PersistentFlags().GetString("fields")
 	switch Format(cmd) {
 	case "plain":
@@ -75,6 +88,29 @@ func printProjected(w io.Writer, data any, fields string, withHeader bool) error
 	})
 }
 
+// maskDeletedCommentText only changes decoded copies used for human output.
+// Type discriminators identify nested comments without changing unrelated
+// objects that happen to expose deleted and text attributes.
+func maskDeletedCommentText(value any, comment bool) {
+	switch node := value.(type) {
+	case map[string]any:
+		entityType, _ := node["$type"].(string)
+		if comment || entityType == "IssueComment" || entityType == "ArticleComment" {
+			if deleted, _ := node["deleted"].(bool); deleted {
+				node["text"] = "[deleted]"
+				node["textPreview"] = "[deleted]"
+			}
+		}
+		for _, child := range node {
+			maskDeletedCommentText(child, false)
+		}
+	case []any:
+		for _, child := range node {
+			maskDeletedCommentText(child, comment)
+		}
+	}
+}
+
 // writeProjection JSON round-trips data (a slice or a single object) to maps and writes one tab-separated row per
 // object, with cells computed by row and an optional header line.
 func writeProjection(w io.Writer, data any, headers []string, withHeader bool, row func(map[string]any) []string) error {
@@ -84,8 +120,14 @@ func writeProjection(w io.Writer, data any, headers []string, withHeader bool, r
 	if err != nil {
 		return err
 	}
+	commentRows := false
+	switch data.(type) {
+	case []api.Comment, *api.Comment:
+		commentRows = true
+	}
 
 	writeRow := func(obj map[string]any) {
+		maskDeletedCommentText(obj, commentRows)
 		vals := row(obj)
 		if withHeader {
 			// Collapse newlines so the tab-separated row stays on one line,

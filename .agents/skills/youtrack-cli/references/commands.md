@@ -33,6 +33,10 @@ youtrack instance delete [--force] <alias>       # alias: remove
 --base-url URL         Override YOUTRACK_BASE_URL
 --token TOKEN          Override YOUTRACK_TOKEN
 --verbose              Print HTTP requests/responses to stderr
+--dry-run              Print the first write (method, URL, body) instead of sending it; reads still run,
+                       confirmations are skipped, exit 0. Rejected for auth/instance/skill/update
+--mute-notifications   Add muteUpdateNotifications=true to every POST/PUT/DELETE
+                       (silent: true for issue command); needs Apply Commands Silently or HTTP 403
 ```
 
 (`--format json|table|plain` still works but is a deprecated, hidden alias for `--json`/`--plain`.)
@@ -47,14 +51,16 @@ Declining a destructive-action confirmation exits `0` and reports `{"status":"ca
 ## issue
 
 ```bash
-youtrack issue view <issueId>           # alias: get
+youtrack issue view <issueId> [--comments N] [--no-description] [--only-fields]
+                                       # alias: get; --only-fields makes --fields replace the default projection
 youtrack issue list --query Q [--limit N] [--offset N]
-youtrack issue create --project P --summary S [--description D] [--parent <issueId>] [--description-file path]
+youtrack issue create --project P --summary S [--description D | --description-file <path|->] [--parent <issueId>] [--visibility <group|login>]... [--public]
                                        # alias: add
-youtrack issue update <issueId> [--summary S] [--description D]
+youtrack issue update <issueId> [--summary S] [--description D | --description-file <path|->]
                                        # --description "" clears it; omitted fields are preserved
 youtrack issue delete <issueId>
-youtrack issue command <issueId[,issueId...]> <query>   # apply a YouTrack command string
+youtrack issue command <issueId[,issueId...]> <query> [--no-new-tags]   # apply a YouTrack command string
+                                       # --no-new-tags refuses a command that would create a tag
 youtrack issue command suggest <issueId[,issueId...]> <query>   # preview suggestions without applying
 youtrack issue count [--query Q]       # may return -1 on first call (async); retry manually
 ```
@@ -70,19 +76,20 @@ youtrack issue unwatch <issueId>
 youtrack issue vote <issueId>          # cannot vote on your own issues
 youtrack issue unvote <issueId>
 youtrack issue tag list <issueId>
-youtrack issue tag add <issueId> <tagId>
-youtrack issue tag remove <issueId> <tagId>
-youtrack issue visibility <issueId> [flags]
+youtrack issue tag add <issueId> <tagId|name>      # exact name; fails on no match or ambiguity, never creates
+youtrack issue tag remove <issueId> <tagId|name>   # name is matched among the issue's tags
+youtrack issue visibility <issueId> (--groups <names|ids> | --users <logins|ids> | --public)
+                                       # replaces both lists; an omitted list is cleared
 ```
 
 **comment**
 ```bash
-youtrack issue comment list <issueId>
-youtrack issue comment create <issueId> --text "..."   # alias: add
-youtrack issue comment update <issueId> <commentId> --text "..."
+youtrack issue comment list <issueId> [--include-deleted]   # JSON includes deleted, pinned, visibility
+youtrack issue comment create <issueId> (--text "..." | --text-file <path|->) [--visibility <group|login>]... [--public]   # alias: add
+youtrack issue comment update <issueId> <commentId> (--text "..." | --text-file <path|->)
 youtrack issue comment delete <issueId> <commentId>
 youtrack issue comment pin <issueId> <commentId>
-youtrack issue comment visibility <issueId> <commentId> [flags]
+youtrack issue comment visibility <issueId> <commentId> (--groups <names|ids> | --users <logins|ids> | --public)
 ```
 
 **link**
@@ -98,13 +105,19 @@ youtrack issue link type create --name N --source-to-target S --target-to-source
 ```bash
 youtrack issue attachment list <issueId>
 youtrack issue attachment add <issueId> --file <filepath>
+youtrack issue attachment download <issueId> <attachmentId> --output <path|->
+youtrack issue attachment download <issueId> --name <fileName> --output <path|->
 youtrack issue attachment delete <issueId> <attachmentId>
+youtrack issue attachment visibility <issueId> <attachmentId> (--groups <names|ids> | --users <logins|ids> | --public)
 ```
 
 **field / reaction / draft / workitem**
 ```bash
 youtrack issue field view <issueId> <fieldName>   # alias: get
+youtrack issue field list-values <issueId> <field> [--limit 50] [--offset 0]  # field name or opaque ID
 youtrack issue field set <issueId> <fieldName> <value>
+youtrack issue field set <issueId> <fieldName> --value V [--value V...]   # multi-value; replaces current values
+youtrack issue field set <issueId> <fieldName> --clear
 youtrack issue reaction add <issueId> <commentId> <reaction>
 youtrack issue reaction delete <issueId> <commentId> <reactionId>
 youtrack issue draft create [--project P] [--summary S]
@@ -185,21 +198,6 @@ youtrack user profile timetracking view <login>
 | `articles` | `'{"showSidebar":true}'` |
 | `issues-list` | `'{"defaultQuery":"for: me"}'` |
 
-## whiteboard
-
-```bash
-youtrack whiteboard list
-youtrack whiteboard create --name NAME [--owner LOGIN]   # alias: add
-youtrack whiteboard view <id>                             # alias: get
-youtrack whiteboard delete <id>
-youtrack whiteboard reload <id>
-youtrack whiteboard node list <whiteboardId>
-youtrack whiteboard node view <whiteboardId> <cardId>      # alias: get
-youtrack whiteboard node create <whiteboardId> --x N --y N [--label L] [--description D]  # alias: add
-youtrack whiteboard links <whiteboardId>
-youtrack whiteboard link <whiteboardId> --source <cardId> --target <cardId> [--link-type ONE_WAY|TWO_WAY|PROTOTYPED] [--link-prototype <id>]
-```
-
 ## board
 
 ```bash
@@ -243,11 +241,15 @@ youtrack article untag <articleId> <tagId>
 ## raw API
 
 ```bash
-youtrack raw <path> [--method GET|POST|PUT|DELETE] [--body JSON] [--fields FIELDS]
+youtrack raw <path> [--method GET|POST|PUT|DELETE] [--body JSON | --body-file PATH|-] [--fields FIELDS]
+youtrack raw <path> --output PATH|-        # response body as-is, no JSON parsing
 youtrack raw <collection-path> --paginate [--page-size N]
 ```
 
 `--paginate` returns one combined JSON array, including `[]` for an empty collection.
+Without it YouTrack returns at most 42 items; `raw` warns on stderr when a list hits exactly 42.
+`--body-file` reads the body from a file (`-` for stdin) — use it for long bodies, which can exceed the Windows command-line limit.
+`--output` writes binary or non-JSON responses (images, files) unchanged; `-` writes them to stdout.
 
 ## dashboard
 
@@ -258,10 +260,22 @@ youtrack dashboard update <id> --name NAME
 youtrack dashboard delete <id>
 ```
 
+## workflow
+
+```bash
+youtrack workflow list
+youtrack workflow create --name NAME [--title T]       # alias: add
+youtrack workflow delete <id>
+youtrack workflow restore
+youtrack workflow rule create <workflowId> --name NAME --script-file <path|->
+youtrack workflow rule view <workflowId> <ruleId>      # includes the script; --json for the exact bytes
+youtrack workflow rule update <workflowId> <ruleId> --script-file <path|->   # re-reads and compares; exits non-zero on mismatch
+```
+
 ## tag
 
 ```bash
-youtrack tag list
+youtrack tag list [--query Q] [--limit N]  # Q: name word prefix, case-insensitive; default limit 100
 youtrack tag create --name NAME [flags]   # alias: add
 youtrack tag delete <id>
 youtrack tag issue list <tagId>           # view issues for a tag
@@ -300,3 +314,5 @@ youtrack role grant --user <userId>|--group <groupId> --role <roleId> [--project
 youtrack role revoke <assignedRoleId>
 youtrack role assignments [--holder <userId>]
 ```
+
+`issue create --type Task --tag release --custom-fields '{"Assignee":"me"}'` sends fields, type and existing tags in the initial create request. `--tag` is repeatable and accepts an exact tag name or ID. Invalid fields, tags and parent references are rejected before creation.

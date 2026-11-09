@@ -38,9 +38,7 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 
 	baseURL, _ := flags.GetString("base-url")
 	token, _ := flags.GetString("token")
-	verbose, _ := flags.GetBool("verbose")
 	serverAlias, _ := flags.GetString("server")
-	fields, _ := flags.GetString("fields")
 
 	// savedTokenAlias/savedTokenURL record which saved profile supplied the token, so it is only ever sent to that profile's origin.
 	var savedTokenAlias, savedTokenURL string
@@ -159,14 +157,10 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 			"warning: %s uses plain http — the token is sent unencrypted; switch the instance URL to https\n", baseURL)
 	}
 
-	api.UserAgent = "youtrack-cli/" + Version
-
-	c := api.NewClient(baseURL, token).WithContext(cmd.Context())
+	c := configureClient(cmd, api.NewClient(baseURL, token))
 	if savedInst != nil && canRefresh(savedInst) {
 		c.TokenSource = newOAuthSession(savedTokenAlias, savedInst, verboseWriter(cmd)).Token
 	}
-	c.Verbose = verbose
-	c.Fields = expandFields(fields)
 	return c, src, nil
 }
 
@@ -251,6 +245,37 @@ func expandFields(fields string) string {
 		if expanded, ok := defaults[p]; ok {
 			parts[i] = expanded
 		}
+	}
+	return commentProjectionFields(strings.Join(parts, ","))
+}
+
+// commentProjectionFields retains deletion authority for narrow comment
+// projections, including comments nested inside other projected entities.
+func commentProjectionFields(fields string) string {
+	parts := SplitFields(fields)
+	for i, spec := range parts {
+		open := strings.IndexByte(spec, '(')
+		if open < 0 || !strings.HasSuffix(spec, ")") {
+			continue
+		}
+		name := spec[:open]
+		inner := commentProjectionFields(spec[open+1 : len(spec)-1])
+		if name == "comments" || name == "pinnedComments" {
+			hasDeleted := false
+			for _, field := range SplitFields(inner) {
+				if field == "deleted" {
+					hasDeleted = true
+					break
+				}
+			}
+			if !hasDeleted {
+				if inner != "" {
+					inner += ","
+				}
+				inner += "deleted"
+			}
+		}
+		parts[i] = name + "(" + inner + ")"
 	}
 	return strings.Join(parts, ",")
 }

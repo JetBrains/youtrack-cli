@@ -27,13 +27,25 @@ The installers verify the downloaded archive against `checksums.txt` and, when `
 brew install jetbrains/utils/youtrack
 ```
 
-**Scoop (Windows):**
+**Windows (Winget):**
+```powershell
+winget install JetBrains.YouTrackCLI
+```
+
+**Chocolatey:**
+```powershell
+choco install youtrackcli
+```
+
+**Scoop:**
 ```powershell
 scoop bucket add jetbrains https://github.com/JetBrains/scoop-utils
 scoop install youtrack
 ```
 
-`youtrack update` upgrades the CLI through the method that installed it. In a terminal, the CLI also offers the update before a command runs when a newer release is out. Set `YOUTRACK_NO_UPDATE=1` to turn off update checks.
+Package-manager releases may lag GitHub releases. If a package is unavailable, use an install script.
+
+`youtrack update` upgrades the CLI through the method that installed it. Without a terminal it only reports the status; pass `--yes` (for example `youtrack update --yes --json` from an app) to upgrade anyway and get a non-zero exit code when the upgrade fails. In a terminal, the CLI also offers the update before a command runs when a newer release is out. Set `YOUTRACK_NO_UPDATE=1` to turn off update checks.
 
 **Windows (PowerShell):**
 ```powershell
@@ -92,6 +104,8 @@ youtrack auth login https://example.youtrack.cloud --session
 youtrack auth status      # auth method, expiry, refresh token present — never the token itself
 ```
 
+Apps and scripts without a terminal sign in through the browser with `--web`: `youtrack auth login https://example.youtrack.cloud --web --json`. It never prompts and fails at once when something is missing. The authorization URL goes to stderr as a `{"authorizationUrl": "..."}` line (a plain line without `--json`), so the caller can open it if the browser does not open.
+
 Auth commands mask the token in their output, JSON included. Pass `--show-token` when a script needs the full value, for example `youtrack auth login --save=false --json --show-token | jq -r .token`.
 
 Then:
@@ -106,18 +120,50 @@ youtrack issue list --query "project: DEMO #Unresolved" --fields "idReadable,sum
 # create an issue
 youtrack issue create --project DEMO --summary "Login button unresponsive on Safari"
 
+# long markdown from stdin, no shell quoting
+youtrack issue comment create DEMO-42 --text-file - <<'EOF'
+Repro: run `make` with "$HOME" unset.
+EOF
+
 # move it along
 youtrack issue command DEMO-42 "State In Progress"
+
+# discover selectable values in this issue's field context
+youtrack issue field list-values DEMO-42 Priority --json
+
+# set several values of a multi-value field, or clear a field
+youtrack issue field set DEMO-42 Subsystem --value "Platform. Auth & Licensing" --value UI
+youtrack issue field set DEMO-42 Assignee --clear
 
 # view an issue with its five most recent comments
 youtrack issue view DEMO-42 --comments 5
 
+# find a tag and tag an issue by its exact name
+youtrack tag list --query release
+youtrack issue tag add DEMO-42 "release blocker"
+
+# only the fields you name, without the default projection or description
+youtrack issue view DEMO-42 --only-fields --fields idReadable,summary,reporter --json
+
+# comments with pinned state and visibility, deleted ones included
+youtrack issue comment list DEMO-42 --include-deleted --json
+
 # what a command would do, without applying it
 youtrack issue command suggest DEMO-42 "State "
+
+# tag an issue, refusing to create the tag if it does not exist
+youtrack issue command DEMO-42 "tag regression" --no-new-tags
 
 # link a commit to an issue, and list what is linked
 youtrack issue vcs attach DEMO-42 1a2b3c4d5e6f7081
 youtrack issue vcs list DEMO-42
+
+# call any REST endpoint: body from a file, response saved unparsed
+youtrack raw /api/issues/DEMO-42 --method POST --body-file update.json
+youtrack raw /api/issues/DEMO-42 --fields "id,summary,description" --output issue.json
+
+# restrict an attachment in its initial upload request
+youtrack issue attachment add DEMO-42 --file report.txt --visibility user:alice
 
 # keep the CLI itself up to date
 youtrack update
@@ -133,8 +179,9 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 
 | Group | Commands |
 |---|---|
-| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field`, `reaction`, `draft`, `workitem`, `activity`, `vcs` |
+| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field` (+ `field list-values`), `reaction`, `draft`, `workitem`, `activity`, `vcs` |
 | **project** | `list`, `view`, `create`, `update`, `delete`, `archive`, `team`, `field`, `template`, `timetrack`, `workflow` |
+| **issue attachment add** | Upload a file; `--visibility` restricts its initial audience and `--public` explicitly removes restrictions |
 | **article** | `list`, `view`, `create`, `update`, `delete`, `comment`, `attachment`, `tag` |
 | **board** | `list`, `view`, `create`, `update`, `delete`, `sprint` |
 | **tag** | `list`, `create`, `delete`, `issue` |
@@ -149,12 +196,11 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 | **app** | `list`, `plugin`, `deactivate`, `delete` |
 | **dashboard** | `list`, `create`, `update`, `delete` |
 | **gantt** | `list`, `update`, `delete`, `settings`, `member` |
-| **whiteboard** | `list`, `view`, `create`, `delete`, `node`, `link` |
 | **auth** | `login` (`get-token`), `logout`, `status`, `refresh-token` |
 | **instance** | `add`, `login`, `list`, `use`, `version`, `delete`, `refresh-token` |
-| **raw** | Authenticated request to any REST endpoint |
+| **raw** | Authenticated request to any REST endpoint (`--body-file`, `--output`, `--paginate`) |
 | **update** | Check for a newer CLI release and upgrade through the detected install method |
-| **skill** | `list`, `install`, `update`, `remove` |
+| **skill** | `list`, `install`, `update`, `remove`, `guide` |
 
 ## For AI agents
 
@@ -164,7 +210,12 @@ The CLI ships with an [Agent Skill](https://agentskills.io) that teaches coding 
 youtrack skill install    # install the bundled skill for detected agents
 youtrack skill update     # update to the version bundled with this release
 youtrack skill remove     # uninstall
+youtrack skill guide      # print the guide that installed skills point to
 ```
+
+Installed skills are short stubs that tell the agent to run `youtrack skill guide`, so after a CLI upgrade agents read the instructions for the new version without reinstalling.
+
+The guide prints Markdown by default, including through a pipe. Use `--json` or `--format json` to receive that Markdown as a JSON string.
 
 or specifically for **Claude Code** via the GitHub CLI:
 ```bash

@@ -23,7 +23,7 @@ func TestCmd_TagList(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteTag(tag.ID) })
 
-	out := runCmd(t, "tag", "list", "--format", "json")
+	out := runCmd(t, "tag", "list", "--query", name, "--format", "json")
 	assert.Contains(t, out, tag.ID)
 }
 

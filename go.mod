@@ -8,10 +8,11 @@ require (
 	github.com/creack/pty v1.1.24
 	github.com/fatih/color v1.19.0
 	github.com/spf13/cobra v1.10.2
-	github.com/tiulpin/instill v0.0.0-20260409102126-21f299ecb245
+	github.com/tiulpin/instill v1.0.0
 	github.com/zalando/go-keyring v0.2.8
-	golang.org/x/sys v0.48.0
-	golang.org/x/term v0.46.0
+	golang.org/x/oauth2 v0.37.0
+	golang.org/x/sys v0.49.0
+	golang.org/x/term v0.47.0
 )
 
 require (
@@ -40,7 +41,7 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/xo/terminfo v0.0.0-20220910002029-abceb7e1c41e // indirect
-	go.yaml.in/yaml/v3 v3.0.5 // indirect
+	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/sync v0.15.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 )

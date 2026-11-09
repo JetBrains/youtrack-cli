@@ -38,6 +38,7 @@ type UpdateStatus struct {
 	UpdateAvailable bool   `json:"updateAvailable"`
 	UpgradeCommand  string `json:"upgradeCommand,omitempty"`
 	ReleaseURL      string `json:"releaseUrl"`
+	Upgraded        bool   `json:"upgraded,omitempty"`
 }
 
 // isUpdateCheckDisabled reports whether to skip the check entirely: env opt-out, CI, or non-TTY stderr.
@@ -62,6 +63,9 @@ func saveUpdateCheckTimestamp(now int64) {
 // RecordLatestVersion re-loads the config under the config lock and records the newest release seen, for the
 // startup update prompt.
 func RecordLatestVersion(version string) {
+	if cfg, err := config.Load(); err != nil || cfg.LatestVersion == version {
+		return
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), updateCheckTimeout)
 	defer cancel()
 	_ = config.Update(ctx, func(cfg *config.Config) error {

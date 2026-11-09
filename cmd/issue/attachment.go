@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
@@ -15,7 +16,9 @@ func newIssueAttachmentCmd() *cobra.Command {
 	cmd.AddCommand(
 		newIssueAttachmentListCmd(),
 		newIssueAttachmentAddCmd(),
+		newIssueAttachmentDownloadCmd(),
 		newIssueAttachmentDeleteCmd(),
+		newIssueAttachmentVisibilityCmd(),
 	)
 	return cmd
 }
@@ -48,14 +51,27 @@ func newIssueAttachmentAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			attachment, err := client.AddIssueAttachment(args[0], filePath)
+			visibility, err := visibilityFromFlags(cmd, client)
 			if err != nil {
 				return err
+			}
+			attachment, err := client.AddIssueAttachmentWithVisibility(args[0], filePath, visibility)
+			if err != nil {
+				return err
+			}
+			if visibility != nil && !visibility.MatchesAllowing(attachment.Visibility, "") {
+				mismatch := fmt.Errorf("attachment %s was created with visibility %s instead of the one requested",
+					attachment.ID, api.DescribeVisibility(attachment.Visibility))
+				if cleanupErr := client.DeleteIssueAttachment(args[0], attachment.ID); cleanupErr != nil {
+					return fmt.Errorf("%w; could not remove attachment: %w; fix it with the visibility command", mismatch, cleanupErr)
+				}
+				return fmt.Errorf("%w; attachment removed", mismatch)
 			}
 			return output.Print(cmd, attachment)
 		},
 	}
 	cmd.Flags().String("file", "", "Path to file (required)")
+	addVisibilityFlags(cmd, "attachment")
 	internal.MustMarkRequired(cmd, "file")
 	return cmd
 }
@@ -81,5 +97,24 @@ func newIssueAttachmentDeleteCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().Bool("force", false, "Skip the confirmation prompt")
+	return cmd
+}
+
+func newIssueAttachmentVisibilityCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "visibility <issueId> <attachmentId>",
+		Short: "Set who can see an attachment",
+		Long:  visibilityLong("attachment"),
+		Example: "  youtrack issue attachment visibility FOO-1 12-8 --users alice\n" +
+			"  youtrack issue attachment visibility FOO-1 12-8 --public",
+		Args: cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runSetVisibility(cmd, "attachment "+args[1], func(c *api.Client, v api.VisibilityChange) (*api.Visibility, string, error) {
+				got, err := c.SetAttachmentVisibility(args[0], args[1], v)
+				return got, "", err
+			})
+		},
+	}
+	addSetVisibilityFlags(cmd)
 	return cmd
 }

@@ -1,18 +1,22 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"embed"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
+	"text/tabwriter"
 	"time"
 
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
+	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/cmd/auth"
 	"github.com/JetBrains/youtrack-cli/cmd/instance"
 	"github.com/JetBrains/youtrack-cli/cmd/issue"
@@ -20,6 +24,7 @@ import (
 	"github.com/JetBrains/youtrack-cli/cmd/skill"
 	"github.com/JetBrains/youtrack-cli/cmd/user"
 	"github.com/JetBrains/youtrack-cli/internal"
+	"github.com/JetBrains/youtrack-cli/internal/config"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
 
@@ -35,17 +40,29 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		Run: func(cmd *cobra.Command, args []string) {
-			output.PrintLogo(os.Stdout)
-			var buf bytes.Buffer
-			cmd.SetOut(&buf)
-			_ = cmd.Help()
-			cmd.SetOut(os.Stdout)
-			output.PrintHelpAnimated(os.Stdout, buf.String())
+			if updatePromptShown { // the update prompt is the whole answer; help would push it off screen
+				return
+			}
+			if !term.IsTerminal(int(os.Stdout.Fd())) { // agents and pipes read the full command list
+				_ = cmd.Help()
+				if noInstanceConfigured() {
+					output.PrintTip(cmd, "No YouTrack instance configured — run 'youtrack auth login' to connect one")
+				}
+				return
+			}
+			output.PrintLogo(cmd.Context(), os.Stdout, firstRun())
+			printNextSteps(cmd.OutOrStdout(), cmd.Long, !noInstanceConfigured())
 		},
 	}
 
 	rootCmd.SetVersionTemplate("{{.Name}} {{.Version}}\n")
-	rootCmd.PersistentPreRun = func(cmd *cobra.Command, _ []string) { maybePromptForUpdate(cmd) }
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, _ []string) error {
+		if err := rejectLocalDryRun(cmd); err != nil {
+			return err
+		}
+		maybePromptForUpdate(cmd)
+		return nil
+	}
 
 	f := rootCmd.PersistentFlags()
 	f.String("format", "table", "Output format: table, json, or plain (deprecated: use --json or --plain)")
@@ -57,6 +74,8 @@ func NewRootCmd(fs embed.FS) *cobra.Command {
 	f.String("token", "", "Override YOUTRACK_TOKEN")
 	f.Bool("verbose", false, "Print HTTP request/response to stderr")
 	f.Bool("quiet", false, "Suppress tips and hints (useful for scripting)")
+	f.Bool("mute-notifications", false, "Don't notify watchers about writes; needs Apply Commands Silently in each affected project, otherwise the write fails with HTTP 403")
+	f.Bool("dry-run", false, "Print the first write request (method, URL, body) instead of sending it; reads still run")
 	_ = f.MarkHidden("format")
 
 	rootCmd.AddGroup(
@@ -101,6 +120,10 @@ func Execute(fs embed.FS) error {
 	execErr := root.ExecuteContext(ctx)
 	quiet, _ := root.PersistentFlags().GetBool("quiet")
 	jsonMode := output.Format(root) == "json"
+	var dryRun *api.DryRunError
+	if errors.As(execErr, &dryRun) {
+		execErr = output.RenderDryRun(root.OutOrStdout(), dryRun, jsonMode)
+	}
 	if execErr != nil {
 		// A user-initiated Ctrl+C during an interactive prompt cancels the root
 		// context; that's not a failure worth an "✗ Error" — print a plain
@@ -144,4 +167,68 @@ func Execute(fs embed.FS) error {
 	case <-time.After(updateNoticeWait):
 	}
 	return execErr
+}
+
+// firstRun reports whether this is the first bare `youtrack` run in a terminal on this machine and
+// records that it happened, so the intro animation plays once and later runs are instant.
+func firstRun() bool {
+	dir, err := config.ConfigDir()
+	if err != nil {
+		return false
+	}
+	marker := filepath.Join(dir, ".intro-shown")
+	if _, err := os.Stat(marker); err == nil {
+		return false
+	}
+	if os.MkdirAll(dir, 0o700) != nil || os.WriteFile(marker, nil, 0o600) != nil {
+		return false // ponytail: can't record it, so skip the animation rather than replay it every run
+	}
+	return true
+}
+
+// noInstanceConfigured reports whether neither YOUTRACK_BASE_URL nor a saved instance tells the CLI which YouTrack to use.
+func noInstanceConfigured() bool {
+	if os.Getenv("YOUTRACK_BASE_URL") != "" {
+		return false
+	}
+	cfg, err := config.Load()
+	return err == nil && len(cfg.Instances) == 0
+}
+
+// printNextSteps prints the short start screen of bare `youtrack` in a terminal: what the CLI is and
+// what to run next. `youtrack --help` lists every command.
+func printNextSteps(w io.Writer, about string, configured bool) {
+	title, steps := "Get started:", [][2]string{
+		{"youtrack auth login", "Connect to your YouTrack instance"},
+	}
+	if configured {
+		title, steps = "Try:", [][2]string{
+			{`youtrack issue list --query "for: me"`, "List issues assigned to you"},
+			{"youtrack auth status", "Show the connected instance and user"},
+		}
+	}
+	steps = append(steps, [2]string{"youtrack --help", "Show all commands"})
+	tw := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
+	_, _ = fmt.Fprintf(tw, "%s\n\n%s\n", about, title)
+	for _, s := range steps {
+		_, _ = fmt.Fprintf(tw, "  %s\t%s\n", s[0], s[1])
+	}
+	_ = tw.Flush()
+}
+
+// localStateGroups change credentials, config, installed skills, or the binary itself without the API client, so --dry-run cannot hold them back.
+var localStateGroups = map[string]bool{"auth": true, "instance": true, "skill": true, "update": true}
+
+func rejectLocalDryRun(cmd *cobra.Command) error {
+	if dryRun, _ := cmd.Root().PersistentFlags().GetBool("dry-run"); !dryRun {
+		return nil
+	}
+	top := cmd
+	for top.HasParent() && top.Parent().HasParent() {
+		top = top.Parent()
+	}
+	if top.HasParent() && localStateGroups[top.Name()] {
+		return fmt.Errorf("--dry-run covers YouTrack API writes only; %q changes local state and does not support it", cmd.CommandPath())
+	}
+	return nil
 }

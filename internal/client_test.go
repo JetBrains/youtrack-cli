@@ -18,6 +18,11 @@ func TestExpandFields(t *testing.T) {
 		{"mixed list expands only bare defaults", "idReadable,reporter,summary", "idReadable,reporter(id,login,fullName),summary"},
 		{"paren-aware split ignores commas inside sub-spec", "reporter(login,fullName),project", "reporter(login,fullName),project(id,shortName,name)"},
 		{"surrounding whitespace is trimmed", " reporter , project ", "reporter(id,login,fullName),project(id,shortName,name)"},
+		{"narrow comments retain deletion status", "comments(text)", "comments(text,deleted)"},
+		{"pinned comments retain deletion status", "pinnedComments(textPreview)", "pinnedComments(textPreview,deleted)"},
+		{"explicit comment deletion status is not duplicated", "comments(id,deleted,text)", "comments(id,deleted,text)"},
+		{"deeply nested comments retain deletion status", "links(issues(comments(text)))", "links(issues(comments(text,deleted)))"},
+		{"unrelated text projection stays unchanged", "externalIssue(text)", "externalIssue(text)"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

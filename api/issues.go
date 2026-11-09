@@ -1,31 +1,43 @@
 package api
 
 import (
+	"encoding/base64"
+	"errors"
 	"fmt"
+	"html"
+	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 )
 
-const issueFields = "id,idReadable,summary,description,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
-const issueDetailFields = issueFields + ",customFields(name,value(name,login,text,presentation))"
+const issueFieldsWithoutDescription = "id,idReadable,summary,project(id,shortName,name),reporter(id,login,fullName),resolved,created,updated,updater(id,login,fullName)"
+const issueFields = issueFieldsWithoutDescription + ",description"
+const issueDetailCustomFields = ",customFields(name,value(name,login,text,presentation))"
+const issueDetailFields = issueFields + issueDetailCustomFields
 
 // issueCustomFieldValues fetches custom fields with the sub-fields that identify each value type: enum/state/version/build
 // (name), user (login, fullName), text (text), period (presentation); number and date values are scalars.
 // projectCustomField.emptyFieldText is what the UI shows for an unset value ("Unassigned", "No Fix versions").
 const issueCustomFieldValues = "customFields(name,value(name,login,fullName,text,presentation),projectCustomField(emptyFieldText))"
-const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,visibility"
+const commentFields = "id,text,author(id,login,fullName),created,updated,deleted,pinned,visibility($type,permittedGroups(id,name),permittedUsers(id,login,fullName))"
 const draftFields = "id,summary,description,created,fields(id,name,$type)"
 
 // AddIssueRequest is the body for creating an issue.
+// Custom fields and tags are included in the initial create request.
 type AddIssueRequest struct {
+	Visibility *VisibilityChange `json:"visibility,omitempty"`
+
 	Summary     string   `json:"summary"`
 	Description string   `json:"description,omitempty"`
 	Project     *Project `json:"project"`
 	Reporter    *User    `json:"reporter,omitempty"`
+
+	CustomFields []IssueCustomFieldValue `json:"customFields,omitempty"`
+	Tags         []Tag                   `json:"tags,omitempty"`
 }
 
 // UpdateIssueRequest contains only explicitly selected issue fields.
@@ -36,14 +48,16 @@ type UpdateIssueRequest struct {
 
 // AddCommentRequest is the body for creating a comment.
 type AddCommentRequest struct {
-	Text   string `json:"text"`
-	Author *User  `json:"author,omitempty"`
+	Text       string            `json:"text"`
+	Author     *User             `json:"author,omitempty"`
+	Visibility *VisibilityChange `json:"visibility,omitempty"`
 }
 
 // ApplyCommandRequest is the body for the /api/commands endpoint.
 type ApplyCommandRequest struct {
 	Query  string  `json:"query"`
 	Issues []Issue `json:"issues"`
+	Silent bool    `json:"silent,omitempty"`
 }
 
 // readableIssueIDRe matches readable issue IDs such as FOO-42; database IDs such as 2-15 start with a digit.
@@ -106,8 +120,25 @@ func (c *Client) GetIssueDetail(id string) (*Issue, error) {
 }
 
 func (c *Client) GetIssue(id string) (*Issue, error) {
+	return c.GetIssueProjection(id, issueFields)
+}
+
+// IssueViewFields is the default issue view projection; detail adds custom field values for plain output.
+func IssueViewFields(detail, description bool) string {
+	fields := issueFieldsWithoutDescription
+	if description {
+		fields = issueFields
+	}
+	if detail {
+		fields += issueDetailCustomFields
+	}
+	return fields
+}
+
+// GetIssueProjection fetches an issue with exactly the given fields, plus any Client.Fields.
+func (c *Client) GetIssueProjection(id, fields string) (*Issue, error) {
 	var result Issue
-	path := fmt.Sprintf(pathIssue+"?fields=%s", url.PathEscape(id), issueFields)
+	path := fmt.Sprintf(pathIssue+"?fields=%s", url.PathEscape(id), fields)
 	err := c.Get(path, &result)
 	return &result, err
 }
@@ -140,10 +171,23 @@ func (c *Client) ListIssuesPageWithCustomFields(query string, limit, offset int,
 	return result, err
 }
 
-func (c *Client) AddIssue(req AddIssueRequest) (*Issue, error) {
+func (c *Client) AddIssue(req AddIssueRequest) (*Issue, error) { //nolint:gocritic // kept by value so existing callers stay unchanged
 	var result Issue
-	err := c.Post(pathIssues+"?fields="+issueFields, req, &result)
-	return &result, err
+	fields := issueFields
+	if req.Visibility != nil {
+		fields += "," + visibilityFields
+	}
+	if err := c.Post(pathIssues+"?fields="+fields, req, &result); err != nil {
+		return &result, err
+	}
+	var reporterID string
+	if result.Reporter != nil {
+		reporterID = result.Reporter.ID
+	}
+	if req.Visibility != nil && !req.Visibility.MatchesAllowing(result.Visibility, reporterID) {
+		return &result, fmt.Errorf("issue %s was created, but its visibility is %s instead of the one requested; fix it with the visibility command", result.IDReadable, DescribeVisibility(result.Visibility))
+	}
+	return &result, nil
 }
 
 func (c *Client) UpdateIssue(id string, req UpdateIssueRequest) (*Issue, error) {
@@ -183,8 +227,15 @@ func (c *Client) AddComment(issueID string, req AddCommentRequest) (*Comment, er
 }
 
 func (c *Client) DeleteComment(issueID, commentID string) error {
-	return c.Delete(fmt.Sprintf(pathIssueComment,
-		url.PathEscape(issueID), url.PathEscape(commentID)))
+	// DELETE permanently removes a comment and needs a stronger permission than
+	// the recoverable deletion offered by the web UI.
+	err := c.Post(fmt.Sprintf(pathIssueComment,
+		url.PathEscape(issueID), url.PathEscape(commentID)), map[string]bool{"deleted": true}, nil)
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && apiErr.StatusCode == http.StatusForbidden {
+		return fmt.Errorf("%w; check Delete Issue Comment for your own comments or Delete Not Own and Permanent Comment Delete for other users' comments", err)
+	}
+	return err
 }
 
 func (c *Client) GetIssueCount(query string) (int, error) {
@@ -320,7 +371,7 @@ func (c *Client) GetIssueTag(issueID, tagID string) (*Tag, error) {
 
 func (c *Client) GetIssueAttachments(issueID string) ([]IssueAttachment, error) {
 	var result []IssueAttachment
-	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created&$top=500", url.PathEscape(issueID))
+	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created,%s&$top=500", url.PathEscape(issueID), visibilityFields)
 	err := c.Get(path, &result)
 	return result, err
 }
@@ -335,6 +386,38 @@ func (c *Client) AddIssueAttachment(issueID, filePath string) (*IssueAttachment,
 		return nil, fmt.Errorf("attachment upload returned empty response")
 	}
 	return &result[0], nil
+}
+
+// AddIssueAttachmentWithVisibility sends content and its audience in the same create request.
+// Servers that reject JSON attachment creation return an error; never fall back to an unrestricted upload.
+func (c *Client) AddIssueAttachmentWithVisibility(issueID, filePath string, visibility *VisibilityChange) (*IssueAttachment, error) {
+	if visibility == nil {
+		return c.AddIssueAttachment(issueID, filePath)
+	}
+	if c.DryRun {
+		if err := checkReadableFile(filePath); err != nil {
+			return nil, err
+		}
+	}
+	path := fmt.Sprintf(pathIssueAttachments+"?fields=id,name,url,mimeType,created,"+visibilityFields, url.PathEscape(issueID))
+	path, err := c.prepareWrite("POST", path, map[string]any{
+		"file": filePath, "fileName": filepath.Base(filePath),
+		"contentType": "application/octet-stream", "visibility": visibility,
+	})
+	if err != nil {
+		return nil, err
+	}
+	data, err := os.ReadFile(filePath)
+	if err != nil {
+		return nil, err
+	}
+	var result IssueAttachment
+	err = c.sendJSON("POST", path, map[string]any{
+		"name":          filepath.Base(filePath),
+		"base64Content": "data:application/octet-stream;base64," + base64.StdEncoding.EncodeToString(data),
+		"visibility":    visibility,
+	}, &result)
+	return &result, err
 }
 
 func (c *Client) DeleteIssueAttachment(issueID, attachmentID string) error {
@@ -381,53 +464,7 @@ func (c *Client) GetCustomFieldValue(issueID, fieldName string) (*IssueField, er
 }
 
 func (c *Client) SetCustomField(issueID, fieldName, fieldValue, fieldType string) error {
-	var fields []struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
-		Type string `json:"$type"`
-	}
-	path := fmt.Sprintf(pathIssueFields+"?fields=id,name,$type&$top=500", url.PathEscape(issueID))
-	if err := c.Get(path, &fields); err != nil {
-		return err
-	}
-	var fieldID, issueFieldType string
-	for _, f := range fields {
-		if f.Name == fieldName {
-			fieldID, issueFieldType = f.ID, f.Type
-			break
-		}
-	}
-	if fieldID == "" {
-		return fmt.Errorf("field '%s' not found on issue %s", fieldName, issueID)
-	}
-	var body map[string]any
-	switch fieldType {
-	case "period":
-		body = map[string]any{"value": map[string]any{"presentation": fieldValue}}
-	case "text":
-		body = map[string]any{"value": map[string]any{"text": fieldValue}}
-	case "user":
-		user, err := c.GetUser(fieldValue)
-		if err != nil {
-			return err
-		}
-		body = map[string]any{"value": map[string]any{"id": user.ID}}
-	case "int":
-		n, err := strconv.Atoi(fieldValue)
-		if err != nil {
-			return fmt.Errorf("invalid integer value '%s': %w", fieldValue, err)
-		}
-		body = map[string]any{"value": n}
-	case "string":
-		body = map[string]any{"value": fieldValue}
-	default:
-		body = map[string]any{"value": map[string]any{"name": fieldValue}}
-	}
-	if isMultiValueField(issueFieldType) {
-		// Multi-value fields (e.g. MultiEnumIssueCustomField) take an array; a single object is rejected with HTTP 500.
-		body["value"] = []any{body["value"]}
-	}
-	return c.Post(fmt.Sprintf(pathIssueField, url.PathEscape(issueID), url.PathEscape(fieldID)), body, nil)
+	return c.SetCustomFieldValues(issueID, fieldName, []string{fieldValue}, fieldType)
 }
 
 func (c *Client) UpdateComment(issueID, commentID, text string) (*Comment, error) {
@@ -437,46 +474,9 @@ func (c *Client) UpdateComment(issueID, commentID, text string) (*Comment, error
 	return &result, err
 }
 
-func (c *Client) UpdateCommentVisibility(issueID, commentID string, groupIDs, userIDs []string) error {
-	groups := make([]map[string]any, len(groupIDs))
-	for i, id := range groupIDs {
-		groups[i] = map[string]any{"id": id}
-	}
-	users := make([]map[string]any, len(userIDs))
-	for i, id := range userIDs {
-		users[i] = map[string]any{"id": id}
-	}
-	body := map[string]any{
-		"visibility": map[string]any{
-			"$type":           "LimitedVisibility",
-			"permittedGroups": groups,
-			"permittedUsers":  users,
-		},
-	}
-	return c.Post(fmt.Sprintf(pathIssueComment, url.PathEscape(issueID), url.PathEscape(commentID)), body, nil)
-}
-
 func (c *Client) PinComment(issueID, commentID string, pinned bool) error {
 	return c.Post(fmt.Sprintf(pathIssueComment, url.PathEscape(issueID), url.PathEscape(commentID)),
 		map[string]any{"pinned": pinned}, nil)
-}
-
-func (c *Client) UpdateIssueVisibility(issueID string, groupIDs, userIDs []string) error {
-	groups := make([]map[string]any, len(groupIDs))
-	for i, id := range groupIDs {
-		groups[i] = map[string]any{"id": id}
-	}
-	users := make([]map[string]any, len(userIDs))
-	for i, id := range userIDs {
-		users[i] = map[string]any{"id": id}
-	}
-	return c.Post(fmt.Sprintf(pathIssue, url.PathEscape(issueID)), map[string]any{
-		"visibility": map[string]any{
-			"$type":           "LimitedVisibility",
-			"permittedGroups": groups,
-			"permittedUsers":  users,
-		},
-	}, nil)
 }
 
 func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]any, error) {
@@ -486,7 +486,7 @@ func (c *Client) GetCommandAssist(query string, issueIDs []string) (map[string]a
 	}
 	var result map[string]any
 	err = c.postQuery(pathCommandsAssist+"?fields=commands(error,description),query,suggestions(id,option,description,completionStart,completionEnd,prefix,suffix,shortName,fullName,group)",
-		map[string]any{"query": query, "issues": issues}, &result)
+		map[string]any{"query": WrapUserValues(query), "issues": issues}, &result)
 	return result, err
 }
 
@@ -531,13 +531,14 @@ func (c *Client) GetDraft(draftID string) (*IssueDraft, error) {
 	return &result, err
 }
 
-func (c *Client) UpdateDraft(draftID, summary, description string) (*IssueDraft, error) {
+// UpdateDraft sets a non-empty summary, and the description when it is not nil; an empty description clears it.
+func (c *Client) UpdateDraft(draftID, summary string, description *string) (*IssueDraft, error) {
 	body := map[string]any{}
 	if summary != "" {
 		body["summary"] = summary
 	}
-	if description != "" {
-		body["description"] = description
+	if description != nil {
+		body["description"] = *description
 	}
 	var result IssueDraft
 	path := fmt.Sprintf(pathUserDraft+"?fields=%s", "me", url.PathEscape(draftID), draftFields)
@@ -609,6 +610,7 @@ func (c *Client) ApplyCommand(query string, issueIDs []string) error {
 	return c.Post(pathCommands, ApplyCommandRequest{
 		Query:  WrapUserValues(query),
 		Issues: issues,
+		Silent: c.MuteNotifications,
 	}, nil)
 }
 
@@ -737,12 +739,12 @@ func (c *Client) GetIssueVCSChange(issueID, changeID string) (*VCSChange, error)
 // integrations configured for the issue's project and answers 404 when none of
 // them knows the hash. A Generic VCS integration is the exception — it accepts
 // any hash and takes the commit message from text.
-func (c *Client) AttachIssueVCSChange(issueID, version, text string, mute bool) (*VCSChange, error) {
+func (c *Client) AttachIssueVCSChange(issueID, version, text string) (*VCSChange, error) {
 	state := VCSChangeStateManuallyAttached
 	body := VCSChange{Version: version, State: &state, Text: text}
 
 	var result VCSChange
-	path := fmt.Sprintf(pathIssueVCSChanges+"?fields="+vcsChangeFields, url.PathEscape(issueID)) + muteSuffix(mute)
+	path := fmt.Sprintf(pathIssueVCSChanges+"?fields="+vcsChangeFields, url.PathEscape(issueID))
 	if err := c.Post(path, body, &result); err != nil {
 		return nil, err
 	}
@@ -760,12 +762,9 @@ func (c *Client) AttachIssueVCSChange(issueID, version, text string, mute bool) 
 // commit message names the issue, and never for a Generic VCS integration. Asking
 // for fields therefore turns a successful detach into "HTTP 500: VcsChange[..]
 // was removed".
-func (c *Client) SetIssueVCSChangeState(issueID, changeID string, state int, mute bool) error {
+func (c *Client) SetIssueVCSChangeState(issueID, changeID string, state int) error {
 	body := VCSChange{State: &state}
 	path := fmt.Sprintf(pathIssueVCSChange, url.PathEscape(issueID), url.PathEscape(changeID))
-	if mute {
-		path += "?muteUpdateNotifications=true"
-	}
 	return c.Post(path, body, nil)
 }
 
@@ -776,11 +775,52 @@ func (c *Client) DeleteIssueVCSChange(issueID, changeID string) error {
 	return c.Delete(fmt.Sprintf(pathIssueVCSChange, url.PathEscape(issueID), url.PathEscape(changeID)))
 }
 
-// muteUpdateNotifications suppresses issue-change notifications; it needs the
-// Apply Commands Silently permission in every affected project.
-func muteSuffix(mute bool) string {
-	if mute {
-		return "&muteUpdateNotifications=true"
+var (
+	newTagCommandRe = regexp.MustCompile(`(?i)^add new tag\s+`)
+	htmlTagRe       = regexp.MustCompile(`<[^>]*>`)
+)
+
+// NewTagsInCommand returns the tags that applying query would create, read from the server's parsed-command
+// descriptions ("Add new tag X"). Refuse non-English profiles because the API exposes no tag-creation discriminator.
+func (c *Client) NewTagsInCommand(query string, issueIDs []string) ([]string, error) {
+	var profile struct {
+		Locale *struct {
+			Language string `json:"language"`
+		} `json:"locale"`
 	}
-	return ""
+	if err := c.Get("/api/users/me/profiles/general?fields=locale(language)", &profile); err != nil {
+		return nil, fmt.Errorf("cannot verify command preview language: %w", err)
+	}
+	if profile.Locale == nil || profile.Locale.Language != "en" {
+		return nil, fmt.Errorf("--no-new-tags requires an English YouTrack profile; use issue tag add for existing tags without command parsing; nothing was applied")
+	}
+
+	issues, err := c.commandIssues(issueIDs)
+	if err != nil {
+		return nil, err
+	}
+	var result struct {
+		Commands []struct {
+			Description string `json:"description"`
+			Error       *bool  `json:"error"`
+		} `json:"commands"`
+	}
+	err = c.postQuery(pathCommandsAssist+"?fields=commands(description,error)",
+		map[string]any{"query": WrapUserValues(query), "issues": issues}, &result)
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Commands) == 0 {
+		return nil, fmt.Errorf("cannot verify an empty command preview; nothing was applied")
+	}
+	var tags []string
+	for _, cmd := range result.Commands {
+		if cmd.Error == nil || *cmd.Error || cmd.Description == "" {
+			return nil, fmt.Errorf("cannot verify command preview: %s; nothing was applied", cmd.Description)
+		}
+		if text := html.UnescapeString(htmlTagRe.ReplaceAllString(cmd.Description, "")); newTagCommandRe.MatchString(text) {
+			tags = append(tags, newTagCommandRe.ReplaceAllString(text, ""))
+		}
+	}
+	return tags, nil
 }

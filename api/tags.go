@@ -10,15 +10,20 @@ type AddTagRequest struct {
 	UntagOnResolve bool   `json:"untagOnResolve,omitempty"`
 }
 
-func (c *Client) ListTags() ([]Tag, error) {
+// ListTags returns up to limit tags visible to the current user; a non-empty query keeps tags whose name words start with it.
+func (c *Client) ListTags(query string, limit int) ([]Tag, error) {
 	var result []Tag
-	err := c.Get(pathTags+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve&$top=500", &result)
+	path := fmt.Sprintf(pathTags+"?fields=%s&$top=%d", tagFields, limit)
+	if query != "" {
+		path += "&query=" + url.QueryEscape(query)
+	}
+	err := c.Get(path, &result)
 	return result, err
 }
 
 func (c *Client) AddTag(req AddTagRequest) (*Tag, error) {
 	var result Tag
-	err := c.Post(pathTags+"?fields=id,name,owner(id,login,fullName),color,untagOnResolve", req, &result)
+	err := c.Post(pathTags+"?fields="+tagFields, req, &result)
 	return &result, err
 }
 

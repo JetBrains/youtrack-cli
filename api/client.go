@@ -23,7 +23,9 @@ const defaultTimeout = 30 * time.Second
 // maxErrorBodySize caps error-body reads so a misbehaving server can't balloon client memory.
 const maxErrorBodySize = 1 << 20 // 1 MiB
 
-// UserAgent is sent on every request; internal.GetClient sets it to the build version.
+// UserAgent is the default copied into each new Client.
+//
+// Deprecated: set Client.UserAgent to customize individual clients.
 var UserAgent = "youtrack-cli"
 
 // Client sends authenticated requests to a YouTrack instance.
@@ -31,11 +33,17 @@ type Client struct {
 	BaseURL    string
 	Token      string
 	HTTPClient *http.Client
+	UserAgent  string
 	Verbose    bool
 	Fields     string // when non-empty, extends the fields= query param on GET requests
 	// TokenSource, when set, supplies the bearer token for each request instead of Token — used for saved OAuth sessions that refresh transparently.
 	TokenSource func(ctx context.Context) (string, error)
-	ctx         context.Context
+	// MuteNotifications suppresses notifications on API writes.
+	MuteNotifications bool
+	// DryRun describes writes instead of sending them.
+	DryRun bool
+	Warn   io.Writer
+	ctx    context.Context
 }
 
 func NewClient(baseURL, token string) *Client {
@@ -43,6 +51,7 @@ func NewClient(baseURL, token string) *Client {
 		BaseURL:    strings.TrimRight(baseURL, "/"),
 		Token:      token,
 		HTTPClient: &http.Client{Timeout: defaultTimeout, CheckRedirect: sameOriginRedirect},
+		UserAgent:  UserAgent,
 		ctx:        context.Background(),
 	}
 }
@@ -114,11 +123,17 @@ func (c *Client) wait(delay time.Duration) error {
 	}
 }
 
-func (c *Client) doRequest(method, path string, body io.Reader, contentType string) (*http.Response, error) {
+// acceptJSON is sent by requests that decode the response; acceptAny by requests that pass it through unchanged.
+const (
+	acceptJSON = "application/json"
+	acceptAny  = "application/json, */*;q=0.8"
+)
+
+func (c *Client) doRequest(ctx context.Context, method, path string, body io.Reader, contentType, accept string) (*http.Response, error) {
 	if !validRequestPath(path) {
 		return nil, fmt.Errorf("request path must begin with a single slash")
 	}
-	req, err := http.NewRequestWithContext(c.context(), method, c.BaseURL+path, body)
+	req, err := http.NewRequestWithContext(ctx, method, c.BaseURL+path, body)
 	if err != nil {
 		return nil, err
 	}
@@ -130,16 +145,20 @@ func (c *Client) doRequest(method, path string, body io.Reader, contentType stri
 	}
 	// Verbose logging below prints only the method, URL, and status — never request headers, so the bearer token cannot leak into debug output.
 	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", UserAgent)
+	req.Header.Set("Accept", accept)
+	req.Header.Set("User-Agent", c.UserAgent)
 	if contentType != "" {
 		req.Header.Set("Content-Type", contentType)
 	}
 	if c.Verbose {
-		_, _ = fmt.Fprintf(os.Stderr, "> %s %s%s\n", method, c.BaseURL, path)
+		_, _ = fmt.Fprintf(os.Stderr, "> %s %s%s\n", method, c.BaseURL, redactSignature(path))
 	}
 	resp, err := c.HTTPClient.Do(req)
 	if err != nil {
+		var urlErr *url.Error
+		if errors.As(err, &urlErr) {
+			urlErr.URL = redactSignature(urlErr.URL)
+		}
 		return nil, err
 	}
 	if c.Verbose {
@@ -148,18 +167,80 @@ func (c *Client) doRequest(method, path string, body io.Reader, contentType stri
 	return resp, nil
 }
 
+// redactSignature hides signed download credentials in query parameters and older path-style URLs.
+func redactSignature(rawURL string) string {
+	base, query, ok := strings.Cut(rawURL, "?")
+	segments := strings.Split(base, "/")
+	for i, segment := range segments {
+		if decoded, err := url.PathUnescape(segment); err == nil && strings.HasPrefix(decoded, "sign=") {
+			segments[i] = "sign=REDACTED"
+		}
+	}
+	base = strings.Join(segments, "/")
+	if !ok {
+		return base
+	}
+	params := strings.Split(query, "&")
+	for i, p := range params {
+		key, _, _ := strings.Cut(p, "=")
+		if decoded, err := url.QueryUnescape(key); err == nil && decoded == "sign" {
+			params[i] = "sign=REDACTED"
+		}
+	}
+	return base + "?" + strings.Join(params, "&")
+}
+
 func validRequestPath(path string) bool {
 	return strings.HasPrefix(path, "/") && !strings.HasPrefix(path, "//")
 }
 
 // send performs one request and is the only place that closes a response body.
 func (c *Client) send(method, path string, body io.Reader, contentType string, result any) error {
-	resp, err := c.doRequest(method, path, body, contentType)
+	resp, err := c.doRequest(c.context(), method, path, body, contentType, acceptJSON)
 	if err != nil {
 		return err
 	}
 	defer func() { _ = resp.Body.Close() }()
 	return handleResponse(resp, result)
+}
+
+// stream performs one request and copies a successful response body to w without decoding it.
+// The overall client timeout is lifted so large bodies can finish; instead the request is
+// canceled once the server sends nothing for defaultTimeout.
+func (c *Client) stream(method, path string, body io.Reader, contentType string, w io.Writer) error {
+	ctx, cancel := context.WithCancel(c.context())
+	defer cancel()
+	idle := time.AfterFunc(defaultTimeout, cancel)
+	defer idle.Stop()
+
+	httpClient := *c.HTTPClient
+	httpClient.Timeout = 0
+	streaming := *c
+	streaming.HTTPClient = &httpClient
+	resp, err := streaming.doRequest(ctx, method, path, body, contentType, acceptAny)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode >= 300 {
+		return handleResponse(resp, nil)
+	}
+	_, err = io.Copy(w, &idleReader{r: resp.Body, idle: idle})
+	return err
+}
+
+// idleReader pushes back the idle deadline every time the server delivers data.
+type idleReader struct {
+	r    io.Reader
+	idle *time.Timer
+}
+
+func (r *idleReader) Read(p []byte) (int, error) {
+	n, err := r.r.Read(p)
+	if n > 0 {
+		r.idle.Reset(defaultTimeout)
+	}
+	return n, err
 }
 
 // handleResponse reads the response body, checks for errors,
@@ -242,9 +323,22 @@ func readOnly() bool {
 	return os.Getenv(envReadOnly) == "1"
 }
 
-func (c *Client) Post(path string, body, result any) error {
+// prepareWrite applies the same write policy to JSON, streaming, and multipart requests.
+func (c *Client) prepareWrite(method, path string, body any) (string, error) {
+	path = c.applyMute(method, path)
+	if c.DryRun {
+		return path, newDryRunError(method, c.BaseURL+path, body)
+	}
 	if readOnly() {
-		return errReadOnly
+		return path, errReadOnly
+	}
+	return path, nil
+}
+
+func (c *Client) Post(path string, body, result any) error {
+	path, err := c.prepareWrite("POST", path, body)
+	if err != nil {
+		return err
 	}
 	return c.sendJSON("POST", path, body, result)
 }
@@ -256,15 +350,17 @@ func (c *Client) postQuery(path string, body, result any) error {
 }
 
 func (c *Client) Put(path string, body, result any) error {
-	if readOnly() {
-		return errReadOnly
+	path, err := c.prepareWrite("PUT", path, body)
+	if err != nil {
+		return err
 	}
 	return c.sendJSON("PUT", path, body, result)
 }
 
 func (c *Client) Delete(path string) error {
-	if readOnly() {
-		return errReadOnly
+	path, err := c.prepareWrite("DELETE", path, nil)
+	if err != nil {
+		return err
 	}
 	return c.send("DELETE", path, nil, "", nil)
 }
@@ -279,8 +375,14 @@ func (c *Client) sendJSON(method, path string, body, result any) error {
 
 // Multipart uploads a file as a multipart/form-data attachment.
 func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any) error {
-	if readOnly() {
-		return errReadOnly
+	if c.DryRun {
+		if err := checkReadableFile(filePath); err != nil {
+			return err
+		}
+	}
+	path, err := c.prepareWrite("POST", path, map[string]string{"file": filePath, "fileName": fileName, "contentType": mimeType})
+	if err != nil {
+		return err
 	}
 	f, err := os.Open(filePath)
 	if err != nil {
@@ -311,3 +413,25 @@ func (c *Client) Multipart(path, filePath, fileName, mimeType string, result any
 // Content-Disposition line and inject part headers. Quotes and backslashes stay as-is: YouTrack reads raw quotes
 // leniently but treats a backslash as a path separator, so escaping them would corrupt the stored name.
 var headerBreakEscaper = strings.NewReplacer("\r", "%0D", "\n", "%0A")
+
+// checkReadableFile fails the way a real upload would on a missing, unreadable, or directory path, so a dry run doesn't report a request that cannot be sent.
+func checkReadableFile(filePath string) error {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		return err
+	}
+	if info.IsDir() {
+		return fmt.Errorf("read %s: is a directory", filePath)
+	}
+	return nil
+}
+
+// SetWriteOptions configures CLI write controls on a command-scoped client copy.
+func (c *Client) SetWriteOptions(dryRun, mute bool, warn io.Writer) {
+	c.DryRun, c.MuteNotifications, c.Warn = dryRun, mute, warn
+}

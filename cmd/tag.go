@@ -52,21 +52,31 @@ func newTagIssueCmd() *cobra.Command {
 }
 
 func newTagListCmd() *cobra.Command {
-	return &cobra.Command{
+	var query string
+	var limit int
+	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "List all tags",
+		Short: "List tags visible to you",
+		Long: `List tags visible to you. Tags share one namespace across the instance, so pass
+--query to narrow the list: it keeps tags with a word in their name that starts with the text.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if limit < 0 {
+				return fmt.Errorf("--limit must not be negative, got %d", limit)
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
 			}
-			tags, err := client.ListTags()
+			tags, err := client.ListTags(query, limit)
 			if err != nil {
 				return err
 			}
 			return output.Print(cmd, tags)
 		},
 	}
+	cmd.Flags().StringVar(&query, "query", "", "Keep tags with a name word starting with this text (case-insensitive)")
+	cmd.Flags().IntVar(&limit, "limit", 100, "Maximum number of tags to return (non-negative; 0 returns none)")
+	return cmd
 }
 
 func newTagCreateCmd() *cobra.Command {

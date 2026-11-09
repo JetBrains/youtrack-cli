@@ -128,7 +128,22 @@ youtrack raw /api/issues/DEMO-42/comments \
   --body '{"text":"Deployed to staging"}'
 ```
 
+For long bodies, read the JSON from a file with `--body-file`, or from stdin with `--body-file -`. This also avoids the command-line length limit and quote escaping on Windows:
+
+```Shell
+youtrack raw /api/issues/DEMO-42 --method POST --body-file update.json
+jq -n --arg d "$(cat notes.md)" '{description: $d}' | youtrack raw /api/issues/DEMO-42 --method POST --body-file -
+```
+
 Raw responses are arbitrary JSON, so pass `--json` or pipe the output when you want to parse it.
+
+To keep a response exactly as the server sent it — an image, a file, or JSON you do not want reformatted — pass `--output` with a file path, or `-` for stdout. The body is not parsed as JSON:
+
+```Shell
+youtrack raw "/api/files/1-2?sign=..." --output screenshot.png
+```
+
+Without an explicit `$top`, YouTrack normally returns 42 items per collection page. When a list response has exactly 42 items and the path sets no `$top`, `raw` prints a warning on stderr.
 
 For collection endpoints, `--paginate` follows `$skip`/`$top` pages and emits
 one combined JSON array, or `[]` when the collection is empty. `--page-size` defaults to 100:
@@ -137,7 +152,7 @@ one combined JSON array, or `[]` when the collection is empty. `--page-size` def
 youtrack raw /api/issues --fields "idReadable,summary" --paginate --page-size 100
 ```
 
-All list commands with `--limit` (`issue list`, `article list`, `user list`, and `tag issue list`) require non-negative values; `0` returns an empty list. Use `raw --paginate` to fetch every page. The `issue list --offset` value must also be non-negative.
+All list commands with `--limit` (`issue list`, `article list`, `user list`, `tag list`, and `tag issue list`) require non-negative values; `0` returns an empty list. Use `raw --paginate` to fetch every page. The `issue list --offset` value must also be non-negative.
 
 <table>
 <tr>
@@ -173,6 +188,26 @@ JSON request body, sent with `POST` and `PUT`.
 <tr>
 <td>
 
+`--body-file`
+</td>
+<td>
+
+Read the JSON request body from a file, or from stdin with `-`. Cannot be combined with `--body`.
+</td>
+</tr>
+<tr>
+<td>
+
+`--output`, `-o`
+</td>
+<td>
+
+Write the response body unchanged to a file, or to stdout with `-`, without parsing it as JSON.
+</td>
+</tr>
+<tr>
+<td>
+
 `--fields`
 </td>
 <td>
@@ -199,6 +234,10 @@ youtrack issue list --query "assignee: me State: Open" --quiet \
 {style="warning"}
 
 To see the underlying HTTP request and response while debugging a script, add `--verbose`. It writes the method, URL, and status to stderr, leaving stdout clean.
+
+To check a write before running it for real, add `--dry-run`. Reads still run, but the first write is printed to stdout instead of sent — as JSON (`dryRun`, `method`, `url`, `body`) when stdout is not a terminal — and the command exits 0 without changing anything. Commands that write more than once stop at the first write.
+
+For bulk edits that would otherwise email every watcher, add `--mute-notifications`. It adds the parameter to every POST, PUT, and DELETE request and needs the *Apply Commands Silently* permission in every affected project. Without it the write fails with HTTP 403 and nothing changes. Retry without the flag only if notifications are acceptable; workflow notifications are not muted.
 
 <seealso>
 <category ref="user-guide">

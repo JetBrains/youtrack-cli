@@ -194,10 +194,15 @@ func copyBinaryToFakeInstallPath(t *testing.T, relDir string) string {
 }
 
 // writeE2EStubExecutable writes a shell script named name in dir that records its
-// arguments to recordPath, standing in for a real package-manager binary on PATH.
-func writeE2EStubExecutable(t *testing.T, dir, name, recordPath string) {
+// arguments to recordPath and replaces binary with one that reports v999.0.0, standing
+// in for a real package-manager binary on PATH. The replacement is renamed into place,
+// as real installers do, because Linux refuses to write to a running executable.
+func writeE2EStubExecutable(t *testing.T, dir, name, recordPath, binary string) {
 	t.Helper()
-	script := fmt.Sprintf("#!/bin/sh\necho \"$@\" > %q\n", recordPath)
+	mv, err := exec.LookPath("mv")
+	require.NoError(t, err)
+	script := fmt.Sprintf("#!/bin/sh\necho \"$@\" > %q\nprintf '#!/bin/sh\\necho youtrack 999.0.0\\n' > %q\n%q %q %q\n",
+		recordPath, binary+".new", mv, binary+".new", binary)
 	require.NoError(t, os.WriteFile(filepath.Join(dir, name), []byte(script), 0o755))
 }
 
@@ -242,7 +247,7 @@ func TestCmd_Update_AutoUpgrade_Homebrew(t *testing.T) {
 
 	stubDir := t.TempDir()
 	record := filepath.Join(stubDir, "record.txt")
-	writeE2EStubExecutable(t, stubDir, "brew", record)
+	writeE2EStubExecutable(t, stubDir, "brew", record, fakeBinary)
 
 	output, err := runViaPTY(t, fakeBinary,
 		[]string{"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH")},
@@ -263,7 +268,7 @@ func TestCmd_Update_AutoUpgrade_GoInstall(t *testing.T) {
 
 	stubDir := t.TempDir()
 	record := filepath.Join(stubDir, "record.txt")
-	writeE2EStubExecutable(t, stubDir, "go", record)
+	writeE2EStubExecutable(t, stubDir, "go", record, fakeBinary)
 
 	output, err := runViaPTY(t, fakeBinary,
 		[]string{"PATH=" + stubDir + string(os.PathListSeparator) + os.Getenv("PATH")},
@@ -349,7 +354,7 @@ func TestCmd_UpdatePrompt_UpdateNowRunsUpgrade(t *testing.T) {
 	writePromptConfig(t, home, "9.9.9")
 	stubDir := t.TempDir()
 	record := filepath.Join(stubDir, "record.txt")
-	writeE2EStubExecutable(t, stubDir, "brew", record)
+	writeE2EStubExecutable(t, stubDir, "brew", record, binary)
 
 	out, err := runViaPTYAnswering(t, binary,
 		promptEnv(home, "PATH="+stubDir+string(os.PathListSeparator)+os.Getenv("PATH")),
@@ -361,6 +366,45 @@ func TestCmd_UpdatePrompt_UpdateNowRunsUpgrade(t *testing.T) {
 	got, readErr := os.ReadFile(record)
 	require.NoError(t, readErr, "stub brew was never invoked; output: %s", out)
 	require.Equal(t, "upgrade youtrack\n", string(got))
+}
+
+func TestCmd_UpdatePrompt_UnchangedBinaryReportsFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("pty-based TTY simulation is POSIX-only")
+	}
+	binary := buildVersionedBinaryAt(t, "Cellar/youtrack/0.0.1/bin", "0.0.1")
+	home := t.TempDir()
+	writePromptConfig(t, home, "9.9.9")
+	// A brew whose tap lags the release exits 0 and leaves the binary unchanged.
+	stubDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(stubDir, "brew"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+
+	out, err := runViaPTYAnswering(t, binary,
+		promptEnv(home, "PATH="+stubDir+string(os.PathListSeparator)+os.Getenv("PATH")),
+		"1", "instance", "list")
+	require.NoError(t, err, "output: %s", out)
+	require.Contains(t, out, "update failed")
+	require.Contains(t, out, "still reports v0.0.1")
+	require.NotContains(t, out, "Updated to")
+}
+
+func TestCmd_UpdatePrompt_InstallerDownloadFailureReportsFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("pty-based TTY simulation is POSIX-only")
+	}
+	binary := buildVersionedBinaryAt(t, ".local/bin", "0.0.1")
+	home := t.TempDir()
+	writePromptConfig(t, home, "9.9.9")
+	// curl fails before it returns the installer, so the receiving bash runs an empty script.
+	stubDir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(stubDir, "curl"), []byte("#!/bin/sh\nexit 7\n"), 0o755))
+
+	out, err := runViaPTYAnswering(t, binary,
+		promptEnv(home, "PATH="+stubDir+string(os.PathListSeparator)+os.Getenv("PATH")),
+		"1", "instance", "list")
+	require.NoError(t, err, "output: %s", out)
+	require.Contains(t, out, "update failed: exit status 7")
+	require.NotContains(t, out, "Updated to")
 }
 
 func TestCmd_UpdatePrompt_SkipUntilNextVersion(t *testing.T) {
@@ -415,7 +459,7 @@ func TestCmd_Update_AutoUpgrade_HomebrewThroughSymlink(t *testing.T) {
 
 	stubDir := t.TempDir()
 	record := filepath.Join(stubDir, "record.txt")
-	writeE2EStubExecutable(t, stubDir, "brew", record)
+	writeE2EStubExecutable(t, stubDir, "brew", record, cellarBinary)
 
 	// Only the stub is on PATH: a regression to the install-script upgrade finds no bash and fails instead of running the real installer.
 	output, err := runViaPTY(t, link, []string{"PATH=" + stubDir}, "update", "--format", "table")
@@ -450,4 +494,46 @@ func TestCmd_UpdatePrompt_NoNoticeAfterPrompt(t *testing.T) {
 	if cfg.LatestVersion == "9.9.9" {
 		t.Skip("the background check did not reach the GitHub API within the notice wait")
 	}
+}
+
+func TestCmd_Update_YesUpgradesWithoutTerminal(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the stub package manager is a POSIX shell script")
+	}
+	fakeBinary := copyBinaryToFakeInstallPath(t, "Cellar/youtrack/1.0.0/bin")
+	stubDir := t.TempDir()
+	record := filepath.Join(stubDir, "record.txt")
+	writeE2EStubExecutable(t, stubDir, "brew", record, fakeBinary)
+
+	cmd := exec.Command(fakeBinary, "update", "--yes", "--json")
+	cmd.Env = append(os.Environ(), "PATH="+stubDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	skipIfUpdateCheckUnreachable(t, stdout.String(), stderr.String(), err)
+
+	got, readErr := os.ReadFile(record)
+	require.NoError(t, readErr, "stub brew was never invoked; stderr: %s", stderr.String())
+	require.Equal(t, "upgrade youtrack\n", string(got))
+
+	var status struct {
+		updateStatus
+		Upgraded bool `json:"upgraded"`
+	}
+	require.NoError(t, json.Unmarshal(stdout.Bytes(), &status), "stdout: %s", stdout.String())
+	require.True(t, status.Upgraded)
+}
+
+func TestCmd_Update_YesFailsWhenUpgradeUnavailable(t *testing.T) {
+	// The test binary lives in a temp directory, which matches no install method.
+	stdout, stderr, err := runUpdate(t, nil, "--yes", "--json")
+	for _, marker := range updateCheckEnvLimitMarkers {
+		if strings.Contains(stderr, marker) {
+			t.Skipf("skipping: update check unreachable in this environment (stderr: %s)", stderr)
+		}
+	}
+	require.Error(t, err, "stdout: %s", stdout)
+	require.Contains(t, stderr, "automatic upgrade is not available for this install")
+	require.Empty(t, stdout)
 }

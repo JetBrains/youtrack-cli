@@ -42,5 +42,5 @@ func TestCmd_IssueUpdateExplicitFields(t *testing.T) {
 
 	// Flag presence is required even when an empty description is a valid update.
 	out := runCmdExpectError(t, "issue", "update", "unused", "--json")
-	assert.Contains(t, out, "at least one of --summary or --description must be provided")
+	assert.Contains(t, out, "at least one of --summary, --description or --description-file must be provided")
 }
