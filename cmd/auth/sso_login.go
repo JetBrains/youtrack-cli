@@ -407,7 +407,7 @@ func runSSOFlow(cmd *cobra.Command, reader *bufio.Reader, baseURL string, opts *
 			if cfg.TokenInKeyring(alias) && (!opts.session || sess.RefreshToken == "" || cfg.RefreshTokenInKeyring(alias)) {
 				result.TokenStorage = "OS keyring (service youtrack-cli)"
 			} else {
-				_, _ = fmt.Fprintf(stderr, "warning: OS keyring unavailable — tokens stored in %s (mode 0600)\n", result.ConfigFile)
+				_, _ = fmt.Fprintf(progress, "warning: OS keyring unavailable — tokens stored in %s (mode 0600)\n", result.ConfigFile)
 			}
 		}
 		if opts.session {
