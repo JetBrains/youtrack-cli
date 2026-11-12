@@ -16,7 +16,7 @@ The output marks the default skill:
 
 ```
 NAME          VERSION
-youtrack-cli  2.0.0    (default)
+youtrack-cli  2.1.0    (default)
 ```
 
 `youtrack-cli` is the default skill. Commands that take a skill name install it when you pass no name.

@@ -15,7 +15,7 @@ func TestSkill_List(t *testing.T) {
 	stdout, _, err := runCmdInDir(t, dir, "skill", "list")
 	require.NoError(t, err)
 	assert.Contains(t, stdout, "youtrack-cli")
-	assert.Contains(t, stdout, "2.0.0")
+	assert.Contains(t, stdout, "2.1.0")
 
 	// --json must emit machine-readable output, not the human table.
 	stdout, _, err = runCmdInDir(t, dir, "skill", "list", "--json")
