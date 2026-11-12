@@ -17,6 +17,8 @@ tag: bug
 
 ## Common workflows
 
+All workflows below except lookups write to YouTrack. Run a workflow only when the user asked for that change.
+
 **Find and update an issue:**
 ```bash
 youtrack issue list --query "assignee: me State: Open"
@@ -30,6 +32,7 @@ youtrack issue create --project MYPROJ --summary "RFC: Auth" --description-file 
 
 **Bulk update via query:**
 ```bash
+youtrack issue list --query "project: MYPROJ State: Open" --fields idReadable,summary   # show to the user, ask before writing
 youtrack issue list --query "project: MYPROJ State: Open" --json | jq -r '.[].id' \
   | xargs -I{} youtrack issue command {} "Priority Critical"
 ```
