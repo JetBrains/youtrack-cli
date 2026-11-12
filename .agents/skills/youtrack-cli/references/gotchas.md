@@ -3,7 +3,7 @@
 ## CLI gotchas
 
 - **Opaque IDs for team commands** — `project team add-user` / `project team add-group` expect opaque IDs (`2-9`, `4-1`), not logins/names. Resolve with `youtrack user view <login> --json | jq .id`.
-- **`project create` requires `--leader`** — the YouTrack API rejects creation without it. Use `user current` to get the current login if none is specified.
+- **`project create` requires `--leader`** — the YouTrack API rejects creation without it. If the user did not name a leader, ask. Suggest the current login from `user current`.
 - **`issue command` logins** — the CLI auto-wraps logins with `.`, `-`, or `@` in braces. Write the login as-is.
 - **`issue command "tag X"` creates X if it does not exist** — pass `--no-new-tags` to refuse instead; nothing is applied. Non-English or unverifiable previews are refused. This is a best-effort preflight; prefer `issue tag add` for exact existing-tag association.
 - **Output format** — table on TTY, JSON when piped. Use `--json` / `--plain` to override.
@@ -11,12 +11,12 @@
 
 ## Known defaults
 
-- **Issue Type defaults to "Bug"**: `issue create` has no `--type` flag — every new issue gets Type=Bug. Set it explicitly when creating non-Bug issues, either inline via `--custom-fields '{"Type":"Feature"}'` on `issue create`, or afterwards with `issue field set <issueId> Type <value>` or `issue command <issueId> "Type Feature"`. Valid values depend on the project's Type bundle, e.g. `Bug`, `Feature`, `Task`, `Epic`.
+- **Issue Type defaults to "Bug"**: `issue create` has no `--type` flag — every new issue gets Type=Bug. When the user asks for a non-Bug issue, set the type either inline via `--custom-fields '{"Type":"Feature"}'` on `issue create`, or afterwards with `issue field set <issueId> Type <value>` or `issue command <issueId> "Type Feature"`. Valid values depend on the project's Type bundle, e.g. `Bug`, `Feature`, `Task`, `Epic`.
 - **`issue list` defaults to `--limit 100`**: pass `--limit <n>` to override (e.g. `--limit 500`); large values may be slow on big projects.
 
 ## Project creation
 
-- **Always pass `--leader`**: the flag is optional in the CLI but the YouTrack API rejects creation without it. If the user doesn't specify one, run `user current` silently and use that login.
+- **Always pass `--leader`**: the flag is optional in the CLI but the YouTrack API rejects creation without it. If the user did not name a leader, ask. Do not pick one silently.
 
 ## `--asUser <login>`
 
@@ -24,7 +24,7 @@
 
 Requirements:
 - Current token must have admin permissions.
-- The `--asUser` user must have at least the **Contributor** role in the target project (use `role grant --user <userId> --role <roleId> --project <projectId>` if needed).
+- The `--asUser` user must have at least the **Contributor** role in the target project (`role grant --user <userId> --role <roleId> --project <projectId>`). Grant a role only when the user asks. If the role is missing, stop and tell the user.
 
 ## `issue command` with dotted/hyphenated logins
 
