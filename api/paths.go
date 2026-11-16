@@ -22,6 +22,7 @@ const (
 	pathArticleCommentReactions = "/api/articles/%s/comments/%s/reactions"
 	pathArticleCommentReaction  = "/api/articles/%s/comments/%s/reactions/%s"
 	pathArticleTags             = "/api/articles/%s/tags"
+	pathArticleTextMetadata     = "/api/articles/%s/textMetadatas/%s"
 	pathArticleTag              = "/api/articles/%s/tags/%s"
 
 	// Boards (Agiles) / Sprints

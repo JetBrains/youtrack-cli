@@ -147,6 +147,22 @@ type Article struct {
 	ChildArticles []Article `json:"childArticles,omitempty"`
 }
 
+// ArticleText is an article body with the inline comment threads anchored to it.
+type ArticleText struct {
+	Content       string                `json:"content,omitempty"`
+	TextMetadatas []ArticleTextMetadata `json:"textMetadatas,omitempty"`
+}
+
+// ArticleTextMetadata is an inline comment thread anchored to a range of an article text field.
+// Offsets are UTF-16 code units. textMetadatas is not part of the public REST API, so its shape may change.
+type ArticleTextMetadata struct {
+	ID            string    `json:"id,omitempty"`
+	TextFieldName string    `json:"textFieldName,omitempty"`
+	StartOffset   int       `json:"startOffset"`
+	EndOffset     int       `json:"endOffset"`
+	Comments      []Comment `json:"comments,omitempty"`
+}
+
 type ArticleAttachment struct {
 	ID       string `json:"id,omitempty"`
 	Name     string `json:"name,omitempty"`

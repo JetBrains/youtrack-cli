@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
@@ -122,6 +123,7 @@ func newArticleCreateCmd() *cobra.Command {
 func newArticleUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "update <id>", Short: "Update an article",
+		Long: "Update an article. When the content changes, inline comment threads are moved to follow their text; a thread whose text was rewritten stays where it is, with a warning.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			summary, _ := cmd.Flags().GetString("summary")
@@ -133,11 +135,26 @@ func newArticleUpdateCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			// UpdateArticle ignores empty content, so only a non-empty body can move inline threads.
+			var before *api.ArticleText
+			if content != "" {
+				if before, err = client.GetArticleText(args[0]); err != nil {
+					output.PrintWarn(cmd, "could not read inline threads, they will not be re-anchored: "+err.Error())
+					before = nil
+				}
+			}
 			article, err := client.UpdateArticle(args[0], summary, content)
 			if err != nil {
 				return err
 			}
-			return output.Print(cmd, article)
+			var reanchorErr error
+			if before != nil {
+				reanchorErr = reanchorThreads(cmd, client, args[0], before, content)
+			}
+			if err := output.Print(cmd, article); err != nil {
+				return err
+			}
+			return reanchorErr
 		},
 	}
 	cmd.Flags().String("summary", "", "New title")
