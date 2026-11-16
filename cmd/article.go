@@ -82,7 +82,10 @@ func newArticleCreateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectKey, _ := cmd.Flags().GetString("project")
 			summary, _ := cmd.Flags().GetString("summary")
-			content, _ := cmd.Flags().GetString("content")
+			content, _, err := internal.TextFromFlags(cmd, "content", "content-file")
+			if err != nil {
+				return err
+			}
 			asUser, _ := cmd.Flags().GetString("asUser")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -110,6 +113,7 @@ func newArticleCreateCmd() *cobra.Command {
 	cmd.Flags().String("project", "", "Project short name (required)")
 	cmd.Flags().String("summary", "", "Article title (required)")
 	cmd.Flags().String("content", "", "Article body")
+	internal.AddTextFileFlag(cmd, "content", "content-file", "the article body")
 	cmd.Flags().String("asUser", "", "Create as this user login")
 	internal.MustMarkRequired(cmd, "project", "summary")
 	return cmd
@@ -121,7 +125,10 @@ func newArticleUpdateCmd() *cobra.Command {
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			summary, _ := cmd.Flags().GetString("summary")
-			content, _ := cmd.Flags().GetString("content")
+			content, _, err := internal.TextFromFlags(cmd, "content", "content-file")
+			if err != nil {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
@@ -135,6 +142,7 @@ func newArticleUpdateCmd() *cobra.Command {
 	}
 	cmd.Flags().String("summary", "", "New title")
 	cmd.Flags().String("content", "", "New content")
+	internal.AddTextFileFlag(cmd, "content", "content-file", "the new content")
 	return cmd
 }
 
