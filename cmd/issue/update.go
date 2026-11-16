@@ -17,7 +17,7 @@ func newIssueUpdateCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			summary, _ := cmd.Flags().GetString("summary")
-			description, descriptionSet, err := textFromFlags(cmd, "description", "description-file")
+			description, descriptionSet, err := internal.TextFromFlags(cmd, "description", "description-file")
 			if err != nil {
 				return err
 			}
@@ -46,6 +46,6 @@ func newIssueUpdateCmd() *cobra.Command {
 	}
 	cmd.Flags().String("summary", "", "New summary")
 	cmd.Flags().String("description", "", "New description (an empty string clears it)")
-	addTextFileFlag(cmd, "description", "description-file", "the new description")
+	internal.AddTextFileFlag(cmd, "description", "description-file", "the new description")
 	return cmd
 }

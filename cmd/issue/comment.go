@@ -64,7 +64,7 @@ func newCommentCreateCmd() *cobra.Command {
 			"  youtrack issue comment create FOO-1 --text \"Internal note\" --visibility \"Core Team\" --visibility alice",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			text, _, err := textFromFlags(cmd, "text", "text-file")
+			text, _, err := internal.TextFromFlags(cmd, "text", "text-file")
 			if err != nil {
 				return err
 			}
@@ -99,7 +99,7 @@ func newCommentCreateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("text", "", "Comment text")
-	addTextFileFlag(cmd, "text", "text-file", "the comment text")
+	internal.AddTextFileFlag(cmd, "text", "text-file", "the comment text")
 	cmd.MarkFlagsOneRequired("text", "text-file")
 	cmd.Flags().String("asUser", "", "Post as this user (login)")
 	addVisibilityFlags(cmd, "comment")
@@ -137,7 +137,7 @@ func newCommentUpdateCmd() *cobra.Command {
 		Short: "Update a comment's text",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			text, _, err := textFromFlags(cmd, "text", "text-file")
+			text, _, err := internal.TextFromFlags(cmd, "text", "text-file")
 			if err != nil {
 				return err
 			}
@@ -153,7 +153,7 @@ func newCommentUpdateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().String("text", "", "New comment text")
-	addTextFileFlag(cmd, "text", "text-file", "the new comment text")
+	internal.AddTextFileFlag(cmd, "text", "text-file", "the new comment text")
 	cmd.MarkFlagsOneRequired("text", "text-file")
 	return cmd
 }

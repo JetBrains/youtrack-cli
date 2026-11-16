@@ -34,7 +34,7 @@ func newIssueCreateCmd() *cobra.Command {
 			issueType, _ := cmd.Flags().GetString("type")
 			tagNames, _ := cmd.Flags().GetStringArray("tag")
 
-			description, _, err := textFromFlags(cmd, "description", "description-file")
+			description, _, err := internal.TextFromFlags(cmd, "description", "description-file")
 			if err != nil {
 				return err
 			}
@@ -132,7 +132,7 @@ func newIssueCreateCmd() *cobra.Command {
 	cmd.Flags().String("project", "", "Project short name (required)")
 	cmd.Flags().String("summary", "", "Issue summary (required)")
 	cmd.Flags().String("description", "", "Issue description")
-	addTextFileFlag(cmd, "description", "description-file", "the description")
+	internal.AddTextFileFlag(cmd, "description", "description-file", "the description")
 	cmd.Flags().String("custom-fields", "", `JSON object of custom field values, e.g. '{"State":"Fixed"}'`)
 	cmd.Flags().String("custom-fields-file", "", "Read custom fields JSON from file")
 	cmd.Flags().String("type", "", "Issue Type, e.g. Task (the project default, usually Bug, otherwise)")
