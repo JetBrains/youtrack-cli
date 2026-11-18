@@ -5,4 +5,4 @@
 - Open an issue before submitting a pull request for significant changes.
 - Commit messages use [Conventional Commits](https://www.conventionalcommits.org/) prefixes (`feat:`, `fix:`, `chore:`, `docs:`).
 
-Run `make check` before pushing — it runs formatting, linting, the build, and the full E2E suite.
+Run `make check` before pushing. It runs formatting, linting, the build, unit tests, concurrency tests, and the full E2E suite.

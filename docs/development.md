@@ -1,10 +1,13 @@
 # Development Guide
 
+This guide is for contributors to YouTrack CLI. It lists the build, quality, and test commands, and the conventions for new commands. Run `make check` before you push.
+
 ## Build
 
 ```bash
 make build           # compile ./youtrack binary
-make dist            # cross-compile: linux-amd64, darwin-arm64, darwin-amd64, windows-amd64
+make snapshot        # GoReleaser snapshot build of all release archives into dist/, nothing published
+make clean           # remove build output
 cp youtrack /usr/local/bin/
 ```
 
@@ -14,10 +17,10 @@ cp youtrack /usr/local/bin/
 make fmt             # apply gofmt to the repo
 make fmt-check       # fail if any file is not gofmt'd
 make lint            # run golangci-lint via go run
-make check           # fmt-check + lint + build + unit + test — run before committing
+make check           # fmt-check + lint + build + unit + concurrency + test — run before committing
 ```
 
-Always run `make check` before pushing. It runs formatting, linting, build, pure-function unit tests, and the full E2E suite.
+Always run `make check` before pushing. It runs formatting, linting, build, pure-function unit tests, concurrency tests, and the full E2E suite.
 
 ## Release Pipeline
 
@@ -26,33 +29,30 @@ selects Go 1.27.3 or a newer toolchain required by the module and checks each
 binary's Go build metadata before publishing. Signing-client and Chocolatey
 downloads are checked against their pinned SHA-256 hashes.
 
-Validate and apply pipeline changes with:
-
-```bash
-TEAMCITY_URL=https://buildserver.labs.intellij.net teamcity pipeline validate .teamcity.yml
-TEAMCITY_URL=https://buildserver.labs.intellij.net teamcity pipeline push YouTrack_CLI_Release .teamcity.yml
-```
-
 ## Testing
 
 CLI behavior is tested end-to-end only — no mocks, no fake transport. The subject under test is the compiled `youtrack` binary against a real YouTrack instance running in Docker.
 
-Two scoped exceptions complement the E2E suite:
+Three scoped exceptions complement the E2E suite. None of them uses mocks or fake transport:
 
-- Pure-function unit tests live in `api/*_test.go` and `internal/*_test.go`; run them without Docker using `make unit`. They also run as part of `make check`.
-- API drift detection lives in `test/drift_test.go` (`TestAPIDrift`, gated on the E2E environment), which diffs the Go structs against the live OpenAPI spec.
+- Pure-function unit tests live in `api/*_test.go` and `internal/*_test.go`. To run them without Docker, use `make unit`.
+- API drift detection lives in `test/drift_test.go` (`TestAPIDrift`). It runs only in the E2E environment and compares the Go structs with the live OpenAPI spec.
+- Concurrency tests live in `internal/**/*_test.go` behind the `//go:build concurrency` tag, and their names contain `Concurrent`. They test cross-process races against a temporary file system, without a network. To run them without Docker, use `make concurrency`.
+
+`make check` runs all three.
 
 CI also runs a `govulncheck` scan.
 
 ```bash
 make e2e-up          # start (or reuse) the local Docker YouTrack instance
 make test            # run the full E2E suite
+make e2e-logs        # save the YouTrack container log to .e2e/logs/youtrack.log
 make e2e-down        # stop and remove the local instance
 ```
 
 Prerequisites: `docker`, `curl`, `jq`, and `go` on `PATH`.
 
-The harness chooses an available port from 8080–8099 (or uses `YOUTRACK_E2E_PORT`) and ignores any ambient `YOUTRACK_BASE_URL`. When bootstrap succeeds it writes the URL and credentials to `.e2e/youtrack.env` — source it to run the CLI manually against the local instance:
+The harness chooses an available port from 8080–8099, or uses `YOUTRACK_E2E_PORT`. It ignores any `YOUTRACK_BASE_URL` in your shell. When bootstrap succeeds, it writes the URL and credentials to `.e2e/youtrack.env`. To run the CLI manually against the local instance, source that file:
 
 ```bash
 set -a
@@ -106,6 +106,8 @@ go test ./test/ -run '^TestCmd_IssueViewPlain$' -v -count=1
 | `cmd/issue/` | Issue subcommands |
 | `cmd/project/` | Project subcommands |
 | `cmd/user/` | User subcommands |
+| `cmd/auth/`, `cmd/instance/`, `cmd/skill/` | Sign-in, instance, and skill subcommands |
+| `internal/config/` | Config file and OS keyring storage |
 | `internal/output/` | JSON and table output formatters |
 | `test/` | End-to-end tests (`package api_test`) |
 
@@ -122,7 +124,7 @@ go test ./test/ -run '^TestCmd_IssueViewPlain$' -v -count=1
 ## Coding Conventions
 
 - `gofmt` formatting.
-- Command names: lowercase verbs; canonical set is `view`, `list`, `create`, `update`, `delete` (`get`/`add` live on as aliases — don't use them for new commands).
+- Command names: lowercase verbs. The canonical set is `view`, `list`, `create`, `update`, `delete`. `get` and `add` are aliases; do not use them for new commands.
 - `add` is reserved for associating existing entities or registering config (`issue tag add`, `project team add-user`, `instance add`); anything that makes a new record uses `create`.
 - Go identifiers: camelCase for unexported, PascalCase for exported.
 - Error strings: lowercase, no trailing period.

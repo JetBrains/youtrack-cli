@@ -2,11 +2,11 @@
 
 <show-structure for="chapter" depth="2"/>
 
-Articles are the documents in YouTrack's Knowledge Base. YouTrack CLI lets you create, read, update, and organize them from the command line, including comments, attachments, tags, visibility, and parent-child hierarchy. Each article belongs to a project and is written in Markdown.
+Articles are the Markdown documents in the YouTrack Knowledge Base, and each article belongs to a project. This page shows how to create, read, update, and organize articles with the `youtrack article` commands, including comments, attachments, tags, visibility, and the parent-child hierarchy.
 
-Every article command takes an article ID, for example `DEMO-A-1`. To find one, run `youtrack article list` and copy the ID from the output.
+Most article commands take an article ID, for example `DEMO-A-1`. To find an ID, run `youtrack article list`.
 
-## Listing articles
+## List and search articles {id="list"}
 
 List articles with `youtrack article list`:
 
@@ -14,13 +14,13 @@ List articles with `youtrack article list`:
 youtrack article list
 ```
 
-Narrow the results with a search query. The `--query` flag accepts the same syntax as the Knowledge Base search box:
+The command returns up to 100 articles by default. Use `--limit` to change the number. `--limit 0` returns no articles. Narrow the results with a search query. The `--query` flag accepts the same syntax as the Knowledge Base search box:
 
 ```Shell
-youtrack article list --query "project: DEMO"
+youtrack article list --query "project: DEMO" --limit 20
 ```
 
-## Viewing an article
+## View one article by its ID {id="view"}
 
 View a single article by its ID with `youtrack article view`:
 
@@ -28,110 +28,64 @@ View a single article by its ID with `youtrack article view`:
 youtrack article view DEMO-A-1
 ```
 
-The output includes the article's summary and Markdown content. Add `--json` for the full, machine-readable record. See [Scripting and Automation](youtrack-cli-scripting.md) for output formats.
+The output includes the summary and the Markdown content of the article. Add `--json` for the full, machine-readable record. See [Scripting and Automation](youtrack-cli-scripting.md) for output formats.
 
-## Creating an article
+## Create an article in a project {id="create"}
 
-Create an article with `youtrack article create`. Specify the project by its short name and provide a title with `--summary`:
+Create an article with `youtrack article create`. Specify the project by its short name and give a title with `--summary`:
 
 ```Shell
 youtrack article create --project DEMO --summary "Deployment checklist"
 ```
 
-YouTrack returns the new article, including its ID. To add body text, pass Markdown to `--content`. There is no flag for reading content from a file, so expand a Markdown file into `--content` with your shell:
+> Use `youtrack project list` to look up a project's short name.
+>
+{style="tip"}
+
+YouTrack returns the new article, including its ID. To add body text, pass Markdown to `--content`. No flag reads content from a file. To use a Markdown file, expand it into `--content` with your shell:
 
 ```Shell
 youtrack article create --project DEMO --summary "Runbook" \
   --content "$(cat runbook.md)"
 ```
 
-### article create flags
+### Flags of article create {id="create-flags"}
 
-<table>
-<tr>
-<td>
+| Flag | Description |
+|---|---|
+| `--project` | Short name of the project that owns the article. Required. |
+| `--summary` | Article title. Required. |
+| `--content` | Article body, in Markdown. |
+| `--asUser` | Login of the user to record as the author. The target user must have at least a Contributor role in the project. |
 
-Flag
-</td>
-<td>
+## Update replaces the fields you pass {id="update"}
 
-Description
-</td>
-</tr>
-<tr>
-<td>
-
-`--project`
-</td>
-<td>
-
-Short name of the project that owns the article. Required.
-</td>
-</tr>
-<tr>
-<td>
-
-`--summary`
-</td>
-<td>
-
-Article title. Required.
-</td>
-</tr>
-<tr>
-<td>
-
-`--content`
-</td>
-<td>
-
-Article body, written in Markdown.
-</td>
-</tr>
-<tr>
-<td>
-
-`--asUser`
-</td>
-<td>
-
-Login of the user to record as the author. The target user must have at least a Contributor role in the project.
-</td>
-</tr>
-</table>
-
-> Use `youtrack project list` to look up a project's short name.
->
-{style="tip"}
-
-## Updating an article
-
-Change an article's title or content with `youtrack article update`. Pass only the fields you want to change:
+Change the title or the content of an article with `youtrack article update`. Pass only the fields you want to change:
 
 ```Shell
 youtrack article update DEMO-A-1 --summary "Deployment checklist (v2)"
 ```
 
-The `--content` flag replaces the entire body. It does not append to the existing content.
+The `--content` flag replaces the full body. It does not append to the content.
 
-## Deleting an article
+## Delete an article permanently {id="delete"}
 
-Delete an article with `youtrack article delete`. The CLI asks for confirmation first; add `--force` to skip the prompt in a script:
+> Deleting an article is permanent. The CLI does not check whether the article has child articles. Before you delete a parent article, run `youtrack article child list <articleId>` to see its children.
+>
+{style="warning"}
+
+Delete an article with `youtrack article delete`. The CLI asks for confirmation. Add `--force` to skip the prompt in a script:
 
 ```Shell
 youtrack article delete DEMO-A-1
 youtrack article delete DEMO-A-1 --force
 ```
 
-> Deleting an article is permanent. Deleting a parent article also affects its child articles.
->
-{style="warning"}
-
-## Organizing articles in a hierarchy
+## Organize articles in a tree {id="hierarchy"}
 
 Articles form a tree. Every article can have one parent and any number of children.
 
-Set an article's parent with `youtrack article set-parent`. The first argument is the article, the second is the new parent:
+Set the parent of an article with `youtrack article set-parent`. The first argument is the article. The second argument is the new parent:
 
 ```Shell
 youtrack article set-parent DEMO-A-3 DEMO-A-1
@@ -144,11 +98,11 @@ youtrack article parent view DEMO-A-3
 youtrack article child list DEMO-A-1
 ```
 
-You can also attach a child from the parent's side with `youtrack article child add <parentId> <childId>`.
+To set the relation from the side of the parent, use `youtrack article child add <parentId> <childId>`.
 
-## Commenting on articles
+## Comment on articles {id="comments"}
 
-List the comments on an article with `youtrack article comment list`, view a single comment by its ID with `youtrack article comment view`, and add one with `youtrack article comment create` (the text is required):
+List the comments on an article with `youtrack article comment list`. View a single comment by its ID with `youtrack article comment view`. Add a comment with `youtrack article comment create`. The `--text` flag is required:
 
 ```Shell
 youtrack article comment list DEMO-A-1
@@ -156,13 +110,13 @@ youtrack article comment view DEMO-A-1 2-45
 youtrack article comment create DEMO-A-1 --text "Reviewed and approved."
 ```
 
-Update a comment by passing the article ID and the comment ID:
+Update a comment with the article ID and the comment ID:
 
 ```Shell
 youtrack article comment update DEMO-A-1 2-45 --text "Approved after edits."
 ```
 
-Delete a comment the same way. Add `--force` to skip the confirmation prompt:
+Delete a comment in the same way. The command asks for confirmation. Add `--force` to skip the prompt:
 
 ```Shell
 youtrack article comment delete DEMO-A-1 2-45 --force
@@ -175,24 +129,33 @@ youtrack article comment pin DEMO-A-1 2-45
 youtrack article comment pin DEMO-A-1 2-45 --unpin
 ```
 
-Restrict who can see a comment with `youtrack article comment visibility`. Both `--groups` and `--users` take comma-separated opaque IDs:
+### Restrict who can see a comment {id="comment-visibility"}
+
+> `article comment visibility` without `--groups` and without `--users` sends empty lists. YouTrack treats empty lists as no restriction, so the comment becomes visible to everyone who can see the article.
+>
+{style="warning"}
+
+Restrict who can see a comment with `youtrack article comment visibility`. `--groups` and `--users` take comma-separated opaque IDs. Each call replaces both lists: a list you leave out is cleared.
 
 ```Shell
-youtrack article comment visibility DEMO-A-1 2-45 --groups 3-2 --users 2-9
+youtrack article comment visibility DEMO-A-1 2-45 --groups 3-2 --users 1-5
 ```
 
-### Reacting to a comment
+### React to a comment {id="reactions"}
 
-List the reactions on a comment with `youtrack article comment reaction list`, and add one with `youtrack article comment reaction add`. Remove a reaction with `youtrack article comment reaction delete`, which prompts for confirmation unless you pass `--force`:
+List the reactions on a comment with `youtrack article comment reaction list`. Add a reaction with `youtrack article comment reaction add` and the `--reaction` flag. Remove a reaction by its reaction ID with `youtrack article comment reaction delete`. The delete command asks for confirmation unless you pass `--force`:
 
 ```Shell
-youtrack article comment reaction add DEMO-A-1 2-45 --reaction "+1"
+youtrack article comment reaction list DEMO-A-1 2-45
+youtrack article comment reaction add DEMO-A-1 2-45 --reaction "👍"
 youtrack article comment reaction delete DEMO-A-1 2-45 4-12 --force   # 4-12 is the reaction ID from `reaction list`
 ```
 
-## Attaching files
+Issue comments use a different syntax: they take the reaction as a positional argument (see [Managing Issues](youtrack-cli-managing-issues.md#reactions)).
 
-List an article's attachments with `youtrack article attachment list`, and attach a file with `youtrack article attachment add`. Point `--file` at a local path:
+## Attach files to an article {id="attachments"}
+
+List the attachments of an article with `youtrack article attachment list`. Attach a file with `youtrack article attachment add`, and point `--file` at a local path. Delete an attachment by its ID with `youtrack article attachment delete`. The delete command asks for confirmation unless you pass `--force`:
 
 ```Shell
 youtrack article attachment list DEMO-A-1
@@ -200,37 +163,43 @@ youtrack article attachment add DEMO-A-1 --file ./architecture.png
 youtrack article attachment delete DEMO-A-1 5-12
 ```
 
-## Tagging an article
+## Tag an article by tag ID {id="tags"}
 
-Attach an existing tag to an article with `youtrack article tag`. The second argument is the tag's ID, not its name:
+> Look up the ID of a tag with `youtrack tag list --query <name>` before you tag an article.
+>
+{style="tip"}
+
+Attach an existing tag to an article with `youtrack article tag`, and remove it with `youtrack article untag`. The second argument is the tag ID, not the tag name:
 
 ```Shell
 youtrack article tag DEMO-A-1 6-12
 youtrack article untag DEMO-A-1 6-12
 ```
 
-> Look up a tag's ID with `youtrack tag list --query <name>` before tagging.
+## Restrict article visibility to groups and users {id="visibility"}
+
+By default, everyone who can see the project can see the article. To restrict an article to specific groups or users, use `youtrack article visibility`.
+
+> Each call replaces both lists: a list you leave out is cleared. If you pass neither `--groups` nor `--users`, the command sends empty lists. YouTrack treats empty lists as no restriction, so the article becomes visible to everyone who can see the project. Use this call to remove a restriction.
 >
-{style="tip"}
+{style="warning"}
 
-## Setting article visibility
-
-By default an article is visible to everyone who can see its project. Restrict it to specific groups or users with `youtrack article visibility`. Both flags take comma-separated opaque IDs:
+Both flags take comma-separated opaque IDs:
 
 ```Shell
-youtrack article visibility DEMO-A-1 --groups 3-2,3-7 --users 2-9
+youtrack article visibility DEMO-A-1 --groups 3-2,3-7 --users 1-5
 ```
 
-Retrieve the IDs first: run `youtrack group list` for group IDs and `youtrack user view jane.doe` for a user ID. See [Managing Users and Access](youtrack-cli-managing-users-and-access.md) for details.
+Get the IDs first: run `youtrack group list` for group IDs and `youtrack user view jane.doe` for a user ID. See [Managing Users and Access](youtrack-cli-managing-users-and-access.md) for details.
 
 <seealso>
-<category ref="user-guide">
+<category ref="04">
 <a href="youtrack-cli-managing-issues.md">Managing Issues</a>
 <a href="youtrack-cli-managing-projects.md">Managing Projects</a>
 <a href="youtrack-cli-managing-users-and-access.md">Managing Users and Access</a>
 <a href="youtrack-cli-scripting.md">Scripting and Automation</a>
 </category>
-<category ref="reference">
+<category ref="06">
 <a href="youtrack-cli-configuration.md">Configuration</a>
 <a href="youtrack-cli-authentication.md">Authentication</a>
 </category>

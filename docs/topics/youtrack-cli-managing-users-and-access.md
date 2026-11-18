@@ -2,28 +2,36 @@
 
 <show-structure for="chapter" depth="2"/>
 
-YouTrack CLI manages users, groups, roles, and organizations from the command line. Use these commands to create accounts, control who can sign in, and grant the permissions that roles carry.
+YouTrack CLI manages users, groups, roles, and organizations from the command line. Use these commands to create users, control who can sign in, and grant the permissions that roles carry. Most commands that grant access take opaque IDs, so look up the ID before you run them.
 
-## Identifying users, groups, and roles {id="identifiers"}
+## Each command expects a login, a name, or an opaque ID {id="identifiers"}
 
-Different commands expect different identifiers. Most user commands accept a login. Groups are addressed by name for basic operations, but some subcommands need the opaque ID that the API returns. Roles and permissions are always addressed by their opaque IDs.
+Different commands expect different identifiers. Most user commands accept a login. Groups are addressed by name for basic operations, but some subcommands need the opaque ID that the API returns. Roles, permissions, projects in `--project`, and organizations are always addressed by their opaque IDs.
 
 <deflist type="medium">
 <def title="User login">
 
-Most user commands accept a login, for example `jane.doe`. This applies to `user view`, `user ban`, `user delete`, `user profile`, `user locale`, and `user timezone`.
+Most user commands accept a login, for example `jane.doe`, or the opaque user ID. This applies to `user view`, `user ban`, `user unban`, `user delete`, `user profile`, `user locale`, `user timezone`, and `user tag list`.
 </def>
 <def title="Group name">
 
-`group view` and `group delete` accept a group name, for example `Developers`.
+`group view` and `group delete` accept a group name, for example `Developers`, or the opaque group ID.
 </def>
 <def title="Group ID">
 
-`group member list`, `group role list`, `group role add`, and the `--group`/`--holder` flags require the opaque group ID, for example `2-9`.
+`group member list`, `group role list`, `group role add`, and the `--group`/`--holder` flags require the opaque group ID, for example `3-2`.
 </def>
 <def title="Role and permission ID">
 
 `role view`, `role update`, `role delete`, `role permission`, and `--role` require opaque IDs. Get role IDs from `youtrack role list` and permission IDs from `youtrack role permissions`.
+</def>
+<def title="Project ID">
+
+The `--project` flag of `role grant` and `group role add` requires the opaque project ID, for example `0-1`, not the short name `DEMO`. Get it from `youtrack project view DEMO --json`.
+</def>
+<def title="Organization ID">
+
+The `--org` flag and `org delete` require the opaque organization ID. Get it from `youtrack org list --json`.
 </def>
 </deflist>
 
@@ -33,22 +41,24 @@ To look up an opaque ID, run the matching `view` or `list` command and read the 
 youtrack user view jane.doe --json
 youtrack group view Developers --json
 youtrack role list --json
+youtrack project view DEMO --json
 ```
 
 > The `--role`, `--user`, and `--group` flags on `role grant` and the `<group-id>` argument of the `group member` and `group role` commands take opaque IDs, not logins or names. Retrieve the ID first, then pass it. See [Scripting and Automation](youtrack-cli-scripting.md) for extracting a single field.
 >
 {style="warning"}
 
-## Listing users
+## List users with a query, up to 100 by default
 
-List all users with `youtrack user list`. Narrow the result with a query, or show the account your permanent token belongs to with `youtrack user current`:
+List users with `youtrack user list`. Narrow the result with `--query`. The command returns at most 100 users. If you need more, raise `--limit`. To show the currently authenticated user, run `youtrack user current`:
 
 ```Shell
 youtrack user list --query "banned: false"
+youtrack user list --limit 500
 youtrack user current
 ```
 
-## Viewing a user
+## View a user by login
 
 View one user by login:
 
@@ -56,23 +66,23 @@ View one user by login:
 youtrack user view jane.doe
 ```
 
-## Creating a user
+## A new user needs a login, name, email, and password
 
-Create an account with `youtrack user create`. The login, full name, email, and password are all required:
-
-```Shell
-youtrack user create --login jane.doe --fullName "Jane Doe" --email jane.doe@example.com --password "<password>"
-```
-
-YouTrack returns the new user, including its opaque `id`. By default the account is a `standard` user. Add `--type agent` or `--type reporter` to create the other account types.
-
-> Pass the password through an environment variable or your shell's secret handling rather than a literal, so it does not land in shell history.
+> Do not type the password as a literal. A literal password stays in your shell history. Pass it through an environment variable or your shell's secret handling.
 >
 {style="warning"}
 
-## Banning and unbanning a user
+Create a user with `youtrack user create`. The login, full name, email, and password are all required:
 
-Ban an account to block sign-in while keeping its history:
+```Shell
+youtrack user create --login jane.doe --fullName "Jane Doe" --email jane.doe@example.com --password "$NEW_USER_PASSWORD"
+```
+
+YouTrack returns the new user, including its opaque `id`. By default the user type is `standard`. To create another user type, add `--type agent` or `--type reporter`.
+
+## Ban a user to block sign-in and keep the history
+
+Ban a user to block sign-in and keep the user's history:
 
 ```Shell
 youtrack user ban jane.doe
@@ -81,74 +91,121 @@ youtrack user unban jane.doe
 
 `user ban` asks for confirmation. Add `--force` to skip the prompt in scripts.
 
-## Deleting a user
+## Deleting a user is permanent and needs a successor
 
-Deletion is permanent and requires a successor. YouTrack reassigns the deleted user's references — assignments, comments, and authored issues — to the successor:
+> If you only need to revoke access, ban the user instead. You can restore a banned user with `youtrack user unban`. You cannot restore a deleted user.
+>
+{style="warning"}
+
+YouTrack reassigns the deleted user's references — assignments, comments, and authored issues — to the successor:
 
 ```Shell
 youtrack user delete jane.doe --successor john.doe
 ```
 
-The command asks for confirmation. Add `--force` to skip the prompt in scripts. You can't delete the currently authenticated user, and the successor must be a different account.
+The command asks for confirmation. Add `--force` to skip the prompt in scripts. You cannot delete the currently authenticated user, and the successor must be a different user.
 
-> Prefer banning over deleting when you only need to revoke access. A banned account can be restored with `youtrack user unban`.
->
-{style="tip"}
+## User preferences, drafts, and tags have their own subcommands
 
-## Managing user preferences
-
-View a user's general profile and set the locale and time zone:
+View a user's general profile, the time zone, and set the locale and time zone:
 
 ```Shell
 youtrack user profile view jane.doe
+youtrack user timezone view jane.doe
 youtrack user locale set jane.doe en_US
 youtrack user timezone set jane.doe Europe/Berlin
 ```
 
-## Managing groups
+The other `user profile` subcommands change one profile section each. Run `youtrack user profile <subcommand> --help` for the arguments.
 
-Create, list, view, and delete groups. A group is created by name:
+<table>
+<tr><td>Command</td><td>Description</td></tr>
+<tr><td>`user profile appearance`, `articles`, `general`, `grazie`, `issues-list`, `notifications`
+
+</td><td>Set one profile section. Pass the settings as a JSON body with `--body`.
+
+</td></tr>
+<tr><td><code>user profile property &lt;user&gt; &lt;key&gt; &lt;value&gt;</code>
+
+</td><td>Set one profile property.
+
+</td></tr>
+<tr><td><code>user profile tips &lt;user&gt; &lt;key=true|false&gt;...</code>
+
+</td><td>Set profile tip flags.
+
+</td></tr>
+<tr><td><code>user profile timetracking view &lt;user&gt;</code>
+
+</td><td>View the time tracking profile.
+
+</td></tr>
+<tr><td>`user drafts issues`, `user drafts articles`
+
+</td><td>List your issue or article drafts. Drafts are private to their owner, so the commands default to `me`.
+
+</td></tr>
+<tr><td>`user drafts delete me`
+
+</td><td>Delete all your issue drafts. The command asks for confirmation. Add `--force` to skip the prompt.
+
+</td></tr>
+<tr><td><code>user tag list &lt;user&gt;</code>
+
+</td><td>List the tags that a user owns.
+
+</td></tr>
+</table>
+
+## Groups are created by name
+
+Create, list, view, and delete groups. Narrow `group list` with `--query`:
 
 ```Shell
 youtrack group create --name "QA Team"
 youtrack group list
+youtrack group list --query "QA"
 youtrack group view "QA Team"
 ```
 
-Delete a group and reassign its references to a successor group:
+> The `--successor` group inherits the references of the deleted group. A broad successor group can expand access to the reassigned resources. The CLI does not select a default successor, so choose it explicitly.
+>
+{style="warning"}
+
+Delete a group and reassign its references to a successor group. The `--successor` flag is required and takes a group name or ID:
 
 ```Shell
 youtrack group delete "QA Team" --successor Developers
 ```
 
-The `--successor` flag is required: choose the group that should inherit references explicitly. The CLI does not select a default successor because choosing a broad group could unintentionally expand access to reassigned resources. `group delete` also asks for confirmation; add `--force` to skip the prompt in scripts.
+`group delete` asks for confirmation. Add `--force` to skip the prompt in scripts.
 
-### Managing group members
+### Group member commands take opaque IDs
 
 List, add, or remove members. Both the group and user arguments are opaque IDs:
 
 ```Shell
-youtrack group member list 2-9
-youtrack group member add 2-9 1-12
-youtrack group member remove 2-9 1-12 --force
+youtrack group member list 3-2
+youtrack group member add 3-2 1-5
+youtrack group member remove 3-2 1-5 --force
 ```
 
 Resolve IDs first with `group view <name> --json` and `user view <login> --json`.
 
-### Assigning roles to a group
+### A role granted to a group applies to every member
 
-Grant a role to every member of a group. Pass the opaque group ID as the argument and the opaque role ID through `--role`. Add `--project` to scope the role to one project or `--org` to scope it to one organization; omit both for a global assignment:
+Grant a role to every member of a group. Pass the opaque group ID as the argument and the opaque role ID through `--role`. If you want to scope the role to one project, add `--project` with the opaque project ID. If you want to scope it to one organization, add `--org`. If you omit both, the assignment is global:
 
 ```Shell
-youtrack group role add 2-9 --role 2-3
-youtrack group role add 2-9 --role 2-3 --project 0-1
-youtrack group role add 2-9 --role 2-3 --org 0-0
-youtrack group role list 2-9
+youtrack group role add 3-2 --role 2-3
+youtrack group role add 3-2 --role 2-3 --project 0-1
+youtrack group role add 3-2 --role 2-3 --org 0-0
+youtrack group role list 3-2
 ```
 
 `--project` and `--org` are mutually exclusive. These two commands are aliases: `group role add` is `role grant --group`, and `group role list` is `role assignments --holder`. Use whichever reads better in context.
 
-## Managing roles and permissions
+## A role bundles permissions
 
 A role bundles permissions. List existing roles and the permissions you can attach:
 
@@ -157,16 +214,20 @@ youtrack role list
 youtrack role permissions
 ```
 
+> `role update` replaces the full permission set on the role. Permissions that you do not list are removed. If you need to change one permission, use `role permission add` or `role permission remove`. You cannot undo `role delete`.
+>
+{style="warning"}
+
 View, create, update, and delete roles by opaque ID:
 
 ```Shell
 youtrack role view 2-3
-youtrack role create --name "Release Manager" --permissions "<permId1>,<permId2>"
+youtrack role create --name "Release Manager" --description "Ships releases" --permissions "<permId1>,<permId2>"
 youtrack role update 2-3 --permissions "<permId1>,<permId2>"
 youtrack role delete 2-3
 ```
 
-The `--permissions` flag takes a comma-separated list of permission IDs. Run `youtrack role permissions` to look them up. `role update` replaces the full permission set on the role.
+The `--permissions` flag takes a comma-separated list of permission IDs. Run `youtrack role permissions` to look them up. `--description` is optional.
 
 Add or remove a single permission on an existing role without resetting the whole set:
 
@@ -176,19 +237,19 @@ youtrack role permission add 2-3 <permId>
 youtrack role permission remove 2-3 <permId>
 ```
 
-`role delete` and `role permission remove` ask for confirmation. Add `--force` to skip the prompt in scripts.
+`role update`, `role delete`, and `role permission remove` ask for confirmation. Add `--force` to skip the prompt in scripts.
 
-## Granting and revoking roles
+## Grants use holder IDs, revokes use assignment IDs
 
-Grant a role to a user or a group with `youtrack role grant`. Provide the role ID and exactly one of `--user` or `--group`, both opaque IDs. The grant is global unless you narrow it: `--project` scopes it to a single project, `--org` to a single organization. The two flags are mutually exclusive:
+Grant a role to a user or a group with `youtrack role grant`. Provide the role ID and exactly one of `--user` or `--group`, both opaque IDs. The grant is global unless you narrow it: `--project` scopes it to a single project, `--org` to a single organization. Both flags take opaque IDs and are mutually exclusive:
 
 ```Shell
 youtrack role grant --role 2-3 --user 1-5
-youtrack role grant --role 2-3 --group 2-9 --project 0-1
-youtrack role grant --role 2-3 --group 2-9 --org 0-0
+youtrack role grant --role 2-3 --group 3-2 --project 0-1
+youtrack role grant --role 2-3 --group 3-2 --org 0-0
 ```
 
-Get organization IDs from `youtrack org list --json`.
+Get project IDs from `youtrack project view <shortName> --json` and organization IDs from `youtrack org list --json`.
 
 Revoking uses the assignment's own ID, not the user or role ID. Find it first with `role assignments`, then pass it to `role revoke`:
 
@@ -198,7 +259,7 @@ youtrack role revoke <assignedRoleID>
 
 `role revoke` asks for confirmation. Add `--force` to skip the prompt in scripts.
 
-### Listing role assignments
+### Role assignments list the IDs that revoke needs
 
 List every role assignment, or filter to one holder with `--holder`. A holder is any principal a role can be granted to — a user, group, team, or organization — so `--holder` accepts an opaque ID of any of those types. The `--user` and `--group` flags are readability aliases for `--holder`; YouTrack does not distinguish them:
 
@@ -209,9 +270,13 @@ youtrack role assignments --holder 1-5
 
 The `id` field of each row is the `<assignedRoleID>` you pass to `role revoke`.
 
-## Managing organizations
+## Organizations are deleted by opaque ID
 
-List, create, and delete organizations. Delete takes the organization's opaque ID:
+> `org delete` removes the organization permanently. The command asks for confirmation. Add `--force` only in scripts that you have tested.
+>
+{style="warning"}
+
+List, create, and delete organizations. `org delete` takes the organization's opaque ID:
 
 ```Shell
 youtrack org list
@@ -219,15 +284,13 @@ youtrack org create --name "Acme Inc"
 youtrack org delete <id>
 ```
 
-`org delete` asks for confirmation. Add `--force` to skip the prompt in scripts.
-
 <seealso>
-<category ref="user-guide">
+<category ref="04">
 <a href="youtrack-cli-managing-projects.md">Managing Projects</a>
 <a href="youtrack-cli-administration.md">Administration</a>
 <a href="youtrack-cli-scripting.md">Scripting and Automation</a>
 </category>
-<category ref="reference">
+<category ref="06">
 <a href="youtrack-cli.md">YouTrack CLI</a>
 <a href="youtrack-cli-authentication.md">Authentication</a>
 <a href="youtrack-cli-configuration.md">Configuration</a>

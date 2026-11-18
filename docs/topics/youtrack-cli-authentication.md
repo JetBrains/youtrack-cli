@@ -2,25 +2,545 @@
 
 <show-structure for="chapter" depth="2"/>
 
-YouTrack CLI authenticates to the YouTrack REST API with either an OAuth session obtained through browser SSO, which the CLI refreshes automatically, or a permanent token. This page covers obtaining and storing credentials for one or more instances and how the CLI decides which credentials to use.
+YouTrack CLI signs in to YouTrack with an OAuth session from browser sign-in or with a permanent token. For interactive use, run `youtrack auth login`: it opens the browser and saves an OAuth session that the CLI refreshes automatically. For scripts and continuous integration and delivery (CI/CD) pipelines, use a [permanent token](#auth-token).
 
-## Authenticating with a permanent token {id="auth-token"}
+The CLI signs in through Hub, the JetBrains service that manages YouTrack users and authentication. A YouTrack instance has a built-in Hub at `<base URL>/hub`, or it connects to an external Hub.
 
-A permanent token does not have an expiration date, which makes it suitable for scripts and CI/CD pipelines. A token carries a `perm:` prefix.
+## auth login signs you in through the browser by default {id="interactive-login"}
 
-For interactive use, prefer [browser SSO](#browser-sso). For scripts and automation, use a permanent token, ideally one that belongs to a dedicated account with only the permissions the automation needs, so a leaked token exposes as little as possible.
+Run the command with no arguments:
 
-Create a token in the YouTrack web interface:
+```Shell
+youtrack auth login
+```
+
+The command asks for the YouTrack URL. The field shows the URL of the active instance, or `https://youtrack.jetbrains.com` when no instance is configured. Edit the URL or press Enter. If you pass a URL or an alias as the argument, or pass `--base-url`, the command does not ask. The command asks for the URL even when `YOUTRACK_BASE_URL` is set, because it sets up new instances.
+
+The command then signs you in by one of these methods:
+
+- **Browser sign-in (default).** The CLI opens the browser and saves an OAuth session. See [Browser sign-in](#browser-sso).
+- **Browser sign-in with `--permanent`.** The CLI signs you in through the browser, creates a permanent token in Hub, and saves that token.
+- **Pasted permanent token.** The CLI prints the link to the token page, offers to open it, and asks you to paste a permanent token. The CLI uses this method in these cases:
+  - you pass `--no-browser --permanent`;
+  - the Hub has no OAuth client for the CLI;
+  - stdin is not a terminal and you do not pass `--web`. A script can pipe a token to stdin.
+- **Basic auth with `--login` and `--password`.** The CLI creates a permanent token through the Hub API. See [Basic auth](#basic-auth).
+
+The CLI verifies the credentials against the API, then shows the authenticated user. By default, the CLI saves the credentials and makes the instance active. The alias comes from the URL hostname; pass `--alias` to choose another alias.
+
+`auth login`, `auth get-token`, `instance login`, and `instance add` are the same command with the same flags.
+
+To verify the connection, run:
+
+```Shell
+youtrack auth status
+```
+
+### Basic auth is deprecated {id="basic-auth"}
+
+> Basic auth sends your password through the CLI. It does not work with single sign-on (SSO) or two-factor authentication. Use browser sign-in when you can.
+>
+{style="warning"}
+
+With `--login` and `--password`, the CLI creates a permanent token through the Hub API. If you omit `--password`, the CLI asks for it. The token gets the Hub services `YouTrack` and `YouTrack Administration`; pass `--scope` to choose other services by name. If basic auth is not available, for example on YouTrack Cloud or on an instance that uses only SSO, the CLI asks you to paste a token.
+
+If the URL uses plain `http` and the host is not `localhost`, basic auth stops before it sends the password. Use the `https` URL. Pass `--insecure` only if you accept that the password goes over the network unencrypted.
+
+## Browser sign-in saves an auto-refreshing OAuth session {id="browser-sso"}
+
+```Shell
+youtrack auth login https://example.youtrack.cloud
+```
+
+The command finds the Hub of the instance and opens its authorization page in the browser. The CLI listens for the OAuth callback only on the loopback address `127.0.0.1`. It checks the `state` value and uses Proof Key for Code Exchange (PKCE), which protects the authorization code. The browser then shows a static page that tells you to return to the terminal. To cancel, press `Ctrl+C`; the CLI releases the loopback port at once.
+
+The CLI saves an OAuth session: a short-lived access token and a refresh token. Every command renews the access token automatically (see [Automatic refresh](#oauth-refresh)). The authorization request uses `access_type=offline`, so Hub issues the refresh token. If Hub issues no refresh token, the command tells you so; sign in again when the access token expires.
+
+The argument selects the instance:
+
+- A URL signs in to that instance.
+- An existing alias, for example `youtrack auth login work`, renews the credentials of that instance in place.
+- No argument makes the command ask for the URL.
+
+Browser sign-in needs an interactive terminal. If no terminal is available, pass `--web` (see [Signing in from an app or script](#sign-in-from-an-app)) or `--no-browser` (see [Signing in without a local browser](#oauth-headless)).
+
+The instance URL and the Hub URL must use `https`. Plain `http` works only for a local instance on `http://localhost`, `http://127.0.0.1`, or `http://[::1]`. The CLI refuses remote `http` URLs.
+
+### Browser sign-in with --permanent creates a permanent token {id="browser-permanent"}
+
+With `--permanent` or `--token-name`, the CLI uses the access token once to create a permanent token in Hub, then saves that token. To create the token, the CLI also requests access to the Hub service. The token gets the name `youtrack-cli`; pass `--token-name` to choose another name. You can see and revoke the token in your Hub profile (see [Where to revoke a token](#revoke)).
+
+If you sign in again to the same alias, the CLI replaces the saved token. If the old token has the same name, the CLI revokes it in Hub. A token with another name, for example a token that you created manually, stays valid, and the CLI tells you so.
+
+A permanent token does not expire. It works when an administrator disables the OAuth client.
+
+### Automatic refresh {id="oauth-refresh"}
+
+The access token is valid for about one hour. If the access token has expired or expires within 60 seconds, the command refreshes it first and then continues. If Hub returns a new refresh token, the CLI replaces the stored refresh token. If several CLI processes run at the same time, a lock file next to the config file makes sure that only one process refreshes. `auth status` also refreshes an access token that is about to expire.
+
+By default, Hub limits a refresh token to 90 days (the Hub "remember me" interval). Hub does not tell the CLI the real lifetime. The CLI records when Hub issued the refresh token (`refreshIssuedAt` in the config file) and calculates an estimated end date. `auth status` shows this date ("sign in again by about YYYY-MM-DD"; `sessionExpiresAt` in JSON, as an RFC 3339 timestamp such as `2026-12-01T10:00:00Z`). From 7 days before that date, every command prints a tip to stderr. `--quiet` suppresses the tip. To sign in again, run:
+
+```Shell
+youtrack auth login <alias>
+```
+
+> An administrator can renew active sessions automatically. Set the Hub Java Virtual Machine (JVM) parameter `jetbrains.hub.refreshToken.daysBeforeExpiryToAutoRenew=N`. Hub then issues a new refresh token when a refresh occurs within `N` days of the expiry.
+>
+{style="tip"}
+
+### Refresh errors tell you what to do {id="refresh-errors"}
+
+<table>
+<tr>
+<td>
+
+Error
+
+</td>
+<td>
+
+Cause and action
+
+</td>
+</tr>
+<tr>
+<td>
+
+`the OAuth session for "<alias>" has expired or was revoked`
+
+</td>
+<td>
+
+Hub rejected the refresh token (`invalid_grant` or `expired_refresh_token`). For example, the session was revoked, or an administrator disabled the OAuth client. The CLI deletes the stale tokens and keeps the instance entry. Run `youtrack auth login <alias>`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`refreshing the OAuth session for "<alias>": ...`
+
+</td>
+<td>
+
+A network error or a Hub error occurred. The CLI keeps the tokens. Run the command again.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`cannot read the OAuth session for "<alias>" from the OS keyring`
+
+</td>
+<td>
+
+The keyring is locked. Unlock the keyring and run the command again. You do not have to sign in again.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`the saved session for "<alias>" was removed or replaced by another youtrack process`
+
+</td>
+<td>
+
+Another CLI process signed in again or removed the instance while this command ran. Run the command again.
+
+</td>
+</tr>
+</table>
+
+For scripts and CI/CD pipelines, use a permanent token. A permanent token does not depend on the OAuth client or on a refresh.
+
+### Registering an OAuth client {id="oauth-client"}
+
+The CLI signs in as the OAuth client with the Client ID `youtrack-cli`. On `hub.jetbrains.com`, the CLI uses the existing client `localhost-auth`. If the instance has no such client, a system administrator registers one. From YouTrack 2026.2, you manage OAuth clients in YouTrack. You need the __Low-level Admin Write__ permission.
+
+1. Open __Administration__ > __Access Management__ > __OAuth Clients__.
+2. Click __New OAuth client__, enter the name `YouTrack CLI`, and click __Create__.
+3. On the __Authentication__ tab, set __Client ID__ to `youtrack-cli`.
+4. Enable __Authorization Code flow__ and __Require PKCE__. Keep the other flows disabled.
+5. Under __Redirect URIs__, add `http://127.0.0.1`. A loopback URI matches any port, so the CLI can use a free port. If your policy requires a fixed port, register `http://127.0.0.1:<port>` and tell users to pass `--port <port>`.
+6. Do not set a __Client secret__. The CLI runs on the computers of users and cannot keep a secret. PKCE protects the code exchange.
+7. Click __Save__. Users can then sign in without extra flags.
+
+If your YouTrack Server connects to an external Hub, YouTrack does not show the __OAuth Clients__ page. Register the client as a service in that Hub, with the same settings, and pass `--hub-url`.
+
+If your organization has a client with another Client ID for this flow, pass that ID with `--client-id`.
+
+If the client is missing or rejects the loopback redirect, `auth login` tells you so and asks you to paste a permanent token. If Hub reports `invalid_client` or `unauthorized_client` during the code exchange, check the __Authentication__ tab of the client: __Authorization Code flow__ and __Require PKCE__ must be enabled, and no __Client secret__ must be required.
+
+### Signing in without a local browser {id="oauth-headless"}
+
+If the browser is on another device, for example over Secure Shell (SSH), in Windows Subsystem for Linux (WSL) without a browser bridge, or on a headless computer, use `--no-browser`. The CLI also selects this mode when it finds no browser.
+
+```Shell
+youtrack auth login https://example.youtrack.cloud --no-browser
+```
+
+1. The CLI prints the authorization URL. Open the URL in a browser on any device and sign in.
+2. The browser goes to `http://127.0.0.1:<port>/?code=...&state=...`. This page does not load on that device.
+3. Copy the full URL from the address bar of the browser.
+4. Paste the URL into the terminal where the CLI runs, or pipe it to stdin.
+
+The CLI accepts the URL only if it points to the expected loopback address and has the `state` of this sign-in attempt. The CLI refuses a code without the URL.
+
+To paste a permanent token instead, add `--permanent`.
+
+### Signing in from an app or script {id="sign-in-from-an-app"}
+
+An app that runs the CLI without a terminal, such as a desktop app that manages your CLI tools, can sign in through the browser with `--web`:
+
+```Shell
+youtrack auth login https://example.youtrack.cloud --web --json
+```
+
+With `--web`, the CLI does not ask questions. Pass the instance URL or a configured alias as the argument or with `--base-url`; if you do not, the command fails at once. If browser sign-in is not available, for example because the Hub has no OAuth client for the CLI, the command fails with exit code 1. It does not ask you to paste a token.
+
+The CLI opens the browser, waits for the callback, and saves the credentials. It writes the authorization URL to stderr on its own line, so the caller can open the URL if the browser does not open. With JSON output (`--json`, or the default when stdout is not a terminal), the CLI does not print progress messages, and the URL arrives on stderr as a JSON line:
+
+```JSON
+{"authorizationUrl": "https://example.youtrack.cloud/hub/api/rest/oauth2/auth?..."}
+```
+
+The result goes to stdout. You cannot use `--web` together with `--no-browser`, `--login`, or `--password`.
+
+## auth login flags {id="auth-login-flags"}
+
+If you pass a flag that does not apply to the selected method, the command usually fails with an error that names the flag, so that the flag is not ignored silently.
+
+<table>
+<tr>
+<td>
+
+Flag
+
+</td>
+<td>
+
+Applies to
+
+</td>
+<td>
+
+Description
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--base-url`
+
+</td>
+<td>
+
+All methods
+
+</td>
+<td>
+
+Base URL of the instance. The command does not ask for the URL.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--alias`
+
+</td>
+<td>
+
+All methods
+
+</td>
+<td>
+
+Name to save the instance under. If you omit it, the CLI uses the URL hostname, for example `example` from `https://example.youtrack.cloud`. Ignored with `--save=false`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--save`
+
+</td>
+<td>
+
+All methods
+
+</td>
+<td>
+
+Save the credentials to the [config file](youtrack-cli-configuration.md#config-file) and the OS keyring. Enabled by default. With `--save=false`, the CLI stores nothing locally. A permanent token that the command creates (with `--permanent`, `--token-name`, or `--login`) stays valid in Hub until you revoke it.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--show-token`
+
+</td>
+<td>
+
+All methods
+
+</td>
+<td>
+
+Print the full token. Without this flag, the CLI masks the token in every output format, including JSON.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--permanent`
+
+</td>
+<td>
+
+Browser sign-in
+
+</td>
+<td>
+
+Create and save a permanent token, not an OAuth session. With `--no-browser`, paste a permanent token. The CLI accepts the hidden flag `--session`, which selects the default OAuth session.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--token-name`
+
+</td>
+<td>
+
+Browser sign-in, basic auth
+
+</td>
+<td>
+
+Name of the permanent token that the CLI creates in Hub. Default: `youtrack-cli` for browser sign-in, `cli-token` for basic auth. Implies `--permanent`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--scope`
+
+</td>
+<td>
+
+Browser sign-in, basic auth
+
+</td>
+<td>
+
+Comma-separated Hub services to include besides YouTrack. For browser sign-in, use service IDs. For basic auth, use service names; the default is `YouTrack` and `YouTrack Administration`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--client-id`
+
+</td>
+<td>
+
+Browser sign-in
+
+</td>
+<td>
+
+Hub OAuth client ID. Default: `localhost-auth` on `hub.jetbrains.com`, `youtrack-cli` on every other Hub.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--hub-url`
+
+</td>
+<td>
+
+Browser sign-in
+
+</td>
+<td>
+
+Hub base URL, for an external Hub. By default, the CLI gets it from the instance, for example `<base URL>/hub`. If the instance reports a Hub on another origin, the CLI asks you to confirm that Hub. Without a terminal or with `--web`, the CLI stops and asks for `--hub-url`. The CLI does not ask you to confirm a Hub that you give with `--hub-url`.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--port`
+
+</td>
+<td>
+
+Browser sign-in
+
+</td>
+<td>
+
+Fixed loopback port for the OAuth callback. `0`, the default, selects a free port. Use it only if your client registration requires a fixed port.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--timeout`
+
+</td>
+<td>
+
+Browser sign-in
+
+</td>
+<td>
+
+Maximum time for the browser callback or the pasted URL. Default: 5 minutes.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--no-browser`
+
+</td>
+<td>
+
+Browser sign-in
+
+</td>
+<td>
+
+Print the authorization URL and read the redirect URL that you paste. With `--permanent`, paste a permanent token. See [Signing in without a local browser](#oauth-headless).
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--web`
+
+</td>
+<td>
+
+Browser sign-in
+
+</td>
+<td>
+
+Sign in through the browser without questions, also when stdin is not a terminal. See [Signing in from an app or script](#sign-in-from-an-app).
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--login`
+
+</td>
+<td>
+
+Basic auth
+
+</td>
+<td>
+
+Hub login. Selects basic auth.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--password`
+
+</td>
+<td>
+
+Basic auth
+
+</td>
+<td>
+
+Password. If you omit it, the CLI asks for it. Do not use this flag in scripts, because the password can appear in shell history.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`--insecure`
+
+</td>
+<td>
+
+Basic auth
+
+</td>
+<td>
+
+Send the password over plain `http` to a host other than `localhost`. The password goes over the network unencrypted.
+
+</td>
+</tr>
+</table>
+
+## Permanent tokens suit scripts and CI/CD pipelines {id="auth-token"}
+
+A permanent token has no expiration date and does not need a refresh. A permanent token starts with `perm:`.
+
+> A permanent token can do everything that its user can do. For automation, create the token for a dedicated user that has only the permissions the automation needs. If the token leaks, it then exposes as little as possible.
+>
+{style="warning"}
+
+To create a token in the YouTrack web interface:
 
 1. In YouTrack, open your profile and select the __Account Security__ tab.
 2. Click __New token__, give it a name, and confirm.
-3. Copy the token value. As soon as you close the dialog, you can't access it again.
+3. Copy the token value. After you close the dialog, you cannot see the value again.
 
-Provide the token to the CLI as environment variables, through the interactive `auth login --permanent` command, or with the global `--token` flag.
+Give the token to the CLI in one of these ways:
+
+- Set [environment variables](#auth-env-vars). Use this way in CI/CD pipelines.
+- Save the token: run `youtrack auth login --base-url <url> --no-browser --permanent` and paste the token. A script can pipe the token to stdin.
+- Pass the global `--token` flag for one command.
+
+To create a permanent token for a CI secret store from the command line, sign in through the browser with `--permanent` and print the token:
+
+```Shell
+youtrack auth login --base-url https://example.youtrack.cloud --permanent --save=false --json --show-token | jq -r .token
+```
+
+> Add `--permanent` to this command. Without `--permanent`, the command prints the OAuth access token, which expires in about one hour. With `--save=false`, the CLI does not store the refresh token.
+>
+{style="warning"}
 
 ### Setting environment variables {id="auth-env-vars"}
 
-Export the token together with your base URL. The base URL is your instance URL; the REST API is served at `<base URL>/api`.
+> Treat the token like a password. Do not pass it with the `--token` flag in scripts, because the flag can appear in shell history. Use environment variables or the saved credentials.
+>
+{style="warning"}
+
+Export the token together with the base URL. The base URL is your instance URL; the REST API is at `<base URL>/api`.
 
 <tabs>
 <tab title="macOS and Linux">
@@ -41,460 +561,196 @@ $env:YOUTRACK_TOKEN = "perm:..."
 </tab>
 </tabs>
 
-Verify that the credentials work with `youtrack auth status`.
-
-> Treat the token like a password. Do not pass it as a command-line flag in scripts, where it may appear in shell history. Prefer environment variables or the config file described below.
->
-{style="warning"}
-
-## Authenticating interactively {id="interactive-login"}
-
-The `auth login` command signs you in and saves your credentials. By default it signs you in through the browser and saves an auto-refreshing OAuth session. You can also save a permanent token: create it through browser sign-in, paste one, or create it through basic auth. Run the command with no arguments:
-
-```Shell
-youtrack auth login
-```
-
-It asks for the YouTrack URL (unless you pass `--base-url`). The field is pre-filled with the URL of the active instance, or `https://youtrack.jetbrains.com` when none is configured; edit it or press Enter to accept it. The alias is derived from the URL; pass `--alias` to choose another. Then:
-
-- By default, the CLI signs you in through the browser, as described in [Signing in with the browser](#browser-sso), and saves an OAuth session; see [Automatic refresh](#oauth-refresh).
-- With `--permanent`, the CLI signs you in through the browser, creates a permanent token in Hub, and saves that token.
-- When the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser --permanent`, the CLI prints the token page link, offers to open it in your browser, and asks you to paste a permanent token you created there. The same happens when stdin is not a terminal, unless you pass `--web`, so scripts can pipe a token in.
-- With `--login` and `--password`, the CLI creates the token through Hub basic auth instead. Basic auth is deprecated: the password passes through the CLI and it does not work with SSO or two-factor authentication. If basic auth is unavailable, for example on YouTrack Cloud or SSO-only instances, the CLI falls back to pasting a token. Over a plain `http` URL to a host other than `localhost`, basic auth stops before it sends the password; use the `https` URL, or pass `--insecure` to send the password unencrypted.
-
-The CLI verifies the token against the API before saving it, then reports the authenticated user. By default the credentials are saved and the new instance becomes active.
-
-The token in the command output is masked in every output format, including JSON. Pass `--show-token` to print it in full, for example to hand a new token to a CI secret store:
-
-```Shell
-youtrack auth login --base-url https://example.youtrack.cloud --save=false --json --show-token | jq -r .token
-```
-
-> `auth login` always prompts for the base URL even when `YOUTRACK_BASE_URL` is set, because it is used to set up new instances. Pass `--base-url` to skip the prompt in non-interactive setups.
->
-{style="note"}
-
-### auth login flags
-
-<table>
-<tr>
-<td>
-
-Flag
-
-</td>
-<td>
-
-Description
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--base-url`
-
-</td>
-<td>
-
-Base URL of the instance. Skips the interactive URL prompt.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--alias`
-
-</td>
-<td>
-
-Name to save the instance under. Derived from the URL hostname when omitted, for example `example` from `https://example.youtrack.cloud`.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--scope`
-
-</td>
-<td>
-
-Comma-separated Hub services to include in the token besides YouTrack: service IDs, or service names with `--login`. A basic-auth token defaults to `YouTrack` plus `YouTrack Administration`.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--save`
-
-</td>
-<td>
-
-Save credentials to the [config file](youtrack-cli-configuration.md#config-file) (`~/.config/youtrack/config.json`). Enabled by default. With `--save=false`, the CLI stores nothing locally. Browser sign-in with `--permanent` still creates a permanent token in Hub, which stays valid until you revoke it. Add `--show-token` to print the full token.
-
-</td>
-</tr>
-</table>
-
-## Signing in with the browser {id="browser-sso"}
-
-`auth login` authenticates through your existing browser session without entering a password or pasting a token:
-
-```Shell
-youtrack auth login https://example.youtrack.cloud
-```
-
-`auth login`, `instance login`, and `instance add` are the same command with the same flags; use whichever reads best.
-
-The command discovers the instance's Hub, opens its authorization page, listens only on a loopback address (`127.0.0.1`) for the OAuth callback, and verifies PKCE and state. The CLI then saves an OAuth session: a short-lived access token plus a refresh token, which every command renews automatically (see [Automatic refresh](#oauth-refresh)). The authorization request uses `access_type=offline`, so Hub issues the refresh token.
-
-With `--permanent` (or `--token-name`), the CLI uses the resulting access token once to create a permanent token in Hub and saves that token instead. To get the scope it needs for creating the token, the CLI also requests access to Hub itself. A permanent token does not expire and keeps working when an administrator disables the OAuth client, so use it for scripts and CI/CD pipelines. The token appears in your Hub profile under __Authentication__ with the name `youtrack-cli` (change it with `--token-name`), and you can revoke it there. Signing in again to the same alias replaces the saved token and revokes the previous one in Hub when it carries the same name; a token with another name, for example one you created by hand, stays valid and the CLI tells you so.
-
-Browser sign-in requires an interactive terminal unless you pass `--web` (see [Signing in from an app or script](#sign-in-from-an-app)) or `--no-browser`. Passing a URL signs in to that instance, passing an existing alias (for example `youtrack auth login work`) renews that instance's token in place, and running the command with no argument asks for the URL.
-
-The browser shows a static page that tells you to return to the terminal. Press `Ctrl+C` to cancel; the loopback port is released immediately.
-
-The instance and Hub URLs must use `https`. Plain `http` works only for a local development instance on `http://localhost`, `http://127.0.0.1` or `http://[::1]`. Remote `http` URLs are always refused.
-
-### Automatic refresh {id="oauth-refresh"}
-
-The access token lasts about one hour. Any command that uses a saved OAuth session refreshes the access token when it has expired or will expire within 60 seconds, then continues. If Hub returns a new refresh token, it replaces the stored one. When several CLI processes run at once, a lock file (the config file's `.lock` sibling) makes sure that only one of them refreshes.
-
-Hub limits a refresh token to 90 days by default (the Hub "remember me" interval). Hub does not tell the CLI the real lifetime. The CLI records when Hub issued the refresh token (`refreshIssuedAt` in the config file) and resets this time when Hub issues a new refresh token. From that time, `auth status` shows an estimated end date ("sign in again by about YYYY-MM-DD"; `sessionExpiresAt` in JSON, in RFC 3339 format). Starting 7 days before that date, every command prints a tip to stderr that asks you to sign in again. `--quiet` suppresses the tip. To sign in again, run:
-
-```Shell
-youtrack auth login <alias>
-```
-
-> An administrator can keep active sessions from ending. Set the Hub JVM parameter `jetbrains.hub.refreshToken.daysBeforeExpiryToAutoRenew=N`. Hub then issues a new refresh token when a refresh occurs within `N` days of expiry.
->
-{style="tip"}
-
-If Hub rejects the refresh token, for example because the session was revoked or an administrator disabled the OAuth client, the CLI deletes the stale tokens, keeps the instance entry, and asks you to sign in again with `youtrack auth login <alias>`. A permanent token does not depend on the OAuth client. For scripts and CI/CD pipelines, use a permanent token (`--permanent` or `YOUTRACK_TOKEN`).
-
-### Registering an OAuth client {id="oauth-client"}
-
-The CLI signs in as the OAuth client with the Client ID `youtrack-cli`. On `hub.jetbrains.com`, it uses the existing `localhost-auth` client instead. If the instance has no such client, a system administrator registers one. Since YouTrack 2026.2, OAuth clients are managed directly in YouTrack (this needs the __Low-level Admin Write__ permission):
-
-1. Open __Administration__ > __Access Management__ > __OAuth Clients__, click __New OAuth client__, enter the name `YouTrack CLI`, and click __Create__.
-2. On the __Authentication__ tab, set __Client ID__ to `youtrack-cli`. Enable __Authorization Code flow__ and __Require PKCE__. Leave the other flows disabled.
-3. Under __Redirect URIs__, add `http://127.0.0.1`. A registered loopback URI matches any port, so the CLI can use a free one. If your policy requires a fixed port, register `http://127.0.0.1:<port>` and pass `--port <port>`.
-4. Leave __Client secret__ unset. The CLI runs on users' machines and cannot keep a secret; PKCE protects the code exchange instead.
-5. Click __Save__. Users can now sign in without extra flags.
-
-If your YouTrack Server is connected to an external Hub, the __OAuth Clients__ page is not available in YouTrack: register the client as a service in that Hub, with the same Client ID, flow, PKCE, and redirect URI settings, and pass `--hub-url`.
-
-If your organization already has a client with another Client ID for this flow, pass that ID with `--client-id`.
-
-If the client is missing or rejects the loopback redirect, `auth login` says so and falls back to the permanent-token paste flow. If Hub reports `invalid_client` or `unauthorized_client` during the exchange, check on the client's __Authentication__ tab that __Authorization Code flow__ and __Require PKCE__ are enabled and that no __Client secret__ is required.
-
-### Signing in without a local browser {id="oauth-headless"}
-
-Over SSH, in WSL without a browser bridge, or on a headless machine, use `--no-browser`. The CLI also chooses this mode on its own when it detects no browser.
-
-```Shell
-youtrack auth login https://example.youtrack.cloud --no-browser
-```
-
-The CLI prints the authorization URL. Open it in a browser on any device and sign in. The browser then goes to `http://127.0.0.1:<port>/?code=...&state=...`, a page that fails to load on that device. Copy the full URL from the address bar and paste it into the terminal. The CLI accepts it only if it points at the expected loopback address and carries the `state` of this sign-in attempt. It refuses a bare code.
-
-To paste a permanent token instead, add `--permanent`: the CLI prints the token page link and asks you to paste a permanent token.
-
-Browser sign-in also accepts these flags. Combined with `--no-browser --permanent`, `--login`, or piped stdin, the sign-in-only flags are rejected rather than ignored:
-
-<table>
-<tr>
-<td>
-
-Flag
-
-</td>
-<td>
-
-Description
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--save`
-
-</td>
-<td>
-
-Save the resulting token or session. Enabled by default. With `--save=false`, the CLI stores nothing locally, but with `--permanent` it still creates a permanent token in Hub. The output masks the token unless you pass `--show-token`.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--alias`
-
-</td>
-<td>
-
-Name to save the instance under. Derived from the URL hostname when omitted.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--client-id`
-
-</td>
-<td>
-
-Hub OAuth client ID. Defaults to `localhost-auth` on `hub.jetbrains.com` and to `youtrack-cli` on every other Hub. Pass it only for a client with another ID.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--hub-url`
-
-</td>
-<td>
-
-Hub base URL, for a standalone Hub. By default the CLI discovers it from the instance (for a built-in Hub, `<base URL>/hub`). When the instance reports a Hub on another origin, the CLI asks you to confirm that Hub before it signs in. Without a terminal, or with `--web`, it stops and asks for `--hub-url`. A Hub that you name with `--hub-url` is not confirmed again.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--scope`
-
-</td>
-<td>
-
-Comma-separated extra Hub service IDs to request and include in the token or session, in addition to YouTrack.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--port`
-
-</td>
-<td>
-
-Fixed loopback port for the OAuth callback listener. `0`, the default, picks a free port. Use it only if your client registration requires a fixed port.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--timeout`
-
-</td>
-<td>
-
-How long to wait for the browser callback or a pasted URL. Defaults to 5 minutes.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--no-browser`
-
-</td>
-<td>
-
-Print the authorization URL and accept the redirect URL pasted back into the terminal (no browser and no terminal needed on this machine). The paste-back is also offered automatically when no browser is detected, for example over SSH. With `--permanent`, skip browser sign-in and paste a permanent token instead.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--web`
-
-</td>
-<td>
-
-Sign in through the browser without prompting, even when stdin is not a terminal. See [Signing in from an app or script](#sign-in-from-an-app).
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--token-name`
-
-</td>
-<td>
-
-Name of the permanent token created in Hub. Default: `youtrack-cli` (`cli-token` for basic auth). Implies `--permanent`.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--permanent`
-
-</td>
-<td>
-
-Create and save a permanent token instead of an auto-refreshing OAuth session. Signing in again revokes the token that it replaces when that token has the same `--token-name`. `--token-name` implies this flag. The CLI accepts `--session` for compatibility.
-
-</td>
-</tr>
-<tr>
-<td>
-
-`--insecure`
-
-</td>
-<td>
-
-With `--login`, allow basic auth over plain `http` to a host other than `localhost` (the password is sent unencrypted). Browser sign-in rejects it: a local `http` instance works without it, and remote `http` URLs are always refused.
-
-</td>
-</tr>
-</table>
-
-
-### Signing in from an app or script {id="sign-in-from-an-app"}
-
-An app that runs the CLI without a terminal, such as a desktop app that manages your CLI tools, can still sign in through the browser with `--web`:
-
-```Shell
-youtrack auth login https://example.youtrack.cloud --web --json
-```
-
-With `--web`, the CLI never prompts. Pass the instance URL or a configured alias as the argument or with `--base-url`; without it, the command fails at once. When browser sign-in is not available, for example because the Hub has no public loopback OAuth client, the command fails with a non-zero exit code instead of falling back to the paste flow.
-
-The CLI opens the browser, waits for the callback, and saves the token as usual. It writes the authorization URL to stderr on its own line, so the caller can offer to open it when the browser does not open. With JSON output (`--json`, or the default when stdout is not a terminal), the CLI leaves out its progress messages and the URL arrives on stderr as a JSON line:
-
-```JSON
-{"authorizationUrl": "https://example.youtrack.cloud/hub/api/rest/oauth2/auth?..."}
-```
-
-The result goes to stdout as with any other sign-in. `--web` cannot be combined with `--no-browser`, `--login`, or `--password`.
+To verify the credentials, run `youtrack auth status`.
 
 ## Managing multiple instances {id="instances"}
 
-YouTrack CLI can hold credentials for several instances at once, for example a production instance and a sandbox. Each instance is identified by an alias.
+YouTrack CLI can keep credentials for several instances, for example a production instance and a sandbox. An alias identifies each instance.
 
-Add an instance the same way you log in the first time:
-
-```Shell
-youtrack auth login
-```
-
-Check every configured instance and confirm each token is valid. The active instance is marked:
+To add an instance, sign in to it:
 
 ```Shell
-youtrack auth status
+youtrack auth login https://sandbox.youtrack.cloud
 ```
 
-`youtrack instance list` prints the same instances as one row each, which suits scripts.
+If two instances get the same alias from their hostnames, the CLI adds a number, for example `work` and `work-2`.
 
-Switch the active instance by alias:
+To check every configured instance and its credentials, run `youtrack auth status`. The output marks the active instance. `youtrack instance list` shows one row for each instance, which suits scripts.
+
+To change the active instance, run:
 
 ```Shell
 youtrack instance use sandbox
 ```
 
-Run a single command against a non-active instance with the global `--server` flag. This selects a saved profile for one invocation and does not change the active instance:
+To run one command against another instance, use the global `--server` flag. The flag does not change the active instance:
 
 ```Shell
 youtrack --server sandbox issue list
 ```
 
-Remove an instance and its stored token with `youtrack instance delete sandbox`.
+`youtrack instance delete sandbox` removes an instance and its stored credentials. The command asks for confirmation; pass `--force` in scripts.
 
-> Aliases are derived from the URL hostname. If two instances would collide on the same alias, the CLI appends a numeric suffix, for example `work` and `work-2`.
+## auth refresh-token saves a new permanent token {id="refresh-token"}
+
+`auth refresh-token` replaces the saved credentials of an instance with a permanent token. The alias and the URL stay the same. The command does not refresh an OAuth session.
+
+> If the instance has an OAuth session, `auth refresh-token` replaces it with a permanent token. To renew an OAuth session, run `youtrack auth login <alias>`.
 >
-{style="tip"}
-
-## Replacing a token {id="refresh-token"}
-
-When a token is rotated or revoked, replace the saved token without re-adding the instance. The base URL and alias are preserved:
+{style="note"}
 
 ```Shell
 youtrack auth refresh-token sandbox
 ```
 
-If you omit the alias, the active instance is used. The command asks how to get the new token: basic auth, the token page in a browser, or pasting one. The equivalent `instance refresh-token <alias>` requires the alias explicitly. To get the new token through browser sign-in instead, run `youtrack auth login <alias>`.
+If you omit the alias, the command uses the active instance. The command asks how to get the new token: basic auth, the token page in a browser, or a pasted token. `instance refresh-token <alias>` does the same, but the alias is required.
 
 ## Checking status and logging out {id="status-logout"}
 
-Show the authenticated user for the active instance, or for every configured instance when several are saved:
+To show the authenticated user, run:
 
 ```Shell
 youtrack auth status
 ```
 
-`auth status` always exits 0 — it is an informational probe. Inspect the reported `status` (`authenticated`, `invalid token`, or `not configured`) rather than the exit code.
+`auth status` shows one of two reports:
 
-For each instance, `auth status` also reports the auth method (`token` or `oauth`), the access-token expiry, whether a refresh token is stored, and for an OAuth session the estimated date to sign in again (`authMethod`, `expiresAt`, `hasRefreshToken`, and `sessionExpiresAt` in JSON). With `--token`, `YOUTRACK_TOKEN`, or `--server`, the single-instance report also says where the token came from (`source`). It never prints the tokens.
+- If you set `--base-url`, `--token`, `--server`, `YOUTRACK_BASE_URL`, or `YOUTRACK_TOKEN`, it checks the credentials that a normal command would use. The report also shows where the token comes from (`source`).
+- Otherwise, it checks every saved instance.
 
-Remove stored credentials with `youtrack auth logout`. By default this logs out of the active instance; pass `--instance <alias>` to target another. For a permanent token, logging out removes local credentials only; the token stays valid on the server until you delete it from the __Account Security__ tab of your profile. For an OAuth session, logout also removes the tokens only locally. Hub gives the CLI no way to revoke them, so the refresh token stays valid at Hub until it expires, and the CLI prints a warning. To revoke it, open your profile in Hub (__Authentication__ or __Account Security__).
+For each instance, `auth status` shows the auth method (`token` or `oauth`), the access-token expiry, whether a refresh token is stored, and, for an OAuth session, the estimated date to sign in again. The JSON fields are `authMethod`, `expiresAt`, `hasRefreshToken`, and `sessionExpiresAt`. The command never prints tokens.
+
+`auth status` always exits with code 0. Check the reported `status` (`authenticated`, `invalid token`, or `not configured`), not the exit code.
+
+To remove stored credentials, run `youtrack auth logout`. The command asks for confirmation; pass `--force` in scripts. By default, it logs out of the active instance; pass `--instance <alias>` for another instance.
+
+`auth logout` removes credentials only on your computer:
+
+- A permanent token stays valid on the server until you revoke it.
+- The refresh token of an OAuth session stays valid in Hub until it expires. Hub gives the CLI no way to revoke it, so the CLI prints a warning.
+
+### Where to revoke a token {id="revoke"}
+
+Open your profile and revoke the token or session there. The tab name depends on the Hub:
+
+- Built-in Hub: the __Account Security__ tab of your YouTrack profile.
+- External Hub: the __Authentication__ tab of your Hub profile.
 
 ## How credentials are resolved {id="precedence"}
 
-When you run a command, the CLI resolves the base URL and token independently, each from the first source that provides it, in this order:
-
-1. The `--base-url` and `--token` flags. An explicit flag always wins.
-2. The `--server <alias>` flag, which selects a saved instance profile for the current command.
-3. The `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` environment variables.
-4. The active instance saved with `instance use`.
-
-The `--token` flag always takes precedence over a saved OAuth session and never triggers a refresh of it. `YOUTRACK_TOKEN` takes precedence over the active instance, but not over a profile selected with `--server`: with both, the command uses the token saved in that profile when it has one, and refreshes its session when necessary. If nothing provides a token, the command fails and tells you how to sign in.
-
-Because the two values are resolved separately, you can mix sources — for example, take the base URL from the active instance while overriding only the token with `YOUTRACK_TOKEN`.
-
-A token saved for an instance profile is only ever sent to that profile's origin (scheme, host, and port). If `--base-url` or `YOUTRACK_BASE_URL` points somewhere else and the token would come from a saved profile, the command fails instead of forwarding the saved token. Pass `--token` or `YOUTRACK_TOKEN` for the other instance, or select its profile with `--server <alias>`.
+The CLI resolves the base URL and the token separately. The order of sources and the rules for OAuth sessions are in [Configuration: Resolution order](youtrack-cli-configuration.md#precedence).
 
 ## Where tokens are stored {id="token-storage"}
 
-Credentials saved by `auth login`, `instance add`, `instance login`, and `auth refresh-token` are stored in the operating-system keyring when one is available:
+`auth login`, `instance add`, `instance login`, and `auth refresh-token` store credentials in the operating-system keyring when one is available:
 
 - macOS Keychain
 - Windows Credential Manager
 - Linux Secret Service, including GNOME Keyring and KWallet
 
-The keyring service is `youtrack-cli`, keyed by instance alias. For an OAuth session, a second entry under the service `youtrack-cli-oauth` holds the access token, the refresh token, and the Hub token endpoint recorded at sign-in; the CLI sends the refresh token only to that endpoint. Its account is `<alias>/<version>`: each save writes a new version, and the config file names the current one (`oauthVersion`). If writing the config file fails, the CLI deletes the new version, and the previous session stays usable. A third entry under the service `youtrack-cli-url`, with the same alias, records the instance URL the token belongs to; the CLI sends the token only to that URL. The config file at `~/.config/youtrack/config.json` then contains the instance URL and non-secret metadata but no token. Removing an instance with `instance delete` or logging out with `auth logout` deletes all its keyring entries as well.
+The CLI writes these keyring entries:
 
-If the keyring is unavailable, for example in a headless container or with a locked keychain, the CLI falls back to writing the tokens to the config file with mode `0600` and prints a warning to stderr. Every write goes to a new temporary file that is renamed into place, so a crash can't leave a half-written file. If the file system can't restrict the file to its owner, the CLI refuses to write tokens there. Existing file-stored tokens migrate to the keyring on a later successful save. Set `YOUTRACK_DISABLE_KEYRING=1` to request file storage explicitly.
+<table>
+<tr>
+<td>
 
-The `YOUTRACK_TOKEN` environment variable and the `--token` flag bypass the config file entirely. Prefer them in CI and containers, where writing a token to disk is undesirable — `auth login --save=false` stores nothing locally, but browser sign-in with `--permanent` still creates a permanent token in Hub.
+Service
 
-> If the CLI reports that it used file fallback, protect the config file the way you would protect an SSH private key. Never commit it to version control or copy it to a shared machine.
+</td>
+<td>
+
+Account
+
+</td>
+<td>
+
+Content
+
+</td>
+</tr>
+<tr>
+<td>
+
+`youtrack-cli`
+
+</td>
+<td>
+
+`<alias>`
+
+</td>
+<td>
+
+The permanent token.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`youtrack-cli-oauth`
+
+</td>
+<td>
+
+`<alias>/<version>`
+
+</td>
+<td>
+
+For an OAuth session: the access token, the refresh token, and the Hub token endpoint from the sign-in. The CLI sends the refresh token only to this endpoint. Each save writes a new version; the config file names the current version (`oauthVersion`). If the config file cannot be written, the CLI deletes the new version, and the previous session stays usable.
+
+</td>
+</tr>
+<tr>
+<td>
+
+`youtrack-cli-url`
+
+</td>
+<td>
+
+`<alias>`
+
+</td>
+<td>
+
+The instance URL that the token belongs to. The CLI sends the token only to this URL.
+
+</td>
+</tr>
+</table>
+
+The config file `~/.config/youtrack/config.json` then has the instance URL and metadata without secrets, but no token. `instance delete` and `auth logout` also delete all keyring entries of the instance.
+
+If the keyring is not available, for example in a headless container or with a locked keychain, the CLI writes the tokens to the config file with mode `0600` and prints a warning to stderr. Each write goes to a new temporary file, which the CLI then renames, so a crash cannot leave a half-written file. If the file system cannot limit the file to its owner, the CLI does not write tokens to it. The next successful save moves tokens from the file to the keyring. To use file storage on purpose, set `YOUTRACK_DISABLE_KEYRING` to any non-empty value, for example `1`.
+
+> If the CLI tells you that it stores tokens in the file, protect the config file like a private SSH key. Do not commit it to version control or copy it to a shared computer.
 >
 {style="warning"}
 
-## Token scope and security {id="security"}
+The `YOUTRACK_TOKEN` environment variable and the `--token` flag do not use the config file. Use them in CI and containers, where a token on disk is a risk. `auth login --save=false` stores nothing locally, but a permanent token that it creates stays valid in Hub.
 
-A permanent token acts on behalf of your YouTrack account. YouTrack does not currently support granular permission scoping for permanent tokens, so a token can do anything your account can do — create, update, and delete issues, projects, and users. The `--scope` flag on the basic-auth flow selects which Hub services the token can reach, not object-level permissions.
+## Tokens have the full permissions of their user {id="security"}
 
-To limit exposure:
+A token acts for your YouTrack user. YouTrack does not support permission scopes for permanent tokens, so a token can do everything that your user can do: create, update, and delete issues, projects, and users. The `--scope` flag selects the Hub services that the token can reach. It does not limit permissions on objects.
 
-- Keep `~/.config/youtrack/config.json` readable only by your user, or pass the token through an environment variable or a secrets manager instead of saving it. Never commit a token to version control.
-- Create a dedicated service account with only the access a pipeline needs.
-- Rotate tokens regularly and revoke leaked tokens from the __Account Security__ tab.
-- Set `YOUTRACK_RO=1` to block all write operations when a workflow only needs to read.
+To limit the risk:
+
+- Keep `~/.config/youtrack/config.json` readable only by your user, or give the token through an environment variable or a secrets manager. Do not commit a token to version control.
+- Create a dedicated user with only the permissions that a pipeline needs.
+- Rotate tokens regularly. Revoke a leaked token at once (see [Where to revoke a token](#revoke)).
+- If a workflow only reads data, set `YOUTRACK_RO=1` to block write operations. Read-only mode is a safety net, not a security boundary. See [Security](youtrack-cli-security.md#read-only-mode).
 
 <seealso>
-<category ref="user-guide">
+<category ref="04">
 <a href="youtrack-cli-get-started.md">Getting Started</a>
 <a href="youtrack-cli-scripting.md">Scripting and Automation</a>
 <a href="youtrack-cli-ai-agent-integration.md">AI Agent Integration</a>
 </category>
-<category ref="reference">
+<category ref="06">
 <a href="youtrack-cli-configuration.md">Configuration</a>
+<a href="youtrack-cli-security.md">Security</a>
 <a href="youtrack-cli-administration.md">Administration</a>
 </category>
 </seealso>

@@ -1,9 +1,9 @@
 [//]: # (title: Managing Projects)
 <show-structure for="chapter" depth="2"/>
 
-A project groups issues under a short name, such as `DEMO`. YouTrack CLI lets you create projects, inspect them, manage their team, and configure their custom fields from the command line. Most project commands identify a project by its short name.
+A project groups issues under a short name, such as `DEMO`. YouTrack CLI creates, inspects, and deletes projects, and manages their team and custom fields. Address a project by its short name, and look up opaque IDs first for team commands.
 
-## Listing projects
+## List projects to find their short names
 
 List every project you can access with `youtrack project list`:
 
@@ -13,7 +13,7 @@ youtrack project list
 
 Each row shows the project short name and full name. Use the short name to address the project in other commands.
 
-## Viewing a project
+## View a project to get its opaque ID
 
 Show the details of a single project with `youtrack project view` and its short name:
 
@@ -21,11 +21,11 @@ Show the details of a single project with `youtrack project view` and its short 
 youtrack project view DEMO
 ```
 
-> Add `--json` to get the full project record, including the opaque `id` that some commands require.
+> Add `--json` to get the full project record, including the opaque `id`, for example `0-1`. The `--project` flag of `role grant` and `group role add` requires this ID. See [Managing Users and Access](youtrack-cli-managing-users-and-access.md#identifiers).
 >
 {style="tip"}
 
-## Creating a project {id="create"}
+## A new project needs a short name, a name, and a leader {id="create"}
 
 Create a project with `youtrack project create`. Provide a short name and a full name:
 
@@ -41,7 +41,7 @@ Every project must have a leader. The YouTrack API rejects a project that has no
 youtrack project create --shortName DEMO --name "Demo Project" --leader jane.doe
 ```
 
-> Run `youtrack user current` to see the login of the account YouTrack CLI is authenticated as.
+> Run `youtrack user current` to see the login of the currently authenticated user.
 >
 {style="tip"}
 
@@ -77,7 +77,7 @@ youtrack project create --shortName DEMO --name "Demo Project" --template scrum
 </td></tr>
 </table>
 
-## Updating a project
+## Update changes only the fields you pass
 
 Change an existing project's name, short name, description, leader, or archived state:
 
@@ -90,7 +90,7 @@ youtrack project update DEMO --archived=false
 Only explicitly supplied fields are changed. Passing an empty `--description` clears it.
 The value of `--leader` is a user login; the CLI resolves it to the required opaque ID.
 
-## Archiving a project
+## Archive a project to retire it and keep its data
 
 Archive a project to retire it from active use without deleting its data:
 
@@ -100,53 +100,53 @@ youtrack project archive DEMO
 
 `project archive` asks for confirmation. Add `--force` to skip the prompt in scripts.
 
-## Deleting a project
+## Deleting a project is permanent
 
-Delete a project with `youtrack project delete`. This is irreversible.
+> Deleting a project removes every issue it contains, and you cannot undo it. If you only need to retire the project, archive it instead.
+>
+{style="warning"}
+
+Delete a project with `youtrack project delete`. YouTrack CLI asks for confirmation first:
 
 ```Shell
 youtrack project delete DEMO
 ```
 
-YouTrack CLI asks for confirmation first. To skip the prompt in a script, add `--force`:
+To skip the prompt in a script, add `--force`:
 
 ```Shell
 youtrack project delete DEMO --force
 ```
 
-> Deleting a project removes every issue it contains. Archive the project instead if you only need to retire it.
->
-{style="warning"}
-
-## Managing the project team {id="team"}
+## Team commands take opaque IDs, not logins or names {id="team"}
 
 List, add, and remove users and groups in a project team.
 
-Both team commands take opaque IDs, not logins or group names. A user ID looks like `2-9`; a group ID looks like `4-1`. Look up the ID first, then pass it.
+`add-user`, `add-group`, `remove-user`, and `remove-group` take opaque IDs, not logins or group names. A user ID looks like `1-5`. A group ID looks like `3-2`. Look up the ID first, then pass it. `remove-user` and `remove-group` ask for confirmation. Add `--force` to skip the prompt in scripts.
 
 To add a user, read the user's `id`, then add it:
 
 ```Shell
 youtrack user view jane.doe --json
-youtrack project team add-user DEMO 2-9
+youtrack project team add-user DEMO 1-5
 youtrack project team list-users DEMO
-youtrack project team remove-user DEMO 2-9
+youtrack project team remove-user DEMO 1-5
 ```
 
 To add a group, read the group's `id`, then add it:
 
 ```Shell
 youtrack group view Developers --json
-youtrack project team add-group DEMO 4-1
+youtrack project team add-group DEMO 3-2
 youtrack project team list-groups DEMO
-youtrack project team remove-group DEMO 4-1
+youtrack project team remove-group DEMO 3-2
 ```
 
 > Extract the ID in one step with a JSON processor, for example `youtrack user view jane.doe --json | jq -r .id`.
 >
 {style="tip"}
 
-## Managing custom fields
+## Projects use custom fields from the instance catalog
 
 List the custom fields attached to a project:
 
@@ -154,25 +154,24 @@ List the custom fields attached to a project:
 youtrack project field list DEMO
 ```
 
-Attach an existing custom field to a project with `youtrack project field add`. The `--field` flag takes the custom field's ID, which you look up at the instance level:
-
-Remove an attached field with its project-field ID (the `id` returned by
-`project field list`, not the global field ID):
-
-```Shell
-youtrack project field remove DEMO 92-3 --force
-```
+Attach an existing custom field to a project with `youtrack project field add`. The `--field` flag takes the global custom field ID. Look it up at the instance level:
 
 ```Shell
 youtrack field list --json
 youtrack project field add DEMO --field 58-3
 ```
 
+To remove an attached field, pass its project-field ID. This ID is the `id` that `project field list` returns, not the global field ID. `project field remove` asks for confirmation. Add `--force` to skip the prompt in scripts:
+
+```Shell
+youtrack project field remove DEMO 92-3
+```
+
 > Custom fields are defined once for the whole instance, then attached to individual projects. See <a href="youtrack-cli-administration.md">Administration</a> for managing the instance-level field catalog.
 >
 {style="note"}
 
-## Configuring other project settings
+## Other project settings have their own subcommands
 
 Several subcommands adjust individual project settings. Each takes the project short name.
 
@@ -183,7 +182,7 @@ Several subcommands adjust individual project settings. Each takes the project s
 </td><td>Enable time tracking for the project. Add `--enabled=false` to disable it.
 
 </td></tr>
-<tr><td>`youtrack project workflow add DEMO --workflow <id>`
+<tr><td><code>youtrack project workflow add DEMO --workflow &lt;id&gt;</code>
 
 </td><td>Attach a workflow to the project by its ID.
 
@@ -201,12 +200,12 @@ Several subcommands adjust individual project settings. Each takes the project s
 </table>
 
 <seealso>
-<category ref="user-guide">
+<category ref="04">
 <a href="youtrack-cli-managing-issues.md">Managing Issues</a>
 <a href="youtrack-cli-managing-users-and-access.md">Managing Users and Access</a>
 <a href="youtrack-cli-administration.md">Administration</a>
 </category>
-<category ref="reference">
+<category ref="06">
 <a href="youtrack-cli-get-started.md">Getting Started</a>
 <a href="youtrack-cli-scripting.md">Scripting and Automation</a>
 </category>

@@ -1,13 +1,13 @@
 [//]: # (title: Administration)
 <show-structure for="chapter" depth="2"/>
 
-YouTrack CLI exposes instance-wide administration: global settings, custom fields, workflows, and app integrations. This page covers the commands under `settings`, `field`, `workflow`, and `app`.
+YouTrack CLI exposes instance-wide administration: global settings, custom fields, workflows, and app integrations. This page covers the commands under `settings`, `field`, `workflow`, and `app`. To manage users, groups, roles, and organizations, see [Managing Users and Access](youtrack-cli-managing-users-and-access.md).
 
 > These operations act on the whole instance, not a single project. You need administrator permissions in YouTrack to run most of them, and the CLI returns a permission error otherwise.
 >
 {style="note"}
 
-## Viewing global settings {id="settings"}
+## Global settings are read-only, feature flags are not {id="settings"}
 
 Print the instance's global settings with `youtrack settings view` (alias `settings get`):
 
@@ -15,23 +15,27 @@ Print the instance's global settings with `youtrack settings view` (alias `setti
 youtrack settings view
 ```
 
-`settings view` is read-only. Toggle a named feature flag by its key with `settings feature`:
-
-```Shell
-youtrack settings feature --name <flag-key> --enabled=false
-```
-
-> `settings feature` prompts for confirmation before it changes a flag; pass `--force` to skip the prompt. There is no endpoint that lists the available flag IDs — obtain them from JetBrains support, the release notes, or the administration UI.
+> No endpoint lists the available flag IDs. Get them from JetBrains support, the release notes, or the administration UI before you run `settings feature`. The command asks for confirmation before it changes a flag. Add `--force` to skip the prompt.
 >
 {style="note"}
 
-## Managing custom fields {id="custom-fields"}
+`settings view` is read-only. To turn a feature flag on or off, pass its flag ID to `settings feature`:
+
+```Shell
+youtrack settings feature --name <flag-id> --enabled=false
+```
+
+## Custom fields are defined once for the whole instance {id="custom-fields"}
 
 List every custom field defined on the instance:
 
 ```Shell
 youtrack field list
 ```
+
+> `field delete` removes the field from every project that uses it. The CLI asks for confirmation first. Add `--force` to skip the prompt.
+>
+{style="warning"}
 
 Create a custom field with a name and a type, both required. Delete one by its ID:
 
@@ -40,19 +44,18 @@ youtrack field create --name "Severity" --type "enum[1]"
 youtrack field delete 58-3
 ```
 
-> `field delete` removes the field from every project that uses it. The CLI prompts for confirmation first; pass `--force` to skip the prompt.
->
-{style="warning"}
-
 The `--type` value is a field type ID. Common values are `string`, `text`, `integer`, `float`, `date`, `enum[1]`, `enum[*]`, `state[1]`, `user[1]`, and `user[*]`. A `[1]` suffix means single-value; `[*]` means multi-value. Run `youtrack field create --help` for the full list. Quote any type that contains brackets so your shell does not expand it.
 
-To inspect the built-in field templates before you create one, run `youtrack field prototypes`. To make a field private, pass its opaque ID:
+To inspect the built-in field templates before you create one, run `youtrack field prototypes`.
+
+`field privacy` makes a field private by default. To make the field public again, pass `--private=false`. The command asks for confirmation. Add `--force` to skip the prompt:
 
 ```Shell
-youtrack field privacy 58-3 --private
+youtrack field privacy 58-3
+youtrack field privacy 58-3 --private=false
 ```
 
-### Working with bundles
+### Enum, state, and version fields take values from a bundle
 
 Enum, state, and version fields draw their values from a bundle. List bundles of a type, create one, add values, and attach it to a field:
 
@@ -63,9 +66,9 @@ youtrack field bundle add-value --id 60-1 --value "Blocker" --type EnumBundle
 youtrack field bundle attach --field 58-3 --id 60-1 --type EnumBundle
 ```
 
-The `--type` flag defaults to `EnumBundle` on each of these commands. Pass the matching bundle type for other field types.
+The `--type` flag defaults to `EnumBundle` on each of these commands. For other field types, pass the matching bundle type: `EnumBundle`, `StateBundle`, `VersionBundle`, `BuildBundle`, `OwnedBundle`, or `UserBundle`. The short forms `enum`, `state`, `version`, `build`, `owned`, and `user` also work.
 
-### Work item types and work time
+### Work item types and work time configure time tracking
 
 List or add the work item types used for time tracking, and view or set the work-time presentation:
 
@@ -76,7 +79,7 @@ youtrack field worktime view
 youtrack field worktime set --minutes-a-day 8h
 ```
 
-## Managing workflows {id="workflows"}
+## Workflow rules are JavaScript that YouTrack compiles on save {id="workflows"}
 
 List the workflows on the instance, or only those whose name contains some text (case-insensitive), create one, and delete it by ID:
 
@@ -93,6 +96,8 @@ youtrack workflow delete 8-2
 youtrack workflow rule create 8-2 --name on-state-change --script-file on-state-change.js
 ```
 
+The `--type` flag sets the `$type` that the CLI sends, and defaults to `WorkflowRule`. YouTrack determines the resulting rule type from the script.
+
 View a rule, including its script, and replace the script. Pass `-` to `--script-file` to read the script from stdin:
 
 ```Shell
@@ -107,15 +112,23 @@ youtrack workflow rule update 8-2 9-14 --script-file on-state-change.js
 >
 {style="note"}
 
-To reset the instance to its shipped workflows, run `youtrack workflow restore`.
-
-> `workflow restore` reinstates the default workflows. Review your custom workflows first, because the operation affects instance-wide automation.
+> `workflow restore` runs at once. It has no confirmation prompt and no `--force` flag. The command affects instance-wide automation, so review your workflows before you run it.
 >
 {style="warning"}
 
-## Setting up integrations {id="integrations"}
+To restore the default workflows, run `youtrack workflow restore`:
+
+```Shell
+youtrack workflow restore
+```
+
+## Apps are installed in the web UI and managed here {id="integrations"}
 
 ### Apps
+
+> `app deactivate` runs at once, with no confirmation prompt. `app delete` and `app plugin delete` ask for confirmation. Add `--force` to skip the prompt.
+>
+{style="warning"}
 
 List the installed apps and their plugins, and deactivate or remove an app by ID:
 
@@ -126,15 +139,15 @@ youtrack app deactivate 3-7
 youtrack app delete 3-7
 ```
 
-Remove a single plugin with `youtrack app plugin delete <id>`. Both `app delete` and `app plugin delete` prompt for confirmation; pass `--force` to skip the prompt.
+Remove a single plugin with `youtrack app plugin delete <id>`.
 
 > The CLI manages apps that are already installed. Install a new app from the YouTrack web interface, then list, deactivate, or delete it here.
 >
 {style="note"}
 
-## Output formats
+## Every command on this page supports JSON output
 
-Every command on this page returns structured data. Add `-j` (or `--json`) for JSON, and `-f` to project specific fields — useful when you capture an opaque ID to pass to the next command:
+Every command on this page returns structured data. Add `-j` (or `--json`) for JSON, and `-f` to select fields. Field selection helps when you capture an opaque ID to pass to the next command:
 
 ```Shell
 youtrack field list -j -f id,name,fieldType.id
@@ -143,12 +156,12 @@ youtrack field list -j -f id,name,fieldType.id
 See [Scripting and Automation](youtrack-cli-scripting.md) for piping JSON into `jq` and building multi-step admin scripts.
 
 <seealso>
-<category ref="user-guide">
+<category ref="04">
 <a href="youtrack-cli-managing-projects.md">Managing Projects</a>
 <a href="youtrack-cli-managing-users-and-access.md">Managing Users and Access</a>
 <a href="youtrack-cli-scripting.md">Scripting and Automation</a>
 </category>
-<category ref="reference">
+<category ref="06">
 <a href="youtrack-cli-configuration.md">Configuration</a>
 <a href="youtrack-cli-authentication.md">Authentication</a>
 </category>
