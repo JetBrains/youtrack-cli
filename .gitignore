@@ -1,6 +1,7 @@
 .worktrees/
 .e2e/
 dist/
+docs-out/
 youtrack
 youtrack-cli
 .DS_Store

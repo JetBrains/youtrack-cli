@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE categories
+        SYSTEM "https://resources.jetbrains.com/writerside/1.0/categories.dtd">
+<!-- IDs and names match c.list of the YouTrack Developer Portal (youtrack-dev-portal-docs). -->
+<categories>
+    <category id="04" name="User Guide" order="3"/>
+    <category id="06" name="Resources for Developers" order="5"/>
+</categories>
