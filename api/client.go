@@ -36,6 +36,8 @@ type Client struct {
 	UserAgent  string
 	Verbose    bool
 	Fields     string // when non-empty, extends the fields= query param on GET requests
+	// TokenSource, when set, supplies the bearer token for each request instead of Token — used for saved OAuth sessions that refresh transparently.
+	TokenSource func(ctx context.Context) (string, error)
 	// MuteNotifications suppresses notifications on API writes.
 	MuteNotifications bool
 	// DryRun describes writes instead of sending them.
@@ -135,7 +137,14 @@ func (c *Client) doRequest(ctx context.Context, method, path string, body io.Rea
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+c.Token)
+	token := c.Token
+	if c.TokenSource != nil {
+		if token, err = c.TokenSource(c.context()); err != nil {
+			return nil, err
+		}
+	}
+	// Verbose logging below prints only the method, URL, and status — never request headers, so the bearer token cannot leak into debug output.
+	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Accept", accept)
 	req.Header.Set("User-Agent", c.UserAgent)
 	if contentType != "" {

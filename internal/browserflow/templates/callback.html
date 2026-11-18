@@ -182,13 +182,22 @@
 {{else}}
             <div class="icon icon-ok">&#10003;</div>
             <h1>Authentication successful</h1>
-            <p>You can close this window and return to the terminal.<br>Closing in <span class="countdown" id="n">3</span>s&hellip;</p>
-            <button class="close-btn" onclick="window.close()">Close now</button>
+            <p id="msg">You can close this window and return to the terminal.<br>Closing in <span class="countdown" id="n">3</span>s&hellip;</p>
+            <button class="close-btn" id="close" onclick="window.close()">Close now</button>
             <script>
+                // Drop the spent code from the address bar and history.
+                history.replaceState(null, '', location.pathname);
                 var n = document.getElementById('n');
                 var t = setInterval(function () {
                     n.textContent = String(Number(n.textContent) - 1);
-                    if (Number(n.textContent) <= 0) { clearInterval(t); window.close(); }
+                    if (Number(n.textContent) > 0) return;
+                    clearInterval(t);
+                    window.close();
+                    // Browsers let a script close only windows it opened; this tab came from the OS, so it usually stays.
+                    setTimeout(function () {
+                        document.getElementById('msg').textContent = 'You can close this tab and return to the terminal.';
+                        document.getElementById('close').remove();
+                    }, 200);
                 }, 1000);
             </script>
 {{end}}
