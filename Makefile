@@ -53,6 +53,9 @@ e2e-logs:
 snapshot:
 	goreleaser release --snapshot --clean --skip=publish
 
+docs-package:
+	./scripts/docs-package.sh
+
 # Writerside build of docs/ into docs-out/site/; the builder recreates OUTPUT_DIR, so it must not be the mount point.
 # On Apple Silicon, Docker needs Rosetta for amd64 images.
 docs-build:
@@ -67,4 +70,4 @@ clean:
 	rm -f $(BINARY)
 	rm -rf dist/
 
-.PHONY: build fmt fmt-check lint check unit concurrency test e2e-up e2e-down e2e-logs snapshot docs-build clean
+.PHONY: build fmt fmt-check lint check unit concurrency test e2e-up e2e-down e2e-logs snapshot docs-package docs-build clean

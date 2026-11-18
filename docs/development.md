@@ -8,6 +8,7 @@ This guide is for contributors to YouTrack CLI. It lists the build, quality, and
 make build           # compile ./youtrack binary
 make snapshot        # GoReleaser snapshot build of all release archives into dist/, nothing published
 make docs-build      # Writerside build of docs/ into docs-out/ (Docker, jetbrains/writerside-builder)
+make docs-package    # dist/youtrack-cli-docs.zip: docs/youtrack-cli.tree + docs/topics for the YouTrack Developer Portal
 make clean           # remove build output
 cp youtrack /usr/local/bin/
 ```
