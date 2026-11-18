@@ -181,7 +181,7 @@ func printAuthStatus(cmd *cobra.Command, s *AuthStatus) {
 		if detail := strings.TrimPrefix(s.Status, "not configured: "); strings.Contains(detail, "OAuth session") {
 			_, _ = fmt.Fprintf(w, "  Error: %s\n", output.Sanitize(detail))
 		}
-		_, _ = fmt.Fprintf(w, "  Run:   youtrack auth get-token\n")
+		_, _ = fmt.Fprintf(w, "  Run:   youtrack auth login\n")
 	}
 }
 

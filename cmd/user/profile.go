@@ -28,7 +28,7 @@ func newUserProfileCmd() *cobra.Command {
 
 func newUserProfileViewCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:     "view <userId>",
+		Use:     "view <login>",
 		Aliases: []string{"get"},
 		Short:   "View general profile for a user",
 		Args:    cobra.ExactArgs(1),
@@ -50,7 +50,7 @@ func newUserProfileTimeTrackingCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "timetracking", Short: "Manage user time tracking profile"}
 	internal.RequireSubcommand(cmd)
 	view := &cobra.Command{
-		Use:     "view <userId>",
+		Use:     "view <login>",
 		Aliases: []string{"get"},
 		Short:   "View time tracking profile for a user",
 		Args:    cobra.ExactArgs(1),
@@ -72,7 +72,7 @@ func newUserProfileTimeTrackingCmd() *cobra.Command {
 
 func newUserProfilePropertyCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "property <userId> <key> <value>",
+		Use:   "property <login> <key> <value>",
 		Short: "Set a profile property for a user",
 		Args:  cobra.ExactArgs(3),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -92,7 +92,7 @@ func newUserProfilePropertyCmd() *cobra.Command {
 
 func newUserProfileAppearanceCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "appearance <userId>",
+		Use:   "appearance <login>",
 		Short: "Set appearance profile settings (JSON body)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -115,7 +115,7 @@ func newUserProfileAppearanceCmd() *cobra.Command {
 
 func newUserProfileNotificationsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "notifications <userId>",
+		Use:   "notifications <login>",
 		Short: "Set notifications profile settings (JSON body)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -138,7 +138,7 @@ func newUserProfileNotificationsCmd() *cobra.Command {
 
 func newUserProfileGrazieCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "grazie <userId>",
+		Use:   "grazie <login>",
 		Short: "Set Grazie (AI) profile settings (JSON body)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -161,7 +161,7 @@ func newUserProfileGrazieCmd() *cobra.Command {
 
 func newUserProfileArticlesCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "articles <userId>",
+		Use:   "articles <login>",
 		Short: "Set articles profile settings (JSON body)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -184,7 +184,7 @@ func newUserProfileArticlesCmd() *cobra.Command {
 
 func newUserProfileIssuesListCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "issues-list <userId>",
+		Use:   "issues-list <login>",
 		Short: "Set issues list profile settings (JSON body)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -207,7 +207,7 @@ func newUserProfileIssuesListCmd() *cobra.Command {
 
 func newUserProfileTipsCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "tips <userId> <key=true|false>...",
+		Use:   "tips <login> <key=true|false>...",
 		Short: "Set profile tip flags (key=true|false pairs)",
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -239,7 +239,7 @@ func newUserProfileTipsCmd() *cobra.Command {
 
 func newUserProfileGeneralCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "general <userId>",
+		Use:   "general <login>",
 		Short: "Set general profile settings (JSON body)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

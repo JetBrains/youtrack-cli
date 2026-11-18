@@ -47,7 +47,7 @@ func tipFor(err error) string {
 	if errors.As(err, &apiErr) {
 		switch apiErr.StatusCode {
 		case 401:
-			return "Run 'youtrack auth get-token' to re-authenticate"
+			return "Run 'youtrack auth login' to re-authenticate"
 		case 403:
 			if strings.Contains(strings.ToLower(apiErr.Error()), "apply commands silently") {
 				return "--mute-notifications needs the Apply Commands Silently permission in each affected project; ask a project admin, or retry without the flag only if notifications are acceptable"
@@ -75,7 +75,7 @@ func tipFor(err error) string {
 		return "Set it via env var or --base-url flag"
 	}
 	if strings.Contains(msg, "YOUTRACK_TOKEN") {
-		return "Run 'youtrack auth get-token' to authenticate"
+		return "Run 'youtrack auth login' to authenticate"
 	}
 	if strings.Contains(msg, "alias is required") {
 		return "Run 'youtrack instance list' to see available instances"

@@ -11,7 +11,7 @@ func newUserTagCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "tag", Short: "View tags associated with a user"}
 	internal.RequireSubcommand(cmd)
 	list := &cobra.Command{
-		Use:   "list <userId>",
+		Use:   "list <login>",
 		Short: "List tags owned by a user",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

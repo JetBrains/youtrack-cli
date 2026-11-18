@@ -11,7 +11,7 @@ import (
 
 func newUserDeleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete <userId>",
+		Use:   "delete <login>",
 		Short: "Delete a user account",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

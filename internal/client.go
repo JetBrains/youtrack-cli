@@ -122,7 +122,7 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 
 	if baseURL == "" {
 		return nil, src, fmt.Errorf(
-			"no instance configured — run: youtrack auth get-token\n" +
+			"no instance configured — run: youtrack auth login\n" +
 				"(or set YOUTRACK_BASE_URL + YOUTRACK_TOKEN, or use --base-url + --token flags)",
 		)
 	}
@@ -136,7 +136,7 @@ func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, err
 			}
 		}
 		return nil, src, fmt.Errorf(
-			"YOUTRACK_TOKEN is not set — run: youtrack auth get-token\n" +
+			"YOUTRACK_TOKEN is not set — run: youtrack auth login\n" +
 				"(or set YOUTRACK_TOKEN, or use --token flag)",
 		)
 	}
