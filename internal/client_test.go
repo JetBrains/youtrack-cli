@@ -1,6 +1,12 @@
 package internal
 
-import "testing"
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/JetBrains/youtrack-cli/internal/config"
+)
 
 func TestExpandFields(t *testing.T) {
 	cases := []struct {
@@ -83,8 +89,40 @@ func TestSameOrigin(t *testing.T) {
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
-			if got := sameOrigin(c.a, c.b); got != c.want {
-				t.Errorf("sameOrigin(%q, %q) = %v, want %v", c.a, c.b, got, c.want)
+			if got := SameOrigin(c.a, c.b); got != c.want {
+				t.Errorf("SameOrigin(%q, %q) = %v, want %v", c.a, c.b, got, c.want)
+			}
+		})
+	}
+}
+
+func TestSessionEndingHint(t *testing.T) {
+	now := time.Date(2026, 11, 18, 12, 0, 0, 0, time.UTC)
+	day := int64(24 * 60 * 60)
+	lifetime := int64(config.RefreshTokenLifetime / time.Second)
+	session := func(issuedDaysAgo int64) *config.Instance {
+		return &config.Instance{AuthMethod: config.AuthMethodOAuth, RefreshToken: "rt", RefreshIssuedAt: now.Unix() - issuedDaysAgo*day}
+	}
+	for name, tc := range map[string]struct {
+		inst     *config.Instance
+		wantHint bool
+	}{
+		"fresh session":           {session(1), false},
+		"8 days left":             {session(lifetime/day - 8), false},
+		"7 days left":             {session(lifetime/day - 7), true},
+		"1 day left":              {session(lifetime/day - 1), true},
+		"past the estimated end":  {session(lifetime/day + 3), true},
+		"issue time unknown":      {&config.Instance{AuthMethod: config.AuthMethodOAuth, RefreshToken: "rt"}, false},
+		"permanent token":         {&config.Instance{Token: "perm:x"}, false},
+		"session without refresh": {&config.Instance{AuthMethod: config.AuthMethodOAuth, RefreshIssuedAt: now.Unix()}, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			hint := sessionEndingHint("work", tc.inst, now)
+			if (hint != "") != tc.wantHint {
+				t.Fatalf("sessionEndingHint() = %q, want hint: %v", hint, tc.wantHint)
+			}
+			if hint != "" && !strings.Contains(hint, "youtrack auth login work") {
+				t.Errorf("hint %q does not name the sign-in command for the alias", hint)
 			}
 		})
 	}

@@ -116,7 +116,7 @@ youtrack --version
 
 ## Setting your credentials {id="credentials"}
 
-YouTrack CLI authenticates to the YouTrack REST API with a permanent token. A permanent token does not have an expiration date, which makes it suitable for scripts and CI/CD pipelines. You can store credentials interactively or pass them through environment variables.
+YouTrack CLI authenticates to the YouTrack REST API with an OAuth session or a permanent token. An OAuth session refreshes itself and suits interactive use. A permanent token does not have an expiration date, which makes it suitable for scripts and CI/CD pipelines. You can store credentials interactively or pass them through environment variables.
 
 ### Authenticating interactively
 
@@ -126,9 +126,9 @@ Run the setup command and follow the prompts:
 youtrack auth login
 ```
 
-The command asks for your YouTrack URL, pre-filled with `https://youtrack.jetbrains.com` (or the active instance's URL); edit it or press Enter to accept it. It then opens your browser to sign in through Hub, creates a permanent token, and saves it.
+The command asks for your YouTrack URL, pre-filled with `https://youtrack.jetbrains.com` (or the active instance's URL); edit it or press Enter to accept it. It then opens your browser to sign in through Hub and saves an OAuth session. The CLI refreshes the session automatically. Hub limits the session to 90 days by default, and the CLI tells you when to sign in again. Over SSH, add `--no-browser` and paste the redirect URL back.
 
-If the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser`, the CLI prints the token page link, offers to open it, and asks you to paste a permanent token you created there.
+To create and save a permanent token instead, add `--permanent`. If the instance's Hub has no OAuth client for the CLI, or you pass `--no-browser --permanent`, the CLI prints the token page link, offers to open it, and asks you to paste a permanent token you created there.
 
 Saved tokens use the OS keyring when available; the config file at `~/.config/youtrack/config.json` stores the instance metadata. To manage several instances, register each under its own alias and switch between them with `youtrack instance use <alias>`. See [Configuration](youtrack-cli-configuration.md) for the full precedence and storage rules.
 

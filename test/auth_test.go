@@ -316,8 +316,8 @@ func TestAuthRefreshToken_UpdatesConfig(t *testing.T) {
 }`
 	cfgPath := configFixture(t, tmpHome, cfg)
 
-	// Option 3 (paste), pipe the existing token so verification passes.
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	// Option 2 (paste), pipe the existing token so verification passes.
+	runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"auth", "refresh-token", "myinst",
 	)
@@ -353,7 +353,7 @@ func TestAuthRefreshToken_DefaultsToActive(t *testing.T) {
 	cfgPath := configFixture(t, tmpHome, cfg)
 
 	// No alias arg — should default to currentInstance ("myinst").
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"auth", "refresh-token",
 	)
@@ -410,7 +410,7 @@ func TestAuthRefreshToken_JSONOutput(t *testing.T) {
 }`
 	configFixture(t, tmpHome, cfg)
 
-	out := runCmdWithEnv(t, "3\n"+token+"\n",
+	out := runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"--format", "json", "auth", "refresh-token", "myinst", "--show-token",
 	)
@@ -436,7 +436,7 @@ func TestAuthRefreshToken_HumanReadableOutput(t *testing.T) {
 }`
 	configFixture(t, tmpHome, cfg)
 
-	out := runCmdWithEnv(t, "3\n"+token+"\n",
+	out := runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"--plain", "auth", "refresh-token", "myinst",
 	)
@@ -460,7 +460,7 @@ func TestInstanceRefreshToken_ByAlias(t *testing.T) {
 }`
 	cfgPath := configFixture(t, tmpHome, cfg)
 
-	runCmdWithEnv(t, "3\n"+token+"\n",
+	runCmdWithEnv(t, "2\n"+token+"\n",
 		[]string{"HOME=" + tmpHome},
 		"instance", "refresh-token", "myinst",
 	)
@@ -537,6 +537,7 @@ func TestAuth_GetToken_RefusesBasicAuthOverRemoteHTTP(t *testing.T) {
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
 	assert.Contains(t, stderr.String(), "refusing to send your password over plain http")
+	assert.Contains(t, stderr.String(), "basic auth is deprecated", "choosing basic auth points at safer methods")
 
 	// --insecure lifts the guard; the request then fails on the unresolvable host instead.
 	cmd = exec.Command(binaryPath, append(args, "--insecure")...)
@@ -581,12 +582,12 @@ func TestAuthLogin_BrowserFlagsRejectedOnPathsWithoutBrowser(t *testing.T) {
 		})
 	}
 
-	cmd := exec.Command(binaryPath, "--base-url", "https://youtrack.invalid", "auth", "login", "--save=false", "--no-browser", "--session")
+	cmd := exec.Command(binaryPath, "--base-url", "https://youtrack.invalid", "auth", "login", "--save=false", "--no-browser", "--permanent", "--client-id", "x")
 	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
-	assert.Contains(t, stderr.String(), "--session has no effect with --no-browser")
+	assert.Contains(t, stderr.String(), "--client-id has no effect with --no-browser --permanent")
 
 	// Basic auth never opens the browser either, so --no-browser alongside --login is rejected too.
 	cmd = exec.Command(binaryPath, "--base-url", "https://youtrack.invalid", "auth", "login", "--save=false", "--login", "x", "--password", "y", "--no-browser")
@@ -595,4 +596,27 @@ func TestAuthLogin_BrowserFlagsRejectedOnPathsWithoutBrowser(t *testing.T) {
 	cmd.Stderr = &stderr
 	require.Error(t, cmd.Run())
 	assert.Contains(t, stderr.String(), "--no-browser has no effect with --login or --password")
+}
+
+// A hostile instance can advertise a real Hub on another origin; without a terminal to confirm it, sign-in stops unless --hub-url names it.
+func TestAuthLogin_RefusesCrossOriginHubWithoutHubURL(t *testing.T) {
+	const hubURL = "https://hub.example.invalid/hub"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/config" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ring": map[string]any{"url": hubURL, "serviceId": "svc"}})
+	}))
+	t.Cleanup(srv.Close)
+
+	cmd := exec.Command(binaryPath, "--base-url", srv.URL, "auth", "login", "--web", "--session", "--save=false", "--timeout", "2s")
+	cmd.Env = []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1"}
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	require.Error(t, cmd.Run())
+	assert.Contains(t, stderr.String(), "advertises a Hub on another origin")
+	assert.Contains(t, stderr.String(), "pass --hub-url "+hubURL)
+	assert.NotContains(t, stderr.String(), "authorizationUrl", "no authorization URL is built for the advertised Hub")
 }

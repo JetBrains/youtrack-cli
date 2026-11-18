@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"os"
 	"strings"
 
@@ -28,8 +29,10 @@ func UpdatePromptEnabled() bool {
 
 // DismissUpdate records version as skipped, so the startup prompt stays quiet until a newer release.
 func DismissUpdate(version string) {
-	_, _ = config.Update(func(c *config.Config) error {
-		c.DismissedVersion = version
+	ctx, cancel := context.WithTimeout(context.Background(), updateCheckTimeout)
+	defer cancel()
+	_ = config.Update(ctx, func(cfg *config.Config) error {
+		cfg.DismissedVersion = version
 		return nil
 	})
 }

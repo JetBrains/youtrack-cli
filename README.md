@@ -95,7 +95,14 @@ Authenticate once and the CLI remembers the instance:
 youtrack auth login
 ```
 
-It asks for the YouTrack URL (pre-filled with `https://youtrack.jetbrains.com` or your active instance), opens your browser to sign in through Hub, and saves a permanent token. Pass `--no-browser` to paste a token instead.
+It asks for the YouTrack URL (pre-filled with `https://youtrack.jetbrains.com` or your active instance), opens your browser to sign in through Hub, and saves an OAuth session that refreshes itself. Hub limits the session to 90 days by default. The CLI tells you when to sign in again. Over SSH, pass `--no-browser` and paste the redirect URL back.
+
+For CI and scripts, save a permanent token instead. A permanent token does not expire:
+
+```bash
+youtrack auth login https://example.youtrack.cloud --permanent
+youtrack auth status      # auth method, expiry, refresh token present — never the token itself
+```
 
 Apps and scripts without a terminal sign in through the browser with `--web`: `youtrack auth login https://example.youtrack.cloud --web --json`. It never prompts and fails at once when something is missing. The authorization URL goes to stderr as a `{"authorizationUrl": "..."}` line (a plain line without `--json`), so the caller can open it if the browser does not open.
 
@@ -220,7 +227,7 @@ See [AI agent integration](docs/topics/youtrack-cli-ai-agent-integration.md) for
 ## Learn more
 
 - [Getting started](docs/topics/youtrack-cli-get-started.md) — install, authenticate, and run your first commands
-- [Authentication](docs/topics/youtrack-cli-authentication.md) — tokens, browser SSO, multiple instances, credential precedence
+- [Authentication](docs/topics/youtrack-cli-authentication.md) — tokens, browser SSO (OAuth client registration, headless sign-in, automatic refresh), multiple instances, credential precedence
 - [Configuration](docs/topics/youtrack-cli-configuration.md) — config file, environment variables, global flags, update checks
 - [Scripting and automation](docs/topics/youtrack-cli-scripting.md) — JSON/plain output, field projection, exit codes, CI
 - [Security](docs/security.md) — token disclaimer, `YOUTRACK_RO`, keyring storage, command-mutability reference

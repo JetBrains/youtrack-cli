@@ -3,6 +3,7 @@
 package config
 
 import (
+	"context"
 	"sync"
 	"testing"
 )
@@ -16,7 +17,7 @@ func TestUpdateConcurrent(t *testing.T) {
 	var wg sync.WaitGroup
 	for range n {
 		wg.Go(func() {
-			if _, err := Update(func(c *Config) error { c.LastUpdateCheck++; return nil }); err != nil {
+			if err := Update(context.Background(), func(c *Config) error { c.LastUpdateCheck++; return nil }); err != nil {
 				t.Error(err)
 			}
 		})

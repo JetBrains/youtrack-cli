@@ -13,6 +13,12 @@ import (
 	"github.com/JetBrains/youtrack-cli/internal/config"
 )
 
+// CredentialSource says where GetClient took the token from.
+type CredentialSource struct {
+	Kind  string // "flag" (--token), "env" (YOUTRACK_TOKEN), or "profile" (saved instance)
+	Alias string // saved profile alias when Kind is "profile"
+}
+
 // GetClient builds an API client using a four-tier resolution chain:
 //  1. --base-url / --token flags (explicit per-command override, always wins)
 //  2. --server flag (selects a named profile from config by alias)
@@ -20,7 +26,14 @@ import (
 //  4. Active instance from the config file (set via `instance use`)
 //
 // A token taken from a saved profile (tiers 2 and 4) is only used when the resolved URL has the same origin as that profile.
+// When that profile is an OAuth session with a refresh token, the client refreshes the access token transparently.
 func GetClient(cmd *cobra.Command) (*api.Client, error) {
+	c, _, err := GetClientWithSource(cmd)
+	return c, err
+}
+
+// GetClientWithSource is GetClient that also reports where the token came from (used by auth status).
+func GetClientWithSource(cmd *cobra.Command) (*api.Client, CredentialSource, error) {
 	flags := cmd.Root().PersistentFlags()
 
 	baseURL, _ := flags.GetString("base-url")
@@ -29,16 +42,22 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 
 	// savedTokenAlias/savedTokenURL record which saved profile supplied the token, so it is only ever sent to that profile's origin.
 	var savedTokenAlias, savedTokenURL string
+	// savedInst is the profile whose non-empty token was taken (OAuth sessions refresh through it).
+	var savedInst *config.Instance
+	src := CredentialSource{Kind: "flag"}
+	if token == "" {
+		src = CredentialSource{}
+	}
 
 	// Tier 2: --server flag selects a named profile (per-invocation, does not persist).
 	if (baseURL == "" || token == "") && serverAlias != "" {
 		cfg, err := config.Load()
 		if err != nil {
-			return nil, fmt.Errorf("loading config: %w", err)
+			return nil, src, fmt.Errorf("loading config: %w", err)
 		}
 		inst, ok := cfg.Instances[serverAlias]
 		if !ok {
-			return nil, fmt.Errorf(
+			return nil, src, fmt.Errorf(
 				"unknown server profile %q — run: youtrack instance list\nKnown: %s",
 				serverAlias, strings.Join(cfg.Aliases(), ", "),
 			)
@@ -49,6 +68,9 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 		if token == "" {
 			token = inst.Token
 			savedTokenAlias, savedTokenURL = serverAlias, inst.TokenURL()
+			if token != "" {
+				savedInst, src = &inst, CredentialSource{Kind: "profile", Alias: serverAlias}
+			}
 			warnIfTokenExpired(cmd, serverAlias, &inst)
 		}
 	}
@@ -60,6 +82,9 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	}
 	if token == "" {
 		token = os.Getenv("YOUTRACK_TOKEN")
+		if token != "" {
+			src = CredentialSource{Kind: "env"}
+		}
 	}
 
 	// Tier 4: active config instance as convenience fallback.
@@ -72,18 +97,22 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 				if baseURL == "" {
 					baseURL = inst.URL
 				}
-				if token == "" {
+				// A profile picked with --server never borrows the active profile's token: that may be another account on the same origin.
+				if token == "" && serverAlias == "" {
 					token = inst.Token
 					savedTokenAlias, savedTokenURL = alias, inst.TokenURL()
+					if token != "" {
+						savedInst, src = inst, CredentialSource{Kind: "profile", Alias: alias}
+					}
 					warnIfTokenExpired(cmd, alias, inst)
 				}
 			case alias != "": // currentInstance is set but the alias is missing from the map (stale pointer).
-				return nil, fmt.Errorf(
+				return nil, src, fmt.Errorf(
 					"active instance %q not found in config — run: youtrack instance use <alias>\nKnown: %s",
 					alias, strings.Join(cfg.Aliases(), ", "),
 				)
 			default: // Config has instances but none is selected as active.
-				return nil, fmt.Errorf(
+				return nil, src, fmt.Errorf(
 					"no active instance — run: youtrack instance use <alias>\nKnown: %s",
 					strings.Join(cfg.Aliases(), ", "),
 				)
@@ -92,21 +121,34 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 	}
 
 	if baseURL == "" {
-		return nil, fmt.Errorf(
+		return nil, src, fmt.Errorf(
 			"no instance configured — run: youtrack auth get-token\n" +
 				"(or set YOUTRACK_BASE_URL + YOUTRACK_TOKEN, or use --base-url + --token flags)",
 		)
 	}
 	if token == "" {
-		return nil, fmt.Errorf(
+		// A saved OAuth session without tokens (cleared after a failed refresh, or unreadable in the keyring) gets its own guidance rather than YOUTRACK_TOKEN.
+		if savedTokenAlias != "" {
+			if cfg, err := config.Load(); err == nil {
+				if inst := cfg.Instances[savedTokenAlias]; inst.AuthMethod == config.AuthMethodOAuth {
+					return nil, CredentialSource{Kind: "profile", Alias: savedTokenAlias}, sessionUnusableError(savedTokenAlias, &inst)
+				}
+			}
+		}
+		return nil, src, fmt.Errorf(
 			"YOUTRACK_TOKEN is not set — run: youtrack auth get-token\n" +
 				"(or set YOUTRACK_TOKEN, or use --token flag)",
 		)
 	}
 
+	if savedInst != nil {
+		if err := requireReadableTokenURL(savedTokenAlias, savedInst); err != nil {
+			return nil, src, err
+		}
+	}
 	// A saved token is bound to its instance: never forward it to a URL overridden via --base-url or YOUTRACK_BASE_URL.
-	if savedTokenURL != "" && !sameOrigin(baseURL, savedTokenURL) {
-		return nil, fmt.Errorf(
+	if savedTokenURL != "" && !SameOrigin(baseURL, savedTokenURL) {
+		return nil, src, fmt.Errorf(
 			"refusing to send the saved token for %q (%s) to %s — pass --token or set YOUTRACK_TOKEN for that instance, or select its profile with --server <alias>",
 			savedTokenAlias, savedTokenURL, baseURL,
 		)
@@ -117,14 +159,21 @@ func GetClient(cmd *cobra.Command) (*api.Client, error) {
 			"warning: %s uses plain http — the token is sent unencrypted; switch the instance URL to https\n", baseURL)
 	}
 
-	return configureClient(cmd, api.NewClient(baseURL, token)), nil
+	c := configureClient(cmd, api.NewClient(baseURL, token))
+	if savedInst != nil && canRefresh(savedInst) {
+		c.TokenSource = newOAuthSession(savedTokenAlias, savedInst, verboseWriter(cmd)).Token
+	}
+	return c, src, nil
 }
 
 // RequireTokenURL refuses to sign in again for a saved profile whose config-file URL has another origin than the URL its keyring token is bound to.
 // Renewing would send the password or a browser sign-in to a host set by whoever edited the config file, and bind the new token to it.
 func RequireTokenURL(alias string, inst *config.Instance) error {
+	if err := requireReadableTokenURL(alias, inst); err != nil {
+		return err
+	}
 	tokenURL := inst.TokenURL()
-	if tokenURL == inst.URL || sameOrigin(inst.URL, tokenURL) {
+	if tokenURL == inst.URL || SameOrigin(inst.URL, tokenURL) {
 		return nil
 	}
 	path, _ := config.ConfigPath()
@@ -134,8 +183,16 @@ func RequireTokenURL(alias string, inst *config.Instance) error {
 	)
 }
 
-// sameOrigin reports whether two instance URLs share scheme, host and port (default ports normalized); unparsable or host-less URLs never match.
-func sameOrigin(a, b string) bool {
+// requireReadableTokenURL refuses a keyring token whose bound URL could not be read: TokenURL would fall back to the editable config file URL.
+func requireReadableTokenURL(alias string, inst *config.Instance) error {
+	if inst.TokenURLUnreadable() {
+		return fmt.Errorf("cannot read the URL the saved token for %q is bound to from the OS keyring — unlock the keyring and retry", alias)
+	}
+	return nil
+}
+
+// SameOrigin reports whether two instance URLs share scheme, host and port (default ports normalized); unparsable or host-less URLs never match.
+func SameOrigin(a, b string) bool {
 	ua, errA := url.Parse(strings.TrimSpace(a))
 	ub, errB := url.Parse(strings.TrimSpace(b))
 	if errA != nil || errB != nil || ua.Hostname() == "" || ub.Hostname() == "" {
@@ -160,13 +217,36 @@ func originPort(u *url.URL) string {
 	return ""
 }
 
-// warnIfTokenExpired prints a stderr renewal hint when a stored token is past its expiry, before the follow-up request 401s.
+// sessionEndWarning is how long before the estimated end of an OAuth session the CLI starts asking for a new sign-in.
+const sessionEndWarning = 7 * 24 * time.Hour
+
+// sessionEndingHint returns the sign-in reminder for an OAuth session whose refresh token expires soon, or "" when none is due.
+// Hub returns no refresh-token lifetime, so the end comes from inst.SessionExpiresAt (zero when unknown).
+func sessionEndingHint(alias string, inst *config.Instance, now time.Time) string {
+	end := inst.SessionExpiresAt()
+	if end == 0 || now.Add(sessionEndWarning).Unix() < end {
+		return ""
+	}
+	date := time.Unix(end, 0).Format("2006-01-02")
+	if now.Unix() >= end {
+		return fmt.Sprintf("the OAuth session for %q may end at any time (estimated end: %s) — sign in again: youtrack auth login %s", alias, date, alias)
+	}
+	return fmt.Sprintf("the OAuth session for %q ends about %s — sign in again: youtrack auth login %s", alias, date, alias)
+}
+
+// warnIfTokenExpired prints a stderr renewal hint when a stored token is past its expiry, before the follow-up request 401s,
+// and a reminder when an OAuth session is about to end.
 func warnIfTokenExpired(cmd *cobra.Command, alias string, inst *config.Instance) {
-	if inst.TokenExpiresAt == 0 || time.Now().Unix() < inst.TokenExpiresAt {
+	if quiet, _ := cmd.Root().PersistentFlags().GetBool("quiet"); !quiet {
+		if hint := sessionEndingHint(alias, inst, time.Now()); hint != "" {
+			_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "  Tip: %s\n", hint)
+		}
+	}
+	if inst.TokenExpiresAt == 0 || time.Now().Unix() < inst.TokenExpiresAt || canRefresh(inst) {
 		return
 	}
 	_, _ = fmt.Fprintf(cmd.ErrOrStderr(),
-		"warning: token for %q expired at %s — run: youtrack instance login %s\n",
+		"warning: token for %q expired at %s — run: youtrack auth login %s\n",
 		alias, time.Unix(inst.TokenExpiresAt, 0).Format("2006-01-02 15:04"), alias)
 }
 

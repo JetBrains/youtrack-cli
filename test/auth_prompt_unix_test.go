@@ -13,7 +13,6 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"sync"
@@ -108,10 +107,10 @@ func TestAuthLogin_InteractivePromptsPrefillURLFromConfig(t *testing.T) {
 
 	home := t.TempDir()
 	cfg := `{"currentInstance":"harness","instances":{"harness":{"url":"` + baseURL + `"}}}`
-	require.NoError(t, os.WriteFile(filepath.Join(home, ".youtrack-cli-config.json"), []byte(cfg), 0o600))
+	configFixture(t, home, cfg)
 
 	s := startPTY(t, []string{"PATH=" + os.Getenv("PATH"), "HOME=" + home, "YOUTRACK_DISABLE_KEYRING=1", "TERM=tmux-256color"},
-		"--plain", "auth", "login", "--no-browser", "--save=false")
+		"--plain", "auth", "login", "--no-browser", "--permanent", "--save=false")
 
 	s.waitFor("YouTrack URL")
 	s.waitFor(baseURL) // pre-filled from the active instance
@@ -129,7 +128,7 @@ func TestAuthLogin_InteractivePromptsPrefillURLFromConfig(t *testing.T) {
 
 func TestAuthLogin_InteractivePromptCtrlCCancels(t *testing.T) {
 	s := startPTY(t, []string{"PATH=" + os.Getenv("PATH"), "HOME=" + t.TempDir(), "YOUTRACK_DISABLE_KEYRING=1", "TERM=tmux-256color"},
-		"auth", "login", "--no-browser", "--save=false")
+		"auth", "login", "--no-browser", "--permanent", "--save=false")
 
 	s.waitFor("https://youtrack.jetbrains.com") // the default when no instance is configured
 	s.send("\x03")
@@ -363,12 +362,13 @@ func TestAuthLogin_SessionReplacingPermanentTokenWarns(t *testing.T) {
 	require.True(t, ok)
 
 	out := h.signIn(t, env, func(q url.Values) {
-		assert.Equal(t, h.serviceID, q.Get("scope"), "--session does not request Hub's scope")
-	}, "--alias", "renew", "--session")
-	assert.Contains(t, out, `Session token saved as "renew"`)
+		assert.Equal(t, h.serviceID, q.Get("scope"), "a session does not request Hub's scope")
+		assert.Equal(t, "offline", q.Get("access_type"), "a session asks for a refresh token")
+	}, "--alias", "renew") // no flag: a session is the default
+	assert.Contains(t, out, `Session saved as "renew"`)
 	assert.Contains(t, out, `the permanent token previously saved for "renew" is still valid in Hub`)
 	_, _, isPerm := api.ParsePermanentToken(savedToken(t, env, "renew"))
-	assert.False(t, isPerm, "--session saves the access token")
+	assert.False(t, isPerm, "a session saves the access token")
 	assert.Contains(t, h.hubTokenNames(t), permID, "the session token cannot revoke it, so it stays")
 }
 
@@ -391,7 +391,7 @@ func TestAuthLogin_BrowserFlagsShapeAuthorizeURL(t *testing.T) {
 			s := startPTY(t, ptyEnv(t), append([]string{"--plain", "--base-url", h.baseURL, "auth", "login", "--save=false", "--client-id", h.clientID, "--timeout", "2s"}, tc.flags...)...)
 			tc.check(t, s.authorizeURL().Query())
 			require.Error(t, s.wait(), "login must end in the timeout, output:\n%s", s.output())
-			assert.Contains(t, s.output(), "timeout waiting for browser callback (2s)")
+			assert.Contains(t, s.output(), "sign-in timed out after 2s without a browser callback")
 		})
 	}
 }
@@ -412,9 +412,9 @@ func TestAuthLogin_FallsBackToPasteWithoutOAuthClient(t *testing.T) {
 	requireE2EEnv(t)
 	token := os.Getenv("YOUTRACK_TOKEN")
 
-	// The harness Hub has no "localhost-auth" client, so the pre-flight fails and login falls back to pasting a token.
+	// The harness Hub has no "youtrack-cli" client, so the pre-flight fails and login falls back to pasting a token.
 	s := startPTY(t, ptyEnv(t), "--plain", "instance", "login", os.Getenv("YOUTRACK_BASE_URL"), "--save=false")
-	s.waitFor(`no public CLI OAuth client ("localhost-auth")`)
+	s.waitFor(`Hub did not accept OAuth client "youtrack-cli"`)
 	s.waitFor("Open browser to create a token?")
 	s.send("n")
 	s.waitFor("Paste your token")
@@ -450,15 +450,37 @@ func TestAuthLogin_RejectsUnsafeHubURL(t *testing.T) {
 	assert.NotContains(t, s.output(), "oauth2/auth")
 }
 
+// The one other stand-in server here: an instance advertising an external Hub, which the harness (embedded Hub) cannot play.
+func TestAuthLogin_ExternalHubNeedsConfirmation(t *testing.T) {
+	const hubURL = "https://hub.example.invalid/hub"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/api/config" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"ring": map[string]any{"url": hubURL, "serviceId": "svc"}})
+	}))
+	t.Cleanup(srv.Close)
+
+	s := startPTY(t, ptyEnv(t), "--plain", "--base-url", srv.URL, "auth", "login", "--session", "--save=false", "--timeout", "2s")
+	s.waitFor("uses the external Hub " + hubURL)
+	s.send("n")
+	require.Error(t, s.wait())
+	assert.Contains(t, s.output(), "sign-in canceled")
+	assert.NotContains(t, s.output(), "oauth2/auth", "no authorization URL is built for an unconfirmed Hub")
+}
+
 func TestAuthLogin_FlagsRejectedWithBrowserSignIn(t *testing.T) {
 	requireE2EEnv(t)
-	// --token-name alone is accepted: browser sign-in names the permanent token it creates. With --session there is no such token.
+	// --token-name alone is accepted: it implies --permanent and names the token. With --session there is no such token.
 	for name, tc := range map[string]struct {
 		flags []string
 		want  string
 	}{
 		"insecure":             {flags: []string{"--insecure"}, want: "--insecure has no effect with browser sign-in"},
-		"token-name w/session": {flags: []string{"--session", "--token-name", "build-agent"}, want: "--token-name has no effect with --session"},
+		"token-name w/session": {flags: []string{"--session", "--token-name", "build-agent"}, want: "[session token-name] were all set"},
+		"permanent w/session":  {flags: []string{"--session", "--permanent"}, want: "[permanent session] were all set"},
 	} {
 		t.Run(name, func(t *testing.T) {
 			s := startPTY(t, ptyEnv(t), append([]string{"--plain", "--base-url", os.Getenv("YOUTRACK_BASE_URL"), "auth", "login", "--save=false"}, tc.flags...)...)
