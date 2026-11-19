@@ -56,14 +56,14 @@ snapshot:
 docs-package:
 	./scripts/docs-package.sh
 
-# Writerside build of docs/writerside/ into docs-out/site/; the builder recreates OUTPUT_DIR, so it must not be the mount point.
+# Writerside build of docs/portal/ into docs-out/site/; the builder recreates OUTPUT_DIR, so it must not be the mount point.
 # On Apple Silicon, Docker needs Rosetta for amd64 images.
 docs-build:
 	rm -rf docs-out && mkdir -p docs-out
 	docker run --rm --platform linux/amd64 \
-		-v "$(CURDIR)/docs/writerside:/opt/sources/writerside:ro" -v "$(CURDIR)/docs-out:/opt/wrs" \
+		-v "$(CURDIR)/docs/portal:/opt/sources/portal:ro" -v "$(CURDIR)/docs-out:/opt/wrs" \
 		-e SOURCE_DIR=/opt/sources -e OUTPUT_DIR=/opt/wrs/site \
-		-e MODULE_INSTANCE=writerside/youtrack-cli -e RUNNER=other \
+		-e MODULE_INSTANCE=portal/youtrack-cli -e RUNNER=other \
 		jetbrains/writerside-builder:2026.10.0423
 
 clean:

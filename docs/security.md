@@ -106,7 +106,7 @@ Browser sign-in (`auth login`) uses the OAuth 2.0 authorization code flow with P
 - **PKCE always, S256 only.** S256 is the SHA-256 method of PKCE. The CLI generates a new 256-bit verifier for each attempt. If Hub lists PKCE methods without `S256`, the sign-in stops.
 - **State.** The CLI compares a random, single-use `state` value in constant time. It rejects a callback or a pasted URL with another `state` and never exchanges its code.
 - **Loopback only.** The redirect listener binds to `127.0.0.1`, never to a wildcard address. It serves only the path `/`, accepts exactly one valid callback, and then closes. The CLI never logs query strings. The browser page is static: it has no code or token, loads no remote resources (`Content-Security-Policy: default-src 'none'`), and sends `Referrer-Policy: no-referrer`.
-- **No client secret.** The CLI never sends client credentials. If Hub answers `invalid_client`, check that the OAuth client has __Authorization Code flow__ and __Require PKCE__ enabled and requires no __Client secret__. See [Registering an OAuth client](writerside/topics/youtrack-cli-authentication.md#registering-an-oauth-client).
+- **No client secret.** The CLI never sends client credentials. If Hub answers `invalid_client`, check that the OAuth client has __Authorization Code flow__ and __Require PKCE__ enabled and requires no __Client secret__. See [Registering an OAuth client](portal/topics/youtrack-cli-authentication.md#registering-an-oauth-client).
 - **TLS.** The instance URL and the Hub URL must use `https`. Plain `http` works only for a loopback host (`localhost`, `127.0.0.1`, `::1`), where the traffic stays on the computer. The CLI refuses remote `http`. The CLI never turns off certificate verification. OAuth endpoints from discovery must have the same origin as the Hub, and requests to them never follow redirects.
 - **URL building.** The CLI builds the authorization URL from validated parts with standard query encoding. The browser gets the URL as one process argument, never through a shell.
 - **Tokens are never printed.** `auth login` shows only a masked prefix. `auth status` shows only the method, the expiry, and whether a refresh token exists. `--verbose` logs only the method, URL, and status. The CLI never logs headers or OAuth request bodies.
@@ -248,7 +248,7 @@ Destructive commands (deletes, bans, archives, and similar) ask for confirmation
 
 ## See also
 
-- [Scripting and Automation](writerside/topics/youtrack-cli-scripting.md)
-- [AI Agent Integration](writerside/topics/youtrack-cli-ai-agent-integration.md)
-- [Authentication](writerside/topics/youtrack-cli-authentication.md)
-- [Configuration](writerside/topics/youtrack-cli-configuration.md)
+- [Scripting and Automation](portal/topics/youtrack-cli-scripting.md)
+- [AI Agent Integration](portal/topics/youtrack-cli-ai-agent-integration.md)
+- [Authentication](portal/topics/youtrack-cli-authentication.md)
+- [Configuration](portal/topics/youtrack-cli-configuration.md)
