@@ -1,15 +1,14 @@
-[//]: # (title: Getting Started)
+# Getting Started
 
 <show-structure for="chapter" depth="2"/>
 
 YouTrack CLI lets you manage issues, projects, and users from the command line. This page shows how to install the `youtrack` binary, connect it to your YouTrack instance, and run your first commands. Do the steps in order: install, sign in, verify, then run commands.
 
-## Install the single binary for your platform {id="install"}
+## Install the single binary for your platform
 
 YouTrack CLI ships as a single binary for macOS, Linux, and Windows. Choose the channel that fits your platform. The install scripts verify the downloaded archive against `checksums.txt`. If `gpg` is installed, the scripts also verify the signature against the pinned JetBrains key.
 
-<tabs>
-<tab title="macOS and Linux">
+### macOS and Linux
 
 **Homebrew (recommended):**
 
@@ -33,7 +32,7 @@ To choose a version and directory explicitly, pass them as arguments. Replace `<
 curl -fsSL https://jb.gg/youtrack-cli/install | bash -s -- <version> "$HOME/.local/bin"
 ```
 
-<chapter title="Install from a .deb or .rpm package (advanced)" collapsible="true" default-state="collapsed">
+#### Install from a .deb or .rpm package (advanced)
 
 For ARM machines, replace `amd64` with `arm64` in the commands below.
 
@@ -51,10 +50,7 @@ curl -fsSLO https://github.com/JetBrains/youtrack-cli/releases/latest/download/y
 sudo rpm -i youtrack_linux_amd64.rpm
 ```
 
-</chapter>
-
-</tab>
-<tab title="Windows">
+### Windows
 
 **Winget (recommended):**
 
@@ -93,9 +89,6 @@ The installers detect x86-64 or ARM64, install to `$env:USERPROFILE\.local\bin`,
 
 As an alternative, download the matching `youtrack_<version>_windows_x86_64.zip` or `youtrack_<version>_windows_arm64.zip` from the [Releases](https://github.com/JetBrains/youtrack-cli/releases/latest) page, extract it, and add the folder that contains `youtrack.exe` to your `PATH`.
 
-</tab>
-</tabs>
-
 ### Install from source with go install
 
 If you have a Go toolchain (Go 1.26 or later), install YouTrack CLI from source:
@@ -116,7 +109,7 @@ youtrack --version
 
 A release build prints its version, its commit, and its build date, for example `youtrack 0.8.2 (<commit>, <date>)`. A `go install` build carries no version data and prints `youtrack dev (unknown, unknown)`.
 
-### Upgrade with youtrack update {id="upgrade"}
+### Upgrade with youtrack update
 
 To upgrade, run:
 
@@ -126,7 +119,7 @@ youtrack update
 
 The command checks GitHub for a newer release and upgrades through the same install method, for example Homebrew or the install script. If the CLI cannot upgrade that install method safely (apt, rpm, AUR), it prints manual instructions. Update other package-managed installations through their package manager.
 
-## Sign in through the browser, or use a token for CI {id="credentials"}
+## Sign in through the browser, or use a token for CI
 
 YouTrack CLI authenticates to the YouTrack REST API with an OAuth session or a permanent token. An OAuth session is a browser sign-in based on the OAuth 2.0 standard. It renews itself and suits interactive use. A permanent token does not expire, so it suits scripts and continuous integration (CI) pipelines. You can sign in interactively or pass a token through environment variables.
 
@@ -148,9 +141,11 @@ Saved tokens use the OS keyring when it is available. The config file at `~/.con
 
 For CI, containers, or a single instance, export your base URL and token instead.
 
-> Treat the token like a password. Do not pass it as a command-line flag in scripts, where it can appear in shell history. YouTrack does not offer granular token scopes, so any token grants full account access. See [Security](youtrack-cli-security.md).
->
-{style="warning"}
+<warning>
+
+Treat the token like a password. Do not pass it as a command-line flag in scripts, where it can appear in shell history. YouTrack does not offer granular token scopes, so any token grants full account access. See [Security](youtrack-cli-security.md).
+
+</warning>
 
 First, create a permanent token in YouTrack:
 
@@ -165,7 +160,7 @@ export YOUTRACK_BASE_URL=https://example.youtrack.cloud
 export YOUTRACK_TOKEN=perm:...
 ```
 
-## Verify the connection {id="verify"}
+## Verify the connection
 
 After you sign in or export the variables, check the saved credentials and the connection:
 
@@ -201,8 +196,6 @@ youtrack issue view DEMO-1
 Add `--comments 5` to include the five most recent comments.
 
 > To look up a project's short name, run `youtrack project list`.
->
-{style="tip"}
 
 Create an issue with `youtrack issue create`. Specify the project by its short name and provide a summary:
 

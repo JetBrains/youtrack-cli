@@ -1,4 +1,4 @@
-[//]: # (title: AI Agent Integration)
+# AI Agent Integration
 
 <show-structure for="chapter" depth="2"/>
 
@@ -35,9 +35,11 @@ The command detects which AI coding agents are set up on your system and install
 
 Each install is a short stub. The stub tells the agent to run `youtrack skill guide`, which prints the full guide from the installed `youtrack` binary. So the guide always matches your CLI version, also after you upgrade the CLI.
 
-> The skill installs globally by default, into your home configuration. To install it for one project only, use `--project`.
->
-{style="note"}
+<note>
+
+The skill installs globally by default, into your home configuration. To install it for one project only, use `--project`.
+
+</note>
 
 ### Install for specific agents
 
@@ -68,7 +70,7 @@ By default only the `youtrack-cli` skill is installed. Use `--all` to install ev
 youtrack skill install --all
 ```
 
-## Read the guide with `skill guide` {id="guide"}
+## Read the guide with `skill guide`
 
 Print the guide of a bundled skill as Markdown. Agents run this command when they read the installed stub, and you can run it yourself:
 
@@ -175,11 +177,13 @@ The skill gives an agent a task-oriented reference to YouTrack CLI. It covers:
 - Output formats, including when to add `--json` for machine-readable output.
 - YouTrack-specific gotchas, such as `project create` requiring `--leader`, `project team add-user` expecting opaque IDs rather than logins, and how logins are wrapped for the command parser.
 
-## Read-only mode blocks accidental writes, not a determined agent {id="read-only"}
+## Read-only mode blocks accidental writes, not a determined agent
 
-> Read-only mode is a safety net, not a security boundary. `YOUTRACK_RO` is an environment variable, so the agent can unset it, and the token keeps its full access. To limit an agent, give it a token from a user that has only the permissions the agent needs. See [Security](youtrack-cli-security.md).
->
-{style="warning"}
+<warning>
+
+Read-only mode is a safety net, not a security boundary. `YOUTRACK_RO` is an environment variable, so the agent can unset it, and the token keeps its full access. To limit an agent, give it a token from a user that has only the permissions the agent needs. See [Security](youtrack-cli-security.md).
+
+</warning>
 
 If you want to prevent accidental creates, updates, and deletes, export `YOUTRACK_RO=1` in the agent's session before the agent runs any `youtrack` command. Only the value `1` enables read-only mode. Other values, such as `true` or `yes`, do not block writes.
 

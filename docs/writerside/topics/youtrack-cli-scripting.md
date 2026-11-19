@@ -1,10 +1,10 @@
-[//]: # (title: Scripting and Automation)
+# Scripting and Automation
 
 <show-structure for="chapter" depth="2"/>
 
 YouTrack CLI works in scripts, pipelines, and agents without extra setup. This page describes the machine-readable output modes, field projections, exit codes, and the `raw` command for any REST endpoint. Read it before you parse CLI output in a script.
 
-## Output is JSON when stdout is not a terminal {id="json-output"}
+## Output is JSON when stdout is not a terminal
 
 Every command detects whether its output is going to a terminal. If stdout is not a terminal, for example a pipe, a redirect, or a continuous integration (CI) job, YouTrack CLI switches to JSON (JavaScript Object Notation) automatically. You do not have to pass a flag.
 
@@ -26,9 +26,11 @@ Read commands print the entity or list as JSON. Write commands behave in one of 
 
 Declining a confirmation exits with code `0`. In JSON mode, destructive commands such as `issue delete` report `{"status":"canceled","message":"Canceled."}` on stdout; table and plain modes print `Canceled.`. Check the status to distinguish a canceled operation from a completed one.
 
-> The CLI writes successful data to stdout. In JSON mode, the CLI writes a failure as a structured `{"error":{...}}` object to stderr and exits with code `1`. Stdout stays safe for `jq`, and error text does not get into a data pipeline.
->
-{style="note"}
+<note>
+
+The CLI writes successful data to stdout. In JSON mode, the CLI writes a failure as a structured `{"error":{...}}` object to stderr and exits with code `1`. Stdout stays safe for `jq`, and error text does not get into a data pipeline.
+
+</note>
 
 An error object for an API error looks like this. The message starts with the HTTP status, followed by the server message:
 
@@ -44,7 +46,7 @@ An error object for an API error looks like this. The message starts with the HT
 
 API errors use the codes `unauthorized`, `forbidden`, `not_found`, `unavailable`, and `api_error`. A response that the CLI cannot decode uses `unexpected_response`. All other errors use `internal_error`, for example a missing required flag.
 
-## Select fields with `--fields` {id="fields"}
+## Select fields with `--fields`
 
 The `--fields` flag (short `-f`) takes a comma-separated projection. In table and plain output, the projection selects the columns. In every format, the CLI adds the projection to the field set that it requests from YouTrack, so you can get fields that the default projection omits.
 
@@ -59,11 +61,11 @@ youtrack issue view DEMO-42 --fields "idReadable,summary,project.shortName"
 youtrack issue list --query "for: me" --fields "idReadable,project(shortName)"
 ```
 
-On `issue list`, an entry that is not an issue attribute is read as a custom field name, so `--fields "idReadable,Priority,State"` shows those custom fields as columns (see [Find issues with a search query](youtrack-cli-managing-issues.md#list)).
+On `issue list`, an entry that is not an issue attribute is read as a custom field name, so `--fields "idReadable,Priority,State"` shows those custom fields as columns (see [Find issues with a search query](youtrack-cli-managing-issues.md#find-issues-with-a-search-query)).
 
 In table and plain output, each projected field becomes a column. The CLI does **not** trim JSON output to the projection: it prints the full response, and the projection only widens what the server returns. If you need only a few keys, filter the JSON with a tool like `jq`.
 
-## Plain output feeds grep and awk {id="plain"}
+## Plain output feeds grep and awk
 
 The `--plain` flag prints tab-separated rows with no headers, colors, or box drawing. Combine it with `--fields` to feed line-oriented tools:
 
@@ -78,7 +80,7 @@ Add `--quiet` to suppress tips, hints, and the startup update notice, all of whi
 youtrack issue list --query "for: me" --plain --quiet
 ```
 
-## Pipe JSON to jq without flags {id="jq"}
+## Pipe JSON to jq without flags
 
 Because a pipe already selects JSON, you can send output straight to `jq`. Extract the IDs of your open issues:
 
@@ -93,11 +95,11 @@ id=$(youtrack issue create --project DEMO --summary "Nightly build failed" | jq 
 youtrack issue comment create "$id" --text "Filed automatically by CI"
 ```
 
-## Exit code 0 means success, 1 means failure {id="exit-codes"}
+## Exit code 0 means success, 1 means failure
 
 Scripts must branch on the exit code, not on parsed text. YouTrack CLI returns `0` on success and `1` on every failure.
 
-<table>
+<table style="none">
 <tr><td>Exit code</td><td>Meaning</td></tr>
 <tr><td>
 
@@ -125,7 +127,7 @@ else
 fi
 ```
 
-## Call any endpoint with `raw` {id="raw"}
+## Call any endpoint with `raw`
 
 The `raw` command sends an authenticated request to any endpoint under `<base URL>/api`. Use it to reach parts of the REST API that do not have a dedicated command. It uses your configured credentials, so you do not handle the token yourself.
 
@@ -252,13 +254,15 @@ Items per request with `--paginate`. The default is 100.
 </tr>
 </table>
 
-## Use environment variables and `--quiet` in CI {id="ci"}
+## Use environment variables and `--quiet` in CI
 
-> Treat the token like a password. Set it from a CI secret. Do not pass it as a `--token` flag, where it can get into build logs or shell history. Any token grants full account access. See [Security](youtrack-cli-security.md).
->
-{style="warning"}
+<warning>
 
-A CI job has no terminal, so output is JSON without any flag. Provide credentials through the [environment variables](youtrack-cli-authentication.md#auth-env-vars). Add `--quiet` to keep hints and the update notice out of stderr:
+Treat the token like a password. Set it from a CI secret. Do not pass it as a `--token` flag, where it can get into build logs or shell history. Any token grants full account access. See [Security](youtrack-cli-security.md).
+
+</warning>
+
+A CI job has no terminal, so output is JSON without any flag. Provide credentials through the [environment variables](youtrack-cli-authentication.md#setting-environment-variables). Add `--quiet` to keep hints and the update notice out of stderr:
 
 ```Shell
 export YOUTRACK_BASE_URL=https://example.youtrack.cloud

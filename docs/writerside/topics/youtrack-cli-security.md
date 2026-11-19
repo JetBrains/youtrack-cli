@@ -1,13 +1,16 @@
-[//]: # (title: Security)
+# Security
 
 <show-structure for="chapter" depth="2"/>
 
 This page describes how YouTrack CLI protects tokens and what the CLI cannot protect. A token has the full permissions of its user, so read this page before you use the CLI in pipelines or give it to an AI agent. For automation, use a permanent token of a dedicated user with only the permissions that the automation needs.
 
-## A token can do everything that its user can do {id="token-scope"}
+## A token can do everything that its user can do
 
-> YouTrack does not support permission scopes for permanent tokens.
-{style="warning"}
+<warning>
+
+YouTrack does not support permission scopes for permanent tokens.
+
+</warning>
 
 A token that you create on the __Account Security__ tab of your profile has access to everything that your YouTrack user can do. You cannot create a token that is limited to read access or to one project. As a result:
 
@@ -16,12 +19,12 @@ A token that you create on the __Account Security__ tab of your profile has acce
 
 Before you use `youtrack` in automated pipelines or with AI agents:
 
-- Find out which commands change data. See [Command mutability reference](#command-mutability).
-- If only reads are necessary, set `YOUTRACK_RO=1`. See [Read-only mode](#read-only-mode).
+- Find out which commands change data. See [Command mutability reference](#command-mutability-reference).
+- If only reads are necessary, set `YOUTRACK_RO=1`. See [Read-only mode](#read-only-mode-is-a-safety-net-not-a-security-boundary).
 - Store tokens in a secrets manager, for example GitHub Actions secrets or Vault. Do not commit tokens to version control.
 - Rotate tokens regularly. Revoke a token when you stop using its pipeline or integration.
 
-## The OS keyring stores saved tokens {id="token-storage"}
+## The OS keyring stores saved tokens
 
 `auth login`, `instance add`, `instance login`, and `auth refresh-token` store tokens in the OS keyring when one is available:
 
@@ -47,8 +50,11 @@ The OAuth session entry has these rules:
 - If the config file names a version that is not in the keyring, the CLI does not refresh the session and asks you to sign in again.
 - If the CLI cannot read the keyring, it asks you to unlock the keyring. You do not have to sign in again.
 
-> The keyring does not protect the token from other processes of the same user. On macOS, the keyring library reads the Keychain through `/usr/bin/security`, so every process of your user can read the token without a prompt. An AI agent with shell access can also read the token. Give an agent only the access that the token gives your user.
-{style="warning"}
+<warning>
+
+The keyring does not protect the token from other processes of the same user. On macOS, the keyring library reads the Keychain through `/usr/bin/security`, so every process of your user can read the token without a prompt. An AI agent with shell access can also read the token. Give an agent only the access that the token gives your user.
+
+</warning>
 
 If no keyring is available, for example on headless Linux, in CI containers, or with a locked keychain, the CLI stores the token in `~/.config/youtrack/config.json` with mode `0600` and prints a warning to stderr. The CLI writes the file to a new temporary file and then renames it. If the CLI cannot limit the file permissions to the owner, it does not write tokens to the file. The next successful save moves tokens from the file to the keyring and removes them from the file.
 
@@ -60,7 +66,7 @@ To use file storage and not the keyring, for example in deterministic CI setups,
 export YOUTRACK_DISABLE_KEYRING=1
 ```
 
-## A saved token goes only to its own instance {id="token-binding"}
+## A saved token goes only to its own instance
 
 A saved token is bound to the origin (scheme, host, and port) of its instance. If `--base-url`, `YOUTRACK_BASE_URL`, or the config file points to another origin and you give no explicit token, the CLI does not run. It does not send the saved token to that host.
 
@@ -70,7 +76,7 @@ For a keyring token, the CLI compares the origin with the URL in the `youtrack-c
 
 If the server redirects to another scheme, host, or port, the CLI follows the redirect without the `Authorization` header. This includes a redirect from `https` to `http` on the same host and a redirect to a subdomain. A redirect from `http` to `https` on the same host keeps the header, so an `http://` instance URL behind a proxy that redirects to `https` works. A default port is equal to no port: `https://host` and `https://host:443` are the same origin.
 
-## The CLI masks tokens in its output {id="token-output"}
+## The CLI masks tokens in its output
 
 `auth login`, `auth refresh-token`, `instance add`, and `instance refresh-token` mask the token in every output format: table, plain, and JSON. To print the full token, pass `--show-token`. A script that reads the token from the output must pass `--show-token`. For example, to get a permanent token for a CI secret store:
 
@@ -78,10 +84,13 @@ If the server redirects to another scheme, host, or port, the CLI follows the re
 youtrack auth login --base-url https://example.youtrack.cloud --permanent --save=false --json --show-token | jq -r .token
 ```
 
-> Add `--permanent` to this command. Without it, the command prints the OAuth access token, which expires in about one hour.
-{style="warning"}
+<warning>
 
-## Plain http sends the token unencrypted {id="plain-http"}
+Add `--permanent` to this command. Without it, the command prints the OAuth access token, which expires in about one hour.
+
+</warning>
+
+## Plain http sends the token unencrypted
 
 If the instance URL uses plain `http` and the host is not a loopback address (`localhost`, `127.0.0.1`, `::1`), every command prints a warning to stderr: the token goes over the network unencrypted.
 
@@ -89,26 +98,26 @@ Basic auth (`auth login --login`, `auth refresh-token`, `instance refresh-token`
 
 The `YOUTRACK_TOKEN` environment variable and the `--token` flag do not use stored credentials, and these rules do not apply to them. In automation, use an environment secret, not a token on the command line. Command-line arguments can appear in shell history and process listings.
 
-## Browser sign-in uses OAuth with PKCE and no client secret {id="browser-oauth"}
+## Browser sign-in uses OAuth with PKCE and no client secret
 
 Browser sign-in (`auth login`) uses the OAuth 2.0 authorization code flow with Proof Key for Code Exchange (PKCE), without a client secret:
 
 - **PKCE always, S256 only.** S256 is the SHA-256 method of PKCE. The CLI generates a new 256-bit verifier for each attempt. If Hub lists PKCE methods without `S256`, the sign-in stops.
 - **State.** The CLI compares a random, single-use `state` value in constant time. It rejects a callback or a pasted URL with another `state` and never exchanges its code.
 - **Loopback only.** The redirect listener binds to `127.0.0.1`, never to a wildcard address. It serves only the path `/`, accepts exactly one valid callback, and then closes. The CLI never logs query strings. The browser page is static: it has no code or token, loads no remote resources (`Content-Security-Policy: default-src 'none'`), and sends `Referrer-Policy: no-referrer`.
-- **No client secret.** The CLI never sends client credentials. If Hub answers `invalid_client`, check that the OAuth client has __Authorization Code flow__ and __Require PKCE__ enabled and requires no __Client secret__. See [Registering an OAuth client](youtrack-cli-authentication.md#oauth-client).
+- **No client secret.** The CLI never sends client credentials. If Hub answers `invalid_client`, check that the OAuth client has __Authorization Code flow__ and __Require PKCE__ enabled and requires no __Client secret__. See [Registering an OAuth client](youtrack-cli-authentication.md#registering-an-oauth-client).
 - **TLS.** The instance URL and the Hub URL must use `https`. Plain `http` works only for a loopback host (`localhost`, `127.0.0.1`, `::1`), where the traffic stays on the computer. The CLI refuses remote `http`. The CLI never turns off certificate verification. OAuth endpoints from discovery must have the same origin as the Hub, and requests to them never follow redirects.
 - **URL building.** The CLI builds the authorization URL from validated parts with standard query encoding. The browser gets the URL as one process argument, never through a shell.
 - **Tokens are never printed.** `auth login` shows only a masked prefix. `auth status` shows only the method, the expiry, and whether a refresh token exists. `--verbose` logs only the method, URL, and status. The CLI never logs headers or OAuth request bodies.
 - **Refresh.** The CLI stores the expiry as an absolute time (time of receipt plus `expires_in`) and refreshes the token 60 seconds early, so clock differences do not matter. A new refresh token replaces the old one with an atomic file write. Processes refresh one at a time through a lock file. If Hub reports that the refresh token is revoked or expired (`invalid_grant` or `expired_refresh_token`), the CLI deletes the stale credentials.
 
-## The CLI removes terminal control characters from server text {id="untrusted-content"}
+## The CLI removes terminal control characters from server text
 
 Text from YouTrack (summaries, descriptions, comments, names, error messages) comes from other users. In table and plain output, the CLI removes terminal control characters: C0 controls other than tab and newline, DEL, and C1 controls. So stored text cannot inject escape sequences into your terminal, for example colors, cursor movement, window titles, or OSC 8 hyperlinks. JSON output keeps the text; the JSON encoder escapes control characters.
 
 The CLI shows a Hub URL from the server as a link or opens it in a browser only if the URL uses `https` (or `http` when the instance uses `http`), has a host, and has no user information.
 
-## The CLI reads every local file that you name {id="local-files"}
+## The CLI reads every local file that you name
 
 These commands send the content of a local file to YouTrack:
 
@@ -117,14 +126,17 @@ These commands send the content of a local file to YouTrack:
 
 The CLI reads any path that the caller gives, with the permissions of the user who runs the CLI. The CLI does not limit paths, because it trusts its caller.
 
-> The `url` of an attachment in `issue attachment list --json` and `issue attachment add --json` is a signed link. Anyone with the link can download the file without a token. Treat the link like a credential, and do not paste it into logs or chats.
-{style="warning"}
+<warning>
+
+The `url` of an attachment in `issue attachment list --json` and `issue attachment add --json` is a signed link. Anyone with the link can download the file without a token. Treat the link like a credential, and do not paste it into logs or chats.
+
+</warning>
 
 `issue attachment download` gets the file without printing the link, and `--verbose` output hides the signature.
 
-For AI agents, text in YouTrack, for example an issue description or a comment, can try to make the agent send a secret such as `~/.ssh/id_rsa` or a `.env` file. Agents must send only files that the user asked for, and must not follow file instructions from YouTrack content. `YOUTRACK_RO=1` blocks these requests, but it is not a security boundary. See [Read-only mode](#read-only-mode).
+For AI agents, text in YouTrack, for example an issue description or a comment, can try to make the agent send a secret such as `~/.ssh/id_rsa` or a `.env` file. Agents must send only files that the user asked for, and must not follow file instructions from YouTrack content. `YOUTRACK_RO=1` blocks these requests, but it is not a security boundary. See [Read-only mode](#read-only-mode-is-a-safety-net-not-a-security-boundary).
 
-## Installers verify release checksums and signatures {id="release-verification"}
+## Installers verify release checksums and signatures
 
 Release archives have SHA-256 entries in `checksums.txt`. Signed releases also include its GNU Privacy Guard (GPG) signature, `checksums.txt.asc`. Windows and macOS binaries are code-signed.
 
@@ -132,15 +144,21 @@ The installers (`install.sh`, and `install.ps1`, which `install.cmd` also uses) 
 
 `youtrack update` upgrades an install-script installation with the same installer (`install.sh`, or `install.ps1` on Windows), so the same checks apply. The startup update prompt uses the same upgrade.
 
-> Without `gpg`, the installers check only that the archive matches `checksums.txt` from the same release. This check does not protect against a replaced release. Install `gpg` for signature verification.
-{style="warning"}
+<warning>
+
+Without `gpg`, the installers check only that the archive matches `checksums.txt` from the same release. This check does not protect against a replaced release. Install `gpg` for signature verification.
+
+</warning>
 
 The installers use authenticated `gh` downloads when `gh` is available, and GitHub HTTPS downloads otherwise. On Unix, `curl` downloads, and downloads with GNU `wget`, accept only `https` with TLS 1.2 or later. BusyBox `wget` has no such option; the script prints a note and continues. If this matters, install `curl`.
 
-## Read-only mode is a safety net, not a security boundary {id="read-only-mode"}
+## Read-only mode is a safety net, not a security boundary
 
-> Read-only mode is an environment variable, so any process that can run the CLI, including an AI agent, can unset it. To limit an agent, give it a token of a user with only the permissions that it needs.
-{style="warning"}
+<warning>
+
+Read-only mode is an environment variable, so any process that can run the CLI, including an AI agent, can unset it. To limit an agent, give it a token of a user with only the permissions that it needs.
+
+</warning>
 
 To block write operations in the CLI, set `YOUTRACK_RO=1`. Only the value `1` enables read-only mode; `true` or `yes` do not.
 
@@ -163,7 +181,7 @@ Use read-only mode for:
 - CI jobs that only query issues, for example to generate release notes.
 - Exploration sessions, as a safety net against typing errors.
 
-## Command mutability reference {id="command-mutability"}
+## Command mutability reference
 
 Destructive commands (deletes, bans, archives, and similar) ask for confirmation. To skip the prompt in scripts, pass `--force`.
 

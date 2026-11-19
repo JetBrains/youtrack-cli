@@ -1,11 +1,11 @@
-[//]: # (title: Managing Issues)
+# Managing Issues
 <show-structure for="chapter" depth="2"/>
 
 Issues are the core work items in YouTrack. This page shows how to search, view, create, update, and enrich issues with the `youtrack issue` commands. Sign in first (see [Authentication](youtrack-cli-authentication.md)).
 
 Every issue has an issue ID in the form `PROJECT-123`, for example `DEMO-42`. Most commands take that ID as their first argument. To find an ID, run `youtrack issue list`.
 
-## Find issues with a search query {id="list"}
+## Find issues with a search query
 
 List issues with `youtrack issue list`. The `--query` flag is required. It takes a YouTrack search query, in the same syntax as the web interface:
 
@@ -42,7 +42,7 @@ To count matches without listing them, use `youtrack issue count`:
 youtrack issue count --query "project: DEMO #Unresolved"
 ```
 
-## View one issue by its ID {id="view"}
+## View one issue by its ID
 
 View a single issue by its ID. Add `--comments N` to include the N most recent comments, and `--fields` to select fields:
 
@@ -64,7 +64,7 @@ To see the change history of an issue, list its activity items:
 youtrack issue activity list DEMO-42
 ```
 
-## Create an issue in one request {id="create"}
+## Create an issue in one request
 
 Create an issue with `youtrack issue create`. Specify the project by its short name and give a summary:
 
@@ -73,8 +73,6 @@ youtrack issue create --project DEMO --summary "Login button misaligned"
 ```
 
 > Use `youtrack project list` to look up a project's short name.
->
-{style="tip"}
 
 YouTrack returns the new issue ID, for example `DEMO-42`. Add a description inline or from a file. Set custom fields with a JSON object of field names and values:
 
@@ -101,7 +99,7 @@ The CLI sends the summary, description, custom fields, Type, tags, and visibilit
 
 Custom fields must be one complete JSON object with string values. The CLI rejects malformed JSON, trailing content, and non-string values (including `null`) before it creates the issue.
 
-## Update only the fields you pass {id="update"}
+## Update only the fields you pass
 
 Update the summary or description of an issue:
 
@@ -114,9 +112,9 @@ generate-notes | youtrack issue update DEMO-42 --description-file -
 
 The command changes only the fields whose flags you pass. An empty `--description` clears the description. If you omit the flag, the description stays. `--description-file <path>` reads the description from a file, and `--description-file -` reads it from standard input.
 
-To change fields such as State, Priority, or Assignee, apply a command (see [Apply a command](#command)) or set a field value (see [Set one custom field](#fields)).
+To change fields such as State, Priority, or Assignee, apply a command (see [Apply a command](#apply-a-command-to-change-several-fields)) or set a field value (see [Set one custom field](#set-one-custom-field-directly)).
 
-## Assign and delete issues {id="assign-delete"}
+## Assign and delete issues
 
 Assign an issue to a user by login, or clear the assignee:
 
@@ -125,15 +123,17 @@ youtrack issue assign DEMO-42 jane.doe
 youtrack issue unassign DEMO-42
 ```
 
-> Deleting an issue is permanent. `youtrack issue delete` asks for confirmation. Pass `--force` to skip the prompt.
->
-{style="warning"}
+<warning>
+
+Deleting an issue is permanent. `youtrack issue delete` asks for confirmation. Pass `--force` to skip the prompt.
+
+</warning>
 
 ```Shell
 youtrack issue delete DEMO-42 --force
 ```
 
-## Work with comments by comment ID {id="comments"}
+## Work with comments by comment ID
 
 Manage comments with `youtrack issue comment`. The comment ID (for example `4-17`) is in the ID column of `issue comment list`:
 
@@ -158,7 +158,7 @@ git log -1 --format=%B | youtrack issue comment update DEMO-42 4-17 --text-file 
 youtrack issue comment list DEMO-42 --include-deleted --fields id,deleted,pinned,text
 ```
 
-### React to a comment {id="reactions"}
+### React to a comment
 
 Add a reaction to an issue comment with `youtrack issue reaction add`. The reaction is the third positional argument. Remove a reaction by its reaction ID with `youtrack issue reaction delete`. The delete command asks for confirmation unless you pass `--force`:
 
@@ -167,9 +167,9 @@ youtrack issue reaction add DEMO-42 4-17 👍
 youtrack issue reaction delete DEMO-42 4-17 <reactionId> --force
 ```
 
-The CLI has no command that lists the reactions on an issue comment. Thus the CLI cannot show you a reaction ID. Article comments use a different syntax: they take the reaction with `--reaction` and have a `reaction list` command (see [Managing Articles](youtrack-cli-managing-articles.md#reactions)).
+The CLI has no command that lists the reactions on an issue comment. Thus the CLI cannot show you a reaction ID. Article comments use a different syntax: they take the reaction with `--reaction` and have a `reaction list` command (see [Managing Articles](youtrack-cli-managing-articles.md#react-to-a-comment)).
 
-## Tag issues by tag name or ID {id="tags"}
+## Tag issues by tag name or ID
 
 Attach, list, and inspect tags with `youtrack issue tag`. `add` and `remove` accept a tag ID or the exact tag name. `view` takes an ID:
 
@@ -189,7 +189,7 @@ Tags share one namespace across the instance, so filter the list instead of read
 youtrack tag list --query release --limit 20
 ```
 
-## Link issues through a link type {id="links"}
+## Link issues through a link type
 
 Connect issues with `youtrack issue link`. List the available link types first. Then add a link with the target issue ID and the link type ID:
 
@@ -208,16 +208,18 @@ youtrack issue link type create --name "Depends" --source-to-target "depends on"
 
 `issue link list` shows the links of an issue. Each row is a link slot: one link type in one direction. The ID column holds the slot ID, for example `167-0s`.
 
-> `issue link remove` removes **all** issues that are linked through the slot, not one link. The command asks for confirmation unless you pass `--force`.
->
-{style="warning"}
+<warning>
+
+`issue link remove` removes **all** issues that are linked through the slot, not one link. The command asks for confirmation unless you pass `--force`.
+
+</warning>
 
 ```Shell
 youtrack issue link list DEMO-42
 youtrack issue link remove DEMO-42 167-0s
 ```
 
-## Attach and download files {id="attachments"}
+## Attach and download files
 
 Add, list, and delete file attachments with `youtrack issue attachment`:
 
@@ -241,11 +243,13 @@ The CLI sends the file and its restriction in one request:
 - If you pass a visibility flag, the CLI encodes the file in memory and sends it in a JSON body. If the server rejects this format, the command fails. The CLI does not fall back to a public upload.
 - If the server returns a different visibility, the CLI tries to delete the attachment and reports an error.
 
-> A server workflow can change the visibility of an attachment. The cleanup step cannot undo an exposure of the file that occurs before the CLI deletes it.
->
-{style="warning"}
+<warning>
 
-### Download an attachment by ID or name {id="download-attachment"}
+A server workflow can change the visibility of an attachment. The cleanup step cannot undo an exposure of the file that occurs before the CLI deletes it.
+
+</warning>
+
+### Download an attachment by ID or name
 
 Save an attachment by ID, or select it by its unique filename with `--name`:
 
@@ -256,7 +260,7 @@ youtrack issue attachment download DEMO-42 --name screenshot.png --output screen
 
 Pass `--output -` to write the bytes to standard output. `issue attachment list --json` and `issue attachment add --json` return signed attachment URLs. A signed URL works without a token. Share the downloaded file, and keep these URLs private.
 
-## Apply a command to change several fields {id="command"}
+## Apply a command to change several fields
 
 A command is a space-delimited keyword-value instruction. It is the same instruction you type in the Apply Command dialog of YouTrack. Apply a command to one or more issues with `youtrack issue command`. Separate issue IDs with commas and no spaces:
 
@@ -281,11 +285,13 @@ youtrack issue command DEMO-42 "tag regression" --no-new-tags
 
 The `--no-new-tags` check reads the command preview from `issue command suggest`. The preview follows your YouTrack language. If the preview is not in English or the CLI cannot verify it, the CLI rejects the command and applies nothing. The check is a best-effort check, not an atomic server-side restriction: tags or settings can change before execution. To add an existing tag exactly, use `issue tag add`.
 
-> If a command sets `assignee` or `reporter`, the CLI wraps a login that contains a dot, a hyphen, or `@` in braces for the command parser of YouTrack. Thus `assignee jane.doe` becomes `assignee {jane.doe}`. Write the login as-is after these two keywords. For other user fields, such as `Reviewer`, put the braces in yourself: `Reviewer {jane.doe}`.
->
-{style="note"}
+<note>
 
-## Set one custom field directly {id="fields"}
+If a command sets `assignee` or `reporter`, the CLI wraps a login that contains a dot, a hyphen, or `@` in braces for the command parser of YouTrack. Thus `assignee jane.doe` becomes `assignee {jane.doe}`. Write the login as-is after these two keywords. For other user fields, such as `Reviewer`, put the braces in yourself: `Reviewer {jane.doe}`.
+
+</note>
+
+## Set one custom field directly
 
 Read or set one custom field value with `youtrack issue field`:
 
@@ -313,7 +319,7 @@ youtrack issue field list-values DEMO-42 State --fields id,name --plain
 
 The command requires an instance that supports issue-field value discovery. It does not support scalar fields or state-machine transitions. If discovery is unavailable or forbidden, the command returns the server error. For user fields, the command shows logins. Pass a login to `issue field set` with `--type user`.
 
-## Watch and vote on issues {id="watch-vote"}
+## Watch and vote on issues
 
 Subscribe to notifications or vote for an issue:
 
@@ -324,7 +330,7 @@ youtrack issue vote DEMO-42
 youtrack issue unvote DEMO-42
 ```
 
-## Prepare an issue as a draft {id="drafts"}
+## Prepare an issue as a draft
 
 A draft is an issue stub that the project's issue template fills in. You complete the draft and then submit it as a real issue. Create a draft, update its fields, then submit it:
 
@@ -337,7 +343,7 @@ youtrack issue draft delete 3-45
 
 `issue draft create` returns the draft ID, for example `3-45`. Pass the draft ID to `update`, `submit`, and `delete`. `create` and `update` accept `--description` and `--description-file` (`-` reads standard input). `update` also accepts `--custom-fields` and `--custom-fields-file`. `issue draft delete` discards a draft and asks for confirmation unless you pass `--force`.
 
-## View the sprints of an issue {id="sprints"}
+## View the sprints of an issue
 
 List the sprints that contain an issue:
 
@@ -347,7 +353,7 @@ youtrack issue sprint list DEMO-42
 
 To work with the boards and sprints, see [Planning Tools](youtrack-cli-planning-tools.md).
 
-## Log work in minutes {id="work-items"}
+## Log work in minutes
 
 Track the time spent on an issue with `youtrack issue workitem`:
 
@@ -361,7 +367,7 @@ youtrack issue workitem delete DEMO-42 <workItemId>
 
 `--minutes` is required when you create a work item. For example, `90` means 1 h 30 m. Pass `--text` for a description and `--type` with a work type ID. Both flags are optional. `workitem delete` asks for confirmation unless you pass `--force`.
 
-## Link commits to an issue {id="vcs-changes"}
+## Link commits to an issue
 
 A version control system (VCS) integration connects a YouTrack project to a repository. List the commits and pull requests linked to an issue, and link a commit, with `youtrack issue vcs`:
 
@@ -383,15 +389,17 @@ YouTrack keeps a detached record only if the commit message names the issue. The
 
 Changes to VCS records require the *Update Issue Private Fields* permission. To suppress notifications about the change, pass the global `--mute-notifications` flag. This flag also requires the *Apply Commands Silently* permission.
 
-## Restrict visibility to groups and users {id="visibility"}
+## Restrict visibility to groups and users
 
-To restrict a new issue from the start, pass `--visibility` or `--public` to `issue create` (see [Create an issue](#create)).
+To restrict a new issue from the start, pass `--visibility` or `--public` to `issue create` (see [Create an issue](#create-an-issue-in-one-request)).
 
 Limit who can see an issue, a comment, or an attachment with permitted groups and users. Groups take a name or an ID. Users take a login or an ID.
 
-> Each call replaces both lists. A list you leave out is cleared. Thus `--users alice` alone makes the issue visible to alice only, even if a group had access before.
->
-{style="warning"}
+<warning>
+
+Each call replaces both lists. A list you leave out is cleared. Thus `--users alice` alone makes the issue visible to alice only, even if a group had access before.
+
+</warning>
 
 ```Shell
 youtrack issue visibility DEMO-42 --groups "Core Team" --users alice

@@ -1,4 +1,4 @@
-[//]: # (title: Managing Projects)
+# Managing Projects
 <show-structure for="chapter" depth="2"/>
 
 A project groups issues under a short name, such as `DEMO`. YouTrack CLI creates, inspects, and deletes projects, and manages their team and custom fields. Address a project by its short name, and look up opaque IDs first for team commands.
@@ -21,11 +21,9 @@ Show the details of a single project with `youtrack project view` and its short 
 youtrack project view DEMO
 ```
 
-> Add `--json` to get the full project record, including the opaque `id`, for example `0-1`. The `--project` flag of `role grant` and `group role add` requires this ID. See [Managing Users and Access](youtrack-cli-managing-users-and-access.md#identifiers).
->
-{style="tip"}
+> Add `--json` to get the full project record, including the opaque `id`, for example `0-1`. The `--project` flag of `role grant` and `group role add` requires this ID. See [Managing Users and Access](youtrack-cli-managing-users-and-access.md#each-command-expects-a-login-a-name-or-an-opaque-id).
 
-## A new project needs a short name, a name, and a leader {id="create"}
+## A new project needs a short name, a name, and a leader
 
 Create a project with `youtrack project create`. Provide a short name and a full name:
 
@@ -42,8 +40,6 @@ youtrack project create --shortName DEMO --name "Demo Project" --leader jane.doe
 ```
 
 > Run `youtrack user current` to see the login of the currently authenticated user.
->
-{style="tip"}
 
 To start from a built-in template, add the `--template` flag:
 
@@ -55,24 +51,34 @@ youtrack project create --shortName DEMO --name "Demo Project" --template scrum
 
 <table>
 <tr><td>Flag</td><td>Description</td></tr>
-<tr><td>`--shortName`
+<tr><td>
+
+`--shortName`
 
 </td><td>Project short name, used as the issue ID prefix. Required.
 
 </td></tr>
-<tr><td>`--name`
+<tr><td>
+
+`--name`
 
 </td><td>Project full name. Required.
 
 </td></tr>
-<tr><td>`--leader`
+<tr><td>
+
+`--leader`
 
 </td><td>Login of the project leader. Defaults to the current authenticated user.
 
 </td></tr>
-<tr><td>`--template`
+<tr><td>
 
-</td><td>Built-in template: `helpdesk`, `taskManagement`, `scrum`, `kanban`, `projectManagement`, `demo`, or `marketing`. Omit for an empty project.
+`--template`
+
+</td><td>
+
+Built-in template: `helpdesk`, `taskManagement`, `scrum`, `kanban`, `projectManagement`, `demo`, or `marketing`. Omit for an empty project.
 
 </td></tr>
 </table>
@@ -102,9 +108,11 @@ youtrack project archive DEMO
 
 ## Deleting a project is permanent
 
-> Deleting a project removes every issue it contains, and you cannot undo it. If you only need to retire the project, archive it instead.
->
-{style="warning"}
+<warning>
+
+Deleting a project removes every issue it contains, and you cannot undo it. If you only need to retire the project, archive it instead.
+
+</warning>
 
 Delete a project with `youtrack project delete`. YouTrack CLI asks for confirmation first:
 
@@ -118,7 +126,7 @@ To skip the prompt in a script, add `--force`:
 youtrack project delete DEMO --force
 ```
 
-## Team commands take opaque IDs, not logins or names {id="team"}
+## Team commands take opaque IDs, not logins or names
 
 List, add, and remove users and groups in a project team.
 
@@ -143,8 +151,6 @@ youtrack project team remove-group DEMO 3-2
 ```
 
 > Extract the ID in one step with a JSON processor, for example `youtrack user view jane.doe --json | jq -r .id`.
->
-{style="tip"}
 
 ## Projects use custom fields from the instance catalog
 
@@ -167,9 +173,11 @@ To remove an attached field, pass its project-field ID. This ID is the `id` that
 youtrack project field remove DEMO 92-3
 ```
 
-> Custom fields are defined once for the whole instance, then attached to individual projects. See <a href="youtrack-cli-administration.md">Administration</a> for managing the instance-level field catalog.
->
-{style="note"}
+<note>
+
+Custom fields are defined once for the whole instance, then attached to individual projects. See <a href="youtrack-cli-administration.md">Administration</a> for managing the instance-level field catalog.
+
+</note>
 
 ## Other project settings have their own subcommands
 
@@ -177,9 +185,13 @@ Several subcommands adjust individual project settings. Each takes the project s
 
 <table>
 <tr><td>Command</td><td>Description</td></tr>
-<tr><td>`youtrack project timetrack set DEMO`
+<tr><td>
 
-</td><td>Enable time tracking for the project. Add `--enabled=false` to disable it.
+`youtrack project timetrack set DEMO`
+
+</td><td>
+
+Enable time tracking for the project. Add `--enabled=false` to disable it.
 
 </td></tr>
 <tr><td><code>youtrack project workflow add DEMO --workflow &lt;id&gt;</code>
@@ -187,12 +199,16 @@ Several subcommands adjust individual project settings. Each takes the project s
 </td><td>Attach a workflow to the project by its ID.
 
 </td></tr>
-<tr><td>`youtrack project template list`
+<tr><td>
+
+`youtrack project template list`
 
 </td><td>List the projects that are marked as templates.
 
 </td></tr>
-<tr><td>`youtrack project template convert DEMO`
+<tr><td>
+
+`youtrack project template convert DEMO`
 
 </td><td>Convert an existing project into a template.
 

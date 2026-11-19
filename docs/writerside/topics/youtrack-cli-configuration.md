@@ -1,9 +1,9 @@
-[//]: # (title: Configuration)
+# Configuration
 <show-structure for="chapter" depth="2"/>
 
 This page is the configuration reference for YouTrack CLI. It describes how the CLI finds the base URL and the token, what the config file stores, and which environment variables and global flags the CLI reads. You do not have to edit any file: `youtrack auth login` and the `youtrack instance` commands manage the configuration.
 
-## Flags win over environment variables, which win over the active instance {id="precedence"}
+## Flags win over environment variables, which win over the active instance
 
 YouTrack CLI resolves the base URL and the token separately. For each value, the CLI uses the first source in this list that has a value:
 
@@ -22,11 +22,13 @@ These rules apply to saved OAuth sessions:
 
 A saved token goes only to the origin (scheme, host, and port) of its instance. If the token comes from a saved instance (sources 2 and 4) and the base URL points to another origin, the command fails. It does not send the saved token. For another instance, pass `--token` or `YOUTRACK_TOKEN`, or select its saved instance with `--server <alias>`.
 
-> If the CLI cannot resolve the base URL or the token, the command fails with a message that names the missing value. Run `youtrack auth login`, or set the environment variables.
->
-{style="note"}
+<note>
 
-## The config file has no secrets when a keyring is available {id="config-file"}
+If the CLI cannot resolve the base URL or the token, the command fails with a message that names the missing value. Run `youtrack auth login`, or set the environment variables.
+
+</note>
+
+## The config file has no secrets when a keyring is available
 
 YouTrack CLI stores its configuration in `$XDG_CONFIG_HOME/youtrack/config.json`, which is `~/.config/youtrack/config.json` when `XDG_CONFIG_HOME` is not set. The location is the same on macOS, Linux, and Windows. If the CLI finds a config file at `~/.youtrack-cli-config.json`, it moves the file to this location. The CLI writes the file with `0600` permissions, so only your user can read it. When the OS keyring is available, the CLI stores tokens in the keyring, not in this file. Do not edit the file manually; the `youtrack auth` and `youtrack instance` commands manage it.
 
@@ -57,7 +59,7 @@ The top-level keys are:
 - `latestVersion` — the latest release that the update check found.
 - `dismissedVersion` — the release for which you selected __Skip until next version__.
 
-The CLI manages `lastUpdateCheck`, `latestVersion`, and `dismissedVersion`. See [The startup update notice](#update-notice).
+The CLI manages `lastUpdateCheck`, `latestVersion`, and `dismissedVersion`. See [The startup update notice](#the-startup-update-notice).
 
 Each instance entry has these keys:
 
@@ -83,7 +85,7 @@ These commands manage the file:
 
 See [Authentication](youtrack-cli-authentication.md) for the sign-in methods.
 
-## Environment variables suit CI/CD pipelines {id="env-vars"}
+## Environment variables suit CI pipelines
 
 Environment variables win over the active instance in the config file. Use them to give credentials to continuous integration and delivery (CI/CD) pipelines.
 
@@ -132,7 +134,7 @@ Token for authentication, usually a permanent token that starts with `perm:`.
 </td>
 <td>
 
-Set to `1` to enable read-only mode. Only the value `1` enables it; `true` or `yes` do not. The CLI blocks write operations (create, update, delete); reads and searches work. Read-only mode is a safety net, not a security boundary. See [Security](youtrack-cli-security.md#read-only-mode).
+Set to `1` to enable read-only mode. Only the value `1` enables it; `true` or `yes` do not. The CLI blocks write operations (create, update, delete); reads and searches work. Read-only mode is a safety net, not a security boundary. See [Security](youtrack-cli-security.md#read-only-mode-is-a-safety-net-not-a-security-boundary).
 
 </td>
 </tr>
@@ -162,9 +164,11 @@ Set to a non-empty value to disable the startup update check entirely. `DO_NOT_T
 </tr>
 </table>
 
-> Treat the token like a password. Set it through an environment variable, not with the `--token` flag, because the flag can appear in shell history.
->
-{style="warning"}
+<warning>
+
+Treat the token like a password. Set it through an environment variable, not with the `--token` flag, because the flag can appear in shell history.
+
+</warning>
 
 To export the credentials in your shell, run:
 
@@ -173,7 +177,7 @@ export YOUTRACK_BASE_URL=https://example.youtrack.cloud
 export YOUTRACK_TOKEN=perm:...
 ```
 
-## Global flags work on every command {id="global-flags"}
+## Global flags work on every command
 
 The `--base-url` and `--token` flags override the environment variables and the config file. Run `youtrack --version` to print the CLI version.
 
@@ -314,7 +318,7 @@ Add `muteUpdateNotifications=true` to every POST, PUT, and DELETE request, inclu
 
 For how to combine `--json`, `--plain`, and `--fields` in scripts, see [Scripting and Automation](youtrack-cli-scripting.md).
 
-## The startup update notice {id="update-notice"}
+## The startup update notice
 
 On startup, a released build of YouTrack CLI checks GitHub at most once every 24 hours for a newer release. When the latest release is strictly newer than the running version by semantic-version comparison, it prints one line to stderr after the command finishes:
 

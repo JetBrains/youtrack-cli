@@ -1,13 +1,15 @@
-[//]: # (title: Administration)
+# Administration
 <show-structure for="chapter" depth="2"/>
 
 YouTrack CLI exposes instance-wide administration: global settings, custom fields, workflows, and app integrations. This page covers the commands under `settings`, `field`, `workflow`, and `app`. To manage users, groups, roles, and organizations, see [Managing Users and Access](youtrack-cli-managing-users-and-access.md).
 
-> These operations act on the whole instance, not a single project. You need administrator permissions in YouTrack to run most of them, and the CLI returns a permission error otherwise.
->
-{style="note"}
+<note>
 
-## Global settings are read-only, feature flags are not {id="settings"}
+These operations act on the whole instance, not a single project. You need administrator permissions in YouTrack to run most of them, and the CLI returns a permission error otherwise.
+
+</note>
+
+## Global settings are read-only, feature flags are not
 
 Print the instance's global settings with `youtrack settings view` (alias `settings get`):
 
@@ -15,9 +17,11 @@ Print the instance's global settings with `youtrack settings view` (alias `setti
 youtrack settings view
 ```
 
-> No endpoint lists the available flag IDs. Get them from JetBrains support, the release notes, or the administration UI before you run `settings feature`. The command asks for confirmation before it changes a flag. Add `--force` to skip the prompt.
->
-{style="note"}
+<note>
+
+No endpoint lists the available flag IDs. Get them from JetBrains support, the release notes, or the administration UI before you run `settings feature`. The command asks for confirmation before it changes a flag. Add `--force` to skip the prompt.
+
+</note>
 
 `settings view` is read-only. To turn a feature flag on or off, pass its flag ID to `settings feature`:
 
@@ -25,7 +29,7 @@ youtrack settings view
 youtrack settings feature --name <flag-id> --enabled=false
 ```
 
-## Custom fields are defined once for the whole instance {id="custom-fields"}
+## Custom fields are defined once for the whole instance
 
 List every custom field defined on the instance:
 
@@ -33,9 +37,11 @@ List every custom field defined on the instance:
 youtrack field list
 ```
 
-> `field delete` removes the field from every project that uses it. The CLI asks for confirmation first. Add `--force` to skip the prompt.
->
-{style="warning"}
+<warning>
+
+`field delete` removes the field from every project that uses it. The CLI asks for confirmation first. Add `--force` to skip the prompt.
+
+</warning>
 
 Create a custom field with a name and a type, both required. Delete one by its ID:
 
@@ -79,7 +85,7 @@ youtrack field worktime view
 youtrack field worktime set --minutes-a-day 8h
 ```
 
-## Workflow rules are JavaScript that YouTrack compiles on save {id="workflows"}
+## Workflow rules are JavaScript that YouTrack compiles on save
 
 List the workflows on the instance, or only those whose name contains some text (case-insensitive), create one, and delete it by ID:
 
@@ -108,13 +114,17 @@ youtrack workflow rule update 8-2 9-14 --script-file on-state-change.js
 
 `workflow rule update` reads the rule back after the write and compares the stored script with the one it sent, byte for byte. When they differ, it reports the sent and stored byte counts and exits with a non-zero status. Verification confirms the stored script, not its bindings in each project; project requirements can still fail. A rule is shared by every project the workflow is attached to, so a script YouTrack rejects or changes affects all of them.
 
-> Table and plain output strip control characters such as carriage returns from the script. Use `--json` when you need the exact stored source.
->
-{style="note"}
+<note>
 
-> `workflow restore` runs at once. It has no confirmation prompt and no `--force` flag. The command affects instance-wide automation, so review your workflows before you run it.
->
-{style="warning"}
+Table and plain output strip control characters such as carriage returns from the script. Use `--json` when you need the exact stored source.
+
+</note>
+
+<warning>
+
+`workflow restore` runs at once. It has no confirmation prompt and no `--force` flag. The command affects instance-wide automation, so review your workflows before you run it.
+
+</warning>
 
 To restore the default workflows, run `youtrack workflow restore`:
 
@@ -122,13 +132,15 @@ To restore the default workflows, run `youtrack workflow restore`:
 youtrack workflow restore
 ```
 
-## Apps are installed in the web UI and managed here {id="integrations"}
+## Apps are installed in the web UI and managed here
 
 ### Apps
 
-> `app deactivate` runs at once, with no confirmation prompt. `app delete` and `app plugin delete` ask for confirmation. Add `--force` to skip the prompt.
->
-{style="warning"}
+<warning>
+
+`app deactivate` runs at once, with no confirmation prompt. `app delete` and `app plugin delete` ask for confirmation. Add `--force` to skip the prompt.
+
+</warning>
 
 List the installed apps and their plugins, and deactivate or remove an app by ID:
 
@@ -141,9 +153,11 @@ youtrack app delete 3-7
 
 Remove a single plugin with `youtrack app plugin delete <id>`.
 
-> The CLI manages apps that are already installed. Install a new app from the YouTrack web interface, then list, deactivate, or delete it here.
->
-{style="note"}
+<note>
+
+The CLI manages apps that are already installed. Install a new app from the YouTrack web interface, then list, deactivate, or delete it here.
+
+</note>
 
 ## Every command on this page supports JSON output
 

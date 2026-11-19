@@ -1,39 +1,57 @@
-[//]: # (title: Managing Users and Access)
+# Managing Users and Access
 
 <show-structure for="chapter" depth="2"/>
 
 YouTrack CLI manages users, groups, roles, and organizations from the command line. Use these commands to create users, control who can sign in, and grant the permissions that roles carry. Most commands that grant access take opaque IDs, so look up the ID before you run them.
 
-## Each command expects a login, a name, or an opaque ID {id="identifiers"}
+## Each command expects a login, a name, or an opaque ID
 
 Different commands expect different identifiers. Most user commands accept a login. Groups are addressed by name for basic operations, but some subcommands need the opaque ID that the API returns. Roles, permissions, projects in `--project`, and organizations are always addressed by their opaque IDs.
 
-<deflist type="medium">
-<def title="User login">
+<table style="none">
+<tr><td>
+
+User login
+</td><td>
 
 Most user commands accept a login, for example `jane.doe`, or the opaque user ID. This applies to `user view`, `user ban`, `user unban`, `user delete`, `user profile`, `user locale`, `user timezone`, and `user tag list`.
-</def>
-<def title="Group name">
+</td></tr>
+<tr><td>
+
+Group name
+</td><td>
 
 `group view` and `group delete` accept a group name, for example `Developers`, or the opaque group ID.
-</def>
-<def title="Group ID">
+</td></tr>
+<tr><td>
+
+Group ID
+</td><td>
 
 `group member list`, `group role list`, `group role add`, and the `--group`/`--holder` flags require the opaque group ID, for example `3-2`.
-</def>
-<def title="Role and permission ID">
+</td></tr>
+<tr><td>
+
+Role and permission ID
+</td><td>
 
 `role view`, `role update`, `role delete`, `role permission`, and `--role` require opaque IDs. Get role IDs from `youtrack role list` and permission IDs from `youtrack role permissions`.
-</def>
-<def title="Project ID">
+</td></tr>
+<tr><td>
+
+Project ID
+</td><td>
 
 The `--project` flag of `role grant` and `group role add` requires the opaque project ID, for example `0-1`, not the short name `DEMO`. Get it from `youtrack project view DEMO --json`.
-</def>
-<def title="Organization ID">
+</td></tr>
+<tr><td>
+
+Organization ID
+</td><td>
 
 The `--org` flag and `org delete` require the opaque organization ID. Get it from `youtrack org list --json`.
-</def>
-</deflist>
+</td></tr>
+</table>
 
 To look up an opaque ID, run the matching `view` or `list` command and read the `id` field:
 
@@ -44,9 +62,11 @@ youtrack role list --json
 youtrack project view DEMO --json
 ```
 
-> The `--role`, `--user`, and `--group` flags on `role grant` and the `<group-id>` argument of the `group member` and `group role` commands take opaque IDs, not logins or names. Retrieve the ID first, then pass it. See [Scripting and Automation](youtrack-cli-scripting.md) for extracting a single field.
->
-{style="warning"}
+<warning>
+
+The `--role`, `--user`, and `--group` flags on `role grant` and the `<group-id>` argument of the `group member` and `group role` commands take opaque IDs, not logins or names. Retrieve the ID first, then pass it. See [Scripting and Automation](youtrack-cli-scripting.md) for extracting a single field.
+
+</warning>
 
 ## List users with a query, up to 100 by default
 
@@ -68,9 +88,11 @@ youtrack user view jane.doe
 
 ## A new user needs a login, name, email, and password
 
-> Do not type the password as a literal. A literal password stays in your shell history. Pass it through an environment variable or your shell's secret handling.
->
-{style="warning"}
+<warning>
+
+Do not type the password as a literal. A literal password stays in your shell history. Pass it through an environment variable or your shell's secret handling.
+
+</warning>
 
 Create a user with `youtrack user create`. The login, full name, email, and password are all required:
 
@@ -93,9 +115,11 @@ youtrack user unban jane.doe
 
 ## Deleting a user is permanent and needs a successor
 
-> If you only need to revoke access, ban the user instead. You can restore a banned user with `youtrack user unban`. You cannot restore a deleted user.
->
-{style="warning"}
+<warning>
+
+If you only need to revoke access, ban the user instead. You can restore a banned user with `youtrack user unban`. You cannot restore a deleted user.
+
+</warning>
 
 YouTrack reassigns the deleted user's references — assignments, comments, and authored issues — to the successor:
 
@@ -120,9 +144,13 @@ The other `user profile` subcommands change one profile section each. Run `youtr
 
 <table>
 <tr><td>Command</td><td>Description</td></tr>
-<tr><td>`user profile appearance`, `articles`, `general`, `grazie`, `issues-list`, `notifications`
+<tr><td>
 
-</td><td>Set one profile section. Pass the settings as a JSON body with `--body`.
+`user profile appearance`, `articles`, `general`, `grazie`, `issues-list`, `notifications`
+
+</td><td>
+
+Set one profile section. Pass the settings as a JSON body with `--body`.
 
 </td></tr>
 <tr><td><code>user profile property &lt;user&gt; &lt;key&gt; &lt;value&gt;</code>
@@ -140,14 +168,22 @@ The other `user profile` subcommands change one profile section each. Run `youtr
 </td><td>View the time tracking profile.
 
 </td></tr>
-<tr><td>`user drafts issues`, `user drafts articles`
+<tr><td>
 
-</td><td>List your issue or article drafts. Drafts are private to their owner, so the commands default to `me`.
+`user drafts issues`, `user drafts articles`
+
+</td><td>
+
+List your issue or article drafts. Drafts are private to their owner, so the commands default to `me`.
 
 </td></tr>
-<tr><td>`user drafts delete me`
+<tr><td>
 
-</td><td>Delete all your issue drafts. The command asks for confirmation. Add `--force` to skip the prompt.
+`user drafts delete me`
+
+</td><td>
+
+Delete all your issue drafts. The command asks for confirmation. Add `--force` to skip the prompt.
 
 </td></tr>
 <tr><td><code>user tag list &lt;user&gt;</code>
@@ -168,9 +204,11 @@ youtrack group list --query "QA"
 youtrack group view "QA Team"
 ```
 
-> The `--successor` group inherits the references of the deleted group. A broad successor group can expand access to the reassigned resources. The CLI does not select a default successor, so choose it explicitly.
->
-{style="warning"}
+<warning>
+
+The `--successor` group inherits the references of the deleted group. A broad successor group can expand access to the reassigned resources. The CLI does not select a default successor, so choose it explicitly.
+
+</warning>
 
 Delete a group and reassign its references to a successor group. The `--successor` flag is required and takes a group name or ID:
 
@@ -214,9 +252,11 @@ youtrack role list
 youtrack role permissions
 ```
 
-> `role update` replaces the full permission set on the role. Permissions that you do not list are removed. If you need to change one permission, use `role permission add` or `role permission remove`. You cannot undo `role delete`.
->
-{style="warning"}
+<warning>
+
+`role update` replaces the full permission set on the role. Permissions that you do not list are removed. If you need to change one permission, use `role permission add` or `role permission remove`. You cannot undo `role delete`.
+
+</warning>
 
 View, create, update, and delete roles by opaque ID:
 
@@ -272,9 +312,11 @@ The `id` field of each row is the `<assignedRoleID>` you pass to `role revoke`.
 
 ## Organizations are deleted by opaque ID
 
-> `org delete` removes the organization permanently. The command asks for confirmation. Add `--force` only in scripts that you have tested.
->
-{style="warning"}
+<warning>
+
+`org delete` removes the organization permanently. The command asks for confirmation. Add `--force` only in scripts that you have tested.
+
+</warning>
 
 List, create, and delete organizations. `org delete` takes the organization's opaque ID:
 
