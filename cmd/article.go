@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/JetBrains/youtrack-cli/api"
 	"github.com/JetBrains/youtrack-cli/internal"
 	"github.com/JetBrains/youtrack-cli/internal/output"
 )
@@ -82,7 +83,10 @@ func newArticleCreateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			projectKey, _ := cmd.Flags().GetString("project")
 			summary, _ := cmd.Flags().GetString("summary")
-			content, _ := cmd.Flags().GetString("content")
+			content, _, err := internal.TextFromFlags(cmd, "content", "content-file")
+			if err != nil {
+				return err
+			}
 			asUser, _ := cmd.Flags().GetString("asUser")
 			client, err := internal.GetClient(cmd)
 			if err != nil {
@@ -110,6 +114,7 @@ func newArticleCreateCmd() *cobra.Command {
 	cmd.Flags().String("project", "", "Project short name (required)")
 	cmd.Flags().String("summary", "", "Article title (required)")
 	cmd.Flags().String("content", "", "Article body")
+	internal.AddTextFileFlag(cmd, "content", "content-file", "the article body")
 	cmd.Flags().String("asUser", "", "Create as this user login")
 	internal.MustMarkRequired(cmd, "project", "summary")
 	return cmd
@@ -118,23 +123,43 @@ func newArticleCreateCmd() *cobra.Command {
 func newArticleUpdateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use: "update <id>", Short: "Update an article",
+		Long: "Update an article. When the content changes, inline comment threads are moved to follow their text; a thread whose text was rewritten stays where it is, with a warning.",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			summary, _ := cmd.Flags().GetString("summary")
-			content, _ := cmd.Flags().GetString("content")
+			content, _, err := internal.TextFromFlags(cmd, "content", "content-file")
+			if err != nil {
+				return err
+			}
 			client, err := internal.GetClient(cmd)
 			if err != nil {
 				return err
+			}
+			// UpdateArticle ignores empty content, so only a non-empty body can move inline threads.
+			var before *api.ArticleText
+			if content != "" {
+				if before, err = client.GetArticleText(args[0]); err != nil {
+					output.PrintWarn(cmd, "could not read inline threads, they will not be re-anchored: "+err.Error())
+					before = nil
+				}
 			}
 			article, err := client.UpdateArticle(args[0], summary, content)
 			if err != nil {
 				return err
 			}
-			return output.Print(cmd, article)
+			var reanchorErr error
+			if before != nil {
+				reanchorErr = reanchorThreads(cmd, client, args[0], before, content)
+			}
+			if err := output.Print(cmd, article); err != nil {
+				return err
+			}
+			return reanchorErr
 		},
 	}
 	cmd.Flags().String("summary", "", "New title")
 	cmd.Flags().String("content", "", "New content")
+	internal.AddTextFileFlag(cmd, "content", "content-file", "the new content")
 	return cmd
 }
 

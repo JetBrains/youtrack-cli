@@ -7,6 +7,7 @@ import (
 )
 
 const articleFields = "id,idReadable,summary,content,reporter(id,login,fullName),project(id,shortName),created,updated,updatedBy(id,login,fullName),parentArticle(id,idReadable),tags(id,name),childArticles(id,idReadable,summary)"
+const articleTextFields = "content,textMetadatas(id,textFieldName,startOffset,endOffset,comments(id))"
 const articleAttachmentFields = "id,name,url,mimeType"
 const articleCommentFields = "id,text,author(id,login,fullName),created,updated"
 
@@ -50,6 +51,21 @@ func (c *Client) UpdateArticle(id, summary, content string) (*Article, error) {
 	path := fmt.Sprintf(pathArticle+"?fields=%s", url.PathEscape(id), articleFields)
 	err := c.Post(path, body, &result)
 	return &result, err
+}
+
+// GetArticleText returns the article body and its inline comment threads.
+func (c *Client) GetArticleText(id string) (*ArticleText, error) {
+	var result ArticleText
+	path := fmt.Sprintf(pathArticle+"?fields=%s", url.PathEscape(id), articleTextFields)
+	err := c.Get(path, &result)
+	return &result, err
+}
+
+// MoveArticleTextMetadata re-anchors one inline comment thread to the given UTF-16 offsets.
+// It updates only this thread; sending textMetadatas to the article itself would replace all of them.
+func (c *Client) MoveArticleTextMetadata(articleID, textMetadataID string, startOffset, endOffset int) error {
+	path := fmt.Sprintf(pathArticleTextMetadata+"?fields=id", url.PathEscape(articleID), url.PathEscape(textMetadataID))
+	return c.Post(path, map[string]any{"startOffset": startOffset, "endOffset": endOffset}, nil)
 }
 
 func (c *Client) DeleteArticle(id string) error {

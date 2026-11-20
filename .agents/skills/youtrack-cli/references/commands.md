@@ -219,9 +219,9 @@ youtrack board sprint delete --board <boardId> <sprintId>
 ```bash
 youtrack article list [--query Q]
 youtrack article view <articleId>       # alias: get
-youtrack article create --project P --summary S [--content C] [--asUser login]
+youtrack article create --project P --summary S [--content C | --content-file <path|->] [--asUser login]
                                        # alias: add
-youtrack article update <articleId> [--summary S] [--content C]
+youtrack article update <articleId> [--summary S] [--content C | --content-file <path|->]
 youtrack article delete <articleId>
 youtrack article comment list <articleId>
 youtrack article comment view <articleId> <commentId>

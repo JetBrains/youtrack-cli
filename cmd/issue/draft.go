@@ -53,7 +53,7 @@ func newIssueDraftCreateCmd() *cobra.Command {
 			projectShortName, _ := cmd.Flags().GetString("project")
 			summary, _ := cmd.Flags().GetString("summary")
 
-			description, _, err := textFromFlags(cmd, "description", "description-file")
+			description, _, err := internal.TextFromFlags(cmd, "description", "description-file")
 			if err != nil {
 				return err
 			}
@@ -78,7 +78,7 @@ func newIssueDraftCreateCmd() *cobra.Command {
 	cmd.Flags().String("project", "", "Project short name (required)")
 	cmd.Flags().String("summary", "", "Issue summary (optional; template may prefill)")
 	cmd.Flags().String("description", "", "Issue description")
-	addTextFileFlag(cmd, "description", "description-file", "the description")
+	internal.AddTextFileFlag(cmd, "description", "description-file", "the description")
 	internal.MustMarkRequired(cmd, "project")
 	return cmd
 }
@@ -94,7 +94,7 @@ func newIssueDraftUpdateCmd() *cobra.Command {
 			customFields, _ := cmd.Flags().GetString("custom-fields")
 			customFieldsFile, _ := cmd.Flags().GetString("custom-fields-file")
 
-			description, descriptionSet, err := textFromFlags(cmd, "description", "description-file")
+			description, descriptionSet, err := internal.TextFromFlags(cmd, "description", "description-file")
 			if err != nil {
 				return err
 			}
@@ -158,7 +158,7 @@ func newIssueDraftUpdateCmd() *cobra.Command {
 	}
 	cmd.Flags().String("summary", "", "New summary")
 	cmd.Flags().String("description", "", "New description (an empty string clears it)")
-	addTextFileFlag(cmd, "description", "description-file", "the description")
+	internal.AddTextFileFlag(cmd, "description", "description-file", "the description")
 	cmd.Flags().String("custom-fields", "", `JSON object of field values, e.g. '{"Type":"Bug","Priority":"High"}'`)
 	cmd.Flags().String("custom-fields-file", "", "Read custom fields JSON from file")
 	return cmd

@@ -114,3 +114,36 @@ func TestCmd_IssueCommentTextFromFileOrStdin(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, comments, 1, "rejected calls must not post comments")
 }
+
+func TestCmd_ArticleContentFromFileOrStdin(t *testing.T) {
+	c := newTestClient(t)
+	proj := createTempProject(t, c)
+
+	out := runCmdWithInput(t, stdinText, "article", "create", "--project", proj.ShortName, "--summary", "stdin article",
+		"--content-file", "-", "--json")
+	var article api.Article
+	require.NoError(t, json.Unmarshal([]byte(out), &article))
+	require.NotEmpty(t, article.IDReadable)
+	t.Cleanup(func() { _ = c.DeleteArticle(article.IDReadable) })
+	got, err := c.GetArticle(article.IDReadable)
+	require.NoError(t, err)
+	assert.Equal(t, stdinText, got.Content)
+
+	file := filepath.Join(t.TempDir(), "article.md")
+	require.NoError(t, os.WriteFile(file, []byte("edited from a file"), 0o600))
+	runCmd(t, "article", "update", article.IDReadable, "--content-file", file, "--json")
+	got, err = c.GetArticle(article.IDReadable)
+	require.NoError(t, err)
+	assert.Equal(t, "edited from a file", got.Content)
+
+	for _, args := range [][]string{
+		{"article", "update", article.IDReadable, "--content", "x", "--content-file", file},
+		{"article", "update", article.IDReadable, "--content-file", filepath.Join(t.TempDir(), "missing.md")},
+	} {
+		out, err := runCmdFail(t, args...)
+		assert.Error(t, err, "%v should fail: %s", args, out)
+	}
+	got, err = c.GetArticle(article.IDReadable)
+	require.NoError(t, err)
+	assert.Equal(t, "edited from a file", got.Content, "rejected calls must not change the content")
+}

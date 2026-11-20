@@ -72,6 +72,7 @@ These commands send the content of a local file to YouTrack:
 
 - `issue attachment add` and `article attachment add` upload the file.
 - `--description-file` on `issue create`, `issue draft create`, and `issue draft update` sends the file content as the issue description.
+- `--content-file` on `article create` and `article update` sends the file content as the article body.
 
 The CLI reads any path that the caller gives, with the permissions of the user who runs the CLI. The CLI does not restrict paths, because it trusts its caller.
 
