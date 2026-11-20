@@ -8,14 +8,17 @@ import (
 	"time"
 )
 
+// FieldValueType is the type of a custom field's values and whether the field holds several values.
+type FieldValueType struct {
+	ValueType    string `json:"valueType"`
+	IsMultiValue bool   `json:"isMultiValue"`
+}
+
 // ProjectFieldSchema is what a project says about one of its custom fields: enough to write a value for it.
 type ProjectFieldSchema struct {
 	Field *struct {
-		Name      string `json:"name"`
-		FieldType *struct {
-			ValueType    string `json:"valueType"`
-			IsMultiValue bool   `json:"isMultiValue"`
-		} `json:"fieldType"`
+		Name      string          `json:"name"`
+		FieldType *FieldValueType `json:"fieldType"`
 	} `json:"field"`
 }
 

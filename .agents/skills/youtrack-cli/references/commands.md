@@ -113,6 +113,7 @@ youtrack issue attachment visibility <issueId> <attachmentId> (--groups <names|i
 
 **field / reaction / draft / workitem**
 ```bash
+youtrack issue field list <issueId>   # every field: type, required, value; issue or draft ID
 youtrack issue field view <issueId> <fieldName>   # alias: get
 youtrack issue field list-values <issueId> <field> [--limit 50] [--offset 0]  # field name or opaque ID
 youtrack issue field set <issueId> <fieldName> <value>

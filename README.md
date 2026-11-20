@@ -128,6 +128,9 @@ EOF
 # move it along
 youtrack issue command DEMO-42 "State In Progress"
 
+# see every field of an issue: type, required, value, and whether it has choices
+youtrack issue field list DEMO-42
+
 # discover selectable values in this issue's field context
 youtrack issue field list-values DEMO-42 Priority --json
 
@@ -179,7 +182,7 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 
 | Group | Commands |
 |---|---|
-| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field` (+ `field list-values`), `reaction`, `draft`, `workitem`, `activity`, `vcs` |
+| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field` (+ `field list`, `field list-values`), `reaction`, `draft`, `workitem`, `activity`, `vcs` |
 | **project** | `list`, `view`, `create`, `update`, `delete`, `archive`, `team`, `field`, `template`, `timetrack`, `workflow` |
 | **issue attachment add** | Upload a file; `--visibility` restricts its initial audience and `--public` explicitly removes restrictions |
 | **article** | `list`, `view`, `create`, `update`, `delete`, `comment`, `attachment`, `tag` |
