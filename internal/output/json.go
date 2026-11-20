@@ -225,14 +225,20 @@ func customFieldCell(field map[string]any) string {
 	if field == nil {
 		return ""
 	}
-	if ms, ok := field["value"].(float64); ok && field["$type"] == "DateIssueCustomField" {
-		return time.UnixMilli(int64(ms)).UTC().Format("2006-01-02")
-	}
-	if s := customFieldValue(field["value"]); s != "" {
-		return s
-	}
 	pcf, _ := field["projectCustomField"].(map[string]any)
 	empty, _ := pcf["emptyFieldText"].(string)
+	return fieldCell(field["value"], field["$type"] == "DateIssueCustomField", empty)
+}
+
+// fieldCell renders a custom field value for a table cell: a date-only field drops the time of day, and an unset
+// value shows empty.
+func fieldCell(value any, isDate bool, empty string) string {
+	if ms, ok := value.(float64); ok && isDate {
+		return time.UnixMilli(int64(ms)).UTC().Format("2006-01-02")
+	}
+	if s := customFieldValue(value); s != "" {
+		return s
+	}
 	return empty
 }
 

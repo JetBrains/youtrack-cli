@@ -201,7 +201,7 @@ Destructive commands (deletes, bans, archives, and similar) ask for confirmation
 | `issue link type create` | **Yes** |
 | `issue attachment list` / `issue attachment download` | No |
 | `issue attachment add` / `issue attachment delete` | **Yes** |
-| `issue field view` / `issue field list-values` | No |
+| `issue field list` / `issue field view` / `issue field list-values` | No |
 | `issue field set` | **Yes** |
 | `issue reaction add` / `issue reaction delete` | **Yes** |
 | `issue draft create` / `issue draft update` / `issue draft submit` / `issue draft delete` | **Yes** |

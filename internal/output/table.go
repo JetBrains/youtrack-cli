@@ -19,6 +19,34 @@ func commentText(comment *api.Comment) string {
 	return comment.Text
 }
 
+// issueFieldType is the field's value type, with [*] for a field that holds several values.
+func issueFieldType(f *api.IssueFieldInfo) string {
+	if f.MultiValue {
+		return f.ValueType + "[*]"
+	}
+	return f.ValueType
+}
+
+// issueFieldShown is the field's value on one line, or empty for an unset field, so that a required field without a
+// value does not look set; JSON keeps the project's emptyText.
+func issueFieldShown(f *api.IssueFieldInfo) string {
+	return oneLine(fieldCell(f.Value, f.ValueType == "date", ""))
+}
+
+var lineBreaks = strings.NewReplacer("\r\n", " ", "\n", " ", "\r", " ", "\t", " ")
+
+// oneLine replaces line breaks and tabs with spaces, so that a multi-line value stays in its row and cell.
+func oneLine(s string) string {
+	return lineBreaks.Replace(s)
+}
+
+func yesNo(b bool) string {
+	if b {
+		return "yes"
+	}
+	return "no"
+}
+
 func issueFieldValueName(value *api.IssueFieldValue) string {
 	if value.Login != "" {
 		return value.Login
@@ -76,6 +104,11 @@ func PrintTable(out io.Writer, data any) error {
 			author = v.Author.Login
 		}
 		_, _ = fmt.Fprintf(w, "%s\t%s\t%s\n", v.ID, author, truncate(commentText(v), 60))
+	case []api.IssueFieldInfo:
+		_, _ = fmt.Fprintln(w, "NAME\tTYPE\tREQUIRED\tVALUE")
+		for i := range v {
+			_, _ = fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", v[i].Name, issueFieldType(&v[i]), yesNo(v[i].Required), truncate(issueFieldShown(&v[i]), 60))
+		}
 	case []api.IssueFieldValue:
 		_, _ = fmt.Fprintln(w, "ID\tVALUE")
 		for i := range v {
@@ -361,6 +394,10 @@ func PrintPlain(out io.Writer, data any) error {
 			author = v.Author.Login
 		}
 		write(v.ID, author, commentText(v))
+	case []api.IssueFieldInfo:
+		for i := range v {
+			write(v[i].Name, issueFieldType(&v[i]), yesNo(v[i].Required), issueFieldShown(&v[i]))
+		}
 	case []api.IssueFieldValue:
 		for i := range v {
 			write(v[i].ID, issueFieldValueName(&v[i]))

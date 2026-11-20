@@ -1,6 +1,10 @@
 package output
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/JetBrains/youtrack-cli/api"
+)
 
 func TestCustomFieldCell(t *testing.T) {
 	cases := []struct {
@@ -29,6 +33,28 @@ func TestCustomFieldCell(t *testing.T) {
 		t.Run(c.name, func(t *testing.T) {
 			if got := customFieldCell(c.field); got != c.out {
 				t.Errorf("customFieldCell(%v) = %q, want %q", c.field, got, c.out)
+			}
+		})
+	}
+}
+
+func TestIssueFieldShown(t *testing.T) {
+	cases := []struct {
+		name  string
+		field api.IssueFieldInfo
+		out   string
+	}{
+		{"unset value is empty, not the empty field text", api.IssueFieldInfo{EmptyText: "Unassigned"}, ""},
+		{"empty multi-value is empty", api.IssueFieldInfo{MultiValue: true, Value: []any{}, EmptyText: "No labels"}, ""},
+		{"enum shows name", api.IssueFieldInfo{ValueType: "enum", Value: map[string]any{"name": "High"}}, "High"},
+		{"date field drops time of day", api.IssueFieldInfo{ValueType: "date", Value: float64(1791892800000)}, "2026-10-13"},
+		{"date-time field keeps time", api.IssueFieldInfo{ValueType: "date and time", Value: float64(1791892800000)}, "2026-10-13 12:00:00"},
+		{"line breaks and tabs become spaces", api.IssueFieldInfo{ValueType: "text", Value: map[string]any{"text": "a\nb\r\nc\rd\te"}}, "a b c d e"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := issueFieldShown(&c.field); got != c.out {
+				t.Errorf("issueFieldShown(%+v) = %q, want %q", c.field, got, c.out)
 			}
 		})
 	}

@@ -450,9 +450,8 @@ func (c *Client) ListWorkItems(issueID string) ([]WorkItem, error) {
 }
 
 func (c *Client) GetCustomFieldValue(issueID, fieldName string) (*IssueField, error) {
-	var fields []IssueField
-	path := fmt.Sprintf(pathIssueFields+"?fields=id,name,value(name,presentation,text,login,minutes)&$top=500", url.PathEscape(issueID))
-	if err := c.Get(path, &fields); err != nil {
+	fields, err := getIssueFields[IssueField](c, issueID, "id,name,value(name,presentation,text,login,minutes)")
+	if err != nil {
 		return nil, err
 	}
 	for i := range fields {
