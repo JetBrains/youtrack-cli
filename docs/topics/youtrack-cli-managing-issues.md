@@ -227,9 +227,10 @@ The check reads the command preview from `youtrack issue command suggest`, which
 
 ## Setting custom fields {id="fields"}
 
-Read or set a single custom field value with `youtrack issue field`:
+List, read, or set custom field values with `youtrack issue field`:
 
 ```Shell
+youtrack issue field list DEMO-42
 youtrack issue field view DEMO-42 State
 youtrack issue field list-values DEMO-42 State --limit 50
 youtrack issue field set DEMO-42 State Fixed
@@ -243,6 +244,14 @@ Repeat `--value` to set several values of a multi-value field; the list replaces
 ```Shell
 youtrack issue field set DEMO-42 Subsystem --value "Platform. Auth & Licensing" --value UI
 youtrack issue field set DEMO-42 Assignee --clear
+```
+
+Use `issue field list <issueId>` to see every custom field of an issue: its value type (`enum`, `state`, `user`, `version`, `integer`, `period`, and so on), whether it holds several values, whether it is required, its current value, and in JSON whether it has choices that `list-values` can list (`hasChoices`). Table and plain output mark a field that holds several values with `[*]` after its type and leave the value empty for an unset field; JSON uses `multiValue` for the former and keeps the project's text for an empty field in `emptyText`. It needs only permission to read the issue. Pass a draft ID to see which fields a new issue needs before you submit it:
+
+```Shell
+youtrack issue field list DEMO-42 --json
+draft=$(youtrack issue draft create --project DEMO --json | jq -r .id)
+youtrack issue field list "$draft"
 ```
 
 Use `issue field list-values <issueId> <field>` to list choices visible in the issue's context. The field accepts its name or opaque ID. Results support `--json`, `--plain`, and `--fields`; page with `--limit` (default 50) and `--offset`. For example:

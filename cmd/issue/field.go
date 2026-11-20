@@ -13,10 +13,38 @@ import (
 func newIssueFieldCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "field", Short: "Manage custom field values on an issue"}
 	internal.RequireSubcommand(cmd)
+	cmd.AddCommand(newIssueFieldListCmd())
 	cmd.AddCommand(newIssueFieldViewCmd())
 	cmd.AddCommand(newIssueFieldSetCmd())
 	cmd.AddCommand(newIssueFieldValuesCmd())
 	return cmd
+}
+
+func newIssueFieldListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list <issueId>",
+		Short: "List the custom fields of an issue",
+		Long: "List every custom field of an issue or draft with its value type, whether it holds several values,\n" +
+			"whether it is required (may not be empty), and its current value.\n\n" +
+			"Fields with hasChoices set offer values that 'issue field list-values' lists. Only permission to\n" +
+			"read the issue is needed. Pass a draft ID (from 'issue draft create') to see which fields a new\n" +
+			"issue in a project needs before it is submitted.",
+		Example: "  youtrack issue field list DEMO-42\n" +
+			"  youtrack issue field list DEMO-42 --json\n" +
+			"  youtrack issue field list $(youtrack issue draft create --project DEMO --json | jq -r .id)",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			client, err := internal.GetClient(cmd)
+			if err != nil {
+				return err
+			}
+			fields, err := client.ListIssueFields(args[0])
+			if err != nil {
+				return err
+			}
+			return output.Print(cmd, fields)
+		},
+	}
 }
 
 func newIssueFieldValuesCmd() *cobra.Command {
