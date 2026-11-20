@@ -1,10 +1,10 @@
 .worktrees/
 .e2e/
 dist/
+docs-out/
 youtrack
 youtrack-cli
 .DS_Store
 .idea/
 docs/superpowers/
-docs/RFC-V2-gap-analysis.md
 /docs/internal/

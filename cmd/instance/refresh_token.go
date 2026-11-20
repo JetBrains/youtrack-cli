@@ -32,6 +32,6 @@ authentication method:
 The instance URL is read from the config — no URL prompt. On success the
 config entry is updated in-place (alias and URL are preserved).
 
-Use --format json for machine-readable output.`
+Use --json for machine-readable output.`
 	return cmd
 }

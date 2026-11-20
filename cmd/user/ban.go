@@ -11,7 +11,7 @@ import (
 
 func newUserBanCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "ban <userId>",
+		Use:   "ban <login>",
 		Short: "Ban a user account",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -35,7 +35,7 @@ func newUserBanCmd() *cobra.Command {
 
 func newUserUnbanCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "unban <userId>",
+		Use:   "unban <login>",
 		Short: "Unban a user account",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

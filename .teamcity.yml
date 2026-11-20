@@ -24,12 +24,12 @@ jobs:
         share-with-jobs: false
     steps:
       - type: script
-        name: Sign and publish GitHub, Homebrew, Scoop, Chocolatey, and WinGet
+        name: Sign and publish GitHub, Homebrew, Scoop, Chocolatey, and WinGet; package portal docs
         docker-image: goreleaser/goreleaser-pro:v2.19.0
         docker-run-parameters: --user 0
         script-content: |-
           set -eu
-          apk add --no-cache curl coreutils mono
+          apk add --no-cache curl coreutils mono zip
           git config --global --add safe.directory "$(pwd)"
           git fetch --tags origin
           case "$(uname -m)" in
@@ -54,6 +54,7 @@ jobs:
           export SCOOP_GITHUB_TOKEN="$GITHUB_TOKEN"
           go version
           goreleaser release --clean --skip=aur,npm
+          ./scripts/docs-package.sh
 secrets:
   env.GORELEASER_KEY: credentialsJSON:3d85f71e-e2f5-4878-8741-cd5867b7e170
   env.GITHUB_TOKEN: credentialsJSON:75dd8a3d-e893-4104-b457-548bccfbcde1

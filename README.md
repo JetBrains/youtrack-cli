@@ -7,9 +7,9 @@ Command-line client for [YouTrack](https://www.jetbrains.com/youtrack/), coverin
 
 ![youtrack-cli demo](docs/assets/youtrack-cli.gif)
 
-Full documentation — installation, authentication, configuration, and a command reference — lives under [docs/](docs/topics/youtrack-cli.md).
+Full documentation — installation, authentication, configuration, and a command reference — lives under [docs/](docs/portal/topics/youtrack-cli.md).
 
-> **Security notice:** YouTrack does not support granular token scopes; any token grants full account access. See [docs/security.md](docs/security.md) before using `youtrack` in pipelines or with AI agents.
+> **Security notice:** YouTrack does not support granular token scopes; any token grants full account access. See [Security](docs/security.md) before using `youtrack` in pipelines or with AI agents.
 
 ## Install
 
@@ -83,7 +83,7 @@ Replace `amd64` with `arm64` on ARM machines.
 go install github.com/JetBrains/youtrack-cli@latest
 ```
 
-See the [getting started guide](docs/topics/youtrack-cli-get-started.md) for the full walkthrough.
+See the [getting started guide](docs/portal/topics/youtrack-cli-get-started.md) for the full walkthrough.
 
 </details>
 
@@ -106,7 +106,7 @@ youtrack auth status      # auth method, expiry, refresh token present — never
 
 Apps and scripts without a terminal sign in through the browser with `--web`: `youtrack auth login https://example.youtrack.cloud --web --json`. It never prompts and fails at once when something is missing. The authorization URL goes to stderr as a `{"authorizationUrl": "..."}` line (a plain line without `--json`), so the caller can open it if the browser does not open.
 
-Auth commands mask the token in their output, JSON included. Pass `--show-token` when a script needs the full value, for example `youtrack auth login --save=false --json --show-token | jq -r .token`.
+Auth commands mask the token in their output, JSON included. Pass `--show-token` when a script needs the full value, for example `youtrack auth login --permanent --save=false --json --show-token | jq -r .token`.
 
 Then:
 
@@ -172,29 +172,28 @@ youtrack issue attachment add DEMO-42 --file report.txt --visibility user:alice
 youtrack update
 ```
 
-Every command takes `--json` or `--plain` for [scripting](docs/topics/youtrack-cli-scripting.md), and `--fields` to pick table/plain columns and pull extra fields from the API. When no command covers what you need, `youtrack raw` calls the REST API directly with your stored credentials. You can register several instances and switch between them, sign in through the browser, or point at a server with environment variables — see [authentication](docs/topics/youtrack-cli-authentication.md) and [configuration](docs/topics/youtrack-cli-configuration.md).
+Every command takes `--json` or `--plain` for [scripting](docs/portal/topics/youtrack-cli-scripting.md), and `--fields` to pick table/plain columns and pull extra fields from the API. When no command covers what you need, `youtrack raw` calls the REST API directly with your stored credentials. You can register several instances and switch between them, sign in through the browser, or point at a server with environment variables — see [authentication](docs/portal/topics/youtrack-cli-authentication.md) and [configuration](docs/portal/topics/youtrack-cli-configuration.md).
 
 Set `YOUTRACK_RO=1` to block every write at the client layer — a safety net for AI agents, CI read jobs, and exploration.
 
 ## Commands
 
-Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete` (`get`/`add` linger as deprecated aliases). Run `youtrack <group> --help` for the full subcommand list, or see the [command reference](docs/topics/youtrack-cli.md).
+Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`. `get` is an alias of `view`, and `add` is an alias of `create` on groups that create records. Elsewhere `add` is the canonical verb for associating an existing entity (`issue tag add`, `project team add-user`). Run `youtrack <group> --help` for the full subcommand list, or see the [command reference](docs/portal/topics/youtrack-cli.md).
 
 | Group | Commands |
 |---|---|
-| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`, `vote`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field` (+ `field list`, `field list-values`), `reaction`, `draft`, `workitem`, `activity`, `vcs` |
+| **issue** | `list`, `view`, `create`, `update`, `delete`, `count`, `command` (+ `command suggest`), `assign`/`unassign`, `watch`/`unwatch`, `vote`/`unvote`, `sprint`, `tag`, `visibility`, `comment`, `link`, `attachment`, `field` (+ `field list`, `field list-values`), `reaction`, `draft`, `workitem`, `activity`, `vcs` |
 | **project** | `list`, `view`, `create`, `update`, `delete`, `archive`, `team`, `field`, `template`, `timetrack`, `workflow` |
-| **issue attachment add** | Upload a file; `--visibility` restricts its initial audience and `--public` explicitly removes restrictions |
-| **article** | `list`, `view`, `create`, `update`, `delete`, `comment`, `attachment`, `tag` |
+| **article** | `list`, `view`, `create`, `update`, `delete`, `comment`, `attachment`, `tag`/`untag`, `child`, `parent`, `set-parent`, `visibility` |
 | **board** | `list`, `view`, `create`, `update`, `delete`, `sprint` |
 | **tag** | `list`, `create`, `delete`, `issue` |
 | **search** | `list`, `view`, `create`, `delete`, `share` |
-| **user** | `list`, `view`, `current`, `create`, `delete`, `ban`/`unban`, `drafts`, `locale`, `timezone`, `profile` |
+| **user** | `list`, `view`, `current`, `create`, `delete`, `ban`/`unban`, `drafts`, `locale`, `timezone`, `profile`, `tag` |
 | **group** | `list`, `view`, `create`, `delete`, `member`, `role` |
-| **role** | `list`, `view`, `create`, `update`, `delete`, `grant`, `revoke`, `permission` |
+| **role** | `list`, `view`, `create`, `update`, `delete`, `grant`, `revoke`, `assignments`, `permission`, `permissions` |
 | **org** | `list`, `create`, `delete` |
-| **field** | `list`, `create`, `delete`, `bundle`, `prototypes` |
-| **workflow** | `list`, `create`, `delete`, `rule` |
+| **field** | `list`, `create`, `delete`, `privacy`, `bundle`, `prototypes`, `workitem`, `worktime` |
+| **workflow** | `list`, `create`, `delete`, `restore`, `rule` |
 | **settings** | `view`, `feature` |
 | **app** | `list`, `plugin`, `deactivate`, `delete` |
 | **dashboard** | `list`, `create`, `update`, `delete` |
@@ -204,6 +203,8 @@ Canonical verbs across every group: `view`, `list`, `create`, `update`, `delete`
 | **raw** | Authenticated request to any REST endpoint (`--body-file`, `--output`, `--paginate`) |
 | **update** | Check for a newer CLI release and upgrade through the detected install method |
 | **skill** | `list`, `install`, `update`, `remove`, `guide` |
+
+To restrict who sees an uploaded file, pass `--visibility` to `issue attachment add`. To make the file visible to everyone who can see the project, pass `--public`.
 
 ## For AI agents
 
@@ -225,14 +226,14 @@ or specifically for **Claude Code** via the GitHub CLI:
 gh skill install JetBrains/youtrack-cli youtrack-cli --allow-hidden-dirs --agent claude-code
 ```
 
-See [AI agent integration](docs/topics/youtrack-cli-ai-agent-integration.md) for read-only mode, JSON output, and skill details.
+See [AI agent integration](docs/portal/topics/youtrack-cli-ai-agent-integration.md) for read-only mode, JSON output, and skill details.
 
 ## Learn more
 
-- [Getting started](docs/topics/youtrack-cli-get-started.md) — install, authenticate, and run your first commands
-- [Authentication](docs/topics/youtrack-cli-authentication.md) — tokens, browser SSO (OAuth client registration, headless sign-in, automatic refresh), multiple instances, credential precedence
-- [Configuration](docs/topics/youtrack-cli-configuration.md) — config file, environment variables, global flags, update checks
-- [Scripting and automation](docs/topics/youtrack-cli-scripting.md) — JSON/plain output, field projection, exit codes, CI
+- [Getting started](docs/portal/topics/youtrack-cli-get-started.md) — install, authenticate, and run your first commands
+- [Authentication](docs/portal/topics/youtrack-cli-authentication.md) — tokens, browser SSO (OAuth client registration, headless sign-in, automatic refresh), multiple instances, credential precedence
+- [Configuration](docs/portal/topics/youtrack-cli-configuration.md) — config file, environment variables, global flags, update checks
+- [Scripting and automation](docs/portal/topics/youtrack-cli-scripting.md) — JSON/plain output, field projection, exit codes, CI
 - [Security](docs/security.md) — token disclaimer, `YOUTRACK_RO`, keyring storage, command-mutability reference
 
 ## Contributing

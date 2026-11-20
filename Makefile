@@ -53,8 +53,21 @@ e2e-logs:
 snapshot:
 	goreleaser release --snapshot --clean --skip=publish
 
+docs-package:
+	./scripts/docs-package.sh
+
+# Writerside build of docs/portal/ into docs-out/site/; the builder recreates OUTPUT_DIR, so it must not be the mount point.
+# On Apple Silicon, Docker needs Rosetta for amd64 images.
+docs-build:
+	rm -rf docs-out && mkdir -p docs-out
+	docker run --rm --platform linux/amd64 \
+		-v "$(CURDIR)/docs/portal:/opt/sources/portal:ro" -v "$(CURDIR)/docs-out:/opt/wrs" \
+		-e SOURCE_DIR=/opt/sources -e OUTPUT_DIR=/opt/wrs/site \
+		-e MODULE_INSTANCE=portal/youtrack-cli -e RUNNER=other \
+		jetbrains/writerside-builder:2026.10.0423
+
 clean:
 	rm -f $(BINARY)
 	rm -rf dist/
 
-.PHONY: build fmt fmt-check lint check unit concurrency test e2e-up e2e-down e2e-logs snapshot clean
+.PHONY: build fmt fmt-check lint check unit concurrency test e2e-up e2e-down e2e-logs snapshot docs-package docs-build clean

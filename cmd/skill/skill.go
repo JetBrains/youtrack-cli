@@ -98,7 +98,7 @@ func newSkillGuideCmd(fs embed.FS) *cobra.Command {
 Installed skills are short stubs that tell agents to run this command, so the
 guide always matches this youtrack release. Without a topic, prints the overview
 followed by its topics. Without a skill, uses the default skill (youtrack-cli).
-Use --json or --format json to encode the Markdown as a JSON string.`,
+Use --json to encode the Markdown as a JSON string.`,
 		Example: `  youtrack skill guide
   youtrack skill guide youtrack-cli references/commands
   youtrack skill guide youtrack-cli gotchas`,

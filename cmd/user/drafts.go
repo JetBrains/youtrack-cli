@@ -37,7 +37,7 @@ func newUserDraftsCmd() *cobra.Command {
 		},
 	}
 	del := &cobra.Command{
-		Use: "delete <userId>", Short: "Delete all your issue drafts (pass 'me' or your own login; drafts are private to their owner)",
+		Use: "delete <login>", Short: "Delete all your issue drafts (pass 'me' or your own login; drafts are private to their owner)",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if abort, err := internal.ConfirmOrAbort(cmd, fmt.Sprintf(

@@ -1,28 +1,36 @@
-[//]: # (title: Configuration)
+# Configuration
 <show-structure for="chapter" depth="2"/>
 
-This page is the configuration reference for YouTrack CLI. It covers how the CLI finds your base URL and token, the config and keyring metadata it stores, the environment variables and global flags it reads, and the startup update notice.
+This page is the configuration reference for YouTrack CLI. It describes how the CLI finds the base URL and the token, what the config file stores, and which environment variables and global flags the CLI reads. You do not have to edit any file: `youtrack auth login` and the `youtrack instance` commands manage the configuration.
 
-## Resolution order {id="precedence"}
+## Flags win over environment variables, which win over the active instance
 
-YouTrack CLI resolves the base URL and token independently. For each one it walks the following chain and uses the first source that supplies a value:
+YouTrack CLI resolves the base URL and the token separately. For each value, the CLI uses the first source in this list that has a value:
 
-1. The `--base-url` and `--token` flags. An explicit per-command override always wins.
-2. The `--server <alias>` flag. It selects a named profile from the config file.
+1. The `--base-url` and `--token` flags.
+2. The `--server <alias>` flag. It selects a saved instance for one command.
 3. The `YOUTRACK_BASE_URL` and `YOUTRACK_TOKEN` environment variables.
 4. The active instance in the config file, set with `youtrack instance use`.
 
-Because the two values resolve separately, you can mix sources — for example, take the base URL from the active instance while passing the token through `YOUTRACK_TOKEN`.
+Because the two values resolve separately, you can mix sources. For example, the base URL can come from the active instance and the token from `YOUTRACK_TOKEN`.
 
-Saved tokens are bound to their instance: a token taken from a config profile (steps 2 and 4) is only sent when the resolved base URL has the same origin — scheme, host, and port — as that profile. Overriding just the base URL to point at a different host fails with an error rather than forwarding the saved token.
+These rules apply to saved OAuth sessions:
 
-> If no base URL or token can be resolved, the command fails with a message naming the missing value. Run `youtrack auth login` to configure one, or set the environment variables.
->
-{style="note"}
+- The `--token` flag always wins over a saved OAuth session. The CLI does not refresh the session.
+- `YOUTRACK_TOKEN` wins over the active instance, but not over an instance that you select with `--server`. If that instance has saved credentials, the CLI uses them and refreshes the session when necessary.
+- With `--server`, the CLI never uses the token of the active instance.
 
-## The config file {id="config-file"}
+A saved token goes only to the origin (scheme, host, and port) of its instance. If the token comes from a saved instance (sources 2 and 4) and the base URL points to another origin, the command fails. It does not send the saved token. For another instance, pass `--token` or `YOUTRACK_TOKEN`, or select its saved instance with `--server <alias>`.
 
-YouTrack CLI stores its configuration in `$XDG_CONFIG_HOME/youtrack/config.json`, which is `~/.config/youtrack/config.json` when `XDG_CONFIG_HOME` is not set. The same location is used on macOS, Linux, and Windows. Versions before this change used `~/.youtrack-cli-config.json`; the CLI moves that file to the new location the first time it runs. The file is written with `0600` permissions, so only your user account can read it. Saved tokens use the OS keyring when available and are omitted from this file. You do not edit it by hand — the `youtrack instance` commands manage it for you.
+<note>
+
+If the CLI cannot resolve the base URL or the token, the command fails with a message that names the missing value. Run `youtrack auth login`, or set the environment variables.
+
+</note>
+
+## The config file has no secrets when a keyring is available
+
+YouTrack CLI stores its configuration in `$XDG_CONFIG_HOME/youtrack/config.json`, which is `~/.config/youtrack/config.json` when `XDG_CONFIG_HOME` is not set. The location is the same on macOS, Linux, and Windows. If the CLI finds a config file at `~/.youtrack-cli-config.json`, it moves the file to this location. The CLI writes the file with `0600` permissions, so only your user can read it. When the OS keyring is available, the CLI stores tokens in the keyring, not in this file. Do not edit the file manually; the `youtrack auth` and `youtrack instance` commands manage it.
 
 A config file with two instances looks like this:
 
@@ -45,15 +53,41 @@ A config file with two instances looks like this:
 
 The top-level keys are:
 
-- `currentInstance` — alias of the active instance. Its credentials are used when no flag or environment variable overrides them.
-- `instances` — map of alias to instance. Each entry holds a `url`, plus optional OAuth session metadata for browser-SSO instances (`authMethod`, `tokenExpiresAt`, `refreshIssuedAt`, `tokenType`, `scope`, `hubUrl`, `clientId`, `tokenEndpoint`). `refreshIssuedAt` records when Hub issued the current refresh token; the CLI uses it to estimate when the session ends. A `token` (and, for OAuth sessions, a `refreshToken`) appears only when keyring storage is unavailable or explicitly disabled. The sibling `config.json.lock` file next to it serializes every config update (token refreshes, sign-ins, `instance use`/`delete`, `auth logout`) between concurrent CLI processes, so one process never overwrites a refresh token that another has just rotated.
-- `lastUpdateCheck` — Unix timestamp of the last update check, managed automatically. See [The startup update notice](#update-notice).
+- `currentInstance` — alias of the active instance. The CLI uses its credentials when no flag or environment variable overrides them.
+- `instances` — map of alias to instance. See the instance keys below.
+- `lastUpdateCheck` — Unix timestamp of the last update check.
+- `latestVersion` — the latest release that the update check found.
+- `dismissedVersion` — the release for which you selected __Skip until next version__.
 
-Manage the file with the `youtrack instance` commands: `auth login` signs in and saves a new instance (its alias is derived from the URL hostname unless you pass `--alias`), `instance list` shows all instances and which is active, `instance use <alias>` switches the active instance, `instance refresh-token <alias>` replaces a saved token in place, and `instance delete <alias>` removes one. See [Authentication](youtrack-cli-authentication.md) for how to obtain a permanent token and complete the `auth login` flow.
+The CLI manages `lastUpdateCheck`, `latestVersion`, and `dismissedVersion`. See [The startup update notice](#the-startup-update-notice).
 
-## Environment variables {id="env-vars"}
+Each instance entry has these keys:
 
-Environment variables take precedence over the config file, which makes them the preferred way to pass credentials in CI/CD pipelines.
+- `url` — the instance URL. Always present.
+- `authMethod` — `oauth` for an OAuth session from browser sign-in. Absent for a permanent token.
+- `tokenExpiresAt` — Unix timestamp when the access token of the OAuth session expires.
+- `refreshIssuedAt` — Unix timestamp when Hub issued the current refresh token. The CLI uses it to estimate when the session ends.
+- `oauthVersion` — the current version of the OAuth session entry in the keyring.
+- `sessionId` — identifies one sign-in. The CLI uses it to detect a new sign-in by another process.
+- `clientId` — the OAuth client ID that the session uses.
+- `tokenEndpoint` — the Hub token endpoint from the sign-in.
+- `token` and `refreshToken` — present only when the keyring is not available or `YOUTRACK_DISABLE_KEYRING` is set.
+
+The file `config.json.lock` next to the config file serializes every config update between CLI processes: token refreshes, sign-ins, `instance use`, `instance delete`, and `auth logout`. So one process never overwrites a refresh token that another process has just replaced.
+
+These commands manage the file:
+
+- `auth login` signs in and saves an instance. The alias comes from the URL hostname, unless you pass `--alias`.
+- `instance list` shows all instances and marks the active instance.
+- `instance use <alias>` changes the active instance.
+- `instance refresh-token <alias>` replaces the saved credentials with a permanent token.
+- `instance delete <alias>` removes an instance.
+
+See [Authentication](youtrack-cli-authentication.md) for the sign-in methods.
+
+## Environment variables suit CI pipelines
+
+Environment variables win over the active instance in the config file. Use them to give credentials to continuous integration and delivery (CI/CD) pipelines.
 
 <table>
 <tr>
@@ -88,7 +122,7 @@ Base URL of your YouTrack instance, for example `https://example.youtrack.cloud`
 </td>
 <td>
 
-Permanent token used to authenticate. It carries a `perm:` prefix.
+Token for authentication, usually a permanent token that starts with `perm:`.
 
 </td>
 </tr>
@@ -100,7 +134,7 @@ Permanent token used to authenticate. It carries a `perm:` prefix.
 </td>
 <td>
 
-Set to `1` to enable read-only mode. Every write operation (create, update, delete) is blocked, while reads and searches still work. Useful when granting an AI agent access. See [AI Agent Integration](youtrack-cli-ai-agent-integration.md).
+Set to `1` to enable read-only mode. Only the value `1` enables it; `true` or `yes` do not. The CLI blocks write operations (create, update, delete); reads and searches work. Read-only mode is a safety net, not a security boundary. See [Security](youtrack-cli-security.md#read-only-mode-is-a-safety-net-not-a-security-boundary).
 
 </td>
 </tr>
@@ -112,7 +146,7 @@ Set to `1` to enable read-only mode. Every write operation (create, update, dele
 </td>
 <td>
 
-Set to a non-empty value to store saved tokens in the mode-`0600` config file instead of the OS keyring. Intended for headless and deterministic CI environments.
+Set to any non-empty value, for example `1`, to store saved tokens in the config file (mode `0600`), not in the OS keyring. Every non-empty value disables the keyring, also `0`. Use it in headless and CI environments.
 
 </td>
 </tr>
@@ -130,20 +164,22 @@ Set to a non-empty value to disable the startup update check entirely. `DO_NOT_T
 </tr>
 </table>
 
-Export the credentials in your shell before running commands:
+<warning>
+
+Treat the token like a password. Set it through an environment variable, not with the `--token` flag, because the flag can appear in shell history.
+
+</warning>
+
+To export the credentials in your shell, run:
 
 ```Shell
 export YOUTRACK_BASE_URL=https://example.youtrack.cloud
 export YOUTRACK_TOKEN=perm:...
 ```
 
-> Treat the token like a password. Set it through an environment variable rather than the `--token` flag, which can appear in shell history.
->
-{style="warning"}
+## Global flags work on every command
 
-## Global flags {id="global-flags"}
-
-These flags are available on every command. The `--base-url` and `--token` flags override both the environment variables and the config file. Run `youtrack --version` to print the CLI version.
+The `--base-url` and `--token` flags override the environment variables and the config file. Run `youtrack --version` to print the CLI version.
 
 <table>
 <tr>
@@ -178,7 +214,7 @@ Base URL to use for this command. Overrides `YOUTRACK_BASE_URL`.
 </td>
 <td>
 
-Permanent token to use for this command. Overrides `YOUTRACK_TOKEN`.
+Token to use for this command. Overrides `YOUTRACK_TOKEN` and saved OAuth sessions; the CLI does not refresh it.
 
 </td>
 </tr>
@@ -190,7 +226,7 @@ Permanent token to use for this command. Overrides `YOUTRACK_TOKEN`.
 </td>
 <td>
 
-Select a named instance profile from the config file. Run `youtrack instance list` to see the aliases.
+Select a saved instance by alias for this command. Run `youtrack instance list` to see the aliases.
 
 </td>
 </tr>
@@ -282,7 +318,7 @@ Add `muteUpdateNotifications=true` to every POST, PUT, and DELETE request, inclu
 
 For how to combine `--json`, `--plain`, and `--fields` in scripts, see [Scripting and Automation](youtrack-cli-scripting.md).
 
-## The startup update notice {id="update-notice"}
+## The startup update notice
 
 On startup, a released build of YouTrack CLI checks GitHub at most once every 24 hours for a newer release. When the latest release is strictly newer than the running version by semantic-version comparison, it prints one line to stderr after the command finishes:
 
@@ -318,11 +354,11 @@ youtrack issue list --query "for: me" --quiet
 ```
 
 <seealso>
-<category ref="reference">
+<category ref="06">
 <a href="youtrack-cli-scripting.md">Scripting and Automation</a>
 <a href="youtrack-cli-administration.md">Administration</a>
 </category>
-<category ref="user-guide">
+<category ref="04">
 <a href="youtrack-cli-get-started.md">Getting Started</a>
 <a href="youtrack-cli-authentication.md">Authentication</a>
 </category>

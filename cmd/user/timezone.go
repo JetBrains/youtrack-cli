@@ -13,7 +13,7 @@ func newUserTimezoneCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "timezone", Short: "Manage user timezone"}
 	internal.RequireSubcommand(cmd)
 	view := &cobra.Command{
-		Use: "view <userId>", Aliases: []string{"get"}, Short: "View user timezone",
+		Use: "view <login>", Aliases: []string{"get"}, Short: "View user timezone",
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
@@ -29,7 +29,7 @@ func newUserTimezoneCmd() *cobra.Command {
 		},
 	}
 	set := &cobra.Command{
-		Use: "set <userId> <timezoneId>", Short: "Set user timezone",
+		Use: "set <login> <timezoneId>", Short: "Set user timezone",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)

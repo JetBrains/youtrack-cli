@@ -1,97 +1,166 @@
-# Security & Token Permissions
+# Security
 
-## Token Scope Disclaimer
+This page describes how YouTrack CLI protects tokens and what the CLI cannot protect. A token has the full permissions of its user, so read this page before you use the CLI in pipelines or give it to an AI agent. For automation, use a permanent token of a dedicated user with only the permissions that the automation needs.
 
-> **Important:** YouTrack currently does not support granular permission scoping for personal access tokens.
+<a id="token-scope"></a>
 
-Any token you create via **Profile → Account Security → New Token** receives access to everything your YouTrack account can do — there is no way to issue a token restricted to, say, read-only access or a single project. This means:
+## A token can do everything that its user can do
 
-- A token used by `youtrack` can create, update, and delete issues, projects, and users — anything your account permits.
-- If a token is leaked or misused, the blast radius equals your full YouTrack account permissions.
+> [!WARNING]
+> YouTrack does not support permission scopes for permanent tokens.
 
-**Before using `youtrack` in automated pipelines or sharing it with AI agents:**
-- Understand which commands mutate data (see table below).
-- Use the `YOUTRACK_RO=1` guard when only reads are needed.
-- Store tokens in secrets managers (GitHub Actions secrets, Vault, etc.) — never in plain text files committed to version control.
-- Rotate tokens regularly and revoke them when a pipeline or integration is decommissioned.
+A token that you create on the __Account Security__ tab of your profile has access to everything that your YouTrack user can do. You cannot create a token that is limited to read access or to one project. As a result:
 
-## Token Storage
+- A token that `youtrack` uses can create, update, and delete issues, projects, and users, as far as your user has permission.
+- If a token leaks, the damage equals the full permissions of your user.
 
-Tokens saved via `auth login`, `instance add`, `instance login`, or `auth refresh-token` are stored in the OS keyring when one is available:
+Before you use `youtrack` in automated pipelines or with AI agents:
 
-- **macOS** — Keychain
-- **Windows** — Credential Manager
-- **Linux** — Secret Service (GNOME Keyring, KWallet, etc. via D-Bus)
+- Find out which commands change data. See [Command mutability reference](#command-mutability).
+- If only reads are necessary, set `YOUTRACK_RO=1`. See [Read-only mode](#read-only-mode).
+- Store tokens in a secrets manager, for example GitHub Actions secrets or Vault. Do not commit tokens to version control.
+- Rotate tokens regularly. Revoke a token when you stop using its pipeline or integration.
 
-Each token is stored under the service name `youtrack-cli` with the instance alias as the account. An OAuth session also has an entry under the service name `youtrack-cli-oauth` with the account `<alias>/<version>`: it holds the access token, the refresh token, and the Hub token endpoint recorded at sign-in. Each save writes a new version and never overwrites one. The config file names the current version, so a failed write of the config file leaves the previous session intact. The CLI sends the refresh token only to this endpoint and ignores the endpoint in the config file. If the keyring cannot store this entry, the refresh token and the token endpoint stay in the config file, and the next successful save moves them to the keyring. If the config file names a version that is missing from the keyring, the CLI does not refresh the session and asks you to sign in again. If the keyring cannot be read, the CLI asks you to unlock it instead. A second entry, under the service name `youtrack-cli-url` with the instance alias as the account, holds the instance URL that the token was saved for. The token entry keeps only the token, so older CLI versions can still read it after a downgrade. The config file (`~/.config/youtrack/config.json`) then contains only the instance URL and non-secret session metadata (client ID, token endpoint, expiry, session version) — no secret.
+<a id="token-storage"></a>
 
-The keyring does not protect the token from other processes that run as the same user. On macOS, the keyring library reads the Keychain through `/usr/bin/security`, so any process of your user can read the token without a prompt. An AI agent with shell access can read it too. Give an agent only the access that the token gives your account.
+## The OS keyring stores saved tokens
 
-When no keyring is available (headless Linux, CI containers, locked keychain), the CLI automatically falls back to storing the token in `~/.config/youtrack/config.json` (mode 0600), exactly as before, and prints a one-line warning to stderr. The file is always written to a new temporary file and renamed into place. If its permissions can't be restricted to the owner, the CLI refuses to write tokens to it. Existing file-stored tokens are migrated to the keyring transparently the next time the config is written; the token is then removed from the file.
+`auth login`, `instance add`, `instance login`, and `auth refresh-token` store tokens in the OS keyring when one is available:
 
-`instance delete` / `auth logout` remove the keyring entry along with the config entry. If the keyring refuses the delete (for example, a locked keychain), the command prints a warning that names the entry, so you can remove it manually.
+- macOS: Keychain
+- Windows: Credential Manager
+- Linux: Secret Service, for example GNOME Keyring or KWallet, through D-Bus
 
-To opt out of keyring storage entirely (e.g. for deterministic CI setups), set:
+The CLI writes these keyring entries:
+
+| Service | Account | Content |
+|---|---|---|
+| `youtrack-cli` | `<alias>` | The token. The entry has only the token. |
+| `youtrack-cli-oauth` | `<alias>/<version>` | For an OAuth session: the access token, the refresh token, and the Hub token endpoint from the sign-in. |
+| `youtrack-cli-url` | `<alias>` | The instance URL that the token was saved for. |
+
+The config file `~/.config/youtrack/config.json` then has only the instance URL and session metadata without secrets: client ID, token endpoint, expiry, and session version.
+
+The OAuth session entry has these rules:
+
+- Each save writes a new version and never overwrites a version. The config file names the current version. If the config file cannot be written, the previous session stays usable.
+- The CLI sends the refresh token only to the endpoint in the keyring entry. It ignores the endpoint in the config file.
+- If the keyring cannot store the entry, the refresh token and the token endpoint stay in the config file. The next successful save moves them to the keyring.
+- If the config file names a version that is not in the keyring, the CLI does not refresh the session and asks you to sign in again.
+- If the CLI cannot read the keyring, it asks you to unlock the keyring. You do not have to sign in again.
+
+> [!WARNING]
+> The keyring does not protect the token from other processes of the same user. On macOS, the keyring library reads the Keychain through `/usr/bin/security`, so every process of your user can read the token without a prompt. An AI agent with shell access can also read the token. Give an agent only the access that the token gives your user.
+
+If no keyring is available, for example on headless Linux, in CI containers, or with a locked keychain, the CLI stores the token in `~/.config/youtrack/config.json` with mode `0600` and prints a warning to stderr. The CLI writes the file to a new temporary file and then renames it. If the CLI cannot limit the file permissions to the owner, it does not write tokens to the file. The next successful save moves tokens from the file to the keyring and removes them from the file.
+
+`instance delete` and `auth logout` remove the keyring entries and the config entry. If the keyring refuses the delete, for example because the keychain is locked, the command prints a warning that names the entry. You can then remove the entry manually.
+
+To use file storage and not the keyring, for example in deterministic CI setups, set `YOUTRACK_DISABLE_KEYRING` to any non-empty value:
 
 ```bash
 export YOUTRACK_DISABLE_KEYRING=1
 ```
 
-A saved token is bound to the origin (scheme, host, and port) of the instance it was saved for. For a keyring token, the CLI compares against the URL in the `youtrack-cli-url` keyring entry, not the URL in the config file, so a process that can edit only the config file cannot point the token at another host. When `--base-url`, `YOUTRACK_BASE_URL`, or the config file points at a different origin and no explicit token is supplied, the CLI refuses to run instead of sending the saved token to that host. A keyring token saved by an older version, without a `youtrack-cli-url` entry, gets the config-file URL the next time the config is written. A token in the config file (no keyring) is bound to the URL in the same file, so the file is the only protection. For the same reason, `auth refresh-token`, `instance refresh-token`, and `instance login <alias>` refuse to sign in when the config-file URL of the profile has a different origin than the URL its keyring token was issued for, so they do not send your password or browser sign-in to the edited host. If you changed the URL on purpose, remove the profile with `instance delete` and add it again.
+<a id="token-binding"></a>
 
-When the server answers with a redirect to a different scheme, host, or port, the CLI follows it without the `Authorization` header. This includes a redirect from `https` to `http` on the same host and a redirect to a subdomain. A redirect from `http` to `https` on the same host keeps the header, so an `http://` instance URL behind a proxy that redirects to `https` keeps working. Default ports count as equal to no port: `https://host` and `https://host:443` are the same origin.
+## A saved token goes only to its own instance
 
-`auth login`, `auth refresh-token`, `instance add`, and `instance refresh-token` mask the token in every output format (table, plain, and JSON), including the JSON that the CLI selects automatically when stdout is not a terminal. To print the full token, pass `--show-token`; it works the same way in every format. Scripts that read the token from the output, for example `youtrack auth login --save=false --json | jq -r .token`, must add `--show-token`: without it they now get the masked value.
+A saved token is bound to the origin (scheme, host, and port) of its instance. If `--base-url`, `YOUTRACK_BASE_URL`, or the config file points to another origin and you give no explicit token, the CLI does not run. It does not send the saved token to that host.
 
-When the instance URL uses plain `http` and the host is not a loopback address (`localhost`, `127.0.0.1`, `::1`), every command prints a warning to stderr: the token goes over the network unencrypted. Basic auth (`auth get-token`, `auth refresh-token`, `instance add`, `instance refresh-token`) refuses to send a password over such a URL unless you pass `--insecure`. Basic auth is deprecated: the password passes through the CLI and the method does not work with SSO or two-factor authentication. Use browser sign-in for interactive use and a permanent token of a dedicated, least-privilege account for automation.
+For a keyring token, the CLI compares the origin with the URL in the `youtrack-cli-url` keyring entry, not with the URL in the config file. So a process that can edit only the config file cannot send the token to another host. If a keyring token has no `youtrack-cli-url` entry, the CLI writes the entry from the config-file URL at the next save. A token in the config file is bound to the URL in the same file, so the file is the only protection.
 
-Environment credentials (`YOUTRACK_TOKEN`) and the `--token` flag bypass stored credentials entirely and are unaffected. Prefer an environment secret over a command-line token in automation, because command-line arguments can appear in shell history and process listings.
+`auth refresh-token`, `instance refresh-token`, and `instance login <alias>` do not sign in if the config-file URL of the instance has another origin than the URL in its keyring entry. So they do not send your password or your browser sign-in to the edited host. If you changed the URL on purpose, remove the instance with `instance delete` and add it again.
 
-## Browser Sign-In (OAuth)
+If the server redirects to another scheme, host, or port, the CLI follows the redirect without the `Authorization` header. This includes a redirect from `https` to `http` on the same host and a redirect to a subdomain. A redirect from `http` to `https` on the same host keeps the header, so an `http://` instance URL behind a proxy that redirects to `https` works. A default port is equal to no port: `https://host` and `https://host:443` are the same origin.
 
-Browser sign-in (`auth login`) uses the OAuth 2.0 authorization-code flow with PKCE, without a client secret:
+<a id="token-output"></a>
 
-- **PKCE always, S256 only.** A new 256-bit verifier is generated for each attempt. If Hub advertises PKCE methods without `S256`, sign-in stops.
-- **State.** A random, single-use `state` is compared in constant time. A callback or pasted URL with a different `state` is rejected, and its code is never exchanged.
-- **Loopback only.** The redirect listener binds to `127.0.0.1` (never a wildcard address), serves only the path-less `/`, accepts exactly one valid callback, and then closes. Query strings are never logged. The browser page is static: it has no code or token, loads no remote resources (`Content-Security-Policy: default-src 'none'`), and sends `Referrer-Policy: no-referrer`.
-- **No client secret.** The CLI never sends client credentials. If Hub answers `invalid_client`, check that the OAuth client has **Authorization Code flow** and **Require PKCE** enabled and requires no **Client secret** (see [Registering an OAuth client](topics/youtrack-cli-authentication.md#oauth-client)).
-- **TLS.** The instance and Hub URLs must be `https`. `http` works only for a loopback host (`localhost`, `127.0.0.1`, `::1`), where the traffic does not leave the machine. Remote `http` is always refused. Certificate verification is never disabled. OAuth endpoints found through discovery must share the Hub's origin, and requests to them never follow redirects.
-- **URL building.** The authorization URL is built from validated parts with standard query encoding. The browser gets it as a single process argument, never through a shell.
-- **Tokens are never printed.** `auth login` shows at most a masked prefix, `auth status` shows only the method, expiry, and whether a refresh token exists, and `--verbose` logs only method, URL, and status. Headers and OAuth request bodies are never logged.
-- **Refresh.** Expiry is stored as an absolute time (receipt time + `expires_in`), and the token is refreshed 60 seconds early to absorb clock skew. A rotated refresh token replaces the old one with an atomic file write. Concurrent processes serialize refresh through a lock file, and a revoked refresh token (`invalid_grant`) deletes the stale credentials.
+## The CLI masks tokens in its output
 
-## Untrusted Server Content
+`auth login`, `auth refresh-token`, `instance add`, and `instance refresh-token` mask the token in every output format: table, plain, and JSON. To print the full token, pass `--show-token`. A script that reads the token from the output must pass `--show-token`. For example, to get a permanent token for a CI secret store:
 
-Text returned by YouTrack (summaries, descriptions, comments, names, error messages) is authored by other users. In table and plain output the CLI strips terminal control characters (C0 controls other than tab and newline, DEL, and C1 controls) so that stored content cannot inject escape sequences — colors, cursor movement, window titles, or OSC 8 hyperlinks — into your terminal. JSON output is unchanged; the JSON encoder escapes control characters.
+```bash
+youtrack auth login --base-url https://example.youtrack.cloud --permanent --save=false --json --show-token | jq -r .token
+```
 
-Hub URLs discovered from the server are only shown as links or opened in a browser when they use `https` (or `http` when the instance itself is `http`), have a host, and carry no user-info component.
+> [!WARNING]
+> Add `--permanent` to this command. Without it, the command prints the OAuth access token, which expires in about one hour.
 
-## Local Files
+<a id="plain-http"></a>
+
+## Plain http sends the token unencrypted
+
+If the instance URL uses plain `http` and the host is not a loopback address (`localhost`, `127.0.0.1`, `::1`), every command prints a warning to stderr: the token goes over the network unencrypted.
+
+Basic auth (`auth login --login`, `auth refresh-token`, `instance refresh-token`) does not send a password over such a URL, unless you pass `--insecure`. Basic auth is deprecated: the password goes through the CLI, and the method does not work with single sign-on (SSO) or two-factor authentication (2FA). Use browser sign-in for interactive use. Use a permanent token of a dedicated user with few permissions for automation.
+
+The `YOUTRACK_TOKEN` environment variable and the `--token` flag do not use stored credentials, and these rules do not apply to them. In automation, use an environment secret, not a token on the command line. Command-line arguments can appear in shell history and process listings.
+
+<a id="browser-oauth"></a>
+
+## Browser sign-in uses OAuth with PKCE and no client secret
+
+Browser sign-in (`auth login`) uses the OAuth 2.0 authorization code flow with Proof Key for Code Exchange (PKCE), without a client secret:
+
+- **PKCE always, S256 only.** S256 is the SHA-256 method of PKCE. The CLI generates a new 256-bit verifier for each attempt. If Hub lists PKCE methods without `S256`, the sign-in stops.
+- **State.** The CLI compares a random, single-use `state` value in constant time. It rejects a callback or a pasted URL with another `state` and never exchanges its code.
+- **Loopback only.** The redirect listener binds to `127.0.0.1`, never to a wildcard address. It serves only the path `/`, accepts exactly one valid callback, and then closes. The CLI never logs query strings. The browser page is static: it has no code or token, loads no remote resources (`Content-Security-Policy: default-src 'none'`), and sends `Referrer-Policy: no-referrer`.
+- **No client secret.** The CLI never sends client credentials. If Hub answers `invalid_client`, check that the OAuth client has __Authorization Code flow__ and __Require PKCE__ enabled and requires no __Client secret__. See [Registering an OAuth client](portal/topics/youtrack-cli-authentication.md#registering-an-oauth-client).
+- **TLS.** The instance URL and the Hub URL must use `https`. Plain `http` works only for a loopback host (`localhost`, `127.0.0.1`, `::1`), where the traffic stays on the computer. The CLI refuses remote `http`. The CLI never turns off certificate verification. OAuth endpoints from discovery must have the same origin as the Hub, and requests to them never follow redirects.
+- **URL building.** The CLI builds the authorization URL from validated parts with standard query encoding. The browser gets the URL as one process argument, never through a shell.
+- **Tokens are never printed.** `auth login` shows only a masked prefix. `auth status` shows only the method, the expiry, and whether a refresh token exists. `--verbose` logs only the method, URL, and status. The CLI never logs headers or OAuth request bodies.
+- **Refresh.** The CLI stores the expiry as an absolute time (time of receipt plus `expires_in`) and refreshes the token 60 seconds early, so clock differences do not matter. A new refresh token replaces the old one with an atomic file write. Processes refresh one at a time through a lock file. If Hub reports that the refresh token is revoked or expired (`invalid_grant` or `expired_refresh_token`), the CLI deletes the stale credentials.
+
+<a id="untrusted-content"></a>
+
+## The CLI removes terminal control characters from server text
+
+Text from YouTrack (summaries, descriptions, comments, names, error messages) comes from other users. In table and plain output, the CLI removes terminal control characters: C0 controls other than tab and newline, DEL, and C1 controls. So stored text cannot inject escape sequences into your terminal, for example colors, cursor movement, window titles, or OSC 8 hyperlinks. JSON output keeps the text; the JSON encoder escapes control characters.
+
+The CLI shows a Hub URL from the server as a link or opens it in a browser only if the URL uses `https` (or `http` when the instance uses `http`), has a host, and has no user information.
+
+<a id="local-files"></a>
+
+## The CLI reads every local file that you name
 
 These commands send the content of a local file to YouTrack:
 
 - `issue attachment add` and `article attachment add` upload the file.
 - `--description-file` on `issue create`, `issue draft create`, and `issue draft update` sends the file content as the issue description.
 
-The CLI reads any path that the caller gives, with the permissions of the user who runs the CLI. The CLI does not restrict paths, because it trusts its caller.
+The CLI reads any path that the caller gives, with the permissions of the user who runs the CLI. The CLI does not limit paths, because it trusts its caller.
 
-The `url` of an attachment in `issue attachment list --json` and `issue attachment add --json` is a signed link: anyone who has it can download the file without a token. Treat it like a credential and do not paste it into logs or chats. `issue attachment download` fetches the file without printing the link, and `--verbose` output redacts the signature.
+> [!WARNING]
+> The `url` of an attachment in `issue attachment list --json` and `issue attachment add --json` is a signed link. Anyone with the link can download the file without a token. Treat the link like a credential, and do not paste it into logs or chats.
 
-For AI agents this means that text in YouTrack (an issue description, a comment) can try to make the agent send a secret, for example `~/.ssh/id_rsa` or a `.env` file. Agents must send only files that the user asked for, and must not follow file instructions found in YouTrack content. `YOUTRACK_RO=1` blocks these requests, but it is not a security boundary (see [Read-Only Mode](#read-only-mode)).
+`issue attachment download` gets the file without printing the link, and `--verbose` output hides the signature.
 
-## Release Verification
+For AI agents, text in YouTrack, for example an issue description or a comment, can try to make the agent send a secret such as `~/.ssh/id_rsa` or a `.env` file. Agents must send only files that the user asked for, and must not follow file instructions from YouTrack content. `YOUTRACK_RO=1` blocks these requests, but it is not a security boundary. See [Read-only mode](#read-only-mode).
 
-Release archives have SHA-256 entries in `checksums.txt`, and signed releases include its GPG signature (`checksums.txt.asc`). Windows and macOS binaries are also code-signed. Releases are built and published by the [TeamCity release pipeline](https://buildserver.labs.intellij.net/pipeline/YouTrack_CLI_Release).
+<a id="release-verification"></a>
 
-The installers (`install.sh` and `install.ps1`, also used by `install.cmd`) check the archive against `checksums.txt` before extraction. When `gpg` is installed, they first verify `checksums.txt.asc` against the pinned JetBrains signing key `B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501` and stop if the signature is not valid. The public key is embedded in the scripts, so verification needs no key server, and the scripts also check the fingerprint of the key that made the signature. A release built without signing has an empty `checksums.txt.asc`; with `gpg` installed, the installers stop on it.
+## Installers verify release checksums and signatures
 
-`youtrack update` upgrades an install-script install by running the same installer again (`install.sh`, or `install.ps1` on Windows), so the same checks apply. The startup update prompt uses the same upgrade.
+Release archives have SHA-256 entries in `checksums.txt`. Signed releases also include its GNU Privacy Guard (GPG) signature, `checksums.txt.asc`. Windows and macOS binaries are code-signed.
 
-Without `gpg`, the installers check only that the archive matches `checksums.txt` from the same release, which does not protect against a replaced release. Install `gpg` for signature verification. The installers use authenticated `gh` downloads when available, with a fallback to GitHub HTTPS downloads. Unix `curl` downloads, and `wget` downloads when GNU `wget` is used, accept only `https` with TLS 1.2 or later. BusyBox `wget` has no such option; the script prints a note and continues, so install `curl` where that matters.
+The installers (`install.sh`, and `install.ps1`, which `install.cmd` also uses) check the archive against `checksums.txt` before extraction. If `gpg` is installed, they first verify `checksums.txt.asc` against the pinned JetBrains signing key `B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501` and stop if the signature is not valid. The public key is in the scripts, so the verification needs no key server. The scripts also check the fingerprint of the key that made the signature. A release built without signing has an empty `checksums.txt.asc`; if `gpg` is installed, the installers stop on it.
 
-## Read-Only Mode
+`youtrack update` upgrades an install-script installation with the same installer (`install.sh`, or `install.ps1` on Windows), so the same checks apply. The startup update prompt uses the same upgrade.
 
-Set `YOUTRACK_RO=1` to prevent any write operations at the client level:
+> [!WARNING]
+> Without `gpg`, the installers check only that the archive matches `checksums.txt` from the same release. This check does not protect against a replaced release. Install `gpg` for signature verification.
+
+The installers use authenticated `gh` downloads when `gh` is available, and GitHub HTTPS downloads otherwise. On Unix, `curl` downloads, and downloads with GNU `wget`, accept only `https` with TLS 1.2 or later. BusyBox `wget` has no such option; the script prints a note and continues. If this matters, install `curl`.
+
+<a id="read-only-mode"></a>
+
+## Read-only mode is a safety net, not a security boundary
+
+> [!WARNING]
+> Read-only mode is an environment variable, so any process that can run the CLI, including an AI agent, can unset it. To limit an agent, give it a token of a user with only the permissions that it needs.
+
+To block write operations in the CLI, set `YOUTRACK_RO=1`. Only the value `1` enables read-only mode; `true` or `yes` do not.
 
 ```bash
 export YOUTRACK_RO=1
@@ -99,27 +168,33 @@ youtrack issue list --query "assignee: me"      # works
 youtrack issue create --project MYPROJ --summary "..."   # error: read-only mode is enabled (YOUTRACK_RO=1): write operations are blocked
 ```
 
-This flag blocks all `POST`, `PUT`, `DELETE`, and multipart upload requests at the HTTP client layer — no command-level checks required, so it protects against accidental writes regardless of which command is invoked. The only exceptions are two fixed endpoints that YouTrack exposes as `POST` but that only compute a result: `/api/issuesGetter/count` (`issue count`) and `/api/commands/assist` (`issue command suggest`). `youtrack raw` has no exceptions. The Hub API calls are covered too, so basic-auth `auth get-token` cannot create a permanent token in read-only mode.
+Read-only mode blocks all `POST`, `PUT`, `DELETE`, and multipart upload requests to the YouTrack API and the Hub API in the HTTP client. So no command can write by accident, whichever command you run. These requests are exceptions:
 
-Read-only mode is a safety net, not a security boundary. It is an environment variable, so any process that can run the CLI, including an AI agent, can unset it. To limit an agent, give it a token from an account with only the permissions that it needs.
+- Two YouTrack endpoints that use `POST` but only calculate a result: `/api/issuesGetter/count` (`issue count`) and `/api/commands/assist` (`issue command suggest`). `youtrack raw` has no exceptions.
+- The OAuth token endpoint of Hub. Browser sign-in and the refresh of an OAuth session work in read-only mode.
 
-This is particularly useful for:
-- AI agent integrations where you want to allow read-only introspection of YouTrack state.
-- CI jobs that only query issues (e.g. generating release notes) and should never mutate data.
-- Developer exploration sessions where you want a safety net against typos.
+Basic auth (`auth login --login`) uses the Hub API, so it cannot create a permanent token in read-only mode.
 
-## Command Mutability Reference
+Use read-only mode for:
 
-Destructive commands (deletes, bans, archives, and similar) prompt for confirmation before acting; pass `--force` to skip the prompt in scripts.
+- AI agent integrations that only read YouTrack data.
+- CI jobs that only query issues, for example to generate release notes.
+- Exploration sessions, as a safety net against typing errors.
 
-| Command | Mutates data? |
+<a id="command-mutability"></a>
+
+## Command mutability reference
+
+Destructive commands (deletes, bans, archives, and similar) ask for confirmation. To skip the prompt in scripts, pass `--force`.
+
+| Command | Changes data? |
 |---|---|
-| `issue view` / `issue list` / `issue count` / `issue command suggest` | No |
+| `issue view` / `issue list` / `issue count` / `issue command suggest` / `issue activity list` | No |
 | `issue create` / `issue update` / `issue delete` | **Yes** |
 | `issue command` / `issue assign` / `issue unassign` | **Yes** |
 | `issue watch` / `issue unwatch` / `issue vote` / `issue unvote` | **Yes** |
 | `issue tag` / `issue visibility` | **Yes** |
-| `issue comment list` | No |
+| `issue comment list` / `issue comment view` | No |
 | `issue comment create` / `issue comment update` / `issue comment delete` | **Yes** |
 | `issue comment pin` / `issue comment visibility` | **Yes** |
 | `issue link list` | No |
@@ -128,7 +203,7 @@ Destructive commands (deletes, bans, archives, and similar) prompt for confirmat
 | `issue link type create` | **Yes** |
 | `issue attachment list` / `issue attachment download` | No |
 | `issue attachment add` / `issue attachment delete` | **Yes** |
-| `issue field view` | No |
+| `issue field view` / `issue field list-values` | No |
 | `issue field set` | **Yes** |
 | `issue reaction add` / `issue reaction delete` | **Yes** |
 | `issue draft create` / `issue draft update` / `issue draft submit` / `issue draft delete` | **Yes** |
@@ -147,7 +222,7 @@ Destructive commands (deletes, bans, archives, and similar) prompt for confirmat
 | `article child list` / `article parent view` | No |
 | `article child add` | **Yes** |
 | `project list` / `project view` | No |
-| `project create` / `project delete` / `project archive` | **Yes** |
+| `project create` / `project update` / `project delete` / `project archive` | **Yes** |
 | `project team list-users` / `project team list-groups` | No |
 | `project team add-user` / `project team add-group` / `project team remove-user` / `project team remove-group` | **Yes** |
 | `project field list` | No |
@@ -157,7 +232,7 @@ Destructive commands (deletes, bans, archives, and similar) prompt for confirmat
 | `board list` / `board view` | No |
 | `board create` / `board update` / `board delete` | **Yes** |
 | `board sprint list` / `board sprint view` | No |
-| `board sprint create` | **Yes** |
+| `board sprint create` / `board sprint update` / `board sprint delete` | **Yes** |
 | `user list` / `user view` / `user current` | No |
 | `user create` / `user delete` / `user ban` / `user unban` | **Yes** |
 | `user locale set` / `user timezone set` | **Yes** |
@@ -170,3 +245,10 @@ Destructive commands (deletes, bans, archives, and similar) prompt for confirmat
 | `auth login` / `auth refresh-token` / `auth logout` | **Yes** (local config only) |
 | `instance add` / `instance use` / `instance delete` / `instance refresh-token` / `instance login` | **Yes** (local config only) |
 | `instance list` / `instance version` | No |
+
+## See also
+
+- [Scripting and Automation](portal/topics/youtrack-cli-scripting.md)
+- [AI Agent Integration](portal/topics/youtrack-cli-ai-agent-integration.md)
+- [Authentication](portal/topics/youtrack-cli-authentication.md)
+- [Configuration](portal/topics/youtrack-cli-configuration.md)

@@ -68,7 +68,7 @@ func newListCmd() *cobra.Command {
 				return nil
 			}
 			if len(items) == 0 {
-				_, _ = fmt.Fprintln(w, "No instances configured. Run: youtrack auth get-token")
+				_, _ = fmt.Fprintln(w, "No instances configured. Run: youtrack auth login")
 				return nil
 			}
 			for _, item := range items {

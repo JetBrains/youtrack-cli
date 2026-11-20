@@ -10,7 +10,7 @@ func newUserLocaleCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "locale", Short: "Manage user locale"}
 	internal.RequireSubcommand(cmd)
 	set := &cobra.Command{
-		Use: "set <userId> <locale>", Short: "Set user locale (e.g. en_US)",
+		Use: "set <login> <locale>", Short: "Set user locale (e.g. en_US)",
 		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, err := internal.GetClient(cmd)
