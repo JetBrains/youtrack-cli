@@ -12,6 +12,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"time"
 )
@@ -296,7 +297,27 @@ func (c *Client) Get(path string, result any) error {
 	if c.Fields != "" {
 		path = mergeFieldsParam(path, c.Fields)
 	}
-	return c.send("GET", path, nil, "", result)
+	if err := c.send("GET", path, nil, "", result); err != nil {
+		return err
+	}
+	if c.Warn != nil && hitsListCap(path, result) {
+		_, _ = fmt.Fprintf(c.Warn, "! got %d items, the per-request cap; the list may be cut short. Run youtrack raw --paginate to fetch every page\n", listCap)
+	}
+	return nil
+}
+
+// listCap is the $top that single-request list calls send; a full page means more items may exist.
+const listCap = 500
+
+// hitsListCap reports a single-page list request (no $skip) whose response filled the cap.
+func hitsListCap(path string, result any) bool {
+	v := reflect.ValueOf(result)
+	if v.Kind() != reflect.Pointer || v.Elem().Kind() != reflect.Slice || v.Elem().Len() != listCap {
+		return false
+	}
+	_, query, _ := strings.Cut(path, "?")
+	q, err := url.ParseQuery(query)
+	return err == nil && q.Get("$top") == fmt.Sprint(listCap) && !q.Has("$skip")
 }
 
 // mergeFieldsParam adds to a URL's fields= param rather than replacing it, so a user projection can't drop fields a call needs internally.

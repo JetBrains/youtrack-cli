@@ -159,3 +159,28 @@ func TestInstancePath(t *testing.T) {
 		})
 	}
 }
+
+func TestHitsListCap(t *testing.T) {
+	full := make([]Project, listCap)
+	short := make([]Project, listCap-1)
+	one := Project{}
+	cases := []struct {
+		name   string
+		path   string
+		result any
+		want   bool
+	}{
+		{"full page at cap", "/api/admin/projects?fields=id&$top=500", &full, true},
+		{"short page", "/api/admin/projects?fields=id&$top=500", &short, false},
+		{"paged loop", "/api/issues?$top=500&$skip=0", &full, false},
+		{"user limit", "/api/articles?$top=100", &full, false},
+		{"no top", "/api/admin/projects", &full, false},
+		{"not a slice", "/api/admin/projects/1?$top=500", &one, false},
+		{"nil result", "/api/admin/projects?$top=500", nil, false},
+	}
+	for _, tc := range cases {
+		if got := hitsListCap(tc.path, tc.result); got != tc.want {
+			t.Errorf("%s: hitsListCap = %v, want %v", tc.name, got, tc.want)
+		}
+	}
+}

@@ -28,7 +28,11 @@ func configureClient(cmd *cobra.Command, source *api.Client) *api.Client {
 	if writes, ok := any(&c).(interface{ SetWriteOptions(bool, bool, io.Writer) }); ok {
 		dryRun, _ := flags.GetBool("dry-run")
 		mute, _ := flags.GetBool("mute-notifications")
-		writes.SetWriteOptions(dryRun, mute, cmd.ErrOrStderr())
+		warn := cmd.ErrOrStderr()
+		if quiet, _ := flags.GetBool("quiet"); quiet {
+			warn = nil
+		}
+		writes.SetWriteOptions(dryRun, mute, warn)
 	}
 	return &c
 }

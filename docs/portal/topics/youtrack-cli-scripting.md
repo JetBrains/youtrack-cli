@@ -171,6 +171,8 @@ youtrack raw /api/issues --fields "idReadable,summary" --paginate --page-size 10
 
 The `--limit` flag of `issue list`, `article list`, `user list`, `tag list`, and `tag issue list` takes a non-negative value, and `0` returns an empty list. The `issue list --offset` value must also be non-negative. `issue field list-values --limit` defaults to 50 and must be greater than `0`. To fetch every page, use `raw --paginate`.
 
+Other list commands send one request with `$top=500`. If a list command gets exactly 500 items, it writes a warning to stderr, because the server can have more items. The warning does not change stdout or the exit code. `--quiet` suppresses the warning. To fetch every item, use `raw --paginate`.
+
 <table>
 <tr>
 <td>
