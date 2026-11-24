@@ -14,7 +14,7 @@ if [[ "${YOUTRACK_E2E_RESET:-0}" == "1" ]]; then
   reset_state
 fi
 
-if ! service_is_running; then
+if needs_configure && ! service_is_running; then
   configure_instance
 fi
 compose up -d --wait --wait-timeout 600 youtrack gitea mailhog

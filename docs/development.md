@@ -69,9 +69,11 @@ set +a
 |---|---|
 | `YOUTRACK_E2E_RESET=1` | Recreate local YouTrack state from scratch |
 | `YOUTRACK_E2E_PORT` | Override the local YouTrack port |
-| `YOUTRACK_E2E_VERSION=2026.2.17765` | Override the Docker image tag |
-| `YOUTRACK_E2E_LICENSE_NAME` | License owner name for `configure` |
-| `YOUTRACK_E2E_LICENSE_KEY` | License key for `configure` |
+| `YOUTRACK_E2E_VERSION=2026.3.20641` | Override the Docker image tag. Images before 2026.3 are set up with `configure`; 2026.3+ images with `JETBRAINS_YOUTRACK_*` variables |
+| `YOUTRACK_E2E_LICENSE_NAME` | License owner name |
+| `YOUTRACK_E2E_LICENSE_KEY` | License key |
+
+CI runs the suite against the default tag. To test another tag, run the **E2E** workflow by hand (Actions → E2E → Run workflow); the default input is the latest 2026.2 release.
 
 ### Writing tests
 
