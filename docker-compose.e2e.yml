@@ -2,6 +2,14 @@ services:
   youtrack:
     image: jetbrains/youtrack:${YOUTRACK_E2E_VERSION}
     container_name: youtrack-cli-e2e
+    # 2026.3+ images read settings from JETBRAINS_YOUTRACK_* variables; setup applies only on a fresh data dir.
+    environment:
+      - JETBRAINS_YOUTRACK_BASEURL=http://127.0.0.1:${YOUTRACK_E2E_PORT}
+      - JETBRAINS_YOUTRACK_SETUP_UNATTENDED=true
+      - JETBRAINS_YOUTRACK_SETUP_ADMIN_LOGIN=admin
+      - JETBRAINS_YOUTRACK_SETUP_ADMIN_PASSWORD=admin
+      - JETBRAINS_YOUTRACK_LICENSENAME=${LICENSE_NAME}
+      - JETBRAINS_YOUTRACK_LICENSEKEY=${LICENSE_KEY}
     ports:
       - "${YOUTRACK_E2E_PORT}:8080"
     healthcheck:

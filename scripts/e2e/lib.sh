@@ -7,7 +7,7 @@ E2E_DIR="${ROOT_DIR}/.e2e"
 ENV_FILE="${E2E_DIR}/youtrack.env"
 PORT_FILE="${E2E_DIR}/port"
 LOG_DIR="${E2E_DIR}/logs"
-YOUTRACK_E2E_VERSION="${YOUTRACK_E2E_VERSION:-2026.2.17765}"
+YOUTRACK_E2E_VERSION="${YOUTRACK_E2E_VERSION:-2026.3.20641}"
 
 find_free_port() {
   local port
@@ -47,6 +47,7 @@ export YOUTRACK_E2E_VERSION
 
 LICENSE_NAME="${YOUTRACK_E2E_LICENSE_NAME:-${DEFAULT_LICENSE_NAME}}"
 LICENSE_KEY="${YOUTRACK_E2E_LICENSE_KEY:-${DEFAULT_LICENSE_KEY}}"
+export LICENSE_NAME LICENSE_KEY
 
 compose() {
   docker compose -p "youtrack-cli-e2e" -f "${ROOT_DIR}/docker-compose.e2e.yml" "$@"
@@ -136,7 +137,7 @@ apply_license() {
   local token="$1"
   require_command jq
 
-  # Configure's JVM properties do not persist the license to the running service.
+  # Neither the setup license nor configure's JVM properties reach a reused instance, so apply it here.
   curl -fsS \
     -H "Authorization: Bearer ${token}" \
     -H "Content-Type: application/json" \
@@ -148,6 +149,12 @@ apply_license() {
 
 service_is_running() {
   compose ps --status running -q youtrack | grep -q .
+}
+
+# Images before 2026.3 need the `configure` command; 2026.3+ read the JETBRAINS_YOUTRACK_* variables in docker-compose.e2e.yml.
+# ponytail: string compare is correct for YYYY.N.build tags; revisit if YouTrack ever ships a two-digit minor.
+needs_configure() {
+  [[ "${YOUTRACK_E2E_VERSION}" < "2026.3" ]]
 }
 
 configure_instance() {
