@@ -83,19 +83,9 @@ jobs:
             *) echo "binary --version output does not contain snapshot version $expected" >&2; exit 1 ;;
           esac
 
-  e2e-run:
-    # ponytail: the major is hard-coded; bump it with YOUTRACK_E2E_VERSION in scripts/e2e/lib.sh.
-    name: YouTrack 2026.3
+  e2e:
     needs: verify
     uses: ./.github/workflows/e2e.yml
-
-  # The master ruleset requires a check named "e2e"; a reusable workflow reports as "YouTrack 2026.3 / e2e".
-  e2e:
-    needs: e2e-run
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-      - run: test "${{ needs.e2e-run.result }}" = success
 
   docs:
     runs-on: ubuntu-latest
