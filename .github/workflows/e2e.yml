@@ -21,6 +21,9 @@ permissions:
 
 jobs:
   e2e:
+    # CI reports this as "e2e / youtrack-2026.3", the check the master ruleset requires.
+    # ponytail: the major is hard-coded; bump it with YOUTRACK_E2E_VERSION in scripts/e2e/lib.sh and in the ruleset.
+    name: youtrack-${{ inputs.youtrack || '2026.3' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
