@@ -1,4 +1,5 @@
 name: E2E
+run-name: E2E on YouTrack ${{ inputs.youtrack || 'harness default' }}
 
 # CI calls this with the harness default image (scripts/e2e/lib.sh); run it by hand to test another YouTrack image.
 on:
