@@ -21,9 +21,10 @@ permissions:
 
 jobs:
   e2e:
-    # CI reports this as "e2e / youtrack-2026.3", the check the master ruleset requires.
+    # CI reports this as "e2e / youtrack-2026.3", the check the master ruleset requires; a manual run adds the "e2e / " prefix itself.
+    # Expressions cannot cut the major out of a tag, so a manual run shows the full tag.
     # ponytail: the major is hard-coded; bump it with YOUTRACK_E2E_VERSION in scripts/e2e/lib.sh and in the ruleset.
-    name: youtrack-${{ inputs.youtrack || '2026.3' }}
+    name: ${{ github.event_name == 'workflow_dispatch' && 'e2e / ' || '' }}youtrack-${{ inputs.youtrack || '2026.3' }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
