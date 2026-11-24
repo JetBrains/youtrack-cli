@@ -118,10 +118,8 @@ func TestCmd_RoleGrantAssignmentsRevoke(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = c.DeleteUser(login, successor.Login) })
 
-	roles, err := c.ListRoles()
-	require.NoError(t, err)
-	require.NotEmpty(t, roles)
-	roleID := roles[0].ID
+	// Pick by name: list order is server-defined (2026.3 puts System Admin first).
+	roleID := roleIDByName(t, c, "Project Admin")
 
 	runCmd(t, "role", "grant", "--user", user.ID, "--role", roleID)
 
@@ -146,4 +144,39 @@ func TestCmd_RoleGrantAssignmentsRevoke(t *testing.T) {
 	for _, a := range assignments {
 		assert.NotEqual(t, assignmentID, a.ID, "assignment was not revoked")
 	}
+}
+
+func roleIDByName(t *testing.T, c *api.Client, name string) string {
+	t.Helper()
+	roles, err := c.ListRoles()
+	require.NoError(t, err)
+	for _, r := range roles {
+		if r.Name == name {
+			return r.ID
+		}
+	}
+	t.Fatalf("role %q not found", name)
+	return ""
+}
+
+// role update replaces the whole permission set.
+func TestCmd_RoleUpdate(t *testing.T) {
+	c := newTestClient(t)
+
+	// Both are Project-scope: YouTrack 2026.3 rejects a role that mixes Global, Organization and Project permissions.
+	const initial, replacement = "JetBrains.YouTrack.READ_ISSUE", "JetBrains.YouTrack.UPDATE_ISSUE"
+
+	role, err := c.AddRole(fmt.Sprintf("e2e-role-update-%d", time.Now().UnixMilli()%100000), "", []string{initial})
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = c.DeleteRole(role.ID) })
+
+	runCmd(t, "role", "update", role.ID, "--permissions", replacement, "--force")
+
+	got, err := c.GetRole(role.ID)
+	require.NoError(t, err)
+	ids := make([]string, 0, len(got.Permissions))
+	for _, p := range got.Permissions {
+		ids = append(ids, p.ID)
+	}
+	assert.Equal(t, []string{replacement}, ids, "update must replace, not merge, the permission set")
 }
