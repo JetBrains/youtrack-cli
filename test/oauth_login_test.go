@@ -386,7 +386,8 @@ func TestOAuthLogin_TokenExchangeFailure(t *testing.T) {
 
 		require.Error(t, p.wait(t))
 		assert.Contains(t, p.errText(), "exchanging authorization code")
-		assert.Contains(t, p.errText(), "Unknown authorization code")
+		// Hub owns the wording: "Unknown authorization code" up to 2026.2, "...is unknown or already used" from 2026.3.
+		assert.Regexp(t, `(?i)unknown`, p.errText())
 		assert.False(t, configExists(home), "nothing is saved when the exchange fails")
 	})
 	t.Run("client with a secret", func(t *testing.T) {

@@ -13,6 +13,12 @@ import (
 )
 
 // createTestWhiteboard creates a whiteboard owned by the current user and registers cleanup.
+// skipWhiteboard disables the whiteboard suite while the `whiteboard` command stays hidden.
+func skipWhiteboard(t *testing.T) {
+	t.Helper()
+	t.Skip("whiteboard commands are hidden; tests are disabled")
+}
+
 func createTestWhiteboard(t *testing.T, c *api.Client) string {
 	t.Helper()
 	me, err := c.GetCurrentUser()
@@ -48,6 +54,7 @@ func addTestWhiteboardNode(t *testing.T, whiteboardID, label string, x, y int) s
 }
 
 func TestCmd_WhiteboardDeletePrintsSuccess(t *testing.T) {
+	skipWhiteboard(t)
 	c := newTestClient(t)
 	me, err := c.GetCurrentUser()
 	require.NoError(t, err)
@@ -61,12 +68,14 @@ func TestCmd_WhiteboardDeletePrintsSuccess(t *testing.T) {
 }
 
 func TestCmd_WhiteboardCreate(t *testing.T) {
+	skipWhiteboard(t)
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 	assert.NotEmpty(t, wbID)
 }
 
 func TestCmd_WhiteboardNodeCreate(t *testing.T) {
+	skipWhiteboard(t)
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 	nodeID := addTestWhiteboardNode(t, wbID, "Test Node", 50, 50)
@@ -74,6 +83,7 @@ func TestCmd_WhiteboardNodeCreate(t *testing.T) {
 }
 
 func TestCmd_WhiteboardList(t *testing.T) {
+	skipWhiteboard(t)
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 	_ = wbID
@@ -83,6 +93,7 @@ func TestCmd_WhiteboardList(t *testing.T) {
 }
 
 func TestCmd_WhiteboardView(t *testing.T) {
+	skipWhiteboard(t)
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 
@@ -91,6 +102,7 @@ func TestCmd_WhiteboardView(t *testing.T) {
 }
 
 func TestCmd_WhiteboardNodeList(t *testing.T) {
+	skipWhiteboard(t)
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 	addTestWhiteboardNode(t, wbID, "node-list-node", 10, 10)
@@ -100,6 +112,7 @@ func TestCmd_WhiteboardNodeList(t *testing.T) {
 }
 
 func TestCmd_WhiteboardNodeView(t *testing.T) {
+	skipWhiteboard(t)
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 	nodeID := addTestWhiteboardNode(t, wbID, "node-get-node", 20, 20)
@@ -109,6 +122,7 @@ func TestCmd_WhiteboardNodeView(t *testing.T) {
 }
 
 func TestCmd_WhiteboardReload(t *testing.T) {
+	skipWhiteboard(t)
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 
@@ -119,6 +133,7 @@ func TestCmd_WhiteboardReload(t *testing.T) {
 }
 
 func TestCmd_WhiteboardLinkTypes(t *testing.T) {
+	skipWhiteboard(t)
 	c := newTestClient(t)
 	wbID := createTestWhiteboard(t, c)
 

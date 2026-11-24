@@ -150,6 +150,12 @@ func TestCmd_VisibilityAsNonAdmin(t *testing.T) {
 	require.NoError(t, err)
 	successor := groupDeleteSuccessor(t, c, twin.ID)
 	t.Cleanup(func() { _ = c.DeleteGroup(twin.ID, successor.ID) })
+	// YouTrack accepts a group the user cannot read only when the project offers it for visibility,
+	// for example the project team group (JT-99148).
+	var team struct {
+		Team api.Group `json:"team"`
+	}
+	require.NoError(t, c.Get("/api/admin/projects/"+project+"?fields=team(id)", &team))
 	token := visibilityUserToken(t, c, f.user)
 	reader := api.NewClient(os.Getenv("YOUTRACK_BASE_URL"), token)
 	var group api.Group
@@ -166,7 +172,7 @@ func TestCmd_VisibilityAsNonAdmin(t *testing.T) {
 		"--text", "must not be posted", "--visibility", "group:"+twin.Name)
 	assert.NotEmpty(t, output)
 	// Explicit IDs must remain usable without group reads.
-	runCmd(t, "--token", token, "issue", "comment", "visibility", f.issue, comment.ID, "--groups", twin.ID)
+	runCmd(t, "--token", token, "issue", "comment", "visibility", f.issue, comment.ID, "--groups", team.Team.ID)
 }
 
 func TestCmd_IssueCreateWithVisibility(t *testing.T) {
