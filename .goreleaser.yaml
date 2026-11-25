@@ -229,8 +229,11 @@ release:
     owner: JetBrains
     name: youtrack-cli
   draft: false
+  # A draft created ahead of the tag carries a hand-written intro (for example, an
+  # image); GoReleaser appends the generated notes to it and publishes the draft.
+  use_existing_draft: true
   prerelease: auto
-  mode: replace
+  mode: append
   extra_files:
     - glob: install.sh
     - glob: install.ps1
