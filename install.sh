@@ -15,7 +15,7 @@ set -Eeuo pipefail
 PROG="youtrack"
 REPO="JetBrains/youtrack-cli"
 CHECK_MARK=$'\033[1;32m✓\033[0m'
-# Fingerprint of the JetBrains key that signs checksums.txt (env.FINGERPRINT in .teamcity.yml).
+# Fingerprint of the JetBrains key that signs checksums.txt (env.FINGERPRINT in the TeamCity release pipeline).
 SIGNING_KEY_FPR="B46DC71E03FEEB7F89D1F2491F7A8F87B9D8F501"
 TMP_DIR=""
 STAGED_BIN=""
