@@ -26,10 +26,12 @@ Always run `make check` before pushing. It runs formatting, linting, build, pure
 
 ## Release Pipeline
 
-The release pipeline is defined in [`.teamcity.yml`](../.teamcity.yml). It
-selects Go 1.27.3 or a newer toolchain required by the module and checks each
-binary's Go build metadata before publishing. Signing-client and Chocolatey
-downloads are checked against their pinned SHA-256 hashes.
+The release pipeline lives on TeamCity in the **CLI → Release** pipeline
+(`YouTrack_CLI_Release`). Change it in TeamCity, not in this repository. A
+pushed version tag starts it. The pipeline selects Go 1.27.3 or a newer
+toolchain required by the module and checks each binary's Go build metadata
+before publishing. Signing-client and Chocolatey downloads are checked against
+their pinned SHA-256 hashes.
 
 ## Testing
 
