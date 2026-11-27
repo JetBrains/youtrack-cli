@@ -179,6 +179,20 @@ func runCmd(t *testing.T, args ...string) string {
 	return stdout.String()
 }
 
+// runCmdStderr is runCmd that also returns stderr, where warnings render.
+func runCmdStderr(t *testing.T, args ...string) (stdout, stderr string) {
+	t.Helper()
+	requireE2EEnv(t)
+
+	cmd := exec.Command(binaryPath, args...)
+	cmd.Env = append(os.Environ(), "HOME="+t.TempDir())
+	var outBuf, errBuf bytes.Buffer
+	cmd.Stdout = &outBuf
+	cmd.Stderr = &errBuf
+	require.NoError(t, cmd.Run(), "binary stdout: %s\nbinary stderr: %s", outBuf.String(), errBuf.String())
+	return outBuf.String(), errBuf.String()
+}
+
 func runJSON[T any](t *testing.T, args ...string) T {
 	t.Helper()
 	out := runCmd(t, args...)
